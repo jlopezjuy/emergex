@@ -1,13 +1,19 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
 import { catchError, of } from 'rxjs';
 import { FleetApiService } from '../../data-access/api/fleet.api';
-import { UnidadMovilDTO, FlotaDashboardDTO } from '../../data-access/dto/ambulancia.dto';
+import {
+  UnidadMovilDTO,
+  FlotaDashboardDTO,
+  FlotaMetricasDTO,
+} from '../../data-access/dto/ambulancia.dto';
 import { MOCK_AMBULANCIAS } from '../../data-access/mock/ambulance.mock';
 import { FleetStatusDonutComponent } from '../../shared/components/fleet/fleet-status-donut/fleet-status-donut.component';
 import { FleetTableComponent } from '../../shared/components/fleet/fleet-table/fleet-table.component';
 import { KpiCardComponent } from '../../shared/components/kpi-card/kpi-card.component';
 import { GlassCardComponent } from '../../shared/components/glass-card/glass-card.component';
 import { LoadingStateComponent } from '../../shared/components/loading-state/loading-state.component';
+import { NewUnitModalComponent } from './new-unit-modal/new-unit-modal.component';
+import { UnitScheduleModalComponent } from './unit-schedule-modal/unit-schedule-modal.component';
 
 @Component({
   selector: 'app-fleet',
@@ -18,6 +24,8 @@ import { LoadingStateComponent } from '../../shared/components/loading-state/loa
     KpiCardComponent,
     GlassCardComponent,
     LoadingStateComponent,
+    NewUnitModalComponent,
+    UnitScheduleModalComponent,
   ],
   template: `
     <div class="p-6 flex flex-col gap-6 h-full overflow-y-auto">
@@ -27,7 +35,7 @@ import { LoadingStateComponent } from '../../shared/components/loading-state/loa
           <h1 class="font-semibold text-lg" style="color: var(--text-primary);">Gestión de Flota</h1>
           <p class="text-sm mt-0.5" style="color: var(--text-muted);">Estado operativo de unidades móviles</p>
         </div>
-        <button class="btn btn--primary btn--sm">
+        <button class="btn btn--primary btn--sm" (click)="showNewUnit.set(true)">
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M6 1v10M1 6h10"/>
           </svg>
@@ -72,31 +80,48 @@ import { LoadingStateComponent } from '../../shared/components/loading-state/loa
         </emx-glass-card>
       </div>
 
-      <!-- Selected unit detail -->
-      @if (selectedUnit()) {
-        <emx-glass-card>
-          <h2 class="font-mono text-xs uppercase tracking-wider mb-3" style="color: var(--text-muted);">
-            Detalle: {{ selectedUnit()!.identificador }}
-          </h2>
-          <div class="grid grid-cols-3 gap-4 text-sm">
-            <div>
-              <span style="color: var(--text-muted);">Tipo</span>
-              <p class="font-semibold mt-0.5" style="color: var(--text-primary);">{{ selectedUnit()!.tipo }}</p>
-            </div>
-            <div>
-              <span style="color: var(--text-muted);">Tripulación</span>
-              <p class="font-semibold mt-0.5" style="color: var(--text-primary);">{{ selectedUnit()!.tripulacion ?? '—' }}</p>
-            </div>
-            <div>
-              <span style="color: var(--text-muted);">Ticket activo</span>
-              <p class="font-mono font-semibold mt-0.5" style="color: var(--accent-cyan);">
-                {{ selectedUnit()!.ticketActivo ?? '—' }}
-              </p>
-            </div>
-          </div>
-        </emx-glass-card>
+      <!-- Metrics strip -->
+      @if (metricas()) {
+        <div class="grid grid-cols-4 gap-4">
+          <emx-kpi-card
+            label="T. Resp. prom."
+            [value]="tRespLabel()"
+            accentColor="amber"
+          />
+          <emx-kpi-card
+            label="Tickets atendidos"
+            [value]="metricas()?.ticketsAtendidos"
+            accentColor="cyan"
+          />
+          <emx-kpi-card
+            label="Km recorridos"
+            [value]="metricas()?.distanciaRecorrida"
+            accentColor="blue"
+          />
+          <emx-kpi-card
+            label="Eficiencia"
+            [value]="eficienciaLabel()"
+            accentColor="emerald"
+          />
+        </div>
       }
     </div>
+
+    <!-- New unit modal -->
+    @if (showNewUnit()) {
+      <emx-new-unit-modal
+        (created)="onUnitCreated()"
+        (closed)="showNewUnit.set(false)"
+      />
+    }
+
+    <!-- Schedule modal -->
+    @if (configuringUnit()) {
+      <emx-unit-schedule-modal
+        [unit]="configuringUnit()!"
+        (closed)="configuringUnit.set(null)"
+      />
+    }
   `,
 })
 export class FleetComponent implements OnInit {
@@ -104,10 +129,26 @@ export class FleetComponent implements OnInit {
 
   readonly ambulancias = signal<UnidadMovilDTO[]>([]);
   readonly fleetDashboard = signal<FlotaDashboardDTO | null>(null);
+  readonly metricas = signal<FlotaMetricasDTO | null>(null);
   readonly loading = signal(false);
-  readonly selectedUnit = signal<UnidadMovilDTO | null>(null);
+  readonly showNewUnit = signal(false);
+  readonly configuringUnit = signal<UnidadMovilDTO | null>(null);
+
+  tRespLabel() {
+    const t = this.metricas()?.tiempoRespuestaPromedio;
+    return t != null ? `${t.toFixed(1)}m` : '—';
+  }
+
+  eficienciaLabel() {
+    const e = this.metricas()?.eficiencia;
+    return e != null ? `${Math.round(e)}%` : '—';
+  }
 
   ngOnInit(): void {
+    this.loadAll();
+  }
+
+  loadAll(): void {
     this.loading.set(true);
     this.fleetApi
       .ambulancias()
@@ -115,7 +156,6 @@ export class FleetComponent implements OnInit {
       .subscribe((data) => {
         this.ambulancias.set(data);
         this.loading.set(false);
-        // Compute dashboard from data
         this.fleetDashboard.set({
           totalUnidades: data.length,
           disponibles: data.filter((a) => a.estado === 'DISPONIBLE').length,
@@ -132,13 +172,25 @@ export class FleetComponent implements OnInit {
       .subscribe((data) => {
         if (data) this.fleetDashboard.set(data);
       });
+
+    this.fleetApi
+      .metricas()
+      .pipe(catchError(() => of(null)))
+      .subscribe((data) => this.metricas.set(data));
   }
 
   onViewUnit(unit: UnidadMovilDTO): void {
-    this.selectedUnit.set(unit);
+    // Navigate to detail — kept simple: highlight the row inline
+    // A full /fleet/:id route is not defined in requirements; config opens modal
+    this.configuringUnit.set(unit);
   }
 
   onConfigUnit(unit: UnidadMovilDTO): void {
-    console.log('Config unit', unit.id);
+    this.configuringUnit.set(unit);
+  }
+
+  onUnitCreated(): void {
+    this.showNewUnit.set(false);
+    this.loadAll();
   }
 }

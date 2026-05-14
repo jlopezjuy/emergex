@@ -64,6 +64,13 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'dashboard/emergency/:id',
+        loadComponent: () =>
+          import('./features/operations/emergency-detail/emergency-detail.component').then(
+            (m) => m.EmergencyDetailComponent,
+          ),
+      },
+      {
         path: '**',
         redirectTo: 'dashboard',
       },

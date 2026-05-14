@@ -1,5 +1,4 @@
 import { Component, inject, signal, OnInit } from '@angular/core';
-import { Router } from '@angular/router';
 import { EmergencyStore } from '../../core/stores/emergency.store';
 import { FleetStore } from '../../core/stores/fleet.store';
 import { WebsocketService } from '../../core/websocket/websocket.service';
@@ -9,10 +8,10 @@ import { EmergencyApiService } from '../../data-access/api/emergency.api';
 import { DashboardApiService } from '../../data-access/api/dashboard.api';
 import { DashboardOperativoDTO } from '../../data-access/dto/dashboard.dto';
 import { TicketAsistenciaDTO, DespacharRequest } from '../../data-access/dto/ticket.dto';
-import { UnidadMovilDTO, AsignarMovilRequestDTO } from '../../data-access/dto/ambulancia.dto';
+import { UnidadMovilDTO } from '../../data-access/dto/ambulancia.dto';
 import { OperationsMapComponent } from '../../shared/components/map/operations-map/operations-map.component';
 import { EmergencyListItemComponent } from '../../shared/components/emergency/emergency-list-item/emergency-list-item.component';
-import { KpiCardComponent } from '../../shared/components/kpi-card/kpi-card.component';
+import { TelemetryBarComponent } from '../../shared/components/telemetry-bar/telemetry-bar.component';
 import { LoadingStateComponent } from '../../shared/components/loading-state/loading-state.component';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { ModalShellComponent } from '../../shared/components/modal-shell/modal-shell.component';
@@ -23,7 +22,7 @@ import { ModalShellComponent } from '../../shared/components/modal-shell/modal-s
   imports: [
     OperationsMapComponent,
     EmergencyListItemComponent,
-    KpiCardComponent,
+    TelemetryBarComponent,
     LoadingStateComponent,
     EmptyStateComponent,
     ModalShellComponent,
@@ -83,28 +82,12 @@ import { ModalShellComponent } from '../../shared/components/modal-shell/modal-s
 
       <!-- Telemetry bar (bottom) -->
       <div
-        class="grid grid-cols-4 gap-3 px-4 py-3 border-t flex-shrink-0"
-        style="border-color: var(--border-glass); background: var(--bg-elevated);"
+        class="px-4 py-3 border-t flex-shrink-0"
+        style="height: 110px; border-color: var(--border-glass); background: var(--bg-elevated);"
       >
-        <emx-kpi-card
-          label="Activas"
-          [value]="dashboard()?.ticketsActivos"
-          accentColor="cyan"
-        />
-        <emx-kpi-card
-          label="Críticas"
-          [value]="dashboard()?.ticketsCriticos"
-          accentColor="red"
-        />
-        <emx-kpi-card
-          label="Disponibles"
-          [value]="dashboard()?.unidadesDisponibles"
-          accentColor="emerald"
-        />
-        <emx-kpi-card
-          label="SLA %"
-          [value]="dashboard()?.slaPromedio"
-          accentColor="amber"
+        <emx-telemetry-bar
+          [ambulances]="fleetStore.ambulances()"
+          [dashboard]="dashboard()"
         />
       </div>
     </div>
@@ -166,7 +149,6 @@ export class OperationsComponent implements OnInit {
   private fleetApi = inject(FleetApiService);
   private emergencyApi = inject(EmergencyApiService);
   private dashboardApi = inject(DashboardApiService);
-  private router = inject(Router);
 
   readonly dashboard = signal<DashboardOperativoDTO | null>(null);
   readonly selectedAmbulanceId = signal<number | null>(null);

@@ -35,9 +35,9 @@ interface MapTicket {
 
       <!-- Connections: ambulance → ticket -->
       <svg class="absolute inset-0 w-full h-full pointer-events-none">
-        @for (a of mappedAmbulances(); track a.unit.id) {
+        @for (a of mappedAmbulances(); track a.unit.id || $index) {
           @if (a.unit.ticketActivo) {
-            @for (t of mappedTickets(); track t.ticket.id) {
+            @for (t of mappedTickets(); track t.ticket.id || $index) {
               @if (t.ticket.id === a.unit.ticketActivo) {
                 <line
                   [attr.x1]="a.x + '%'"
@@ -55,7 +55,7 @@ interface MapTicket {
       </svg>
 
       <!-- Ticket markers -->
-      @for (t of mappedTickets(); track t.ticket.id) {
+      @for (t of mappedTickets(); track t.ticket.id || $index) {
         <div
           class="absolute cursor-pointer transition-transform hover:scale-125"
           [style.left.%]="t.x"
@@ -76,7 +76,7 @@ interface MapTicket {
       }
 
       <!-- Ambulance markers -->
-      @for (a of mappedAmbulances(); track a.unit.id) {
+      @for (a of mappedAmbulances(); track a.unit.id || $index) {
         <div
           class="absolute cursor-pointer transition-transform hover:scale-110"
           [style.left.%]="a.x"
