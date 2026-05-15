@@ -1,16 +1,18 @@
-import { Component, signal, computed } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { catchError, of } from 'rxjs';
 import { SparklineComponent } from '../../shared/components/charts/sparkline/sparkline.component';
+import { StaffApiService } from '../../data-access/api/staff.api';
+import { ProfesionalSaludDTO } from '../../data-access/dto/staff.dto';
 
-interface Cert { nombre: string; vigente: boolean; anio: number }
 interface StaffMember {
   id: number;
   codigo: string;
   nombre: string;
   rol: string;
   unidad: string;
-  estado: 'EN_TURNO' | 'EN_RUTA' | 'EN_SITIO' | 'TRASLADO' | 'LIBRE';
+  estado: 'EN_TURNO' | 'LIBRE';
   certs: string[];
-  certsDetalle: Cert[];
+  certsDetalle: { nombre: string; vigente: boolean; anio: number }[];
   exp: number;
   avatar: string;
   turno: string;
@@ -19,126 +21,42 @@ interface StaffMember {
   horasSemana: number;
   rendimiento: number;
   cargaSemanal: number[];
+  // campos reales del backend
+  email?: string;
+  especialidad?: string;
+  activo?: boolean;
+  atencionDomiciliaria?: boolean;
+  atencionEmergencia?: boolean;
+  empresa?: { id: number; nombre: string };
 }
 
-const STAFF: StaffMember[] = [
-  {
-    id: 1, codigo: 'P-004', nombre: 'Dr. Mariana Soto', rol: 'Médico ALS', unidad: 'U-04',
-    estado: 'EN_TURNO', avatar: 'MS', exp: 12, turno: '06:00 → 18:00',
-    serviciosHoy: 4, serviciosMes: 87, horasSemana: 48, rendimiento: 96,
-    certs: ['ACLS', 'PALS', 'BLS'],
-    certsDetalle: [
-      { nombre: 'ACLS', vigente: true, anio: 2027 },
-      { nombre: 'PALS', vigente: true, anio: 2027 },
-      { nombre: 'BLS',  vigente: true, anio: 2027 },
-    ],
-    cargaSemanal: [6, 10, 8, 12, 10, 8, 6],
-  },
-  {
-    id: 2, codigo: 'P-007', nombre: 'Lic. Pablo Lara', rol: 'Paramédico', unidad: 'U-07',
-    estado: 'EN_RUTA', avatar: 'PL', exp: 8, turno: '06:00 → 18:00',
-    serviciosHoy: 2, serviciosMes: 61, horasSemana: 44, rendimiento: 91,
-    certs: ['ACLS', 'BLS'],
-    certsDetalle: [
-      { nombre: 'ACLS', vigente: true, anio: 2026 },
-      { nombre: 'BLS',  vigente: true, anio: 2027 },
-    ],
-    cargaSemanal: [8, 6, 10, 8, 10, 6, 8],
-  },
-  {
-    id: 3, codigo: 'P-009', nombre: 'Dr. Andrea Mora', rol: 'Médico ALS', unidad: 'U-09',
-    estado: 'EN_TURNO', avatar: 'AM', exp: 14, turno: '07:00 → 19:00',
-    serviciosHoy: 5, serviciosMes: 102, horasSemana: 50, rendimiento: 98,
-    certs: ['ACLS', 'BLS'],
-    certsDetalle: [
-      { nombre: 'ACLS', vigente: true, anio: 2027 },
-      { nombre: 'BLS',  vigente: true, anio: 2026 },
-    ],
-    cargaSemanal: [10, 12, 8, 10, 12, 8, 6],
-  },
-  {
-    id: 4, codigo: 'P-012', nombre: 'Enf. Tomás Ortega', rol: 'Enfermero', unidad: 'U-12',
-    estado: 'EN_SITIO', avatar: 'TO', exp: 6, turno: '06:00 → 18:00',
-    serviciosHoy: 3, serviciosMes: 55, horasSemana: 40, rendimiento: 88,
-    certs: ['ACLS', 'BLS', 'NRP'],
-    certsDetalle: [
-      { nombre: 'ACLS', vigente: true, anio: 2026 },
-      { nombre: 'BLS',  vigente: true, anio: 2027 },
-      { nombre: 'NRP',  vigente: true, anio: 2025 },
-    ],
-    cargaSemanal: [8, 8, 6, 10, 8, 8, 6],
-  },
-  {
-    id: 5, codigo: 'P-014', nombre: 'Dra. Sofía Bello', rol: 'Médico ALS', unidad: 'U-14',
-    estado: 'EN_TURNO', avatar: 'SB', exp: 19, turno: '06:00 → 18:00',
-    serviciosHoy: 6, serviciosMes: 118, horasSemana: 52, rendimiento: 99,
-    certs: ['ACLS', 'PALS', 'BLS', 'ATLS'],
-    certsDetalle: [
-      { nombre: 'ACLS', vigente: true, anio: 2027 },
-      { nombre: 'PALS', vigente: true, anio: 2026 },
-      { nombre: 'BLS',  vigente: true, anio: 2027 },
-      { nombre: 'ATLS', vigente: true, anio: 2026 },
-    ],
-    cargaSemanal: [10, 12, 10, 12, 10, 8, 10],
-  },
-  {
-    id: 6, codigo: 'P-018', nombre: 'Lic. Roberto Téllez', rol: 'Paramédico', unidad: 'U-18',
-    estado: 'TRASLADO', avatar: 'RT', exp: 5, turno: '07:00 → 19:00',
-    serviciosHoy: 3, serviciosMes: 48, horasSemana: 42, rendimiento: 85,
-    certs: ['ACLS', 'BLS'],
-    certsDetalle: [
-      { nombre: 'ACLS', vigente: true, anio: 2026 },
-      { nombre: 'BLS',  vigente: true, anio: 2026 },
-    ],
-    cargaSemanal: [6, 8, 6, 10, 8, 6, 8],
-  },
-  {
-    id: 7, codigo: 'P-021', nombre: 'Enf. Camila Gil', rol: 'Enfermera', unidad: 'U-21',
-    estado: 'EN_TURNO', avatar: 'CG', exp: 3, turno: '06:00 → 18:00',
-    serviciosHoy: 2, serviciosMes: 35, horasSemana: 36, rendimiento: 82,
-    certs: ['BLS'],
-    certsDetalle: [{ nombre: 'BLS', vigente: true, anio: 2026 }],
-    cargaSemanal: [6, 6, 8, 6, 8, 6, 6],
-  },
-  {
-    id: 8, codigo: 'P-022', nombre: 'Lic. Daniel Aro', rol: 'Paramédico', unidad: 'U-22',
-    estado: 'EN_SITIO', avatar: 'DA', exp: 7, turno: '07:00 → 19:00',
-    serviciosHoy: 4, serviciosMes: 72, horasSemana: 46, rendimiento: 93,
-    certs: ['ACLS', 'BLS'],
-    certsDetalle: [
-      { nombre: 'ACLS', vigente: true, anio: 2027 },
-      { nombre: 'BLS',  vigente: true, anio: 2026 },
-    ],
-    cargaSemanal: [8, 10, 8, 10, 8, 8, 6],
-  },
-  {
-    id: 9, codigo: 'P-025', nombre: 'Dr. Ignacio Pino', rol: 'Médico ALS', unidad: 'U-25',
-    estado: 'EN_TURNO', avatar: 'IP', exp: 11, turno: '06:00 → 18:00',
-    serviciosHoy: 5, serviciosMes: 94, horasSemana: 48, rendimiento: 95,
-    certs: ['ACLS', 'BLS'],
-    certsDetalle: [
-      { nombre: 'ACLS', vigente: true, anio: 2027 },
-      { nombre: 'BLS',  vigente: true, anio: 2026 },
-    ],
-    cargaSemanal: [8, 10, 10, 8, 10, 8, 8],
-  },
-  {
-    id: 10, codigo: 'P-030', nombre: 'Lic. Sandra Vega', rol: 'Despachadora', unidad: '—',
-    estado: 'EN_TURNO', avatar: 'SV', exp: 6, turno: '06:00 → 18:00',
-    serviciosHoy: 0, serviciosMes: 0, horasSemana: 40, rendimiento: 97,
-    certs: ['EMD'],
-    certsDetalle: [{ nombre: 'EMD', vigente: true, anio: 2027 }],
-    cargaSemanal: [8, 8, 8, 8, 8, 0, 0],
-  },
-  {
-    id: 11, codigo: 'P-031', nombre: 'Lic. Fernanda Cruz', rol: 'Despachadora', unidad: '—',
-    estado: 'EN_TURNO', avatar: 'FC', exp: 4, turno: '18:00 → 06:00',
-    serviciosHoy: 0, serviciosMes: 0, horasSemana: 40, rendimiento: 94,
-    certs: ['EMD'],
-    certsDetalle: [{ nombre: 'EMD', vigente: true, anio: 2026 }],
-    cargaSemanal: [0, 0, 8, 8, 8, 8, 8],
-  },
-];
+function dtoToMember(p: ProfesionalSaludDTO): StaffMember {
+  const iniciales = `${p.nombre.charAt(0)}${p.apellido.charAt(0)}`.toUpperCase();
+  return {
+    id: p.id,
+    codigo: `P-${String(p.id).padStart(3, '0')}`,
+    nombre: `${p.nombre} ${p.apellido}`,
+    rol: p.especialidad ?? 'Profesional',
+    unidad: '—',
+    estado: p.activo ? 'EN_TURNO' : 'LIBRE',
+    certs: [],
+    certsDetalle: [],
+    exp: 0,
+    avatar: iniciales,
+    turno: '—',
+    serviciosHoy: 0,
+    serviciosMes: 0,
+    horasSemana: 0,
+    rendimiento: 0,
+    cargaSemanal: Array(7).fill(0),
+    email: p.email,
+    especialidad: p.especialidad,
+    activo: p.activo,
+    atencionDomiciliaria: p.atencionDomiciliaria,
+    atencionEmergencia: p.atencionEmergencia,
+    empresa: p.empresa,
+  };
+}
 
 type StaffTab = 'TODOS' | 'MEDICO' | 'PARAMEDICO' | 'ENFERMERIA' | 'DESPACHO';
 
@@ -180,6 +98,17 @@ type StaffTab = 'TODOS' | 'MEDICO' | 'PARAMEDICO' | 'ENFERMERIA' | 'DESPACHO';
         </div>
       </div>
 
+      <!-- Loading / Error states -->
+      @if (loading()) {
+        <div class="flex-1 flex items-center justify-center" style="color:var(--text-muted);font-size:13px;">
+          Cargando personal…
+        </div>
+      } @else if (error()) {
+        <div class="flex-1 flex items-center justify-center" style="color:var(--accent-red);font-size:13px;">
+          {{ error() }}
+        </div>
+      } @else {
+
       <!-- Body -->
       <div class="flex flex-1 overflow-hidden min-h-0">
 
@@ -204,7 +133,7 @@ type StaffTab = 'TODOS' | 'MEDICO' | 'PARAMEDICO' | 'ENFERMERIA' | 'DESPACHO';
               <svg class="absolute" style="left:10px;top:50%;transform:translateY(-50%);" width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="var(--text-muted)" stroke-width="1.5">
                 <circle cx="5.5" cy="5.5" r="4"/><path d="M9 9l3 3"/>
               </svg>
-              <input type="text" placeholder="Buscar nombre o ID..."
+              <input type="text" placeholder="Buscar nombre o especialidad..."
                 [value]="search()" (input)="search.set($any($event.target).value)"
                 style="width:100%;padding:7px 10px 7px 30px;border-radius:8px;border:1px solid var(--border-glass);background:var(--surface-glass);color:var(--text-primary);font-size:12px;outline:none;" />
             </div>
@@ -216,11 +145,10 @@ type StaffTab = 'TODOS' | 'MEDICO' | 'PARAMEDICO' | 'ENFERMERIA' | 'DESPACHO';
               <thead>
                 <tr style="border-bottom:1px solid var(--border-glass);">
                   <th class="text-left px-3 py-2 font-semibold uppercase tracking-wider" style="color:var(--text-muted);">Profesional</th>
-                  <th class="text-left px-3 py-2 font-semibold uppercase tracking-wider" style="color:var(--text-muted);">Rol</th>
-                  <th class="text-left px-3 py-2 font-semibold uppercase tracking-wider" style="color:var(--text-muted);">Unidad</th>
+                  <th class="text-left px-3 py-2 font-semibold uppercase tracking-wider" style="color:var(--text-muted);">Especialidad</th>
+                  <th class="text-left px-3 py-2 font-semibold uppercase tracking-wider" style="color:var(--text-muted);">Empresa</th>
                   <th class="text-left px-3 py-2 font-semibold uppercase tracking-wider" style="color:var(--text-muted);">Estado</th>
-                  <th class="text-left px-3 py-2 font-semibold uppercase tracking-wider" style="color:var(--text-muted);">Certificaciones</th>
-                  <th class="text-right px-3 py-2 font-semibold uppercase tracking-wider" style="color:var(--text-muted);">Exp.</th>
+                  <th class="text-left px-3 py-2 font-semibold uppercase tracking-wider" style="color:var(--text-muted);">Atenciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -241,24 +169,28 @@ type StaffTab = 'TODOS' | 'MEDICO' | 'PARAMEDICO' | 'ENFERMERIA' | 'DESPACHO';
                         </div>
                       </div>
                     </td>
-                    <!-- Rol -->
+                    <!-- Especialidad -->
                     <td class="px-3 py-2.5" style="color:var(--text-secondary);">{{ m.rol }}</td>
-                    <!-- Unidad -->
-                    <td class="px-3 py-2.5 font-mono font-semibold" style="color:var(--accent-cyan);">{{ m.unidad }}</td>
+                    <!-- Empresa -->
+                    <td class="px-3 py-2.5 font-mono font-semibold" style="color:var(--accent-cyan);">{{ m.empresa?.nombre ?? '—' }}</td>
                     <!-- Estado -->
                     <td class="px-3 py-2.5">
-                      <span class="badge" [class]="estadoBadge(m.estado)">{{ estadoLabel(m.estado) }}</span>
+                      <span class="badge" [class]="estadoBadge(m.estado)">{{ estadoLabel(m.activo) }}</span>
                     </td>
-                    <!-- Certs -->
+                    <!-- Atenciones -->
                     <td class="px-3 py-2.5">
-                      <div class="flex flex-wrap gap-1">
-                        @for (c of m.certs; track c) {
-                          <span style="padding:1px 5px;border-radius:4px;background:rgba(34,211,238,0.1);border:1px solid rgba(34,211,238,0.2);color:var(--accent-cyan);font-family:var(--font-mono);font-size:9px;font-weight:600;">{{ c }}</span>
+                      <div class="flex gap-1 flex-wrap">
+                        @if (m.atencionDomiciliaria) {
+                          <span style="padding:1px 5px;border-radius:4px;background:rgba(34,211,238,0.1);border:1px solid rgba(34,211,238,0.2);color:var(--accent-cyan);font-family:var(--font-mono);font-size:9px;font-weight:600;">DOM</span>
+                        }
+                        @if (m.atencionEmergencia) {
+                          <span style="padding:1px 5px;border-radius:4px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);color:var(--accent-red);font-family:var(--font-mono);font-size:9px;font-weight:600;">EMRG</span>
+                        }
+                        @if (!m.atencionDomiciliaria && !m.atencionEmergencia) {
+                          <span style="color:var(--text-muted);font-size:10px;">—</span>
                         }
                       </div>
                     </td>
-                    <!-- Exp -->
-                    <td class="px-3 py-2.5 text-right font-mono" style="color:var(--text-muted);">{{ m.exp }}a</td>
                   </tr>
                 }
               </tbody>
@@ -279,59 +211,60 @@ type StaffTab = 'TODOS' | 'MEDICO' | 'PARAMEDICO' | 'ENFERMERIA' | 'DESPACHO';
                   </div>
                   <div style="flex:1;min-width:0;">
                     <div style="font-weight:600;font-size:15px;color:var(--text-primary);">{{ m.nombre }}</div>
-                    <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">{{ m.rol }} · {{ m.exp }} años</div>
+                    <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;">{{ m.rol }}</div>
                     <div style="margin-top:6px;display:flex;align-items:center;gap:8px;">
-                      <span class="badge" [class]="estadoBadge(m.estado)">{{ estadoLabel(m.estado) }}</span>
+                      <span class="badge" [class]="estadoBadge(m.estado)">{{ estadoLabel(m.activo) }}</span>
                       <span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);">{{ m.codigo }}</span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <!-- Stats grid -->
+              <!-- Info real del backend -->
               <div style="padding:14px;border-bottom:1px solid var(--border-glass);">
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-                  <div>
-                    <div style="font-family:var(--font-mono);font-size:9px;text-transform:uppercase;color:var(--text-muted);margin-bottom:3px;">Unidad asignada</div>
-                    <div style="font-family:var(--font-mono);font-size:13px;font-weight:600;color:var(--accent-cyan);">{{ m.unidad }}</div>
+                <div style="font-family:var(--font-mono);font-size:9px;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;letter-spacing:0.08em;">Información</div>
+                <div style="display:flex;flex-direction:column;gap:8px;">
+                  @if (m.email) {
+                    <div>
+                      <div style="font-family:var(--font-mono);font-size:9px;text-transform:uppercase;color:var(--text-muted);margin-bottom:2px;">Email</div>
+                      <div style="font-size:12px;color:var(--text-primary);">{{ m.email }}</div>
+                    </div>
+                  }
+                  @if (m.especialidad) {
+                    <div>
+                      <div style="font-family:var(--font-mono);font-size:9px;text-transform:uppercase;color:var(--text-muted);margin-bottom:2px;">Especialidad</div>
+                      <div style="font-size:12px;color:var(--text-primary);">{{ m.especialidad }}</div>
+                    </div>
+                  }
+                  @if (m.empresa) {
+                    <div>
+                      <div style="font-family:var(--font-mono);font-size:9px;text-transform:uppercase;color:var(--text-muted);margin-bottom:2px;">Empresa</div>
+                      <div style="font-size:12px;color:var(--accent-cyan);">{{ m.empresa.nombre }}</div>
+                    </div>
+                  }
+                </div>
+              </div>
+
+              <!-- Tipos de atención -->
+              <div style="padding:14px;border-bottom:1px solid var(--border-glass);">
+                <div style="font-family:var(--font-mono);font-size:9px;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;letter-spacing:0.08em;">Tipos de atención</div>
+                <div style="display:flex;flex-direction:column;gap:6px;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:8px;background:var(--surface-glass);border:1px solid var(--border-glass);">
+                    <span style="font-size:12px;color:var(--text-primary);">Domiciliaria</span>
+                    <span style="font-family:var(--font-mono);font-size:10px;" [style.color]="m.atencionDomiciliaria ? 'var(--accent-emerald)' : 'var(--text-muted)'">
+                      {{ m.atencionDomiciliaria ? 'SÍ' : 'NO' }}
+                    </span>
                   </div>
-                  <div>
-                    <div style="font-family:var(--font-mono);font-size:9px;text-transform:uppercase;color:var(--text-muted);margin-bottom:3px;">Turno</div>
-                    <div style="font-family:var(--font-mono);font-size:12px;color:var(--text-primary);">{{ m.turno }}</div>
-                  </div>
-                  <div>
-                    <div style="font-family:var(--font-mono);font-size:9px;text-transform:uppercase;color:var(--text-muted);margin-bottom:3px;">Servicios hoy</div>
-                    <div style="font-family:var(--font-mono);font-size:13px;font-weight:600;color:var(--text-primary);">{{ m.serviciosHoy }}</div>
-                  </div>
-                  <div>
-                    <div style="font-family:var(--font-mono);font-size:9px;text-transform:uppercase;color:var(--text-muted);margin-bottom:3px;">Servicios mes</div>
-                    <div style="font-family:var(--font-mono);font-size:13px;color:var(--text-primary);">{{ m.serviciosMes }}</div>
-                  </div>
-                  <div>
-                    <div style="font-family:var(--font-mono);font-size:9px;text-transform:uppercase;color:var(--text-muted);margin-bottom:3px;">Horas semana</div>
-                    <div style="font-family:var(--font-mono);font-size:13px;color:var(--text-primary);">{{ m.horasSemana }} h</div>
-                  </div>
-                  <div>
-                    <div style="font-family:var(--font-mono);font-size:9px;text-transform:uppercase;color:var(--text-muted);margin-bottom:3px;">Rendimiento</div>
-                    <div style="font-family:var(--font-mono);font-size:13px;font-weight:600;" style="color:var(--accent-emerald);">{{ m.rendimiento }}%</div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:8px;background:var(--surface-glass);border:1px solid var(--border-glass);">
+                    <span style="font-size:12px;color:var(--text-primary);">Emergencia</span>
+                    <span style="font-family:var(--font-mono);font-size:10px;" [style.color]="m.atencionEmergencia ? 'var(--accent-emerald)' : 'var(--text-muted)'">
+                      {{ m.atencionEmergencia ? 'SÍ' : 'NO' }}
+                    </span>
                   </div>
                 </div>
               </div>
 
-              <!-- Certificaciones -->
-              <div style="padding:14px;border-bottom:1px solid var(--border-glass);">
-                <div style="font-family:var(--font-mono);font-size:9px;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px;letter-spacing:0.08em;">Certificaciones vigentes</div>
-                @for (cert of m.certsDetalle; track cert.nombre) {
-                  <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:8px;background:var(--surface-glass);border:1px solid var(--border-glass);margin-bottom:5px;">
-                    <span style="font-weight:600;font-size:12px;color:var(--text-primary);">{{ cert.nombre }}</span>
-                    <span style="font-family:var(--font-mono);font-size:10px;" [style.color]="cert.vigente ? 'var(--accent-emerald)' : 'var(--accent-red)'">
-                      {{ cert.vigente ? 'VIGENTE · ' + cert.anio : 'VENCIDA · ' + cert.anio }}
-                    </span>
-                  </div>
-                }
-              </div>
-
-              <!-- Sparkline -->
+              <!-- Sparkline placeholder -->
               <div style="padding:14px;border-bottom:1px solid var(--border-glass);">
                 <div style="font-family:var(--font-mono);font-size:9px;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;letter-spacing:0.08em;">Carga semanal</div>
                 <emx-sparkline [values]="m.cargaSemanal" color="var(--accent-cyan)" [width]="252" [height]="40" />
@@ -354,13 +287,20 @@ type StaffTab = 'TODOS' | 'MEDICO' | 'PARAMEDICO' | 'ENFERMERIA' | 'DESPACHO';
         }
 
       </div>
+      } <!-- end else -->
     </div>
   `,
 })
-export class StaffComponent {
+export class StaffComponent implements OnInit {
+  private staffApi = inject(StaffApiService);
+
+  readonly loading = signal(false);
+  readonly error = signal<string | null>(null);
+  readonly staff = signal<StaffMember[]>([]);
+
   readonly activeTab = signal<StaffTab>('TODOS');
   readonly search = signal('');
-  readonly selected = signal<StaffMember | null>(STAFF[0]);
+  readonly selected = signal<StaffMember | null>(null);
 
   readonly tabs: { id: StaffTab; label: string }[] = [
     { id: 'TODOS', label: 'Todos' },
@@ -370,16 +310,29 @@ export class StaffComponent {
     { id: 'DESPACHO', label: 'Despacho' },
   ];
 
+  ngOnInit(): void {
+    this.loading.set(true);
+    this.staffApi
+      .getProfesionales()
+      .pipe(catchError(() => of([])))
+      .subscribe(dtos => {
+        const members = dtos.map(dtoToMember);
+        this.staff.set(members);
+        this.selected.set(members[0] ?? null);
+        this.loading.set(false);
+      });
+  }
+
   readonly headerKpis = computed(() => {
-    const all = STAFF;
-    const enTurno = all.filter(m => m.estado !== 'LIBRE').length;
-    const medicos = all.filter(m => m.rol.toLowerCase().includes('médico')).length;
-    const paramedicos = all.filter(m => m.rol.toLowerCase().includes('paramédico')).length;
+    const all = this.staff();
+    const activos = all.filter(m => m.activo).length;
+    const medicos = all.filter(m => m.rol.toLowerCase().includes('médic') || m.rol.toLowerCase().includes('medic')).length;
+    const dom = all.filter(m => m.atencionDomiciliaria).length;
     return [
-      { label: 'Plantilla', value: all.length, color: 'var(--text-primary)' },
-      { label: 'En turno',  value: enTurno,    color: 'var(--accent-cyan)' },
-      { label: 'Médicos',   value: medicos,     color: 'var(--accent-blue)' },
-      { label: 'Paramédicos', value: paramedicos, color: 'var(--accent-emerald)' },
+      { label: 'Plantilla',    value: all.length, color: 'var(--text-primary)' },
+      { label: 'Activos',      value: activos,    color: 'var(--accent-cyan)' },
+      { label: 'Médicos',      value: medicos,    color: 'var(--accent-blue)' },
+      { label: 'Domiciliaria', value: dom,        color: 'var(--accent-emerald)' },
     ];
   });
 
@@ -388,38 +341,34 @@ export class StaffComponent {
     const q = this.search().toLowerCase();
     const tabMap: Record<StaffTab, string[]> = {
       TODOS: [],
-      MEDICO: ['médico'],
-      PARAMEDICO: ['paramédico'],
+      MEDICO: ['médic', 'medic'],
+      PARAMEDICO: ['paramédico', 'paramedico'],
       ENFERMERIA: ['enfermero', 'enfermera'],
       DESPACHO: ['despachador', 'despachadora'],
     };
-    return STAFF.filter(m => {
+    return this.staff().filter(m => {
       if (tab !== 'TODOS') {
         const kws = tabMap[tab];
         if (!kws.some(k => m.rol.toLowerCase().includes(k))) return false;
       }
-      if (q) return m.nombre.toLowerCase().includes(q) || m.rol.toLowerCase().includes(q) || m.codigo.toLowerCase().includes(q);
+      if (q) {
+        return (
+          m.nombre.toLowerCase().includes(q) ||
+          m.rol.toLowerCase().includes(q) ||
+          m.codigo.toLowerCase().includes(q) ||
+          (m.email?.toLowerCase().includes(q) ?? false) ||
+          (m.empresa?.nombre.toLowerCase().includes(q) ?? false)
+        );
+      }
       return true;
     });
   });
 
   estadoBadge(e: string): string {
-    switch (e) {
-      case 'EN_TURNO':  return 'badge--stable';
-      case 'EN_RUTA':   return 'badge--info';
-      case 'EN_SITIO':  return 'badge--urgent';
-      case 'TRASLADO':  return 'badge--cyan';
-      default:          return 'badge--stable';
-    }
+    return e === 'EN_TURNO' ? 'badge--stable' : 'badge--stable';
   }
 
-  estadoLabel(e: string): string {
-    switch (e) {
-      case 'EN_TURNO':  return 'En turno';
-      case 'EN_RUTA':   return 'En ruta';
-      case 'EN_SITIO':  return 'En sitio';
-      case 'TRASLADO':  return 'Traslado';
-      default:          return 'Libre';
-    }
+  estadoLabel(activo?: boolean): string {
+    return activo ? 'Activo' : 'Inactivo';
   }
 }

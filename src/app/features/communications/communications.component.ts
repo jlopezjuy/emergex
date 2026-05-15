@@ -1,5 +1,7 @@
-import { Component, signal, computed } from '@angular/core';
+import { Component, signal, computed, inject, OnInit } from '@angular/core';
 import { NgClass, NgFor, NgIf } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
+import { catchError, of } from 'rxjs';
 
 interface Channel {
   id: string;
@@ -338,23 +340,40 @@ function barOpacity(signalLevel: number, barIndex: number): number {
     }
   `],
 })
-export class CommunicationsComponent {
+export class CommunicationsComponent implements OnInit {
+  private http = inject(HttpClient);
+
   readonly channels = CHANNELS;
 
   readonly commKpis = [
     { label: 'Canales activos',   value: CHANNELS.filter(c => c.active).length, color: 'var(--accent-cyan)' },
-    { label: 'Operadores online', value: 47,    color: 'var(--text-primary)' },
-    { label: 'TX hoy',            value: '1,284', color: 'var(--text-primary)' },
-    { label: 'Latencia',          value: '42 ms', color: 'var(--accent-emerald)' },
+    { label: 'Operadores online', value: '—',   color: 'var(--text-primary)' },
+    { label: 'TX hoy',            value: '—',   color: 'var(--text-primary)' },
+    { label: 'Latencia',          value: '—',   color: 'var(--accent-emerald)' },
   ];
 
   activeChannelId = signal<string>('ops');
   pressing = signal<boolean>(false);
-  logEntries = signal<LogEntry[]>(LOG_ENTRIES);
+  logEntries = signal<LogEntry[]>([]);
 
   activeChannel = computed(() =>
     this.channels.find(ch => ch.id === this.activeChannelId()) ?? null
   );
+
+  ngOnInit(): void {
+    this.http.get<any[]>('http://localhost:8080/api/v1/notificaciones/log').pipe(
+      catchError(() => of([])),
+    ).subscribe((items: any[]) => {
+      const entries: LogEntry[] = (items ?? []).map((item, idx) => ({
+        id:   item.id   ?? idx,
+        type: item.type ?? item.tipo ?? 'ESTADO',
+        time: item.time ?? item.hora ?? '',
+        unit: item.unit ?? item.unidad ?? '',
+        msg:  item.msg  ?? item.mensaje ?? '',
+      }));
+      this.logEntries.set(entries);
+    });
+  }
 
   selectChannel(id: string): void {
     this.activeChannelId.set(id);

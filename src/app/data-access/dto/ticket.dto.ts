@@ -19,13 +19,24 @@ export interface TicketAsistenciaDTO {
 }
 
 export interface CrearTicketRequest {
-  tipoEmergencia: string;
-  prioridad: string;
-  direccion: string;
-  sector?: string;
+  tipoAsistencia: 'EMERGENCIA_DOMICILIARIA' | 'ORIENTACION_TELEFONICA' | 'ENFERMERIA_DOMICILIARIA' | 'CONTROL_MEDICO_DOMICILIARIO' | 'TRASLADO_PROGRAMADO' | 'VISITA_DOMICILIARIA';
+  nivelUrgencia: 'ROJO' | 'AMARILLO' | 'VERDE' | 'AZUL';
+  descripcionSintomas: string;
+  direccion?: string;
+  notaDireccion?: string;
   pacienteId?: number;
+  noAfiliado?: boolean;
+  pacienteNombre?: string;
+  pacienteApellido?: string;
+  pacienteDni?: string;
+  pacienteTelefono?: string;
+  ambulanciaId?: number;
+  notaOperador?: string;
+}
+
+export interface CancelarTicketRequest {
+  motivo: string;
   notas?: string;
-  empresaId?: number;
 }
 
 export interface DespacharRequest {

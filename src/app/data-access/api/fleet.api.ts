@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import {
   UnidadMovilDTO,
@@ -12,6 +13,9 @@ import {
   AsignarMovilRequestDTO,
   GuardiaMovilDTO,
   LogTurnoMovilDTO,
+  GuardiaDTO,
+  LogTurnoDTO,
+  ProfesionalDisponibleDTO,
 } from '../dto/ambulancia.dto';
 
 @Injectable({ providedIn: 'root' })
@@ -20,28 +24,69 @@ export class FleetApiService {
   private base = `${environment.apiUrl}/api/flota`;
   private v1Base = `${environment.apiUrl}/api/flota`;
 
+  private mapAmbu(raw: any): UnidadMovilDTO {
+    return {
+      id:                  raw.ambulanciaId,
+      identificador:       raw.codigo,
+      tipo:                raw.tipo,
+      estado:              raw.estado,
+      bateria:             raw.bateriaPct ?? 75,
+      combustible:         raw.combustiblePct ?? 65,
+      tripulacion:         (raw.tripulacionActual ?? []).map((m: any) => m.profesionalNombre).join(', '),
+      eta:                 raw.objetivoEta ?? null,
+      patente:             raw.patente,
+      // inventario real
+      oxigenoPct:          raw.oxigenoPct,
+      adrenalinaPct:       raw.adrenalinaPct,
+      sueroSalinoPct:      raw.sueroSalinoPct,
+      deaPct:              raw.deaPct,
+      morfinaPct:          raw.morfinaPct,
+      tuboEndotraquealPct: raw.tuboEndotraquealPct,
+      // operativa
+      kmHoy:               raw.kmHoy,
+      serviciosHoy:        raw.serviciosHoy,
+    };
+  }
+
   dashboard(): Observable<FlotaDashboardDTO> {
     return this.http.get<FlotaDashboardDTO>(`${this.base}/dashboard`);
   }
 
   ambulancias(): Observable<UnidadMovilDTO[]> {
-    return this.http.get<UnidadMovilDTO[]>(`${this.base}/ambulancias`);
+    return this.http.get<any[]>(`${this.base}/ambulancias`).pipe(
+      map((items) => (items ?? []).map((r) => this.mapAmbu(r))),
+    );
   }
 
   ambulanciasDisponibles(): Observable<UnidadMovilDTO[]> {
-    return this.http.get<UnidadMovilDTO[]>(`${this.base}/ambulancias-disponibles`);
+    return this.http.get<any[]>(`${this.base}/ambulancias-disponibles`).pipe(
+      map((items) => (items ?? []).map((r) => this.mapAmbu(r))),
+    );
   }
 
   crearAmbulancia(req: CrearAmbulanciaRequest): Observable<UnidadMovilDTO> {
-    return this.http.post<UnidadMovilDTO>(`${this.base}/ambulancias`, req);
+    return this.http.post<any>(`${this.base}/ambulancias`, req).pipe(
+      map((r) => this.mapAmbu(r)),
+    );
   }
 
   getAmbulancia(id: number): Observable<UnidadMovilDTO> {
-    return this.http.get<UnidadMovilDTO>(`${this.base}/ambulancias/${id}`);
+    return this.http.get<any>(`${this.base}/ambulancias/${id}`).pipe(
+      map((r) => this.mapAmbu(r)),
+    );
   }
 
   metricas(): Observable<FlotaMetricasDTO> {
-    return this.http.get<FlotaMetricasDTO>(`${this.base}/metricas`);
+    return this.http.get<any>(`${this.base}/metricas`).pipe(
+      map((raw) => ({
+        tiempoRespuestaPromedio: raw.tiempoRespuestaPromedioSegundos != null
+          ? raw.tiempoRespuestaPromedioSegundos / 60
+          : undefined,
+        distanciaRecorrida: raw.distanciaRecorrida,
+        ticketsAtendidos:   raw.enServicio,
+        eficiencia:         raw.cargaSistema,
+      } as FlotaMetricasDTO)),
+    );
   }
 
   turnos(ambulanciaId?: number): Observable<TurnoMovilDTO[]> {
@@ -78,6 +123,20 @@ export class FleetApiService {
     fechaFin: string,
   ): Observable<TripulacionMovilDTO[]> {
     return this.http.get<TripulacionMovilDTO[]>(
+      `${this.base}/profesionales-disponibles?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}`,
+    );
+  }
+
+  getGuardias(ambulanciaId: number): Observable<GuardiaDTO[]> {
+    return this.http.get<GuardiaDTO[]>(`${this.base}/ambulancias/${ambulanciaId}/guardias`);
+  }
+
+  getLogsTurnos(ambulanciaId: number): Observable<LogTurnoDTO[]> {
+    return this.http.get<LogTurnoDTO[]>(`${this.base}/logs-turnos?ambulanciaId=${ambulanciaId}`);
+  }
+
+  getProfesionalesDisponibles(fechaInicio: string, fechaFin: string): Observable<ProfesionalDisponibleDTO[]> {
+    return this.http.get<ProfesionalDisponibleDTO[]>(
       `${this.base}/profesionales-disponibles?fechaInicio=${fechaInicio}&fechaFin=${fechaFin}`,
     );
   }

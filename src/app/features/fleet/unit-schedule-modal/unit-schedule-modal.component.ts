@@ -2,7 +2,7 @@ import { Component, input, output, inject, signal, computed, OnInit } from '@ang
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { catchError, of } from 'rxjs';
 import { FleetApiService } from '../../../data-access/api/fleet.api';
-import { UnidadMovilDTO, TurnoMovilDTO, TripulacionMovilDTO } from '../../../data-access/dto/ambulancia.dto';
+import { UnidadMovilDTO, TurnoMovilDTO, TripulacionMovilDTO, GuardiaDTO, LogTurnoDTO } from '../../../data-access/dto/ambulancia.dto';
 import { ModalShellComponent } from '../../../shared/components/modal-shell/modal-shell.component';
 import { LoadingStateComponent } from '../../../shared/components/loading-state/loading-state.component';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
@@ -207,7 +207,12 @@ type TabId = 'activo' | 'programar' | 'tripulacion' | 'calendario';
 
       <!-- TAB: Calendario -->
       @if (activeTab() === 'calendario') {
-        <div class="flex flex-col gap-4">
+        @if (loadingLogs()) {
+          <emx-loading-state />
+        } @else if (!loadingLogs() && logsTurnos().length === 0) {
+          <emx-empty-state message="Sin historial de turnos registrado para esta unidad" />
+        }
+        <div class="flex flex-col gap-4" [style.display]="logsTurnos().length === 0 && !loadingLogs() ? 'none' : 'flex'">
           <!-- Month navigation -->
           <div class="flex items-center justify-between">
             <button type="button" class="btn btn--ghost btn--sm" (click)="prevMonth()">‹</button>
@@ -311,6 +316,8 @@ export class UnitScheduleModalComponent implements OnInit {
   readonly crewError = signal<string | null>(null);
 
   // Calendario tab
+  readonly loadingLogs = signal(false);
+  readonly logsTurnos = signal<LogTurnoDTO[]>([]);
   readonly calMonth = signal(new Date());
 
   readonly calCells = computed((): (number | null)[] => {
@@ -358,6 +365,20 @@ export class UnitScheduleModalComponent implements OnInit {
     if (id === 'tripulacion' && this.turnos().length === 0) {
       this.loadTurnos();
     }
+    if (id === 'calendario' && this.logsTurnos().length === 0 && !this.loadingLogs()) {
+      this.loadLogsTurnos();
+    }
+  }
+
+  loadLogsTurnos(): void {
+    this.loadingLogs.set(true);
+    this.fleetApi
+      .getLogsTurnos(this.unit().id)
+      .pipe(catchError(() => of([])))
+      .subscribe((data) => {
+        this.logsTurnos.set(data);
+        this.loadingLogs.set(false);
+      });
   }
 
   loadTurnoActivo(): void {
@@ -393,9 +414,10 @@ export class UnitScheduleModalComponent implements OnInit {
     const val = this.turnoForm.value;
     const req: TurnoMovilDTO = {
       ambulanciaId: this.unit().id,
-      fechaInicio: val.fechaInicio!,
-      fechaFin: val.fechaFin!,
-      tipo: val.tipo!,
+      fechaInicio: new Date(val.fechaInicio!).toISOString(),
+      fechaFin:    new Date(val.fechaFin!).toISOString(),
+      estado:      'PROGRAMADO',
+      tipo:        val.tipo!,
     };
     this.fleetApi.crearTurno(req).subscribe({
       next: () => {

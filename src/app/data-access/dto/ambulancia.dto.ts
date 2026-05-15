@@ -9,15 +9,26 @@ export interface CrearAmbulanciaRequest {
 export interface UnidadMovilDTO {
   id: number;
   identificador?: string;
-  tipo?: 'ALS' | 'BLS';
-  estado?: 'DISPONIBLE' | 'EN_RUTA' | 'EN_SITIO' | 'TRASLADO' | 'MANTENIMIENTO';
+  tipo?: string;
+  estado?: 'DISPONIBLE' | 'EN_RUTA' | 'EN_SITIO' | 'TRASLADO' | 'MANTENIMIENTO' | 'EN_TALLER';
   tripulacion?: string;
   bateria?: number;
   combustible?: number;
   latitud?: number;
   longitud?: number;
-  eta?: number;
+  eta?: number | null;
   ticketActivo?: number;
+  patente?: string;
+  // inventario real del backend
+  oxigenoPct?: number | null;
+  adrenalinaPct?: number | null;
+  sueroSalinoPct?: number | null;
+  deaPct?: number | null;
+  morfinaPct?: number | null;
+  tuboEndotraquealPct?: number | null;
+  // operativa del backend
+  kmHoy?: number | null;
+  serviciosHoy?: number | null;
 }
 
 export interface FlotaDashboardDTO {
@@ -39,11 +50,15 @@ export interface FlotaMetricasDTO {
 export interface TurnoMovilDTO {
   id?: number;
   ambulanciaId: number;
-  fechaInicio: string;
-  fechaFin: string;
+  ambulanciaCodigo?: string;
+  fechaInicio: string;  // ISO Instant
+  fechaFin: string;     // ISO Instant
+  estado: 'PROGRAMADO' | 'EN_CURSO' | 'COMPLETADO' | 'CANCELADO';
+  observacion?: string;
+  // campos legacy usados en UI
   tipo?: string;
   activo?: boolean;
-  tripulacion?: TripulacionMovilDTO[];
+  tripulacion?: TripulacionMovilDTO[] | TripulacionGuardiaDTO[];
 }
 
 export interface TripulacionMovilDTO {
@@ -84,4 +99,44 @@ export interface LogTurnoMovilDTO {
   evento?: string;
   fecha?: string;
   operador?: string;
+}
+
+export interface TripulacionGuardiaDTO {
+  id?: number;
+  profesionalId?: number;
+  profesionalNombre?: string;
+  rol?: string;
+  especialidad?: string | null;
+  activo?: boolean;
+}
+
+export interface GuardiaDTO {
+  id?: number;
+  ambulanciaId?: number;
+  diaSemana?: string;
+  horaInicio?: string;
+  horaFin?: string;
+  estado?: string;
+  vigenciaDesde?: string;
+  vigenciaHasta?: string;
+  tripulacion?: TripulacionGuardiaDTO[];
+}
+
+export interface LogTurnoDTO {
+  id?: number;
+  ambulanciaId?: number;
+  evento?: string;
+  fecha?: string;
+  operador?: string;
+}
+
+export interface ProfesionalDisponibleDTO {
+  profesionalId?: number;
+  profesionalNombre?: string;
+  rol?: string;
+  especialidad?: string | null;
+  subespecialidad?: string | null;
+  telefono?: string | null;
+  activo?: boolean;
+  turnoMovilId?: number | null;
 }

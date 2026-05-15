@@ -5,8 +5,6 @@ import { FleetApiService } from '../../data-access/api/fleet.api';
 import { EmergencyApiService } from '../../data-access/api/emergency.api';
 import { UnidadMovilDTO } from '../../data-access/dto/ambulancia.dto';
 import { TicketAsistenciaDTO } from '../../data-access/dto/ticket.dto';
-import { MOCK_AMBULANCIAS } from '../../data-access/mock/ambulance.mock';
-import { MOCK_EMERGENCIES } from '../../data-access/mock/emergency.mock';
 
 @Component({
   selector: 'app-map',
@@ -30,7 +28,7 @@ export class MapComponent implements OnInit {
   readonly emergencies = signal<TicketAsistenciaDTO[]>([]);
 
   ngOnInit(): void {
-    this.fleetApi.ambulancias().pipe(catchError(() => of(MOCK_AMBULANCIAS))).subscribe((d) => this.ambulancias.set(d));
-    this.emergencyApi.getActivos().pipe(catchError(() => of(MOCK_EMERGENCIES))).subscribe((d) => this.emergencies.set(d));
+    this.fleetApi.ambulancias().pipe(catchError(() => of([]))).subscribe((d) => this.ambulancias.set(d));
+    this.emergencyApi.getActivos().pipe(catchError(() => of([]))).subscribe((d) => this.emergencies.set(d));
   }
 }

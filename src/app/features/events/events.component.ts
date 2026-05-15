@@ -1,6 +1,8 @@
-import { Component, signal, computed } from '@angular/core';
+import { Component, signal, computed, inject, OnInit } from '@angular/core';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import type { BadgeVariant } from '../../shared/components/status-badge/status-badge.component';
+import { FleetApiService } from '../../data-access/api/fleet.api';
+import { catchError, of } from 'rxjs';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -127,7 +129,7 @@ function initialForm(): NewEventForm {
   };
 }
 
-let nextEvId = 1252;
+let nextEvId = 1;
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -736,11 +738,15 @@ let nextEvId = 1252;
     </div>
   `,
 })
-export class EventsComponent {
+export class EventsComponent implements OnInit {
+  private fleetApi = inject(FleetApiService);
+
+  // ── Ambulances signal (populated from backend on init) ────────────────────
+  readonly ambulances = signal<AmbUnit[]>([]);
 
   // ── State ──────────────────────────────────────────────────────────────────
   readonly view = signal<'list' | 'calendar'>('list');
-  readonly events = signal<EventItem[]>(SEED_EVENTS);
+  readonly events = signal<EventItem[]>([]);
   readonly selectedEvent = signal<EventItem | null>(null);
   readonly newEventOpen = signal(false);
 
@@ -857,7 +863,7 @@ export class EventsComponent {
 
   readonly availableForEvents = computed(() => {
     const assignedIds = new Set(this.form().units);
-    return AMBULANCES.filter(a => a.status !== 'maintenance' && !assignedIds.has(a.id));
+    return this.ambulances().filter(a => a.status !== 'maintenance' && !assignedIds.has(a.id));
   });
 
   readonly filteredAvailable = computed(() => {
@@ -882,6 +888,21 @@ export class EventsComponent {
     const att = this.form().attendees ?? 0;
     return Math.max(1, Math.ceil(att / 5000));
   });
+
+  // ── Lifecycle ──────────────────────────────────────────────────────────────
+
+  ngOnInit(): void {
+    this.fleetApi.ambulancias().pipe(
+      catchError(() => of([])),
+    ).subscribe(units => {
+      this.ambulances.set(units.map(u => ({
+        id:     u.identificador ?? String(u.id),
+        crew:   u.tripulacion ?? '—',
+        type:   (u.tipo === 'ALS' ? 'ALS' : 'BLS') as 'ALS' | 'BLS',
+        status: u.estado?.toLowerCase() ?? 'available',
+      })));
+    });
+  }
 
   // ── Methods ────────────────────────────────────────────────────────────────
 
@@ -911,6 +932,7 @@ export class EventsComponent {
     this.newEventOpen.set(false);
     this.form.set(initialForm());
     this.formStep.set(0);
+    // TODO: POST /api/v1/eventos cuando esté disponible en backend
   }
 
   openNewEvent(): void {
@@ -1010,10 +1032,10 @@ export class EventsComponent {
   }
 
   getUnitCrew(id: string): string {
-    return AMBULANCES.find(a => a.id === id)?.crew ?? '—';
+    return this.ambulances().find(a => a.id === id)?.crew ?? '—';
   }
 
   getUnitType(id: string): string {
-    return AMBULANCES.find(a => a.id === id)?.type ?? '—';
+    return this.ambulances().find(a => a.id === id)?.type ?? '—';
   }
 }

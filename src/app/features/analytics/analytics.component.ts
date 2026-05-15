@@ -15,24 +15,11 @@ type Period = '7d' | '30d' | '90d';
 interface TopType { tipo: string; count: number; pct: number; }
 interface TopUnit { rank: number; id: string; crew: string; servicios: number; }
 
-const TOP_TYPES: TopType[] = [
-  { tipo: 'Paro cardiorrespiratorio', count: 23, pct: 100 },
-  { tipo: 'Trauma craneoencefálico', count: 18, pct: 78 },
-  { tipo: 'Accidente vascular cerebral', count: 14, pct: 61 },
-  { tipo: 'Intoxicación aguda', count: 11, pct: 48 },
-  { tipo: 'Disnea severa', count: 9, pct: 39 },
-  { tipo: 'Dolor torácico', count: 7, pct: 30 },
-];
-
-const TOP_UNITS: TopUnit[] = [
-  { rank: 1, id: 'U-14', crew: 'Bello · Sosa',     servicios: 187 },
-  { rank: 2, id: 'U-12', crew: 'Ortega · Paz',      servicios: 174 },
-  { rank: 3, id: 'U-25', crew: 'Pino · Vidal',      servicios: 163 },
-  { rank: 4, id: 'U-07', crew: 'Lara · García',     servicios: 151 },
-  { rank: 5, id: 'U-04', crew: 'Soto · Ramírez',    servicios: 143 },
-];
-
-const HOUR_VALUES = [2, 1, 0, 1, 3, 5, 8, 12, 10, 9, 7, 6, 8, 11, 10, 9, 12, 15, 13, 9, 7, 5, 3, 2];
+// TODO: conectar a endpoint real cuando el backend exponga /api/v1/dashboard/top-tipos
+// y /api/v1/dashboard/top-unidades y /api/v1/dashboard/volumen-hora
+const EMPTY_TOP_TYPES: TopType[] = [];
+const EMPTY_TOP_UNITS: TopUnit[] = [];
+const EMPTY_HOUR_VALUES: number[] = Array(24).fill(0);
 
 @Component({
   selector: 'app-analytics',
@@ -66,19 +53,19 @@ const HOUR_VALUES = [2, 1, 0, 1, 3, 5, 8, 12, 10, 9, 7, 6, 8, 11, 10, 9, 12, 15,
         <div class="flex items-center gap-2">
           <div class="flex items-center gap-1.5 px-3 py-1 rounded" style="background: var(--surface-glass); border: 1px solid var(--border-glass);">
             <span class="font-mono text-xs" style="color: var(--text-muted);">SERVICIOS TOTALES</span>
-            <span class="font-mono text-xs font-bold" style="color: var(--text-primary);">2,847</span>
+            <span class="font-mono text-xs font-bold" style="color: var(--text-primary);">{{ totalServiciosLabel() }}</span>
           </div>
           <div class="flex items-center gap-1.5 px-3 py-1 rounded" style="background: var(--surface-glass); border: 1px solid var(--border-glass);">
             <span class="font-mono text-xs" style="color: var(--text-muted);">T. MEDIO RESP.</span>
-            <span class="font-mono text-xs font-bold" style="color: var(--accent-amber);">7.4 min</span>
+            <span class="font-mono text-xs font-bold" style="color: var(--accent-amber);">{{ tRespLabel() }}</span>
           </div>
           <div class="flex items-center gap-1.5 px-3 py-1 rounded" style="background: var(--surface-glass); border: 1px solid var(--border-glass);">
             <span class="font-mono text-xs" style="color: var(--text-muted);">CUMPLIMIENTO SLA</span>
-            <span class="font-mono text-xs font-bold" style="color: var(--accent-emerald);">93.2%</span>
+            <span class="font-mono text-xs font-bold" style="color: var(--accent-emerald);">{{ slaLabel() }}</span>
           </div>
           <div class="flex items-center gap-1.5 px-3 py-1 rounded" style="background: var(--surface-glass); border: 1px solid var(--border-glass);">
             <span class="font-mono text-xs" style="color: var(--text-muted);">CRÍTICOS RESUELTOS</span>
-            <span class="font-mono text-xs font-bold" style="color: var(--accent-red);">187 / 192</span>
+            <span class="font-mono text-xs font-bold" style="color: var(--accent-red);">{{ criticosResueltosLabel() }}</span>
           </div>
         </div>
 
@@ -115,7 +102,7 @@ const HOUR_VALUES = [2, 1, 0, 1, 3, 5, 8, 12, 10, 9, 7, 6, 8, 11, 10, 9, 12, 15,
             </div>
             <div class="flex items-end gap-4 mb-3">
               <span class="font-mono text-3xl font-bold" style="color: var(--text-primary);">
-                {{ tRespKpi() }} min
+                {{ tRespKpi() != null ? tRespKpi() + ' min' : '—' }}
               </span>
               <div class="flex-1">
                 <emx-sparkline
@@ -128,8 +115,8 @@ const HOUR_VALUES = [2, 1, 0, 1, 3, 5, 8, 12, 10, 9, 7, 6, 8, 11, 10, 9, 12, 15,
             </div>
             <div
               class="font-mono text-xs font-semibold px-2 py-1 rounded inline-block"
-              style="color: var(--accent-amber); background: color-mix(in srgb, var(--accent-amber) 12%, transparent);"
-            >▼ 0.6 MIN VS. MES ANTERIOR</div>
+              style="color: var(--text-muted); background: color-mix(in srgb, var(--text-muted) 12%, transparent);"
+            >— VS. MES ANTERIOR</div>
           </emx-glass-card>
 
           <!-- Row 1 right: CUMPLIMIENTO SLA -->
@@ -145,7 +132,7 @@ const HOUR_VALUES = [2, 1, 0, 1, 3, 5, 8, 12, 10, 9, 7, 6, 8, 11, 10, 9, 12, 15,
             </div>
             <div class="flex items-end gap-4 mb-3">
               <span class="font-mono text-3xl font-bold" style="color: var(--text-primary);">
-                {{ slaKpi() }} %
+                {{ slaKpi() != null ? slaKpi() + ' %' : '—' }}
               </span>
               <div class="flex-1">
                 <emx-sparkline
@@ -158,8 +145,8 @@ const HOUR_VALUES = [2, 1, 0, 1, 3, 5, 8, 12, 10, 9, 7, 6, 8, 11, 10, 9, 12, 15,
             </div>
             <div
               class="font-mono text-xs font-semibold px-2 py-1 rounded inline-block"
-              style="color: var(--accent-emerald); background: color-mix(in srgb, var(--accent-emerald) 12%, transparent);"
-            >▲ 2.1% VS. MES ANTERIOR</div>
+              style="color: var(--text-muted); background: color-mix(in srgb, var(--text-muted) 12%, transparent);"
+            >— VS. MES ANTERIOR</div>
           </emx-glass-card>
 
           <!-- Row 2 left: VOLUMEN POR HORA -->
@@ -169,12 +156,14 @@ const HOUR_VALUES = [2, 1, 0, 1, 3, 5, 8, 12, 10, 9, 7, 6, 8, 11, 10, 9, 12, 15,
                 <h2 class="font-mono text-xs uppercase tracking-wider" style="color: var(--text-muted);">
                   Volumen por Hora · Promedio
                 </h2>
-                <p class="font-mono text-xs mt-0.5" style="color: var(--text-primary);">94.9 servicios/día</p>
+                <p class="font-mono text-xs mt-0.5" style="color: var(--text-primary);">
+                  {{ data()?.totalTickets != null ? (data()!.totalTickets! / 30).toFixed(1) + ' servicios/día' : '—' }}
+                </p>
               </div>
               <span
                 class="font-mono text-xs px-2 py-0.5 rounded font-semibold"
-                style="color: var(--accent-red); background: color-mix(in srgb, var(--accent-red) 12%, transparent);"
-              >PICO · 18:00–21:00</span>
+                style="color: var(--text-muted); background: color-mix(in srgb, var(--text-muted) 12%, transparent);"
+              >—</span>
             </div>
             <emx-bars-chart
               [values]="hourValues"
@@ -194,8 +183,8 @@ const HOUR_VALUES = [2, 1, 0, 1, 3, 5, 8, 12, 10, 9, 7, 6, 8, 11, 10, 9, 12, 15,
                 [size]="110"
                 [strokeWidth]="12"
                 [segments]="prioritySegments()"
-                centerLabel="2847"
-                centerSub="DE 2847"
+                [centerLabel]="priorityTotal() > 0 ? priorityTotal().toString() : '—'"
+                [centerSub]="priorityTotal() > 0 ? 'DE ' + priorityTotal() : ''"
               />
               <div class="flex flex-col gap-2 flex-1">
                 @for (seg of prioritySegments(); track seg.label) {
@@ -289,9 +278,9 @@ export class AnalyticsComponent implements OnInit {
     { value: '90d', label: '90 días' },
   ];
 
-  readonly topTypes: readonly TopType[] = TOP_TYPES;
-  readonly topUnits: readonly TopUnit[] = TOP_UNITS;
-  readonly hourValues = HOUR_VALUES;
+  readonly topTypes: readonly TopType[] = EMPTY_TOP_TYPES;
+  readonly topUnits: readonly TopUnit[] = EMPTY_TOP_UNITS;
+  readonly hourValues = EMPTY_HOUR_VALUES;
 
   // — KPI labels —
   readonly slaLabel = computed(() => {
@@ -301,13 +290,23 @@ export class AnalyticsComponent implements OnInit {
 
   readonly tRespLabel = computed(() => {
     const t = this.data()?.tiempoRespuestaPromedio;
-    return t != null ? `${t.toFixed(1)}m` : '—';
+    return t != null ? `${t.toFixed(1)} min` : '—';
+  });
+
+  readonly totalServiciosLabel = computed(() => {
+    const total = this.data()?.totalTickets;
+    return total != null ? total.toLocaleString('es-AR') : '—';
+  });
+
+  readonly criticosResueltosLabel = computed(() => {
+    const criticos = this.data()?.ticketsCriticos;
+    return criticos != null ? `${criticos}` : '—';
   });
 
   // — Chart 1: Tiempo de respuesta —
-  readonly tRespKpi = computed(() => {
-    const t = this.data()?.tiempoRespuestaPromedio ?? 7.4;
-    return t.toFixed(1);
+  readonly tRespKpi = computed((): string | null => {
+    const t = this.data()?.tiempoRespuestaPromedio ?? null;
+    return t != null ? t.toFixed(1) : null;
   });
 
   readonly tRespDelta = computed(() => -0.6); // mock delta — negative = improvement
@@ -318,7 +317,8 @@ export class AnalyticsComponent implements OnInit {
   });
 
   readonly sparkValues = computed<number[]>(() => {
-    const base = this.data()?.tiempoRespuestaPromedio ?? 8.3;
+    const base = this.data()?.tiempoRespuestaPromedio;
+    if (base == null) return Array(7).fill(0);
     return Array.from({ length: 24 }, (_, i) => {
       const noise = Math.sin(i * 0.8) * 2 + Math.cos(i * 1.3);
       return Math.max(1, +(base + noise).toFixed(1));
@@ -326,13 +326,14 @@ export class AnalyticsComponent implements OnInit {
   });
 
   // — Chart 2: Cumplimiento SLA —
-  readonly slaKpi = computed(() => {
-    const sla = this.data()?.slaPromedio ?? 93.2;
-    return sla.toFixed(1);
+  readonly slaKpi = computed((): string | null => {
+    const sla = this.data()?.slaPromedio ?? null;
+    return sla != null ? sla.toFixed(1) : null;
   });
 
   readonly slaSparkValues = computed<number[]>(() => {
-    const base = this.data()?.slaPromedio ?? 87.2;
+    const base = this.data()?.slaPromedio;
+    if (base == null) return Array(7).fill(0);
     return Array.from({ length: 24 }, (_, i) => {
       const noise = Math.sin(i * 0.6) * 5 + Math.cos(i * 1.1) * 3;
       return Math.min(100, Math.max(0, +(base + noise).toFixed(1)));
@@ -340,14 +341,18 @@ export class AnalyticsComponent implements OnInit {
   });
 
   slaBadgeStyle(): string {
-    const sla = parseFloat(this.slaKpi());
+    const raw = this.slaKpi();
+    if (raw == null) return 'color: var(--text-muted); background: transparent;';
+    const sla = parseFloat(raw);
     if (sla >= 80) return 'color: var(--accent-emerald); background: color-mix(in srgb, var(--accent-emerald) 12%, transparent);';
     if (sla >= 60) return 'color: var(--accent-amber); background: color-mix(in srgb, var(--accent-amber) 12%, transparent);';
     return 'color: var(--accent-red); background: color-mix(in srgb, var(--accent-red) 12%, transparent);';
   }
 
   slaBadgeLabel(): string {
-    const sla = parseFloat(this.slaKpi());
+    const raw = this.slaKpi();
+    if (raw == null) return '—';
+    const sla = parseFloat(raw);
     if (sla >= 80) return 'Óptimo';
     if (sla >= 60) return 'Aceptable';
     return 'Crítico';
@@ -355,13 +360,19 @@ export class AnalyticsComponent implements OnInit {
 
   // — Chart 4: Donut prioridades —
   readonly prioritySegments = computed<DonutSegment[]>(() => {
-    const por = this.data()?.ticketsPorPrioridad ?? {};
+    const d = this.data();
+    if (!d) return [];
+    const por = d.ticketsPorPrioridad ?? {};
     return [
-      { value: por['CRITICA'] ?? 287,  color: 'var(--accent-red)',     label: 'Rojos' },
-      { value: por['URGENTE'] ?? 1124, color: 'var(--accent-amber)',   label: 'Amarillos' },
-      { value: por['NORMAL'] ?? 1436,  color: 'var(--accent-emerald)', label: 'Verdes' },
+      { value: por['CRITICA'] ?? 0, color: 'var(--accent-red)',     label: 'Rojos' },
+      { value: por['URGENTE'] ?? 0, color: 'var(--accent-amber)',   label: 'Amarillos' },
+      { value: por['NORMAL']  ?? 0, color: 'var(--accent-emerald)', label: 'Verdes' },
     ];
   });
+
+  readonly priorityTotal = computed(() =>
+    this.prioritySegments().reduce((s, seg) => s + seg.value, 0)
+  );
 
   priorityPct(value: number): number {
     const total = this.prioritySegments().reduce((s, seg) => s + seg.value, 0);

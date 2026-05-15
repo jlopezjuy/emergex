@@ -1,6 +1,9 @@
-import { Component, signal, computed, HostListener } from '@angular/core';
+import { Component, signal, computed, HostListener, inject, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { catchError, of } from 'rxjs';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
+import { PatientApiService } from '../../data-access/api/patient.api';
+import { PacienteDTO } from '../../data-access/dto/patient.dto';
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -38,6 +41,7 @@ interface Patient {
   payments?: Payment[];
   nextDue?: string;
   nextAmount?: number;
+  _raw?: PacienteDTO;
 }
 
 interface Plan {
@@ -135,6 +139,36 @@ function emptyForm(): PatientForm {
 }
 
 const PAGE_SIZE = 10;
+
+// ─── DTO → Patient mapper ─────────────────────────────────────────────────────
+
+function sinceMonthFromISO(iso?: string): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  const months = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  return `${months[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
+
+function mapDTO(p: PacienteDTO): Patient {
+  const addr = [p.direccion, p.ciudad].filter(Boolean).join(' · ') || '—';
+  const gender: 'M' | 'F' | 'X' = p.sexo === 'FEMENINO' ? 'F' : p.sexo === 'MASCULINO' ? 'M' : 'X';
+  return {
+    id: p.numeroAfiliado ?? String(p.id),
+    name: `${p.nombre} ${p.apellido}`.trim(),
+    dni: p.dni,
+    type: 'titular',
+    plan: 'basico',
+    status: p.activo !== false ? 'al-dia' : 'deuda',
+    birth: p.fechaNacimiento ?? '',
+    gender,
+    phone: p.telefono ?? '',
+    email: p.email ?? '',
+    addr,
+    sinceMonth: sinceMonthFromISO(p.createdAt),
+    deps: [],
+    _raw: p,
+  };
+}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -457,6 +491,39 @@ const PAGE_SIZE = 10;
               </div>
             }
           </div>
+
+          <!-- Datos médicos / emergencia -->
+          @if (selectedPatient()!._raw) {
+            <div style="margin-top:16px">
+              <div class="eyebrow" style="margin-bottom:8px">Datos médicos y emergencia</div>
+              <div style="display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid var(--border-glass)">
+                @if (selectedPatient()!._raw!.alergia) {
+                  <div style="display:flex;gap:8px;font-size:12px">
+                    <span class="eyebrow" style="min-width:100px;flex-shrink:0">Alergias</span>
+                    <span style="color:var(--text-secondary)">{{ selectedPatient()!._raw!.alergia }}</span>
+                  </div>
+                }
+                @if (selectedPatient()!._raw!.notaMedica) {
+                  <div style="display:flex;gap:8px;font-size:12px">
+                    <span class="eyebrow" style="min-width:100px;flex-shrink:0">Nota médica</span>
+                    <span style="color:var(--text-secondary)">{{ selectedPatient()!._raw!.notaMedica }}</span>
+                  </div>
+                }
+                @if (selectedPatient()!._raw!.contactoEmergenciaNombre) {
+                  <div style="display:flex;gap:8px;font-size:12px">
+                    <span class="eyebrow" style="min-width:100px;flex-shrink:0">Emergencia</span>
+                    <span style="color:var(--text-secondary)">{{ selectedPatient()!._raw!.contactoEmergenciaNombre }} · {{ selectedPatient()!._raw!.contactoEmergenciaTelefono }}</span>
+                  </div>
+                }
+                @if (selectedPatient()!._raw!.empresa) {
+                  <div style="display:flex;gap:8px;font-size:12px">
+                    <span class="eyebrow" style="min-width:100px;flex-shrink:0">Empresa</span>
+                    <span style="color:var(--text-secondary)">{{ selectedPatient()!._raw!.empresa!.nombre }}</span>
+                  </div>
+                }
+              </div>
+            </div>
+          }
 
           <!-- Payment history -->
           <div style="margin-top:16px">
@@ -1116,7 +1183,8 @@ const PAGE_SIZE = 10;
     }
   `],
 })
-export class PatientsComponent {
+export class PatientsComponent implements OnInit {
+  private patientApi = inject(PatientApiService);
   // ── Constants exposed to template ──
   readonly plans = PLANS;
   readonly parentescos = PARENTESCOS;
@@ -1132,7 +1200,9 @@ export class PatientsComponent {
   ];
 
   // ── State ──
-  readonly patients = signal<Patient[]>(PATIENTS_SEED);
+  readonly loading = signal(false);
+  readonly error = signal<string | null>(null);
+  readonly patients = signal<Patient[]>([]);
   readonly searchQuery = signal('');
   readonly statusFilter = signal('all');
   readonly planFilter = signal('all');
@@ -1187,6 +1257,21 @@ export class PatientsComponent {
     const f = this.form();
     return f.name.trim().length > 0 && f.dni.trim().length > 0 && f.birth.length > 0 && f.plan.length > 0;
   });
+
+  // ── Lifecycle ──
+  ngOnInit(): void {
+    this.loading.set(true);
+    this.error.set(null);
+    this.patientApi.getAll().pipe(
+      catchError(() => {
+        this.error.set('No se pudieron cargar los pacientes. Mostrando datos locales.');
+        return of([] as import('../../data-access/dto/patient.dto').PacienteDTO[]);
+      }),
+    ).subscribe(dtos => {
+      this.patients.set(dtos.map(mapDTO));
+      this.loading.set(false);
+    });
+  }
 
   // ── Plan helpers ──
   planColor(planId: string): string {

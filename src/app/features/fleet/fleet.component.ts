@@ -5,8 +5,9 @@ import {
   UnidadMovilDTO,
   FlotaDashboardDTO,
   FlotaMetricasDTO,
+  GuardiaDTO,
+  LogTurnoDTO,
 } from '../../data-access/dto/ambulancia.dto';
-import { MOCK_AMBULANCIAS } from '../../data-access/mock/ambulance.mock';
 import { FleetStatusDonutComponent } from '../../shared/components/fleet/fleet-status-donut/fleet-status-donut.component';
 import { FleetTableComponent } from '../../shared/components/fleet/fleet-table/fleet-table.component';
 import { KpiCardComponent } from '../../shared/components/kpi-card/kpi-card.component';
@@ -219,13 +220,13 @@ type FleetTab = 'TODAS' | 'DISPONIBLE' | 'EN_RUTA' | 'EN_SITIO' | 'TRASLADO' | '
               <div>
                 <div class="eyebrow">Km hoy</div>
                 <div class="font-mono font-semibold" style="font-size:13px;color:var(--text-primary);margin-top:3px;">
-                  {{ unitKmHoy(selectedUnit()!.id) }} km
+                  {{ unitKmHoy(selectedUnit()) }}
                 </div>
               </div>
               <div>
                 <div class="eyebrow">Servicios</div>
                 <div class="font-mono" style="font-size:13px;color:var(--text-primary);margin-top:3px;">
-                  {{ unitServicios(selectedUnit()!.id) }} hoy
+                  {{ unitServicios(selectedUnit()) }}
                 </div>
               </div>
               <div>
@@ -281,23 +282,57 @@ type FleetTab = 'TODAS' | 'DISPONIBLE' | 'EN_RUTA' | 'EN_SITIO' | 'TRASLADO' | '
             <!-- Inventory bars -->
             <div class="flex flex-col gap-2">
               <div class="eyebrow">Inventario crítico</div>
-              @for (item of inventoryFor(selectedUnit()!.id ?? 1); track item.nombre) {
+              @for (item of inventoryFor(selectedUnit()!); track item.nombre) {
                 <div>
                   <div class="flex items-center justify-between mb-0.5">
                     <span style="font-size:11px;color:var(--text-secondary);">{{ item.nombre }}</span>
                     <span class="font-mono" style="font-size:10px;"
-                      [style.color]="item.pct < 30 ? 'var(--accent-red)' : 'var(--text-muted)'">
-                      {{ item.pct }}%
+                      [style.color]="item.pct != null && item.pct < 30 ? 'var(--accent-red)' : 'var(--text-muted)'">
+                      {{ item.pct != null ? item.pct + '%' : '—' }}
                     </span>
                   </div>
                   <div style="height:3px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;">
                     <div style="height:100%;border-radius:2px;transition:width 0.3s;"
-                      [style.width.%]="item.pct"
-                      [style.background]="item.pct < 30 ? 'var(--accent-red)' : item.pct < 60 ? 'var(--accent-amber)' : 'var(--accent-emerald)'"></div>
+                      [style.width.%]="item.pct ?? 0"
+                      [style.background]="item.pct == null ? 'var(--border-glass)' : item.pct < 30 ? 'var(--accent-red)' : item.pct < 60 ? 'var(--accent-amber)' : 'var(--accent-emerald)'"></div>
                   </div>
                 </div>
               }
             </div>
+
+            <!-- Guardias activas -->
+            @if (unitGuardias().length > 0) {
+              <div class="flex flex-col gap-2">
+                <div class="eyebrow">Guardias activas</div>
+                @for (g of unitGuardias(); track g.id) {
+                  <div class="flex items-center justify-between"
+                    style="padding:6px 8px;border-radius:6px;background:rgba(255,255,255,0.04);border:1px solid var(--border-glass);">
+                    <div>
+                      <div style="font-size:11px;color:var(--text-primary);">{{ g.diaSemana ?? '—' }}</div>
+                      <div style="font-size:10px;color:var(--text-muted);">{{ g.horaInicio ?? '—' }} → {{ g.horaFin ?? '—' }}</div>
+                    </div>
+                    <span style="font-size:10px;padding:2px 6px;border-radius:4px;"
+                      [style.background]="g.estado === 'ACTIVO' ? 'rgba(16,185,129,0.12)' : 'rgba(255,255,255,0.06)'"
+                      [style.color]="g.estado === 'ACTIVO' ? 'var(--accent-emerald)' : 'var(--text-muted)'">
+                      {{ g.estado ?? '—' }}
+                    </span>
+                  </div>
+                }
+              </div>
+            }
+
+            <!-- Últimos eventos -->
+            @if (unitLogs().length > 0) {
+              <div class="flex flex-col gap-1.5">
+                <div class="eyebrow">Últimos eventos</div>
+                @for (log of unitLogs().slice(0, 5); track log.id) {
+                  <div style="font-size:10px;padding:4px 8px;border-left:2px solid var(--border-glass);">
+                    <span style="color:var(--text-muted);">{{ log.fecha ? log.fecha.substring(0, 16).replace('T', ' ') : '—' }}</span>
+                    <span style="color:var(--text-secondary);margin-left:6px;">{{ log.evento ?? '—' }}</span>
+                  </div>
+                }
+              </div>
+            }
 
             <!-- Action buttons -->
             <div class="flex items-center gap-2">
@@ -347,6 +382,9 @@ export class FleetComponent implements OnInit {
   readonly configuringUnit = signal<UnidadMovilDTO | null>(null);
   readonly selectedUnit = signal<UnidadMovilDTO | null>(null);
   readonly fleetTab = signal<FleetTab>('TODAS');
+  readonly unitGuardias = signal<GuardiaDTO[]>([]);
+  readonly unitLogs = signal<LogTurnoDTO[]>([]);
+  readonly detailLoading = signal(false);
 
   readonly fleetTabs: { id: FleetTab; label: string }[] = [
     { id: 'TODAS', label: 'Todas' },
@@ -389,8 +427,14 @@ export class FleetComponent implements OnInit {
     ];
   });
 
-  unitKmHoy(id: number | undefined): number { return [187, 142, 98, 211, 73, 165][(id ?? 1) % 6]; }
-  unitServicios(id: number | undefined): number { return [4, 3, 7, 2, 5, 6][(id ?? 1) % 6]; }
+  unitKmHoy(unit: UnidadMovilDTO | null): string {
+    if (!unit) return '—';
+    return unit.kmHoy != null ? `${unit.kmHoy} km` : '—';
+  }
+  unitServicios(unit: UnidadMovilDTO | null): string {
+    if (!unit) return '—';
+    return unit.serviciosHoy != null ? `${unit.serviciosHoy}` : '—';
+  }
 
   tabCount(tabId: FleetTab): number {
     const all = this.ambulancias();
@@ -416,13 +460,14 @@ export class FleetComponent implements OnInit {
     this.loading.set(true);
     this.fleetApi
       .ambulancias()
-      .pipe(catchError(() => of(MOCK_AMBULANCIAS)))
+      .pipe(catchError(() => of([])))
       .subscribe((data) => {
         this.ambulancias.set(data);
         this.loading.set(false);
         // Auto-select first unit so right panel is visible on load
         if (data.length > 0 && !this.selectedUnit()) {
           this.selectedUnit.set(data[0]);
+          this.loadUnitDetail(data[0]);
         }
         this.fleetDashboard.set({
           totalUnidades: data.length,
@@ -449,6 +494,24 @@ export class FleetComponent implements OnInit {
 
   onViewUnit(unit: UnidadMovilDTO): void {
     this.selectedUnit.set(unit);
+    this.loadUnitDetail(unit);
+  }
+
+  loadUnitDetail(unit: UnidadMovilDTO): void {
+    this.detailLoading.set(true);
+    this.unitGuardias.set([]);
+    this.unitLogs.set([]);
+    this.fleetApi
+      .getGuardias(unit.id)
+      .pipe(catchError(() => of([])))
+      .subscribe((g) => this.unitGuardias.set(g));
+    this.fleetApi
+      .getLogsTurnos(unit.id)
+      .pipe(catchError(() => of([])))
+      .subscribe((logs) => {
+        this.unitLogs.set(logs);
+        this.detailLoading.set(false);
+      });
   }
 
   onConfigUnit(unit: UnidadMovilDTO): void {
@@ -477,15 +540,14 @@ export class FleetComponent implements OnInit {
     return 'var(--accent-emerald)';
   }
 
-  inventoryFor(unitId: number): Array<{ nombre: string; pct: number }> {
-    const seed = unitId % 5;
+  inventoryFor(unit: UnidadMovilDTO): Array<{ nombre: string; pct: number | null }> {
     return [
-      { nombre: 'Oxígeno',     pct: [85, 45, 92, 20, 70][seed] },
-      { nombre: 'Adrenalina',  pct: [60, 80, 35, 90, 55][seed] },
-      { nombre: 'Suero 0.9%',  pct: [40, 65, 78, 50, 25][seed] },
-      { nombre: 'DEA',         pct: [95, 95, 95, 95, 95][seed] },
-      { nombre: 'Morfina',     pct: [30, 18, 65, 40, 82][seed] },
-      { nombre: 'Tubos',       pct: [70, 50, 45, 80, 35][seed] },
+      { nombre: 'Oxígeno',     pct: unit.oxigenoPct      ?? null },
+      { nombre: 'Adrenalina',  pct: unit.adrenalinaPct   ?? null },
+      { nombre: 'Suero 0.9%',  pct: unit.sueroSalinoPct  ?? null },
+      { nombre: 'DEA',         pct: unit.deaPct           ?? null },
+      { nombre: 'Morfina',     pct: unit.morfinaPct       ?? null },
+      { nombre: 'Tubos',       pct: unit.tuboEndotraquealPct ?? null },
     ];
   }
 }

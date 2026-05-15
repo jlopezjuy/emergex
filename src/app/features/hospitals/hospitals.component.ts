@@ -1,86 +1,13 @@
-import { Component, OnInit, computed, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { catchError, of } from 'rxjs';
+import { HospitalApiService } from '../../data-access/api/hospital.api';
 import { AreaProtegidaDTO } from '../../data-access/dto/hospital.dto';
 
+// HospitalLocal agrega 'codigo' derivado del id ya que el backend no lo expone aún.
+// El campo 'nivel' ya viene del DTO (AreaProtegidaDTO.nivel).
 interface HospitalLocal extends AreaProtegidaDTO {
   codigo: string;
-  nivel: string;
 }
-
-// Datos locales que coinciden con el mockup
-const MOCK_HOSPITALS: HospitalLocal[] = [
-  {
-    id: 1, codigo: 'H-01', nivel: 'Nivel III',
-    nombre: 'Hospital Médica Sur',
-    direccion: 'Av. Insurgentes Sur 3877',
-    distanciaKm: 4.2, tipo: 'GENERAL',
-    especialidades: ['Cardiología', 'Trauma', 'Pediatría', 'UCI'],
-    camasLibres: 28, camasTotales: 320, ocupacionUrgencias: 72, tiempoEsperaMin: 12,
-    estado: 'DISPONIBLE', enDerivacion: false,
-  },
-  {
-    id: 2, codigo: 'H-02', nivel: 'Nivel III',
-    nombre: 'Centro Médico ABC Observatorio',
-    direccion: 'Av. Observatorio 192',
-    distanciaKm: 6.7, tipo: 'GENERAL',
-    especialidades: ['Cardiología', 'UCI', 'Quemados'],
-    camasLibres: 14, camasTotales: 280, ocupacionUrgencias: 88, tiempoEsperaMin: 22,
-    estado: 'DISPONIBLE', enDerivacion: false,
-  },
-  {
-    id: 3, codigo: 'H-03', nivel: 'Nivel III',
-    nombre: 'Hospital General La Raza',
-    direccion: 'Calzada Vallejo 290',
-    distanciaKm: 9.1, tipo: 'GENERAL',
-    especialidades: ['Trauma', 'UCI', 'Cirugía'],
-    camasLibres: 6, camasTotales: 540, ocupacionUrgencias: 96, tiempoEsperaMin: 38,
-    estado: 'SATURADO', enDerivacion: true,
-  },
-  {
-    id: 4, codigo: 'H-04', nivel: 'Nivel II',
-    nombre: 'Hospital Ángeles del Pedregal',
-    direccion: 'Camino al Ajusco 24',
-    distanciaKm: 3.4, tipo: 'GENERAL',
-    especialidades: ['Cardiología', 'Obstetricia', 'Pediatría'],
-    camasLibres: 41, camasTotales: 220, ocupacionUrgencias: 55, tiempoEsperaMin: 8,
-    estado: 'DISPONIBLE', enDerivacion: false,
-  },
-  {
-    id: 5, codigo: 'H-05', nivel: 'Nivel III',
-    nombre: 'Hospital Español',
-    direccion: 'Ejercito Nacional 613',
-    distanciaKm: 7.8, tipo: 'GENERAL',
-    especialidades: ['Neurología', 'Cardiología', 'UCI'],
-    camasLibres: 19, camasTotales: 190, ocupacionUrgencias: 61, tiempoEsperaMin: 14,
-    estado: 'DISPONIBLE', enDerivacion: false,
-  },
-  {
-    id: 6, codigo: 'H-06', nivel: 'Nivel III',
-    nombre: 'Hospital 20 de Noviembre',
-    direccion: 'Félix Cuevas 540',
-    distanciaKm: 5.6, tipo: 'GENERAL',
-    especialidades: ['Trauma', 'Cirugía', 'UCI'],
-    camasLibres: 8, camasTotales: 350, ocupacionUrgencias: 79, tiempoEsperaMin: 28,
-    estado: 'LIMITADO', enDerivacion: false,
-  },
-  {
-    id: 7, codigo: 'H-07', nivel: 'Nivel II',
-    nombre: 'Clínica Pedregal',
-    direccion: 'Periférico Sur 4091',
-    distanciaKm: 11.2, tipo: 'CLINICA',
-    especialidades: ['Cirugía', 'Traumatología'],
-    camasLibres: 3, camasTotales: 80, ocupacionUrgencias: 91, tiempoEsperaMin: 45,
-    estado: 'LIMITADO', enDerivacion: false,
-  },
-  {
-    id: 8, codigo: 'H-08', nivel: 'Nivel III',
-    nombre: 'Hospital Juárez de México',
-    direccion: 'Av. Politécnico Nacional 3720',
-    distanciaKm: 14.3, tipo: 'GENERAL',
-    especialidades: ['Urgencias', 'Maternidad', 'Pediatría', 'Cirugía'],
-    camasLibres: 0, camasTotales: 420, ocupacionUrgencias: 100, tiempoEsperaMin: 95,
-    estado: 'SATURADO', enDerivacion: true,
-  },
-];
 
 type StatusFilter = 'TODOS' | 'DISPONIBLE' | 'LIMITADO' | 'SATURADO';
 
@@ -280,10 +207,11 @@ type StatusFilter = 'TODOS' | 'DISPONIBLE' | 'LIMITADO' | 'SATURADO';
   `,
 })
 export class HospitalsComponent implements OnInit {
+  private hospitalApi = inject(HospitalApiService);
 
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
-  readonly hospitals = signal<HospitalLocal[]>(MOCK_HOSPITALS);
+  readonly hospitals = signal<HospitalLocal[]>([]);
 
   readonly searchQuery = signal('');
   readonly statusFilter = signal<StatusFilter>('TODOS');
@@ -325,10 +253,25 @@ export class HospitalsComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    // Hospitals uses local data — backend data is not yet in the right shape
+    this.loading.set(true);
+    this.hospitalApi
+      .getAll()
+      .pipe(catchError(() => {
+        this.error.set('No se pudo conectar con el servidor');
+        return of([]);
+      }))
+      .subscribe((data) => {
+        // Mapear AreaProtegidaDTO → HospitalLocal: derivar 'codigo' del id
+        const mapped: HospitalLocal[] = data.map((h) => ({
+          ...h,
+          codigo: 'H-' + String(h.id).padStart(2, '0'),
+        }));
+        this.hospitals.set(mapped);
+        this.loading.set(false);
+      });
   }
 
-  asLocal(h: AreaProtegidaDTO): Partial<HospitalLocal> {
+  asLocal(h: AreaProtegidaDTO): HospitalLocal {
     return h as HospitalLocal;
   }
 

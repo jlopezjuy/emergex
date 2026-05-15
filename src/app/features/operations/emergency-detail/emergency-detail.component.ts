@@ -5,6 +5,7 @@ import {
   TicketDetalleDTO,
   LogEstadoTicketDTO,
   CerrarTicketRequest,
+  CancelarTicketRequest,
   SignosVitalesDTO,
 } from '../../../data-access/dto/ticket.dto';
 import { LoadingStateComponent } from '../../../shared/components/loading-state/loading-state.component';
@@ -358,8 +359,15 @@ const ALL_STEPS: StatusStep[] = [
                     type="button"
                     class="btn btn--primary btn--sm self-end"
                     [disabled]="!noteText().trim()"
+                    (click)="agregarNota()"
                   >Agregar</button>
                 </div>
+                @if (notaError()) {
+                  <p class="text-xs mb-2" style="color: var(--accent-red);">{{ notaError() }}</p>
+                }
+                @if (notaOk()) {
+                  <p class="text-xs mb-2" style="color: var(--accent-emerald);">Nota guardada correctamente</p>
+                }
 
                 @if (timelineNotes().length === 0) {
                   <p class="text-xs" style="color: var(--text-muted);">Sin notas registradas</p>
@@ -532,6 +540,44 @@ const ALL_STEPS: StatusStep[] = [
       </div>
     </div>
 
+    <!-- Cancel dialog -->
+    @if (showCancelDialog()) {
+      <div class="fixed inset-0 z-50 flex items-center justify-center"
+           style="background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);">
+        <div class="rounded-xl p-6 flex flex-col gap-4 w-full max-w-sm"
+             style="background: var(--bg-surface); border: 1px solid var(--border-glass);">
+          <h2 class="font-semibold text-base" style="color: var(--text-primary);">¿Cancelar emergencia?</h2>
+          <p class="text-xs" style="color: var(--text-muted);">Esta acción es irreversible. Indicá el motivo de la cancelación.</p>
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary);">
+              Motivo *
+            </label>
+            <input
+              type="text"
+              class="rounded-btn px-3 py-2 text-sm w-full"
+              style="background: var(--bg-glass); border: 1px solid var(--border-strong); color: var(--text-primary); outline: none;"
+              placeholder="Ej: llamada duplicada, paciente no encontrado..."
+              [value]="cancelMotivo()"
+              (input)="cancelMotivo.set($any($event.target).value)"
+            />
+          </div>
+          <div class="flex gap-2 justify-end pt-1">
+            <button
+              type="button"
+              class="btn btn--ghost btn--sm"
+              (click)="showCancelDialog.set(false); cancelMotivo.set('')"
+            >Volver</button>
+            <button
+              type="button"
+              class="btn btn--danger btn--sm"
+              [disabled]="!cancelMotivo().trim()"
+              (click)="confirmarCancelacion()"
+            >Confirmar cancelación</button>
+          </div>
+        </div>
+      </div>
+    }
+
     <!-- Dispatch modal -->
     @if (showDispatch() && ticket()) {
       <emx-dispatch-modal
@@ -564,6 +610,10 @@ export class EmergencyDetailComponent implements OnInit {
   readonly timeline = signal<LogEstadoTicketDTO[]>([]);
   readonly showDispatch = signal(false);
   readonly noteText = signal('');
+  readonly notaError = signal<string | null>(null);
+  readonly notaOk = signal(false);
+  readonly showCancelDialog = signal(false);
+  readonly cancelMotivo = signal('');
 
   // ── Derived data ──────────────────────────────────────────────
   readonly ticket = computed(() => this.detalle()?.ticket ?? null);
@@ -719,6 +769,24 @@ export class EmergencyDetailComponent implements OnInit {
     this.load();
   }
 
+  agregarNota(): void {
+    const nota = this.noteText().trim();
+    if (!nota) return;
+    this.notaError.set(null);
+    this.notaOk.set(false);
+    this.emergencyApi.agregarNota(this.ticketId, nota).subscribe({
+      next: () => {
+        this.noteText.set('');
+        this.notaOk.set(true);
+        setTimeout(() => this.notaOk.set(false), 3000);
+        this.load();
+      },
+      error: () => {
+        this.notaError.set('No se pudo guardar la nota');
+      },
+    });
+  }
+
   cerrar(): void {
     const req: CerrarTicketRequest = {};
     this.emergencyApi.cerrar(this.ticketId, req).subscribe({
@@ -728,9 +796,20 @@ export class EmergencyDetailComponent implements OnInit {
   }
 
   cancelar(): void {
-    const req: CerrarTicketRequest = {};
+    this.cancelMotivo.set('');
+    this.showCancelDialog.set(true);
+  }
+
+  confirmarCancelacion(): void {
+    const motivo = this.cancelMotivo().trim();
+    if (!motivo) return;
+    const req: CancelarTicketRequest = { motivo };
     this.emergencyApi.cancelar(this.ticketId, req).subscribe({
-      next: () => this.load(),
+      next: () => {
+        this.showCancelDialog.set(false);
+        this.cancelMotivo.set('');
+        this.load();
+      },
       error: () => this.error.set('Error al cancelar el ticket'),
     });
   }
