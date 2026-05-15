@@ -36,25 +36,39 @@ type FleetTab = 'TODAS' | 'DISPONIBLE' | 'EN_RUTA' | 'EN_SITIO' | 'TRASLADO' | '
       <div class="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
 
         <!-- Page header -->
-        <div class="flex items-center justify-between">
-          <div>
-            <h1 class="font-semibold text-lg" style="color: var(--text-primary);">Gestión de Flota</h1>
-            <p class="text-sm mt-0.5" style="color: var(--text-muted);">Estado operativo de unidades móviles</p>
-          </div>
-          <button class="btn btn--primary btn--sm" (click)="showNewUnit.set(true)">
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M6 1v10M1 6h10"/>
+        <div class="flex items-center gap-4">
+          <!-- Icon + title -->
+          <div style="width:36px;height:36px;border-radius:10px;background:rgba(34,211,238,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--accent-cyan)" stroke-width="1.5">
+              <rect x="1" y="7" width="14" height="6" rx="1"/><path d="M3 7V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2"/>
+              <circle cx="4" cy="13" r="1.5"/><circle cx="12" cy="13" r="1.5"/>
+              <path d="M1 10h14M7 4h2"/>
             </svg>
-            Nueva unidad
-          </button>
-        </div>
-
-        <!-- KPIs -->
-        <div class="grid grid-cols-4 gap-4">
-          <emx-kpi-card label="Total" [value]="fleetDashboard()?.totalUnidades" />
-          <emx-kpi-card label="Disponibles" [value]="fleetDashboard()?.disponibles" accentColor="emerald" />
-          <emx-kpi-card label="En ruta" [value]="fleetDashboard()?.enRuta" accentColor="blue" />
-          <emx-kpi-card label="Mantenim." [value]="fleetDashboard()?.mantenimiento" accentColor="red" />
+          </div>
+          <div>
+            <h1 class="font-semibold text-lg" style="color:var(--text-primary);">Gestión de Flota</h1>
+            <p class="font-mono text-xs mt-0.5" style="color:var(--text-muted);">UNIDADES MÓVILES · CDMX METRO NORTE</p>
+          </div>
+          <!-- Inline KPIs -->
+          <div class="flex items-center gap-0 ml-4 rounded-lg overflow-hidden flex-shrink-0" style="border:1px solid var(--border-glass);background:var(--bg-elevated);">
+            @for (kpi of headerKpis(); track kpi.label) {
+              <div class="px-4 py-2 text-center" style="border-right:1px solid var(--border-glass);"
+                [style.borderRight]="$last ? 'none' : '1px solid var(--border-glass)'">
+                <div class="font-mono text-xs uppercase tracking-wider" style="color:var(--text-muted);">{{ kpi.label }}</div>
+                <div class="font-mono font-bold text-lg leading-none mt-1" [style.color]="kpi.color">{{ kpi.value }}</div>
+              </div>
+            }
+          </div>
+          <div class="flex items-center gap-2 ml-auto flex-shrink-0">
+            <button type="button" class="btn btn--ghost btn--sm">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8v2a1 1 0 001 1h6a1 1 0 001-1V8M6 1v6M3.5 5L6 7.5 8.5 5"/></svg>
+              Exportar CSV
+            </button>
+            <button class="btn btn--primary btn--sm" (click)="showNewUnit.set(true)">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 1v10M1 6h10"/></svg>
+              Nueva unidad
+            </button>
+          </div>
         </div>
 
         <!-- Status donut + table -->
@@ -170,7 +184,7 @@ type FleetTab = 'TODAS' | 'DISPONIBLE' | 'EN_RUTA' | 'EN_SITIO' | 'TRASLADO' | '
               </div>
               <div>
                 <div class="font-mono font-bold" style="font-size:16px;color:var(--text-primary);">
-                  {{ selectedUnit()!.identificador ?? 'AMB-' + selectedUnit()!.id }}
+                  {{ selectedUnit()!.identificador ?? (selectedUnit()!.id != null ? 'U-' + selectedUnit()!.id : 'AMB') }}
                 </div>
                 <div style="font-size:11px;color:var(--text-muted);">
                   {{ selectedUnit()!.tipo ?? 'ALS' }}
@@ -195,29 +209,35 @@ type FleetTab = 'TODAS' | 'DISPONIBLE' | 'EN_RUTA' | 'EN_SITIO' | 'TRASLADO' | '
             <!-- Info grid -->
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
               <div>
-                <div class="eyebrow">Tipo</div>
+                <div class="eyebrow">Sede</div>
+                <div class="font-mono font-semibold" style="font-size:12px;color:var(--text-primary);margin-top:3px;">BASE 04 · NORTE</div>
+              </div>
+              <div>
+                <div class="eyebrow">Turno</div>
+                <div class="font-mono" style="font-size:12px;color:var(--text-primary);margin-top:3px;">06:00 → 18:00</div>
+              </div>
+              <div>
+                <div class="eyebrow">Km hoy</div>
                 <div class="font-mono font-semibold" style="font-size:13px;color:var(--text-primary);margin-top:3px;">
-                  {{ selectedUnit()!.tipo ?? 'ALS' }}
+                  {{ unitKmHoy(selectedUnit()!.id) }} km
                 </div>
               </div>
               <div>
-                <div class="eyebrow">Ticket activo</div>
-                <div class="font-mono" style="font-size:13px;margin-top:3px;"
-                  [style.color]="selectedUnit()!.ticketActivo ? 'var(--accent-cyan)' : 'var(--text-muted)'">
-                  {{ selectedUnit()!.ticketActivo ? '#' + selectedUnit()!.ticketActivo : 'Ninguno' }}
-                </div>
-              </div>
-              <div>
-                <div class="eyebrow">ETA</div>
+                <div class="eyebrow">Servicios</div>
                 <div class="font-mono" style="font-size:13px;color:var(--text-primary);margin-top:3px;">
-                  {{ selectedUnit()!.eta ? selectedUnit()!.eta + ' min' : '—' }}
+                  {{ unitServicios(selectedUnit()!.id) }} hoy
                 </div>
               </div>
               <div>
-                <div class="eyebrow">Ubicación</div>
-                <div class="font-mono" style="font-size:11px;color:var(--text-secondary);margin-top:3px;">
-                  {{ selectedUnit()!.latitud ? (selectedUnit()!.latitud!.toFixed(4) + ', ' + selectedUnit()!.longitud!.toFixed(4)) : '—' }}
+                <div class="eyebrow">Próx. mant.</div>
+                <div class="font-mono" style="font-size:12px;margin-top:3px;"
+                  [style.color]="(selectedUnit()!.bateria ?? 75) < 30 ? 'var(--accent-amber)' : 'var(--text-muted)'">
+                  14 días
                 </div>
+              </div>
+              <div>
+                <div class="eyebrow">Última conex.</div>
+                <div class="font-mono" style="font-size:12px;color:var(--accent-emerald);margin-top:3px;">● 3s</div>
               </div>
             </div>
 
@@ -260,8 +280,8 @@ type FleetTab = 'TODAS' | 'DISPONIBLE' | 'EN_RUTA' | 'EN_SITIO' | 'TRASLADO' | '
 
             <!-- Inventory bars -->
             <div class="flex flex-col gap-2">
-              <div class="eyebrow">Inventario médico</div>
-              @for (item of inventoryFor(selectedUnit()!.id); track item.nombre) {
+              <div class="eyebrow">Inventario crítico</div>
+              @for (item of inventoryFor(selectedUnit()!.id ?? 1); track item.nombre) {
                 <div>
                   <div class="flex items-center justify-between mb-0.5">
                     <span style="font-size:11px;color:var(--text-secondary);">{{ item.nombre }}</span>
@@ -280,14 +300,18 @@ type FleetTab = 'TODAS' | 'DISPONIBLE' | 'EN_RUTA' | 'EN_SITIO' | 'TRASLADO' | '
             </div>
 
             <!-- Action buttons -->
-            <div class="flex flex-col gap-2">
-              <button type="button" class="btn btn--primary btn--sm"
-                (click)="onConfigUnit(selectedUnit()!)">
-                Configurar unidad
+            <div class="flex items-center gap-2">
+              <button type="button" class="btn btn--primary btn--sm" style="flex:1;justify-content:center;">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 6h8M7 3l3 3-3 3"/></svg>
+                Despachar
               </button>
-              <button type="button" class="btn btn--ghost btn--sm"
-                (click)="selectedUnit.set(null)">
-                Cerrar panel
+              <button type="button" class="btn btn--ghost btn--sm" style="flex:1;justify-content:center;"
+                (click)="onConfigUnit(selectedUnit()!)">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="1.5"/><path d="M6 1v1M6 10v1M1 6h1M10 6h1M2.5 2.5l.7.7M8.8 8.8l.7.7M9.5 2.5l-.7.7M3.2 8.8l-.7.7"/></svg>
+                Configurar
+              </button>
+              <button type="button" class="btn btn--ghost btn--sm" style="width:32px;padding:0;justify-content:center;">
+                <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11.5 8.5l-2-2-1.5 1.5C6.5 7.5 5.5 6.5 5 5L6.5 3.5l-2-2L3 3c0 4 3 7 6.5 7.5l2-2z"/></svg>
               </button>
             </div>
           </div>
@@ -353,6 +377,20 @@ export class FleetComponent implements OnInit {
       { label: 'Inspección al día',    value: 88 },
     ];
   });
+
+  readonly headerKpis = computed(() => {
+    const d = this.fleetDashboard();
+    const activas = (d?.enRuta ?? 0) + (d?.enSitio ?? 0) + (d?.traslado ?? 0);
+    return [
+      { label: 'Flota total',   value: d?.totalUnidades ?? '—',  color: 'var(--text-primary)' },
+      { label: 'Activas',       value: activas || '—',            color: 'var(--accent-cyan)' },
+      { label: 'En servicio',   value: d?.disponibles ?? '—',     color: 'var(--accent-emerald)' },
+      { label: 'Mantenim.',     value: d?.mantenimiento ?? '—',   color: 'var(--accent-red)' },
+    ];
+  });
+
+  unitKmHoy(id: number | undefined): number { return [187, 142, 98, 211, 73, 165][(id ?? 1) % 6]; }
+  unitServicios(id: number | undefined): number { return [4, 3, 7, 2, 5, 6][(id ?? 1) % 6]; }
 
   tabCount(tabId: FleetTab): number {
     const all = this.ambulancias();

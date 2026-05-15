@@ -75,8 +75,36 @@ function barOpacity(signalLevel: number, barIndex: number): number {
   standalone: true,
   imports: [NgClass, NgFor, NgIf],
   template: `
-    <!-- Full-height 3-column layout -->
-    <div style="display:flex; height:100%; overflow:hidden; background:var(--bg-deep);">
+    <div style="display:flex; flex-direction:column; height:100%; overflow:hidden; background:var(--bg-deep);">
+
+      <!-- Page header -->
+      <div style="flex-shrink:0; padding:16px 20px; border-bottom:1px solid var(--border-hairline); display:flex; align-items:center; gap:12px;">
+        <!-- Icon + title -->
+        <div style="width:32px;height:32px;border-radius:8px;background:rgba(34,211,238,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="var(--accent-cyan)" stroke-width="1.5">
+            <path d="M8 1a7 7 0 100 14A7 7 0 008 1z" opacity=".3"/>
+            <path d="M8 4a4 4 0 100 8A4 4 0 008 4z" opacity=".5"/>
+            <circle cx="8" cy="8" r="1.5"/>
+            <path d="M2 8h2M12 8h2M8 2v2M8 12v2"/>
+          </svg>
+        </div>
+        <div>
+          <h1 style="font-size:17px;font-weight:600;color:var(--text-primary);margin:0 0 2px;">Comunicaciones</h1>
+          <p style="font-size:10px;font-family:var(--font-mono);color:var(--text-muted);margin:0;">CANALES DE RADIO · TELEMETRÍA · LOG OPERACIONAL</p>
+        </div>
+        <!-- KPI chips -->
+        <div style="display:flex;align-items:center;gap:0;border-radius:8px;overflow:hidden;border:1px solid var(--border-glass);background:var(--bg-elevated);margin-left:12px;">
+          @for (kpi of commKpis; track kpi.label) {
+            <div style="padding:8px 16px;text-align:center;border-right:1px solid var(--border-glass);" [style.borderRight]="$last ? 'none' : '1px solid var(--border-glass)'">
+              <div style="font-size:9px;font-family:var(--font-mono);color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px;">{{ kpi.label }}</div>
+              <div style="font-size:16px;font-weight:700;font-family:var(--font-mono);" [style.color]="kpi.color">{{ kpi.value }}</div>
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- Full-height 3-column layout -->
+      <div style="display:flex; flex:1; overflow:hidden;">
 
       <!-- ════════════════════════════════════════════════
            LEFT — Channel list (220px)
@@ -295,7 +323,8 @@ function barOpacity(signalLevel: number, barIndex: number): number {
         </div>
       </aside>
 
-    </div>
+      </div><!-- end 3-column -->
+    </div><!-- end page wrapper -->
   `,
   styles: [`
     :host {
@@ -311,6 +340,13 @@ function barOpacity(signalLevel: number, barIndex: number): number {
 })
 export class CommunicationsComponent {
   readonly channels = CHANNELS;
+
+  readonly commKpis = [
+    { label: 'Canales activos',   value: CHANNELS.filter(c => c.active).length, color: 'var(--accent-cyan)' },
+    { label: 'Operadores online', value: 47,    color: 'var(--text-primary)' },
+    { label: 'TX hoy',            value: '1,284', color: 'var(--text-primary)' },
+    { label: 'Latencia',          value: '42 ms', color: 'var(--accent-emerald)' },
+  ];
 
   activeChannelId = signal<string>('ops');
   pressing = signal<boolean>(false);

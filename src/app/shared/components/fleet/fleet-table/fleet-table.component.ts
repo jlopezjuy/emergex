@@ -32,7 +32,7 @@ import { BadgeVariant } from '../../status-badge/status-badge.component';
               (mouseleave)="hoveredId = null"
             >
               <td class="px-3 py-2.5">
-                <span class="font-mono font-semibold" style="color: var(--accent-cyan);">{{ unit.identificador }}</span>
+                <span class="font-mono font-semibold" style="color: var(--accent-cyan);">{{ unit.identificador ?? (unit.id != null ? 'U-' + unit.id : '—') }}</span>
               </td>
               <td class="px-3 py-2.5">
                 <span class="badge" [class]="unit.tipo === 'ALS' ? 'badge--info' : 'badge--stable'">

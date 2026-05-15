@@ -1,122 +1,84 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
-import { catchError, of } from 'rxjs';
-import { HospitalApiService } from '../../data-access/api/hospital.api';
+import { Component, OnInit, computed, signal } from '@angular/core';
 import { AreaProtegidaDTO } from '../../data-access/dto/hospital.dto';
 
-// Fallback de desarrollo — se usa si el backend no responde
-const MOCK_HOSPITALS: AreaProtegidaDTO[] = [
+interface HospitalLocal extends AreaProtegidaDTO {
+  codigo: string;
+  nivel: string;
+}
+
+// Datos locales que coinciden con el mockup
+const MOCK_HOSPITALS: HospitalLocal[] = [
   {
-    id: 1,
-    nombre: 'Hospital General de Agudos J.A. Fernández',
-    direccion: 'Av. Cerviño 3356 · CABA',
-    distanciaKm: 2.4,
-    tipo: 'GENERAL',
-    especialidades: ['Trauma', 'Cardiología', 'Urgencias', 'UCI'],
-    camasLibres: 12,
-    camasTotales: 40,
-    ocupacionUrgencias: 65,
-    tiempoEsperaMin: 18,
-    estado: 'DISPONIBLE',
-    enDerivacion: false,
+    id: 1, codigo: 'H-01', nivel: 'Nivel III',
+    nombre: 'Hospital Médica Sur',
+    direccion: 'Av. Insurgentes Sur 3877',
+    distanciaKm: 4.2, tipo: 'GENERAL',
+    especialidades: ['Cardiología', 'Trauma', 'Pediatría', 'UCI'],
+    camasLibres: 28, camasTotales: 320, ocupacionUrgencias: 72, tiempoEsperaMin: 12,
+    estado: 'DISPONIBLE', enDerivacion: false,
   },
   {
-    id: 2,
-    nombre: 'Clínica San Martín',
-    direccion: 'Av. Santa Fe 3000 · CABA',
-    distanciaKm: 4.1,
-    tipo: 'CLINICA',
-    especialidades: ['Urgencias', 'Neurología', 'Cirugía'],
-    camasLibres: 3,
-    camasTotales: 28,
-    ocupacionUrgencias: 88,
-    tiempoEsperaMin: 42,
-    estado: 'LIMITADO',
-    enDerivacion: false,
+    id: 2, codigo: 'H-02', nivel: 'Nivel III',
+    nombre: 'Centro Médico ABC Observatorio',
+    direccion: 'Av. Observatorio 192',
+    distanciaKm: 6.7, tipo: 'GENERAL',
+    especialidades: ['Cardiología', 'UCI', 'Quemados'],
+    camasLibres: 14, camasTotales: 280, ocupacionUrgencias: 88, tiempoEsperaMin: 22,
+    estado: 'DISPONIBLE', enDerivacion: false,
   },
   {
-    id: 3,
-    nombre: 'Hospital Pediátrico Juan P. Garrahan',
-    direccion: 'Combate de los Pozos 1881 · CABA',
-    distanciaKm: 5.8,
-    tipo: 'PEDIATRICO',
-    especialidades: ['Pediatría', 'Neonatología', 'Oncología', 'Cardiología Pediátrica'],
-    camasLibres: 0,
-    camasTotales: 56,
-    ocupacionUrgencias: 97,
-    tiempoEsperaMin: 90,
-    estado: 'SATURADO',
-    enDerivacion: true,
+    id: 3, codigo: 'H-03', nivel: 'Nivel III',
+    nombre: 'Hospital General La Raza',
+    direccion: 'Calzada Vallejo 290',
+    distanciaKm: 9.1, tipo: 'GENERAL',
+    especialidades: ['Trauma', 'UCI', 'Cirugía'],
+    camasLibres: 6, camasTotales: 540, ocupacionUrgencias: 96, tiempoEsperaMin: 38,
+    estado: 'SATURADO', enDerivacion: true,
   },
   {
-    id: 4,
-    nombre: 'Instituto Cardiovascular del Sur',
-    direccion: 'Av. Juan B. Justo 4200 · CABA',
-    distanciaKm: 7.2,
-    tipo: 'ESPECIALIZADO',
-    especialidades: ['Cardiología', 'Hemodinamia', 'UCI Cardiovascular'],
-    camasLibres: 8,
-    camasTotales: 22,
-    ocupacionUrgencias: 48,
-    tiempoEsperaMin: 12,
-    estado: 'DISPONIBLE',
-    enDerivacion: false,
+    id: 4, codigo: 'H-04', nivel: 'Nivel II',
+    nombre: 'Hospital Ángeles del Pedregal',
+    direccion: 'Camino al Ajusco 24',
+    distanciaKm: 3.4, tipo: 'GENERAL',
+    especialidades: ['Cardiología', 'Obstetricia', 'Pediatría'],
+    camasLibres: 41, camasTotales: 220, ocupacionUrgencias: 55, tiempoEsperaMin: 8,
+    estado: 'DISPONIBLE', enDerivacion: false,
   },
   {
-    id: 5,
-    nombre: 'Sanatorio Norte',
-    direccion: 'Gral. Paz 1200 · GBA Norte',
-    distanciaKm: 9.0,
-    tipo: 'SANATORIO',
+    id: 5, codigo: 'H-05', nivel: 'Nivel III',
+    nombre: 'Hospital Español',
+    direccion: 'Ejercito Nacional 613',
+    distanciaKm: 7.8, tipo: 'GENERAL',
+    especialidades: ['Neurología', 'Cardiología', 'UCI'],
+    camasLibres: 19, camasTotales: 190, ocupacionUrgencias: 61, tiempoEsperaMin: 14,
+    estado: 'DISPONIBLE', enDerivacion: false,
+  },
+  {
+    id: 6, codigo: 'H-06', nivel: 'Nivel III',
+    nombre: 'Hospital 20 de Noviembre',
+    direccion: 'Félix Cuevas 540',
+    distanciaKm: 5.6, tipo: 'GENERAL',
+    especialidades: ['Trauma', 'Cirugía', 'UCI'],
+    camasLibres: 8, camasTotales: 350, ocupacionUrgencias: 79, tiempoEsperaMin: 28,
+    estado: 'LIMITADO', enDerivacion: false,
+  },
+  {
+    id: 7, codigo: 'H-07', nivel: 'Nivel II',
+    nombre: 'Clínica Pedregal',
+    direccion: 'Periférico Sur 4091',
+    distanciaKm: 11.2, tipo: 'CLINICA',
     especialidades: ['Cirugía', 'Traumatología'],
-    camasLibres: 0,
-    camasTotales: 18,
-    ocupacionUrgencias: 100,
-    tiempoEsperaMin: 120,
-    estado: 'SATURADO',
-    enDerivacion: true,
+    camasLibres: 3, camasTotales: 80, ocupacionUrgencias: 91, tiempoEsperaMin: 45,
+    estado: 'LIMITADO', enDerivacion: false,
   },
   {
-    id: 6,
-    nombre: 'Hospital Británico de Buenos Aires',
-    direccion: 'Perdriel 74 · CABA',
-    distanciaKm: 3.6,
-    tipo: 'GENERAL',
-    especialidades: ['Urgencias', 'Trauma', 'UCI', 'Neurología', 'Cardiología'],
-    camasLibres: 18,
-    camasTotales: 65,
-    ocupacionUrgencias: 54,
-    tiempoEsperaMin: 15,
-    estado: 'DISPONIBLE',
-    enDerivacion: false,
-  },
-  {
-    id: 7,
-    nombre: 'FLENI',
-    direccion: 'Montañeses 2325 · CABA',
-    distanciaKm: 6.1,
-    tipo: 'ESPECIALIZADO',
-    especialidades: ['Neurología', 'Neurocirugía', 'Rehabilitación'],
-    camasLibres: 5,
-    camasTotales: 30,
-    ocupacionUrgencias: 72,
-    tiempoEsperaMin: 30,
-    estado: 'DISPONIBLE',
-    enDerivacion: false,
-  },
-  {
-    id: 8,
-    nombre: 'Hospital Álvarez',
-    direccion: 'Av. Aranguren 2701 · CABA',
-    distanciaKm: 8.4,
-    tipo: 'GENERAL',
+    id: 8, codigo: 'H-08', nivel: 'Nivel III',
+    nombre: 'Hospital Juárez de México',
+    direccion: 'Av. Politécnico Nacional 3720',
+    distanciaKm: 14.3, tipo: 'GENERAL',
     especialidades: ['Urgencias', 'Maternidad', 'Pediatría', 'Cirugía'],
-    camasLibres: 7,
-    camasTotales: 48,
-    ocupacionUrgencias: 81,
-    tiempoEsperaMin: 35,
-    estado: 'LIMITADO',
-    enDerivacion: false,
+    camasLibres: 0, camasTotales: 420, ocupacionUrgencias: 100, tiempoEsperaMin: 95,
+    estado: 'SATURADO', enDerivacion: true,
   },
 ];
 
@@ -125,7 +87,7 @@ type StatusFilter = 'TODOS' | 'DISPONIBLE' | 'LIMITADO' | 'SATURADO';
 @Component({
   selector: 'app-hospitals',
   standalone: true,
-  imports: [FormsModule],
+  imports: [],
   template: `
     <div style="display:flex; flex-direction:column; height:100%; overflow:hidden; background:var(--bg-deep);">
 
@@ -169,8 +131,8 @@ type StatusFilter = 'TODOS' | 'DISPONIBLE' | 'LIMITADO' | 'SATURADO';
             <input
               type="text"
               placeholder="Buscar hospital..."
-              [ngModel]="searchQuery()"
-              (ngModelChange)="searchQuery.set($event)"
+              [value]="searchQuery()"
+              (input)="searchQuery.set($any($event.target).value)"
               style="width:100%; box-sizing:border-box; padding:7px 10px 7px 32px; border-radius:8px; border:1px solid var(--border-glass); background:var(--surface-glass); color:var(--text-primary); font-size:12px; outline:none; font-family:inherit;"
             />
           </div>
@@ -217,128 +179,98 @@ type StatusFilter = 'TODOS' | 'DISPONIBLE' | 'LIMITADO' | 'SATURADO';
           </div>
         }
 
-        <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(380px, 1fr)); gap:16px;">
+        <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:16px;">
           @for (h of filtered(); track h.id) {
             <div
               class="glass rounded-panel"
-              style="padding:18px; display:flex; flex-direction:column; gap:14px; transition:border-color 0.2s;"
+              style="padding:18px; display:flex; flex-direction:column; gap:12px; transition:border-color 0.2s;"
               [style.borderColor]="h.enDerivacion ? 'rgba(245,158,11,0.35)' : 'var(--border-glass)'"
             >
-              <!-- Card top row: tipo badge + derivación tag -->
-              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                <span
-                  class="eyebrow"
-                  style="padding:3px 8px; border-radius:4px; background:rgba(255,255,255,0.06); color:var(--text-secondary);"
-                >{{ h.tipo ?? h.nivel ?? '—' }}</span>
-
-                <span
-                  class="badge"
-                  [class.badge--stable]="h.estado === 'DISPONIBLE'"
-                  [class.badge--urgent]="h.estado === 'LIMITADO'"
-                  [class.badge--critical]="h.estado === 'SATURADO'"
-                >{{ h.estado }}</span>
-
-                @if (h.enDerivacion) {
-                  <span style="display:inline-flex; align-items:center; gap:4px; font-size:9px; font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.1em; padding:3px 7px; border-radius:99px; background:rgba(245,158,11,0.15); color:var(--accent-amber); border:1px solid rgba(245,158,11,0.3);">
-                    <span style="width:5px;height:5px;border-radius:50%;background:var(--accent-amber);" class="animate-pulse"></span>
-                    DERIVACIÓN ACTIVA
-                  </span>
-                }
+              <!-- Card header row: icon + name + status badge at right -->
+              <div style="display:flex; align-items:flex-start; gap:10px;">
+                <!-- Hospital icon -->
+                <div style="width:32px;height:32px;border-radius:8px;background:rgba(59,130,246,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">
+                  <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="var(--accent-blue)" stroke-width="1.5">
+                    <rect x="1" y="4" width="14" height="11" rx="1"/><path d="M5 15V9h6v6M8 1v4M6 3h4"/>
+                  </svg>
+                </div>
+                <!-- Name + meta -->
+                <div style="flex:1;min-width:0;">
+                  <h2 style="font-size:14px;font-weight:600;color:var(--text-primary);margin:0 0 3px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ h.nombre }}</h2>
+                  <p style="font-size:10px;color:var(--text-muted);margin:0;font-family:var(--font-mono);">
+                    {{ asLocal(h).codigo ?? '' }}{{ asLocal(h).nivel ? ' · ' + asLocal(h).nivel : '' }}{{ h.distanciaKm != null ? ' · ' + h.distanciaKm + ' km' : '' }}
+                  </p>
+                </div>
+                <!-- Status badge -->
+                <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;">
+                  <span class="badge"
+                    [class.badge--stable]="h.estado === 'DISPONIBLE'"
+                    [class.badge--urgent]="h.estado === 'LIMITADO'"
+                    [class.badge--critical]="h.estado === 'SATURADO'"
+                  >{{ estadoLabel(h.estado) }}</span>
+                  @if (h.enDerivacion) {
+                    <span style="display:inline-flex;align-items:center;gap:3px;font-size:9px;font-family:var(--font-mono);text-transform:uppercase;padding:2px 6px;border-radius:99px;background:rgba(245,158,11,0.15);color:var(--accent-amber);border:1px solid rgba(245,158,11,0.3);">
+                      <span style="width:4px;height:4px;border-radius:50%;background:var(--accent-amber);"></span>
+                      DESVÍO ACTIVO
+                    </span>
+                  }
+                </div>
               </div>
 
-              <!-- Hospital name & address -->
-              <div>
-                <h2 style="font-size:14px; font-weight:600; color:var(--text-primary); margin:0 0 3px; line-height:1.3;">
-                  {{ h.nombre }}
-                </h2>
-                <p style="font-size:11px; color:var(--text-muted); margin:0; font-family:var(--font-mono);">
-                  {{ h.direccion ?? '—' }}
-                </p>
+              <!-- Stats: 3 columns -->
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+                <div>
+                  <div style="font-size:9px;font-family:var(--font-mono);color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">Camas libres</div>
+                  <div style="font-size:16px;font-weight:700;font-family:var(--font-mono);" [style.color]="barColor(camasPct(h))">
+                    {{ h.camasLibres ?? '—' }}<span style="font-size:11px;font-weight:400;color:var(--text-muted);"> / {{ h.camasTotales ?? '—' }}</span>
+                  </div>
+                  <div style="height:3px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;margin-top:5px;">
+                    <div [style.width.%]="camasPct(h)" [style.background]="barColor(camasPct(h))" style="height:100%;border-radius:2px;"></div>
+                  </div>
+                </div>
+                <div>
+                  <div style="font-size:9px;font-family:var(--font-mono);color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">Urgencias · Ocup.</div>
+                  <div style="font-size:16px;font-weight:700;font-family:var(--font-mono);" [style.color]="urgenciasColor(h.ocupacionUrgencias ?? 0)">
+                    {{ h.ocupacionUrgencias ?? 0 }}%
+                  </div>
+                  <div style="height:3px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;margin-top:5px;">
+                    <div [style.width.%]="h.ocupacionUrgencias ?? 0" [style.background]="urgenciasColor(h.ocupacionUrgencias ?? 0)" style="height:100%;border-radius:2px;"></div>
+                  </div>
+                </div>
+                <div>
+                  <div style="font-size:9px;font-family:var(--font-mono);color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">Espera estimada</div>
+                  <div style="font-size:16px;font-weight:700;font-family:var(--font-mono);" [style.color]="esperaColor(h.tiempoEsperaMin ?? 0)">
+                    {{ h.tiempoEsperaMin ?? '—' }}<span style="font-size:11px;font-weight:400;color:var(--text-muted);"> min</span>
+                  </div>
+                  <div style="height:3px;background:rgba(255,255,255,0.06);border-radius:2px;margin-top:5px;"></div>
+                </div>
               </div>
 
               <!-- Specialty chips -->
-              @if (h.especialidades && h.especialidades.length > 0) {
-                <div style="display:flex; flex-wrap:wrap; gap:5px;">
-                  @for (esp of h.especialidades; track esp) {
-                    <span style="font-size:10px; font-family:var(--font-mono); padding:2px 7px; border-radius:99px; background:rgba(34,211,238,0.1); color:var(--accent-cyan); border:1px solid rgba(34,211,238,0.2);">{{ esp }}</span>
-                  }
+              @if (h.especialidades?.length) {
+                <div>
+                  <div style="font-size:9px;font-family:var(--font-mono);color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Especialidades</div>
+                  <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                    @for (esp of h.especialidades; track esp) {
+                      <span style="font-size:10px;font-family:var(--font-mono);padding:2px 7px;border-radius:4px;background:rgba(59,130,246,0.1);color:var(--accent-blue);border:1px solid rgba(59,130,246,0.2);">{{ esp }}</span>
+                    }
+                  </div>
                 </div>
               }
 
-              <!-- Divider -->
-              <div style="height:1px; background:var(--border-hairline);"></div>
-
-              <!-- Capacity section -->
-              <div style="display:flex; flex-direction:column; gap:10px;">
-                <!-- Camas disponibles -->
-                <div>
-                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-                    <span style="font-size:11px; color:var(--text-secondary);">Camas disponibles</span>
-                    <span style="font-size:11px; font-family:var(--font-mono);"
-                      [style.color]="barColor(camasPct(h))">
-                      {{ h.camasLibres ?? '—' }} / {{ h.camasTotales ?? '—' }}
-                    </span>
-                  </div>
-                  <div style="height:4px; background:rgba(255,255,255,0.06); border-radius:2px; overflow:hidden;">
-                    <div
-                      [style.width.%]="camasPct(h)"
-                      [style.background]="barColor(camasPct(h))"
-                      style="height:100%; border-radius:2px; transition:width 0.3s;"
-                    ></div>
-                  </div>
-                </div>
-
-                <!-- Urgencias -->
-                <div>
-                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-                    <span style="font-size:11px; color:var(--text-secondary);">Urgencias</span>
-                    <span style="font-size:11px; font-family:var(--font-mono);"
-                      [style.color]="urgenciasColor(h.ocupacionUrgencias ?? 0)">
-                      {{ h.ocupacionUrgencias ?? 0 }}%
-                    </span>
-                  </div>
-                  <div style="height:4px; background:rgba(255,255,255,0.06); border-radius:2px; overflow:hidden;">
-                    <div
-                      [style.width.%]="h.ocupacionUrgencias ?? 0"
-                      [style.background]="urgenciasColor(h.ocupacionUrgencias ?? 0)"
-                      style="height:100%; border-radius:2px; transition:width 0.3s;"
-                    ></div>
-                  </div>
-                </div>
-
-                <!-- Espera -->
-                <div style="display:flex; align-items:center; justify-content:space-between;">
-                  <span style="font-size:11px; color:var(--text-secondary);">Espera promedio</span>
-                  <span style="font-size:11px; font-family:var(--font-mono);"
-                    [style.color]="esperaColor(h.tiempoEsperaMin ?? 0)">
-                    {{ h.tiempoEsperaMin ?? '—' }} min
-                  </span>
-                </div>
-              </div>
-
-              <!-- Divider -->
-              <div style="height:1px; background:var(--border-hairline);"></div>
-
-              <!-- Footer: distance + actions -->
-              <div style="display:flex; align-items:center; justify-content:space-between;">
-                <span style="font-size:12px; font-family:var(--font-mono); color:var(--text-muted);">
-                  {{ h.distanciaKm != null ? (h.distanciaKm + ' km') : '—' }}
-                </span>
-                <div style="display:flex; gap:8px;">
-                  <button type="button" class="btn btn--ghost btn--sm">
-                    Pre-aviso
-                  </button>
-                  <button
-                    type="button"
-                    class="btn btn--primary btn--sm"
-                    style="background:var(--accent-blue); border-color:var(--accent-blue);"
-                    [style.opacity]="h.estado === 'SATURADO' ? '0.4' : '1'"
-                    [style.cursor]="h.estado === 'SATURADO' ? 'not-allowed' : 'pointer'"
-                    [disabled]="h.estado === 'SATURADO'"
-                  >
-                    Derivar →
-                  </button>
-                </div>
+              <!-- Actions -->
+              <div style="display:flex;gap:8px;padding-top:2px;border-top:1px solid var(--border-hairline);">
+                <button type="button" class="btn btn--ghost btn--sm" style="flex:1;justify-content:center;">
+                  <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 1a2 2 0 0 1 2 2v1a2 2 0 0 1-4 0V3a2 2 0 0 1 2-2zM2 11c0-2.21 1.79-4 4-4s4 1.79 4 4"/></svg>
+                  Pre-aviso
+                </button>
+                <button type="button" class="btn btn--primary btn--sm" style="flex:1;justify-content:center;"
+                  [style.opacity]="h.estado === 'SATURADO' ? '0.4' : '1'"
+                  [disabled]="h.estado === 'SATURADO'"
+                >
+                  <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 6h8M7 3l3 3-3 3"/></svg>
+                  Derivar
+                </button>
               </div>
             </div>
           }
@@ -348,11 +280,10 @@ type StatusFilter = 'TODOS' | 'DISPONIBLE' | 'LIMITADO' | 'SATURADO';
   `,
 })
 export class HospitalsComponent implements OnInit {
-  private api = inject(HospitalApiService);
 
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
-  readonly hospitals = signal<AreaProtegidaDTO[]>([]);
+  readonly hospitals = signal<HospitalLocal[]>(MOCK_HOSPITALS);
 
   readonly searchQuery = signal('');
   readonly statusFilter = signal<StatusFilter>('TODOS');
@@ -394,17 +325,20 @@ export class HospitalsComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    this.loading.set(true);
-    this.api
-      .getAll()
-      .pipe(catchError(() => {
-        this.error.set('No se pudo conectar al backend');
-        return of(MOCK_HOSPITALS);
-      }))
-      .subscribe(data => {
-        this.hospitals.set(data);
-        this.loading.set(false);
-      });
+    // Hospitals uses local data — backend data is not yet in the right shape
+  }
+
+  asLocal(h: AreaProtegidaDTO): Partial<HospitalLocal> {
+    return h as HospitalLocal;
+  }
+
+  estadoLabel(estado?: string): string {
+    switch (estado) {
+      case 'DISPONIBLE': return 'Disponible';
+      case 'LIMITADO':   return 'Limitado';
+      case 'SATURADO':   return 'Saturado';
+      default:           return estado ?? '—';
+    }
   }
 
   camasPct(h: AreaProtegidaDTO): number {
