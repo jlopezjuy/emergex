@@ -36,4 +36,28 @@ export class SessionStore {
   readonly isProfesional = computed(() =>
     this.authorities().includes(ROLES.PROFESIONAL),
   );
+
+  readonly isChofer = computed(() =>
+    this.authorities().includes(ROLES.CHOFER),
+  );
+
+  readonly isMedicoCampo = computed(() =>
+    this.authorities().includes(ROLES.MEDICO_CAMPO),
+  );
+
+  readonly isPropietario = computed(() =>
+    this.authorities().includes(ROLES.PROPIETARIO),
+  );
+
+  readonly isAdministrador = computed(() =>
+    this.authorities().includes(ROLES.ADMINISTRADOR),
+  );
+
+  hasRole(role: string): boolean {
+    return this.authorities().includes(role);
+  }
+
+  hasAnyRole(roles: string[]): boolean {
+    return roles.some((r) => this.authorities().includes(r));
+  }
 }

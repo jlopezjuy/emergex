@@ -1,4 +1,4 @@
-import { Component, input, output, computed } from '@angular/core';
+import { Component, input, output } from '@angular/core';
 import { UnidadMovilDTO } from '../../../../data-access/dto/ambulancia.dto';
 import { StatusBadgeComponent } from '../../status-badge/status-badge.component';
 import { BadgeVariant } from '../../status-badge/status-badge.component';
@@ -16,8 +16,9 @@ import { BadgeVariant } from '../../status-badge/status-badge.component';
             <th class="text-left px-3 py-2 font-semibold uppercase tracking-wider" style="color: var(--text-muted);">Tipo</th>
             <th class="text-left px-3 py-2 font-semibold uppercase tracking-wider" style="color: var(--text-muted);">Estado</th>
             <th class="text-left px-3 py-2 font-semibold uppercase tracking-wider" style="color: var(--text-muted);">Tripulación</th>
+            <th class="text-left px-3 py-2 font-semibold uppercase tracking-wider" style="color: var(--text-muted);">Objetivo / ETA</th>
             <th class="text-left px-3 py-2 font-semibold uppercase tracking-wider" style="color: var(--text-muted);">Batería</th>
-            <th class="text-left px-3 py-2 font-semibold uppercase tracking-wider" style="color: var(--text-muted);">Combustible</th>
+            <th class="text-left px-3 py-2 font-semibold uppercase tracking-wider" style="color: var(--text-muted);">Combust.</th>
             <th class="px-3 py-2"></th>
           </tr>
         </thead>
@@ -45,6 +46,12 @@ import { BadgeVariant } from '../../status-badge/status-badge.component';
               </td>
               <td class="px-3 py-2.5" style="color: var(--text-secondary);">{{ unit.tripulacion ?? '—' }}</td>
               <td class="px-3 py-2.5">
+                <span class="font-mono" style="font-size: 11px; color: var(--text-muted);">
+                  {{ unit.ticketActivo ? ('#' + unit.ticketActivo) : '—' }}
+                  {{ unit.eta ? (' · ' + unit.eta + ' min') : '' }}
+                </span>
+              </td>
+              <td class="px-3 py-2.5">
                 <div class="flex items-center gap-2">
                   <div class="w-16 h-1 rounded-pill overflow-hidden" style="background: rgba(255,255,255,0.08);">
                     <div
@@ -70,8 +77,19 @@ import { BadgeVariant } from '../../status-badge/status-badge.component';
               </td>
               <td class="px-3 py-2.5">
                 <div class="flex items-center gap-1">
-                  <button type="button" class="btn btn--ghost btn--sm" (click)="viewUnit.emit(unit)">Ver</button>
-                  <button type="button" class="btn btn--ghost btn--sm" (click)="configUnit.emit(unit)">Config</button>
+                  <button type="button" class="btn btn--ghost btn--sm" title="Configurar" (click)="configUnit.emit(unit)"
+                    style="width:28px;height:28px;padding:0;display:flex;align-items:center;justify-content:center;">
+                    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5">
+                      <circle cx="6.5" cy="6.5" r="2"/>
+                      <path d="M6.5 1v1.2M6.5 10.8V12M1 6.5h1.2M10.8 6.5H12M2.7 2.7l.85.85M9.45 9.45l.85.85M9.45 3.55l-.85.85M3.55 9.45l-.85.85"/>
+                    </svg>
+                  </button>
+                  <button type="button" class="btn btn--primary btn--sm" title="Despachar" (click)="viewUnit.emit(unit)"
+                    style="width:28px;height:28px;padding:0;display:flex;align-items:center;justify-content:center;">
+                    <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5">
+                      <path d="M2 6.5h9M7.5 3l4 3.5-4 3.5"/>
+                    </svg>
+                  </button>
                 </div>
               </td>
             </tr>

@@ -7,4 +7,5 @@ export interface Account {
   authorities: string[];
   langKey?: string;
   imageUrl?: string;
+  empresa?: { id: number; nombre: string };
 }

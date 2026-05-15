@@ -10,6 +10,13 @@ export const routes: Routes = [
     pathMatch: 'full',
   },
   {
+    path: 'access-denied',
+    loadComponent: () =>
+      import('./features/access-denied/access-denied.component').then(
+        (m) => m.AccessDeniedComponent,
+      ),
+  },
+  {
     path: 'login',
     canActivate: [noAuthGuard],
     loadComponent: () =>
@@ -64,6 +71,11 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'settings',
+        loadComponent: () =>
+          import('./features/settings/settings.component').then((m) => m.SettingsComponent),
+      },
+      {
         path: 'dashboard/emergency/:id',
         loadComponent: () =>
           import('./features/operations/emergency-detail/emergency-detail.component').then(
@@ -72,7 +84,8 @@ export const routes: Routes = [
       },
       {
         path: '**',
-        redirectTo: 'dashboard',
+        loadComponent: () =>
+          import('./features/not-found/not-found.component').then((m) => m.NotFoundComponent),
       },
     ],
   },

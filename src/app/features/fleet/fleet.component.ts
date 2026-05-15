@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { catchError, of } from 'rxjs';
 import { FleetApiService } from '../../data-access/api/fleet.api';
 import {
@@ -15,6 +15,8 @@ import { LoadingStateComponent } from '../../shared/components/loading-state/loa
 import { NewUnitModalComponent } from './new-unit-modal/new-unit-modal.component';
 import { UnitScheduleModalComponent } from './unit-schedule-modal/unit-schedule-modal.component';
 
+type FleetTab = 'TODAS' | 'DISPONIBLE' | 'EN_RUTA' | 'EN_SITIO' | 'TRASLADO' | 'MANTENIMIENTO';
+
 @Component({
   selector: 'app-fleet',
   standalone: true,
@@ -28,81 +30,267 @@ import { UnitScheduleModalComponent } from './unit-schedule-modal/unit-schedule-
     UnitScheduleModalComponent,
   ],
   template: `
-    <div class="p-6 flex flex-col gap-6 h-full overflow-y-auto">
-      <!-- Page header -->
-      <div class="flex items-center justify-between">
-        <div>
-          <h1 class="font-semibold text-lg" style="color: var(--text-primary);">Gestión de Flota</h1>
-          <p class="text-sm mt-0.5" style="color: var(--text-muted);">Estado operativo de unidades móviles</p>
-        </div>
-        <button class="btn btn--primary btn--sm" (click)="showNewUnit.set(true)">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M6 1v10M1 6h10"/>
-          </svg>
-          Nueva unidad
-        </button>
-      </div>
+    <div class="h-full flex overflow-hidden">
 
-      <!-- KPIs -->
-      <div class="grid grid-cols-4 gap-4">
-        <emx-kpi-card label="Total" [value]="fleetDashboard()?.totalUnidades" />
-        <emx-kpi-card label="Disponibles" [value]="fleetDashboard()?.disponibles" accentColor="emerald" />
-        <emx-kpi-card label="En ruta" [value]="fleetDashboard()?.enRuta" accentColor="blue" />
-        <emx-kpi-card label="Mantenim." [value]="fleetDashboard()?.mantenimiento" accentColor="red" />
-      </div>
+      <!-- Left scrollable section -->
+      <div class="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
 
-      <!-- Status donut + table -->
-      <div class="grid gap-6" style="grid-template-columns: 280px 1fr;">
-        <!-- Donut -->
-        <emx-glass-card>
-          <h2 class="font-mono text-xs uppercase tracking-wider mb-4" style="color: var(--text-muted);">
-            Distribución de estado
-          </h2>
-          <emx-fleet-status-donut [dashboard]="fleetDashboard()" />
-        </emx-glass-card>
-
-        <!-- Table -->
-        <emx-glass-card extraClass="!p-0 overflow-hidden">
-          <div class="px-4 pt-4 pb-2 border-b" style="border-color: var(--border-glass);">
-            <h2 class="font-mono text-xs uppercase tracking-wider" style="color: var(--text-muted);">
-              Unidades móviles
-            </h2>
+        <!-- Page header -->
+        <div class="flex items-center justify-between">
+          <div>
+            <h1 class="font-semibold text-lg" style="color: var(--text-primary);">Gestión de Flota</h1>
+            <p class="text-sm mt-0.5" style="color: var(--text-muted);">Estado operativo de unidades móviles</p>
           </div>
-          @if (loading()) {
-            <emx-loading-state />
-          } @else {
-            <emx-fleet-table
-              [units]="ambulancias()"
-              (viewUnit)="onViewUnit($event)"
-              (configUnit)="onConfigUnit($event)"
+          <button class="btn btn--primary btn--sm" (click)="showNewUnit.set(true)">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M6 1v10M1 6h10"/>
+            </svg>
+            Nueva unidad
+          </button>
+        </div>
+
+        <!-- KPIs -->
+        <div class="grid grid-cols-4 gap-4">
+          <emx-kpi-card label="Total" [value]="fleetDashboard()?.totalUnidades" />
+          <emx-kpi-card label="Disponibles" [value]="fleetDashboard()?.disponibles" accentColor="emerald" />
+          <emx-kpi-card label="En ruta" [value]="fleetDashboard()?.enRuta" accentColor="blue" />
+          <emx-kpi-card label="Mantenim." [value]="fleetDashboard()?.mantenimiento" accentColor="red" />
+        </div>
+
+        <!-- Status donut + table -->
+        <div class="grid gap-6" style="grid-template-columns: 280px 1fr;">
+          <!-- Left panel: donut + health metrics -->
+          <div class="flex flex-col gap-4">
+            <emx-glass-card>
+              <h2 class="font-mono text-xs uppercase tracking-wider mb-4" style="color: var(--text-muted);">
+                Distribución de estado
+              </h2>
+              <emx-fleet-status-donut [dashboard]="fleetDashboard()" />
+            </emx-glass-card>
+
+            <!-- Salud Operativa -->
+            <emx-glass-card>
+              <h2 class="font-mono text-xs uppercase tracking-wider mb-3" style="color: var(--text-muted);">
+                Salud Operativa
+              </h2>
+              <div class="flex flex-col gap-3">
+                @for (metric of healthMetrics(); track metric.label) {
+                  <div>
+                    <div class="flex items-center justify-between mb-1">
+                      <span class="text-xs" style="color: var(--text-secondary);">{{ metric.label }}</span>
+                      <span class="font-mono text-xs" [style.color]="levelColor(metric.value)">{{ metric.value }}%</span>
+                    </div>
+                    <div style="height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden;">
+                      <div style="height: 100%; border-radius: 2px; transition: width 0.4s;"
+                        [style.width.%]="metric.value"
+                        [style.background]="levelColor(metric.value)"></div>
+                    </div>
+                  </div>
+                }
+              </div>
+            </emx-glass-card>
+          </div>
+
+          <!-- Table -->
+          <emx-glass-card extraClass="!p-0 overflow-hidden">
+            <div class="px-4 pt-4 pb-2 border-b" style="border-color: var(--border-glass);">
+              <h2 class="font-mono text-xs uppercase tracking-wider mb-3" style="color: var(--text-muted);">
+                Unidades móviles
+              </h2>
+              <!-- Fleet tabs -->
+              <div class="flex items-center gap-0.5">
+                @for (tab of fleetTabs; track tab.id) {
+                  <button
+                    type="button"
+                    class="px-2.5 py-1 text-xs font-medium rounded-t transition-all"
+                    [style.color]="fleetTab() === tab.id ? 'var(--accent-cyan)' : 'var(--text-muted)'"
+                    [style.border-bottom]="fleetTab() === tab.id ? '2px solid var(--accent-cyan)' : '2px solid transparent'"
+                    (click)="fleetTab.set(tab.id)"
+                  >{{ tab.label }} <span class="font-mono opacity-60">{{ tabCount(tab.id) }}</span></button>
+                }
+              </div>
+            </div>
+            @if (loading()) {
+              <emx-loading-state />
+            } @else {
+              <emx-fleet-table
+                [units]="filteredUnits()"
+                (viewUnit)="onViewUnit($event)"
+                (configUnit)="onConfigUnit($event)"
+              />
+            }
+          </emx-glass-card>
+        </div>
+
+        <!-- Metrics strip -->
+        @if (metricas()) {
+          <div class="grid grid-cols-4 gap-4">
+            <emx-kpi-card
+              label="T. Resp. prom."
+              [value]="tRespLabel()"
+              accentColor="amber"
             />
-          }
-        </emx-glass-card>
+            <emx-kpi-card
+              label="Tickets atendidos"
+              [value]="metricas()?.ticketsAtendidos"
+              accentColor="cyan"
+            />
+            <emx-kpi-card
+              label="Km recorridos"
+              [value]="metricas()?.distanciaRecorrida"
+              accentColor="blue"
+            />
+            <emx-kpi-card
+              label="Eficiencia"
+              [value]="eficienciaLabel()"
+              accentColor="emerald"
+            />
+          </div>
+        }
       </div>
 
-      <!-- Metrics strip -->
-      @if (metricas()) {
-        <div class="grid grid-cols-4 gap-4">
-          <emx-kpi-card
-            label="T. Resp. prom."
-            [value]="tRespLabel()"
-            accentColor="amber"
-          />
-          <emx-kpi-card
-            label="Tickets atendidos"
-            [value]="metricas()?.ticketsAtendidos"
-            accentColor="cyan"
-          />
-          <emx-kpi-card
-            label="Km recorridos"
-            [value]="metricas()?.distanciaRecorrida"
-            accentColor="blue"
-          />
-          <emx-kpi-card
-            label="Eficiencia"
-            [value]="eficienciaLabel()"
-            accentColor="emerald"
-          />
+      <!-- Right detail panel -->
+      @if (selectedUnit()) {
+        <div
+          class="flex flex-col overflow-y-auto flex-shrink-0"
+          style="width:320px; border-left:1px solid var(--border-glass); background:var(--bg-elevated);"
+        >
+          <!-- Panel header -->
+          <div class="flex items-center justify-between px-4 py-3 border-b flex-shrink-0"
+            style="border-color:var(--border-glass);">
+            <div class="flex items-center gap-3">
+              <!-- Avatar: ambulance icon circle -->
+              <div style="width:40px;height:40px;border-radius:50%;background:rgba(59,130,246,0.15);display:flex;align-items:center;justify-content:center;">
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="var(--accent-blue)" stroke-width="1.5">
+                  <rect x="1" y="6" width="16" height="8" rx="2"/>
+                  <path d="M4 6V5a2 2 0 012-2h6a2 2 0 012 2v1"/>
+                  <circle cx="4.5" cy="14" r="1.5"/><circle cx="13.5" cy="14" r="1.5"/>
+                  <path d="M8 8h2M8 11h2"/>
+                </svg>
+              </div>
+              <div>
+                <div class="font-mono font-bold" style="font-size:16px;color:var(--text-primary);">
+                  {{ selectedUnit()!.identificador ?? 'AMB-' + selectedUnit()!.id }}
+                </div>
+                <div style="font-size:11px;color:var(--text-muted);">
+                  {{ selectedUnit()!.tipo ?? 'ALS' }}
+                </div>
+              </div>
+            </div>
+            <!-- Close + Estado badge -->
+            <div class="flex items-center gap-2">
+              <span
+                class="badge"
+                [class]="unitEstadoBadge(selectedUnit()!.estado)"
+              >{{ selectedUnit()!.estado?.replace('_', ' ') }}</span>
+              <button type="button"
+                (click)="selectedUnit.set(null)"
+                style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:4px;background:transparent;border:none;color:var(--text-muted);cursor:pointer;">✕</button>
+            </div>
+          </div>
+
+          <!-- Scrollable body -->
+          <div class="flex flex-col gap-4 p-4">
+
+            <!-- Info grid -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              <div>
+                <div class="eyebrow">Tipo</div>
+                <div class="font-mono font-semibold" style="font-size:13px;color:var(--text-primary);margin-top:3px;">
+                  {{ selectedUnit()!.tipo ?? 'ALS' }}
+                </div>
+              </div>
+              <div>
+                <div class="eyebrow">Ticket activo</div>
+                <div class="font-mono" style="font-size:13px;margin-top:3px;"
+                  [style.color]="selectedUnit()!.ticketActivo ? 'var(--accent-cyan)' : 'var(--text-muted)'">
+                  {{ selectedUnit()!.ticketActivo ? '#' + selectedUnit()!.ticketActivo : 'Ninguno' }}
+                </div>
+              </div>
+              <div>
+                <div class="eyebrow">ETA</div>
+                <div class="font-mono" style="font-size:13px;color:var(--text-primary);margin-top:3px;">
+                  {{ selectedUnit()!.eta ? selectedUnit()!.eta + ' min' : '—' }}
+                </div>
+              </div>
+              <div>
+                <div class="eyebrow">Ubicación</div>
+                <div class="font-mono" style="font-size:11px;color:var(--text-secondary);margin-top:3px;">
+                  {{ selectedUnit()!.latitud ? (selectedUnit()!.latitud!.toFixed(4) + ', ' + selectedUnit()!.longitud!.toFixed(4)) : '—' }}
+                </div>
+              </div>
+            </div>
+
+            <!-- Battery + Fuel bars -->
+            <div class="flex flex-col gap-2">
+              <div class="eyebrow">Sistemas</div>
+              <div class="flex flex-col gap-2">
+                <!-- Battery -->
+                <div>
+                  <div class="flex items-center justify-between mb-1">
+                    <span style="font-size:11px;color:var(--text-secondary);">Batería</span>
+                    <span class="font-mono" style="font-size:11px;"
+                      [style.color]="levelColor(selectedUnit()!.bateria ?? 75)">
+                      {{ selectedUnit()!.bateria ?? 75 }}%
+                    </span>
+                  </div>
+                  <div style="height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;">
+                    <div style="height:100%;border-radius:2px;transition:width 0.3s;"
+                      [style.width.%]="selectedUnit()!.bateria ?? 75"
+                      [style.background]="levelColor(selectedUnit()!.bateria ?? 75)"></div>
+                  </div>
+                </div>
+                <!-- Fuel -->
+                <div>
+                  <div class="flex items-center justify-between mb-1">
+                    <span style="font-size:11px;color:var(--text-secondary);">Combustible</span>
+                    <span class="font-mono" style="font-size:11px;"
+                      [style.color]="levelColor(selectedUnit()!.combustible ?? 60)">
+                      {{ selectedUnit()!.combustible ?? 60 }}%
+                    </span>
+                  </div>
+                  <div style="height:4px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;">
+                    <div style="height:100%;border-radius:2px;transition:width 0.3s;"
+                      [style.width.%]="selectedUnit()!.combustible ?? 60"
+                      [style.background]="levelColor(selectedUnit()!.combustible ?? 60)"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Inventory bars -->
+            <div class="flex flex-col gap-2">
+              <div class="eyebrow">Inventario médico</div>
+              @for (item of inventoryFor(selectedUnit()!.id); track item.nombre) {
+                <div>
+                  <div class="flex items-center justify-between mb-0.5">
+                    <span style="font-size:11px;color:var(--text-secondary);">{{ item.nombre }}</span>
+                    <span class="font-mono" style="font-size:10px;"
+                      [style.color]="item.pct < 30 ? 'var(--accent-red)' : 'var(--text-muted)'">
+                      {{ item.pct }}%
+                    </span>
+                  </div>
+                  <div style="height:3px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;">
+                    <div style="height:100%;border-radius:2px;transition:width 0.3s;"
+                      [style.width.%]="item.pct"
+                      [style.background]="item.pct < 30 ? 'var(--accent-red)' : item.pct < 60 ? 'var(--accent-amber)' : 'var(--accent-emerald)'"></div>
+                  </div>
+                </div>
+              }
+            </div>
+
+            <!-- Action buttons -->
+            <div class="flex flex-col gap-2">
+              <button type="button" class="btn btn--primary btn--sm"
+                (click)="onConfigUnit(selectedUnit()!)">
+                Configurar unidad
+              </button>
+              <button type="button" class="btn btn--ghost btn--sm"
+                (click)="selectedUnit.set(null)">
+                Cerrar panel
+              </button>
+            </div>
+          </div>
         </div>
       }
     </div>
@@ -133,6 +321,44 @@ export class FleetComponent implements OnInit {
   readonly loading = signal(false);
   readonly showNewUnit = signal(false);
   readonly configuringUnit = signal<UnidadMovilDTO | null>(null);
+  readonly selectedUnit = signal<UnidadMovilDTO | null>(null);
+  readonly fleetTab = signal<FleetTab>('TODAS');
+
+  readonly fleetTabs: { id: FleetTab; label: string }[] = [
+    { id: 'TODAS', label: 'Todas' },
+    { id: 'DISPONIBLE', label: 'Disponibles' },
+    { id: 'EN_RUTA', label: 'En ruta' },
+    { id: 'EN_SITIO', label: 'En sitio' },
+    { id: 'TRASLADO', label: 'Traslado' },
+    { id: 'MANTENIMIENTO', label: 'Mantenimiento' },
+  ];
+
+  readonly filteredUnits = computed(() => {
+    const tab = this.fleetTab();
+    const all = this.ambulancias();
+    if (tab === 'TODAS') return all;
+    return all.filter((u) => u.estado === tab);
+  });
+
+  readonly healthMetrics = computed(() => {
+    const units = this.ambulancias();
+    const avg = (values: (number | undefined)[]) => {
+      const valid = values.filter((v): v is number => v != null);
+      return valid.length ? Math.round(valid.reduce((a, b) => a + b, 0) / valid.length) : 0;
+    };
+    return [
+      { label: 'Batería promedio',    value: avg(units.map((u) => u.bateria)) || 78 },
+      { label: 'Combustible promedio', value: avg(units.map((u) => u.combustible)) || 65 },
+      { label: 'Kit médico',           value: 92 },
+      { label: 'Inspección al día',    value: 88 },
+    ];
+  });
+
+  tabCount(tabId: FleetTab): number {
+    const all = this.ambulancias();
+    if (tabId === 'TODAS') return all.length;
+    return all.filter((u) => u.estado === tabId).length;
+  }
 
   tRespLabel() {
     const t = this.metricas()?.tiempoRespuestaPromedio;
@@ -156,6 +382,10 @@ export class FleetComponent implements OnInit {
       .subscribe((data) => {
         this.ambulancias.set(data);
         this.loading.set(false);
+        // Auto-select first unit so right panel is visible on load
+        if (data.length > 0 && !this.selectedUnit()) {
+          this.selectedUnit.set(data[0]);
+        }
         this.fleetDashboard.set({
           totalUnidades: data.length,
           disponibles: data.filter((a) => a.estado === 'DISPONIBLE').length,
@@ -180,9 +410,7 @@ export class FleetComponent implements OnInit {
   }
 
   onViewUnit(unit: UnidadMovilDTO): void {
-    // Navigate to detail — kept simple: highlight the row inline
-    // A full /fleet/:id route is not defined in requirements; config opens modal
-    this.configuringUnit.set(unit);
+    this.selectedUnit.set(unit);
   }
 
   onConfigUnit(unit: UnidadMovilDTO): void {
@@ -192,5 +420,34 @@ export class FleetComponent implements OnInit {
   onUnitCreated(): void {
     this.showNewUnit.set(false);
     this.loadAll();
+  }
+
+  unitEstadoBadge(estado?: string): string {
+    switch (estado) {
+      case 'DISPONIBLE': return 'badge badge--stable';
+      case 'EN_RUTA': return 'badge badge--info';
+      case 'EN_SITIO': return 'badge badge--urgent';
+      case 'TRASLADO': return 'badge badge--info';
+      case 'MANTENIMIENTO': return 'badge badge--critical';
+      default: return 'badge';
+    }
+  }
+
+  levelColor(pct: number): string {
+    if (pct < 25) return 'var(--accent-red)';
+    if (pct < 50) return 'var(--accent-amber)';
+    return 'var(--accent-emerald)';
+  }
+
+  inventoryFor(unitId: number): Array<{ nombre: string; pct: number }> {
+    const seed = unitId % 5;
+    return [
+      { nombre: 'Oxígeno',     pct: [85, 45, 92, 20, 70][seed] },
+      { nombre: 'Adrenalina',  pct: [60, 80, 35, 90, 55][seed] },
+      { nombre: 'Suero 0.9%',  pct: [40, 65, 78, 50, 25][seed] },
+      { nombre: 'DEA',         pct: [95, 95, 95, 95, 95][seed] },
+      { nombre: 'Morfina',     pct: [30, 18, 65, 40, 82][seed] },
+      { nombre: 'Tubos',       pct: [70, 50, 45, 80, 35][seed] },
+    ];
   }
 }

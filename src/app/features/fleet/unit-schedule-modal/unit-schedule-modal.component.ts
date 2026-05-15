@@ -1,4 +1,4 @@
-import { Component, input, output, inject, signal, OnInit } from '@angular/core';
+import { Component, input, output, inject, signal, computed, OnInit } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { catchError, of } from 'rxjs';
 import { FleetApiService } from '../../../data-access/api/fleet.api';
@@ -7,7 +7,7 @@ import { ModalShellComponent } from '../../../shared/components/modal-shell/moda
 import { LoadingStateComponent } from '../../../shared/components/loading-state/loading-state.component';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
 
-type TabId = 'activo' | 'programar' | 'tripulacion';
+type TabId = 'activo' | 'programar' | 'tripulacion' | 'calendario';
 
 @Component({
   selector: 'emx-unit-schedule-modal',
@@ -205,6 +205,74 @@ type TabId = 'activo' | 'programar' | 'tripulacion';
         }
       }
 
+      <!-- TAB: Calendario -->
+      @if (activeTab() === 'calendario') {
+        <div class="flex flex-col gap-4">
+          <!-- Month navigation -->
+          <div class="flex items-center justify-between">
+            <button type="button" class="btn btn--ghost btn--sm" (click)="prevMonth()">‹</button>
+            <div class="text-center">
+              <div class="font-semibold" style="color:var(--text-primary);">{{ calMonthLabel() }}</div>
+              <div class="eyebrow">Disponibilidad · Unidad {{ unit().identificador }}</div>
+            </div>
+            <button type="button" class="btn btn--ghost btn--sm" (click)="nextMonth()">›</button>
+          </div>
+
+          <!-- Day-of-week headers -->
+          <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:3px;">
+            @for (d of ['L','M','M','J','V','S','D']; track $index) {
+              <div class="eyebrow" style="text-align:center; padding:4px 0;">{{ d }}</div>
+            }
+          </div>
+
+          <!-- Calendar cells -->
+          <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:3px;">
+            @for (day of calCells(); track $index; let i = $index) {
+              @if (day === null) {
+                <div style="min-height:52px; border-radius:6px; border:1px solid transparent;"></div>
+              } @else {
+                <div
+                  style="min-height:52px; border-radius:6px; border:1px solid; padding:4px 5px; display:flex; flex-direction:column; align-items:flex-start; justify-content:space-between; position:relative;"
+                  [style.background]="cellStyle(dayOfWeekForCell(i)).bg"
+                  [style.border-color]="isToday(day) ? 'var(--accent-blue)' : cellStyle(dayOfWeekForCell(i)).border"
+                  [style.box-shadow]="isToday(day) ? '0 0 0 1px var(--accent-blue)' : 'none'"
+                >
+                  <span
+                    class="font-mono"
+                    style="font-size:11px; font-weight:500; line-height:1;"
+                    [style.color]="isToday(day) ? 'var(--accent-blue)' : 'var(--text-secondary)'"
+                  >{{ day }}</span>
+                  @if (cellStyle(dayOfWeekForCell(i)).tag === 'OFF') {
+                    <span class="font-mono" style="font-size:8px; letter-spacing:0.1em; color:var(--text-muted); align-self:flex-end;">OFF</span>
+                  } @else {
+                    <span
+                      class="font-mono"
+                      style="font-size:8px; letter-spacing:0.08em; color:white; padding:2px 5px; border-radius:3px; align-self:flex-end;"
+                      [style.background]="cellStyle(dayOfWeekForCell(i)).tagBg"
+                    >{{ cellStyle(dayOfWeekForCell(i)).tag }}</span>
+                  }
+                </div>
+              }
+            }
+          </div>
+
+          <!-- Legend -->
+          <div class="flex items-center gap-4 flex-wrap" style="padding-top:8px; border-top:1px solid var(--border-glass);">
+            @for (item of calLegend; track item.tag) {
+              <div class="flex items-center gap-1.5">
+                @if (item.tagBg) {
+                  <span class="font-mono" style="font-size:8px; padding:2px 5px; border-radius:3px; color:white;"
+                    [style.background]="item.tagBg">{{ item.tag }}</span>
+                } @else {
+                  <span class="font-mono" style="font-size:8px; color:var(--text-muted);">{{ item.tag }}</span>
+                }
+                <span style="font-size:11px; color:var(--text-secondary);">{{ item.label }}</span>
+              </div>
+            }
+          </div>
+        </div>
+      }
+
       <div footer class="flex gap-2">
         <button type="button" class="btn btn--ghost btn--sm" (click)="closed.emit()">Cerrar</button>
       </div>
@@ -223,6 +291,7 @@ export class UnitScheduleModalComponent implements OnInit {
     { id: 'activo', label: 'Turno activo' },
     { id: 'programar', label: 'Programar turno' },
     { id: 'tripulacion', label: 'Tripulación' },
+    { id: 'calendario', label: 'Calendario' },
   ];
 
   // Turno activo tab
@@ -240,6 +309,34 @@ export class UnitScheduleModalComponent implements OnInit {
   readonly selectedTurno = signal<TurnoMovilDTO | null>(null);
   readonly addingCrew = signal(false);
   readonly crewError = signal<string | null>(null);
+
+  // Calendario tab
+  readonly calMonth = signal(new Date());
+
+  readonly calCells = computed((): (number | null)[] => {
+    const m = this.calMonth();
+    const first = new Date(m.getFullYear(), m.getMonth(), 1);
+    const startDay = (first.getDay() + 6) % 7; // Monday-first, 0=Mon
+    const daysInMonth = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate();
+    const cells: (number | null)[] = [];
+    for (let i = 0; i < startDay; i++) cells.push(null);
+    for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+    while (cells.length % 7 !== 0) cells.push(null);
+    return cells;
+  });
+
+  readonly calMonthLabel = computed(() => {
+    const m = this.calMonth();
+    const names = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    return `${names[m.getMonth()]} ${m.getFullYear()}`;
+  });
+
+  readonly calLegend = [
+    { tag: 'MAT', tagBg: 'var(--accent-blue)',    label: 'Matutino · 06:00–18:00' },
+    { tag: 'NOC', tagBg: 'var(--accent-cyan)',    label: 'Nocturno · 18:00–06:00' },
+    { tag: 'PAR', tagBg: 'var(--accent-emerald)', label: 'Partido · 08:00–20:00' },
+    { tag: 'OFF', tagBg: '',                       label: 'Sin turno' },
+  ];
 
   turnoForm = this.fb.group({
     fechaInicio: ['', Validators.required],
@@ -349,6 +446,44 @@ export class UnitScheduleModalComponent implements OnInit {
         this.crewError.set('Error al agregar el tripulante.');
       },
     });
+  }
+
+  prevMonth(): void {
+    const m = this.calMonth();
+    this.calMonth.set(new Date(m.getFullYear(), m.getMonth() - 1, 1));
+  }
+
+  nextMonth(): void {
+    const m = this.calMonth();
+    this.calMonth.set(new Date(m.getFullYear(), m.getMonth() + 1, 1));
+  }
+
+  cellShiftKind(dayOfWeek: number): 'MAT' | 'NOC' | 'PAR' | 'OFF' {
+    if (dayOfWeek >= 5) return 'OFF';
+    const tipo = this.unit().tipo ?? 'ALS';
+    if (tipo === 'ALS') return dayOfWeek % 3 === 0 ? 'NOC' : 'MAT';
+    return dayOfWeek % 2 === 0 ? 'PAR' : 'MAT';
+  }
+
+  cellStyle(dayOfWeek: number): { bg: string; border: string; tag: string; tagBg: string } {
+    const kind = this.cellShiftKind(dayOfWeek);
+    switch (kind) {
+      case 'MAT': return { bg: 'rgba(59,130,246,0.12)', border: 'rgba(59,130,246,0.35)', tag: 'MAT', tagBg: 'var(--accent-blue)' };
+      case 'NOC': return { bg: 'rgba(34,211,238,0.12)', border: 'rgba(34,211,238,0.35)', tag: 'NOC', tagBg: 'var(--accent-cyan)' };
+      case 'PAR': return { bg: 'rgba(16,185,129,0.10)', border: 'rgba(16,185,129,0.30)', tag: 'PAR', tagBg: 'var(--accent-emerald)' };
+      case 'OFF': return { bg: 'rgba(148,163,184,0.04)', border: 'var(--border-hairline)', tag: 'OFF', tagBg: '' };
+    }
+  }
+
+  isToday(day: number | null): boolean {
+    if (!day) return false;
+    const today = new Date();
+    const m = this.calMonth();
+    return day === today.getDate() && m.getMonth() === today.getMonth() && m.getFullYear() === today.getFullYear();
+  }
+
+  dayOfWeekForCell(cellIndex: number): number {
+    return cellIndex % 7; // 0=Mon, 6=Sun
   }
 
   formatDate(iso: string): string {

@@ -1,3 +1,11 @@
+export interface CrearAmbulanciaRequest {
+  identificador: string;
+  tipo: 'ALS' | 'BLS';
+  patente?: string;
+  modelo?: string;
+  anio?: number;
+}
+
 export interface UnidadMovilDTO {
   id: number;
   identificador?: string;

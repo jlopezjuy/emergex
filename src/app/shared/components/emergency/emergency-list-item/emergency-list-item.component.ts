@@ -1,4 +1,5 @@
-import { Component, input, output, computed } from '@angular/core';
+import { Component, input, output, computed, inject } from '@angular/core';
+import { Router } from '@angular/router';
 import { TicketAsistenciaDTO } from '../../../../data-access/dto/ticket.dto';
 import { EmergencyPriorityBadgeComponent } from '../emergency-priority-badge/emergency-priority-badge.component';
 import { EmergencySlaBarComponent } from '../emergency-sla-bar/emergency-sla-bar.component';
@@ -12,6 +13,7 @@ import { EmergencySlaBarComponent } from '../emergency-sla-bar/emergency-sla-bar
       class="relative flex gap-3 p-3 rounded-panel cursor-pointer transition-all duration-150"
       [style.background]="selected() ? 'rgba(59,130,246,0.08)' : 'transparent'"
       [style.border]="selected() ? '1px solid rgba(59,130,246,0.25)' : '1px solid transparent'"
+      (click)="openDetail()"
     >
       <!-- Priority band -->
       <div
@@ -119,6 +121,12 @@ export class EmergencyListItemComponent {
   assign = output<TicketAsistenciaDTO>();
   locate = output<TicketAsistenciaDTO>();
   call = output<TicketAsistenciaDTO>();
+
+  private router = inject(Router);
+
+  openDetail(): void {
+    this.router.navigate(['/dashboard/emergency', this.emergency().id]);
+  }
 
   priorityColor = computed(() => {
     switch (this.emergency().prioridad) {

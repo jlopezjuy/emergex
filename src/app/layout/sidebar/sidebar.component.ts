@@ -1,13 +1,7 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, computed } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ThemeService } from '../../core/theme/theme.service';
-
-interface NavItem {
-  path: string;
-  title: string;
-  icon: SafeHtml;
-}
+import { FleetStore } from '../../core/stores/fleet.store';
 
 @Component({
   selector: 'emx-sidebar',
@@ -16,27 +10,83 @@ interface NavItem {
   template: `
     <nav
       class="flex flex-col items-center gap-1 py-4 h-screen border-r"
-      style="width: 56px; background: var(--bg-elevated); border-color: var(--border-glass); flex-shrink: 0;"
+      style="width: 64px; background: var(--bg-elevated); border-color: var(--border-glass); flex-shrink: 0;"
     >
       <!-- Logo -->
-      <div class="flex items-center justify-center w-10 h-10 rounded-btn mb-3" style="background: var(--accent-blue);">
+      <div
+        class="flex items-center justify-center w-10 h-10 rounded-btn mb-3"
+        style="background: linear-gradient(135deg, #DC2626, #EF4444); box-shadow: 0 0 20px rgba(239,68,68,0.5);"
+      >
         <svg width="20" height="20" viewBox="0 0 20 20" fill="white">
           <path d="M10 2L2 18h16L10 2z" fill-opacity="0.15"/>
           <path d="M9 9h2v5H9zM9 7h2v1H9z"/>
         </svg>
       </div>
 
-      <!-- Nav items -->
-      @for (item of navItems; track item.path) {
-        <a
-          [routerLink]="item.path"
-          routerLinkActive="nav-active"
-          class="nav-icon-btn"
-          [title]="item.title"
-        >
-          <span [innerHTML]="item.icon"></span>
-        </a>
-      }
+      <!-- Operations -->
+      <a routerLink="/dashboard" routerLinkActive="nav-active" class="nav-icon-btn" title="Operaciones">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M9 2L2 9h2v7h4v-4h2v4h4V9h2L9 2z"/>
+        </svg>
+      </a>
+
+      <!-- Map -->
+      <a routerLink="/map" routerLinkActive="nav-active" class="nav-icon-btn" title="Mapa">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M11.5 1l-5 2-5-2v14l5 2 5-2 5 2V3l-5-2z"/>
+          <path d="M6.5 3v13M11.5 1v14"/>
+        </svg>
+      </a>
+
+      <!-- Fleet -->
+      <a routerLink="/fleet" routerLinkActive="nav-active" class="nav-icon-btn relative" title="Flota">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="1" y="6" width="16" height="8" rx="2"/>
+          <path d="M4 6V5a2 2 0 012-2h6a2 2 0 012 2v1"/>
+          <circle cx="4.5" cy="14" r="1.5"/><circle cx="13.5" cy="14" r="1.5"/>
+          <path d="M8 8h2M8 11h2"/>
+        </svg>
+        @if (fleetAlert()) {
+          <span
+            class="absolute top-1 right-1 w-2 h-2 rounded-full"
+            style="background: var(--accent-amber); box-shadow: 0 0 4px var(--accent-amber);"
+          ></span>
+        }
+      </a>
+
+      <!-- Staff -->
+      <a routerLink="/staff" routerLinkActive="nav-active" class="nav-icon-btn" title="Personal">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="9" cy="6" r="3"/>
+          <path d="M3 15c0-3.31 2.69-6 6-6s6 2.69 6 6"/>
+        </svg>
+      </a>
+
+      <!-- Hospitals -->
+      <a routerLink="/hospitals" routerLinkActive="nav-active" class="nav-icon-btn" title="Hospitales">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="4" width="14" height="12" rx="1"/>
+          <path d="M6 16V10h6v6M9 7v4M7 9h4"/>
+          <path d="M6 4V2h6v2"/>
+        </svg>
+      </a>
+
+      <!-- Communications -->
+      <a routerLink="/communications" routerLinkActive="nav-active" class="nav-icon-btn" title="Comunicaciones">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M2 13.5c0-4.14 3.36-7.5 7.5-7.5m0 0a7.5 7.5 0 017.5 7.5"/>
+          <path d="M5 13.5a4.5 4.5 0 014.5-4.5m0 0a4.5 4.5 0 014.5 4.5"/>
+          <circle cx="9.5" cy="13.5" r="1.5"/>
+        </svg>
+      </a>
+
+      <!-- Analytics -->
+      <a routerLink="/analytics" routerLinkActive="nav-active" class="nav-icon-btn" title="Analítica">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M2 14L6 9l4 3 3-5 3 4"/>
+          <line x1="2" y1="16" x2="16" y2="16"/>
+        </svg>
+      </a>
 
       <div class="flex-1"></div>
 
@@ -44,12 +94,7 @@ interface NavItem {
       <div class="w-8 border-t my-1" style="border-color: var(--border-glass);"></div>
 
       <!-- Theme toggle -->
-      <button
-        type="button"
-        class="nav-icon-btn"
-        title="Cambiar tema"
-        (click)="theme.toggleTheme()"
-      >
+      <button type="button" class="nav-icon-btn" title="Cambiar tema" (click)="theme.toggleTheme()">
         @if (theme.theme() === 'dark') {
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
             <circle cx="8" cy="8" r="3"/>
@@ -63,7 +108,7 @@ interface NavItem {
       </button>
 
       <!-- Settings -->
-      <a routerLink="/settings" class="nav-icon-btn" title="Configuración">
+      <a routerLink="/settings" routerLinkActive="nav-active" class="nav-icon-btn" title="Configuración">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
           <circle cx="8" cy="8" r="2.5"/>
           <path d="M8 1v1.5m0 11V15M1 8h1.5m11 0H15M3.05 3.05l1.06 1.06m7.78 7.78 1.06 1.06M11.89 4.11l-1.06 1.06M4.11 11.89l-1.06 1.06"/>
@@ -93,52 +138,17 @@ interface NavItem {
     .nav-active {
       background: rgba(59, 130, 246, 0.15) !important;
       color: var(--accent-blue) !important;
+      box-shadow: -3px 0 0 var(--accent-blue) inset;
     }
   `],
 })
 export class SidebarComponent {
   readonly theme = inject(ThemeService);
-  private sanitizer = inject(DomSanitizer);
+  private fleet = inject(FleetStore);
 
-  private svg(content: string): SafeHtml {
-    return this.sanitizer.bypassSecurityTrustHtml(content);
-  }
-
-  readonly navItems: NavItem[] = [
-    {
-      path: '/dashboard',
-      title: 'Operaciones',
-      icon: this.svg(`<svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 2L2 9h2v7h4v-4h2v4h4V9h2L9 2z"/></svg>`),
-    },
-    {
-      path: '/map',
-      title: 'Mapa',
-      icon: this.svg(`<svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11.5 1l-5 2-5-2v14l5 2 5-2 5 2V3l-5-2z"/><path d="M6.5 3v13M11.5 1v14"/></svg>`),
-    },
-    {
-      path: '/fleet',
-      title: 'Flota',
-      icon: this.svg(`<svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="6" width="16" height="8" rx="2"/><path d="M4 6V5a2 2 0 012-2h6a2 2 0 012 2v1"/><circle cx="4.5" cy="14" r="1.5"/><circle cx="13.5" cy="14" r="1.5"/><path d="M8 8h2M8 11h2"/></svg>`),
-    },
-    {
-      path: '/staff',
-      title: 'Personal',
-      icon: this.svg(`<svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="6" r="3"/><path d="M3 15c0-3.31 2.69-6 6-6s6 2.69 6 6"/></svg>`),
-    },
-    {
-      path: '/hospitals',
-      title: 'Hospitales',
-      icon: this.svg(`<svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="14" height="12" rx="1"/><path d="M6 16V10h6v6M9 7v4M7 9h4"/><path d="M6 4V2h6v2"/></svg>`),
-    },
-    {
-      path: '/communications',
-      title: 'Comunicaciones',
-      icon: this.svg(`<svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 13.5c0-4.14 3.36-7.5 7.5-7.5m0 0a7.5 7.5 0 017.5 7.5"/><path d="M5 13.5a4.5 4.5 0 014.5-4.5m0 0a4.5 4.5 0 014.5 4.5"/><circle cx="9.5" cy="13.5" r="1.5"/></svg>`),
-    },
-    {
-      path: '/analytics',
-      title: 'Analítica',
-      icon: this.svg(`<svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 14L6 9l4 3 3-5 3 4"/><line x1="2" y1="16" x2="16" y2="16"/></svg>`),
-    },
-  ];
+  readonly fleetAlert = computed(() =>
+    this.fleet.ambulances().some(
+      (a) => a.estado === 'MANTENIMIENTO' || (a.bateria != null && a.bateria < 20),
+    ),
+  );
 }

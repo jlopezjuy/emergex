@@ -1,5 +1,6 @@
-import { Component, input, output, inject, signal, OnInit, OnDestroy } from '@angular/core';
+import { Component, input, output, inject, signal, computed, OnInit, OnDestroy } from '@angular/core';
 import { NotificationStore } from '../../core/stores/notification.store';
+import { AuthService } from '../../core/auth/auth.service';
 
 @Component({
   selector: 'emx-header',
@@ -23,7 +24,7 @@ import { NotificationStore } from '../../core/stores/notification.store';
       <div class="flex items-center">
         <div class="badge badge--info font-mono text-xs px-3 py-1">
           <span class="dot"></span>
-          EMERGEX DEMO
+          {{ tenantName() }}
         </div>
       </div>
 
@@ -52,7 +53,10 @@ import { NotificationStore } from '../../core/stores/notification.store';
         <div class="h-5 border-l" style="border-color: var(--border-glass);"></div>
 
         <!-- Clock -->
-        <span class="font-mono text-xs" style="color: var(--text-secondary);">{{ clock() }}</span>
+        <span
+          class="font-mono text-xs"
+          style="color: var(--accent-cyan); text-shadow: 0 0 12px rgba(34,211,238,0.5);"
+        >{{ clock() }}</span>
 
         <!-- Sistema OK -->
         <div class="badge badge--stable">
@@ -70,6 +74,10 @@ import { NotificationStore } from '../../core/stores/notification.store';
             <path d="M6 1v10M1 6h10"/>
           </svg>
           Nueva Emergencia
+          <span
+            class="font-mono text-xs ml-1 px-1 rounded"
+            style="background: rgba(255,255,255,0.15); opacity: 0.8;"
+          >N</span>
         </button>
 
         <!-- Notifications -->
@@ -94,8 +102,8 @@ import { NotificationStore } from '../../core/stores/notification.store';
           <div
             class="w-6 h-6 rounded-full flex items-center justify-center font-mono text-xs font-bold"
             style="background: var(--accent-blue); color: white;"
-          >OP</div>
-          <span class="text-xs font-medium" style="color: var(--text-secondary);">Operador</span>
+          >{{ userInitials() }}</div>
+          <span class="text-xs font-medium" style="color: var(--text-secondary);">{{ userName() }}</span>
         </div>
       </div>
     </header>
@@ -109,6 +117,25 @@ export class HeaderComponent implements OnInit, OnDestroy {
   createEmergency = output<void>();
 
   readonly notifications = inject(NotificationStore);
+  private auth = inject(AuthService);
+
+  readonly tenantName = computed(() =>
+    this.auth.currentAccount()?.empresa?.nombre?.toUpperCase() ?? 'EMERGEX DEMO',
+  );
+
+  readonly userInitials = computed(() => {
+    const a = this.auth.currentAccount();
+    if (!a) return 'OP';
+    const f = a.firstName?.[0] ?? '';
+    const l = a.lastName?.[0] ?? '';
+    return (f + l).toUpperCase() || a.login.slice(0, 2).toUpperCase();
+  });
+
+  readonly userName = computed(() => {
+    const a = this.auth.currentAccount();
+    if (!a) return 'Operador';
+    return a.firstName ? `${a.firstName} ${a.lastName ?? ''}`.trim() : a.login;
+  });
 
   readonly clock = signal('00:00:00');
   private interval?: ReturnType<typeof setInterval>;

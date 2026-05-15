@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
   UnidadMovilDTO,
+  CrearAmbulanciaRequest,
   FlotaDashboardDTO,
   FlotaMetricasDTO,
   TurnoMovilDTO,
@@ -29,6 +30,10 @@ export class FleetApiService {
 
   ambulanciasDisponibles(): Observable<UnidadMovilDTO[]> {
     return this.http.get<UnidadMovilDTO[]>(`${this.base}/ambulancias-disponibles`);
+  }
+
+  crearAmbulancia(req: CrearAmbulanciaRequest): Observable<UnidadMovilDTO> {
+    return this.http.post<UnidadMovilDTO>(`${this.base}/ambulancias`, req);
   }
 
   getAmbulancia(id: number): Observable<UnidadMovilDTO> {

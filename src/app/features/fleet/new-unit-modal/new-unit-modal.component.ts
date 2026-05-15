@@ -1,16 +1,8 @@
 import { Component, output, inject, signal } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
+import { FleetApiService } from '../../../data-access/api/fleet.api';
+import { CrearAmbulanciaRequest } from '../../../data-access/dto/ambulancia.dto';
 import { ModalShellComponent } from '../../../shared/components/modal-shell/modal-shell.component';
-import { environment } from '../../../../environments/environment';
-
-interface CrearAmbulanciaRequest {
-  identificador: string;
-  tipo: 'ALS' | 'BLS';
-  patente?: string;
-  modelo?: string;
-  anio?: number;
-}
 
 @Component({
   selector: 'emx-new-unit-modal',
@@ -122,7 +114,7 @@ export class NewUnitModalComponent {
   created = output<void>();
   closed = output<void>();
 
-  private http = inject(HttpClient);
+  private fleetApi = inject(FleetApiService);
   private fb = inject(FormBuilder);
 
   readonly saving = signal(false);
@@ -160,7 +152,7 @@ export class NewUnitModalComponent {
       modelo: val.modelo || undefined,
       anio: val.anio ?? undefined,
     };
-    this.http.post(`${environment.apiUrl}/api/ambulancias`, req).subscribe({
+    this.fleetApi.crearAmbulancia(req).subscribe({
       next: () => {
         this.saving.set(false);
         this.created.emit();

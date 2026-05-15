@@ -1,5 +1,7 @@
 import { Component, input, computed } from '@angular/core';
 
+let _uidCounter = 0;
+
 @Component({
   selector: 'emx-sparkline',
   standalone: true,
@@ -52,7 +54,7 @@ export class SparklineComponent {
   width = input(120);
   height = input(40);
 
-  private uid = Math.random().toString(36).slice(2, 8);
+  private uid = ++_uidCounter;
   gradId = computed(() => `spark-grad-${this.uid}`);
 
   points = computed(() => {

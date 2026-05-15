@@ -1,11 +1,12 @@
-import { Injectable, inject, signal, computed } from '@angular/core';
-import { interval } from 'rxjs';
+import { Injectable, inject, signal, computed, OnDestroy } from '@angular/core';
+import { interval, Subscription } from 'rxjs';
 import { EmergencyApiService } from '../../data-access/api/emergency.api';
 import { TicketAsistenciaDTO } from '../../data-access/dto/ticket.dto';
 
 @Injectable({ providedIn: 'root' })
-export class EmergencyStore {
+export class EmergencyStore implements OnDestroy {
   private api = inject(EmergencyApiService);
+  private tickerSub: Subscription | null = null;
 
   readonly emergencies = signal<TicketAsistenciaDTO[]>([]);
   readonly loading = signal(false);
@@ -32,13 +33,18 @@ export class EmergencyStore {
     });
   }
 
-  /** Tick elapsed seconds every second */
+  /** Tick elapsed seconds every second — safe to call multiple times */
   startTicker(): void {
-    interval(1000).subscribe(() => {
+    if (this.tickerSub) return;
+    this.tickerSub = interval(1000).subscribe(() => {
       this.emergencies.update((list) =>
         list.map((e) => ({ ...e, elapsedSeconds: (e.elapsedSeconds ?? 0) + 1 })),
       );
     });
+  }
+
+  ngOnDestroy(): void {
+    this.tickerSub?.unsubscribe();
   }
 
   selectEmergency(id: number | null): void {
