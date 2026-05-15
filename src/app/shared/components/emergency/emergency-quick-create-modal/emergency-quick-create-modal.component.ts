@@ -81,7 +81,7 @@ const SECTORES = ['Centro', 'Zona Norte', 'Zona Sur', 'Zona Este', 'Zona Oeste',
           <input
             type="text"
             formControlName="direccion"
-            placeholder="Av. Corrientes 1234, CABA"
+            placeholder="Av. Independencia 842, Centro"
             class="rounded-btn px-3 py-2 text-sm w-full"
             style="background: var(--surface-glass); border: 1px solid var(--border-strong); color: var(--text-primary);"
           />

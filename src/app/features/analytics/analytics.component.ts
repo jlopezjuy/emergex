@@ -58,7 +58,7 @@ const HOUR_VALUES = [2, 1, 0, 1, 3, 5, 8, 12, 10, 9, 7, 6, 8, 11, 10, 9, 12, 15,
           <span class="text-lg" style="color: var(--accent-cyan);">📊</span>
           <div>
             <h1 class="font-semibold text-sm leading-tight" style="color: var(--text-primary);">Analítica Operativa</h1>
-            <p class="font-mono text-xs" style="color: var(--text-muted);">ÚLTIMOS 30 DÍAS · CDMX METRO NORTE</p>
+            <p class="font-mono text-xs" style="color: var(--text-muted);">ÚLTIMOS 30 DÍAS</p>
           </div>
         </div>
 

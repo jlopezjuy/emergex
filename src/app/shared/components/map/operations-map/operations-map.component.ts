@@ -16,14 +16,14 @@ import type { FeatureCollection, LineString } from 'geojson';
 import { UnidadMovilDTO } from '../../../../data-access/dto/ambulancia.dto';
 import { TicketAsistenciaDTO } from '../../../../data-access/dto/ticket.dto';
 
-// ─── CDMX mock coordinates ────────────────────────────────────────────────────
+// ─── San Salvador de Jujuy mock coordinates ───────────────────────────────────
 
-const CDMX: [number, number] = [-99.1332, 19.4326];
+const SSJ: [number, number] = [-65.2995, -24.1858];
 
 function mockLngLat(id: number | undefined, spread: number): [number, number] {
   const n = id ?? 0;
-  const lng = CDMX[0] + (((n * 17 + 7) % 100) / 100 - 0.5) * spread;
-  const lat = CDMX[1] + (((n * 31 + 13) % 100) / 100 - 0.5) * spread * 0.7;
+  const lng = SSJ[0] + (((n * 17 + 7) % 100) / 100 - 0.5) * spread;
+  const lat = SSJ[1] + (((n * 31 + 13) % 100) / 100 - 0.5) * spread * 0.7;
   return [lng, lat];
 }
 
@@ -229,7 +229,7 @@ const LEGEND = [
 
     <!-- Coordinates overlay -->
     <div class="map-coords">
-      LAT {{ zoom() ? '19.4326' : '—' }} · LNG {{ zoom() ? '-99.1332' : '—' }} · ZOOM {{ zoom() }}×
+      LAT {{ zoom() ? '-24.1858' : '—' }} · LNG {{ zoom() ? '-65.2995' : '—' }} · ZOOM {{ zoom() }}×
     </div>
   `,
 })
@@ -274,7 +274,7 @@ export class OperationsMapComponent implements OnDestroy {
       this.map = new MapLibreMap({
         container: this.mapEl().nativeElement,
         style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-        center: CDMX,
+        center: SSJ,
         zoom: 11,
         attributionControl: false,
       });

@@ -270,7 +270,7 @@ function barOpacity(signalLevel: number, barIndex: number): number {
           <span class="dot-live" style="background:var(--accent-red); box-shadow:var(--glow-red);"></span>
           <span style="font-size:12px; color:var(--text-secondary);">
             Transmitiendo: <strong style="color:var(--accent-cyan); font-family:var(--font-mono);">U-07</strong>
-            — Calle Corrientes 1234
+            — Av. Independencia 842, Centro
           </span>
         </div>
       </main>

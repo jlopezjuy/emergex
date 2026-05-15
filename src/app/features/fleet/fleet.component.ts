@@ -47,7 +47,7 @@ type FleetTab = 'TODAS' | 'DISPONIBLE' | 'EN_RUTA' | 'EN_SITIO' | 'TRASLADO' | '
           </div>
           <div>
             <h1 class="font-semibold text-lg" style="color:var(--text-primary);">Gestión de Flota</h1>
-            <p class="font-mono text-xs mt-0.5" style="color:var(--text-muted);">UNIDADES MÓVILES · CDMX METRO NORTE</p>
+            <p class="font-mono text-xs mt-0.5" style="color:var(--text-muted);">UNIDADES MÓVILES</p>
           </div>
           <!-- Inline KPIs -->
           <div class="flex items-center gap-0 ml-4 rounded-lg overflow-hidden flex-shrink-0" style="border:1px solid var(--border-glass);background:var(--bg-elevated);">

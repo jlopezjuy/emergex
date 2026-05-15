@@ -47,7 +47,7 @@ type FeedTab = 'TODAS' | 'SIN_ASIGNAR' | 'CRITICAS';
                 <path d="M5 2.5v10M8.5 1v10.5"/>
               </svg>
               <span class="font-mono text-xs font-semibold" style="color: var(--text-primary);">Mapa Operacional</span>
-              <span class="font-mono text-xs" style="color: var(--text-muted);">CDMX · VISTA MAESTRA</span>
+              <span class="font-mono text-xs" style="color: var(--text-muted);">SSJ · VISTA MAESTRA</span>
             </div>
             <div class="flex items-center gap-1.5" style="pointer-events: auto;">
               <button type="button" class="flex items-center gap-1 px-2 py-0.5 rounded font-mono text-xs"

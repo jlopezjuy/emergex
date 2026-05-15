@@ -298,27 +298,42 @@ const ALL_STEPS: StatusStep[] = [
 
               <!-- 7. Timeline -->
               <emx-glass-card>
-                <h2 class="section-label">Timeline</h2>
+                <div class="flex items-center justify-between mb-3">
+                  <h2 class="section-label" style="margin:0;">Trazabilidad operativa</h2>
+                  <span class="font-mono text-xs" style="color: var(--text-muted);">{{ timeline().length }} eventos</span>
+                </div>
                 @if (timeline().length === 0) {
                   <emx-empty-state message="Sin eventos registrados" />
                 } @else {
                   <ol class="flex flex-col gap-0">
                     @for (ev of timeline(); track ev.id; let last = $last) {
                       <li class="flex gap-3">
-                        <div class="flex flex-col items-center">
-                          <div class="w-2 h-2 rounded-full mt-1 flex-shrink-0" style="background: var(--accent-cyan);"></div>
+                        <div class="flex flex-col items-center flex-shrink-0">
+                          <div class="w-2.5 h-2.5 rounded-full mt-0.5 flex-shrink-0"
+                               [style.background]="timelineColor(ev.estado)"
+                               [style.box-shadow]="'0 0 8px ' + timelineColor(ev.estado) + '99'">
+                          </div>
                           @if (!last) {
-                            <div class="flex-1 w-px mt-1 mb-0" style="background: var(--border-glass); min-height: 24px;"></div>
+                            <div class="flex-1 w-px mt-1" style="background: var(--border-glass); min-height: 28px;"></div>
                           }
                         </div>
-                        <div class="pb-4">
-                          <p class="text-xs font-mono" style="color: var(--text-muted);">{{ formatDate(ev.fecha) }}</p>
-                          <p class="text-sm font-semibold mt-0.5" style="color: var(--text-primary);">{{ ev.estado }}</p>
+                        <div class="pb-4 flex-1 min-w-0">
+                          <div class="flex items-center gap-2 flex-wrap mb-0.5">
+                            <span class="font-mono rounded px-1.5 py-0.5"
+                                  [style.color]="timelineColor(ev.estado)"
+                                  [style.background]="timelineColor(ev.estado) + '22'"
+                                  style="font-size:9px; letter-spacing:0.08em; font-weight:700; border: 1px solid currentColor; opacity: 0.85;">
+                              {{ timelineLabel(ev.estado) }}
+                            </span>
+                            @if (ev.operador) {
+                              <span class="font-mono text-xs" style="color: var(--text-muted);">{{ ev.operador }}</span>
+                            }
+                            <span class="font-mono text-xs ml-auto" style="color: var(--text-muted);">{{ formatTime(ev.fecha) }}</span>
+                          </div>
                           @if (ev.notas) {
-                            <p class="text-xs mt-0.5" style="color: var(--text-secondary);">{{ ev.notas }}</p>
-                          }
-                          @if (ev.operador) {
-                            <p class="text-xs mt-0.5" style="color: var(--text-muted);">por {{ ev.operador }}</p>
+                            <p class="text-xs" style="color: var(--text-secondary);">{{ ev.notas }}</p>
+                          } @else {
+                            <p class="text-xs" style="color: var(--text-secondary);">{{ ev.estado.replace('_', ' ') }}</p>
                           }
                         </div>
                       </li>
@@ -422,38 +437,59 @@ const ALL_STEPS: StatusStep[] = [
               </emx-glass-card>
 
               <!-- 11. Mini mapa SVG -->
-              <emx-glass-card>
-                <h2 class="section-label">Mapa</h2>
-                <svg width="100%" viewBox="0 0 280 160" style="border-radius: 8px; background: var(--bg-map, #0f172a);">
-                  <!-- Grid lines -->
-                  <line x1="0" y1="40" x2="280" y2="40" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
-                  <line x1="0" y1="80" x2="280" y2="80" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
-                  <line x1="0" y1="120" x2="280" y2="120" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
-                  <line x1="70" y1="0" x2="70" y2="160" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
-                  <line x1="140" y1="0" x2="140" y2="160" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
-                  <line x1="210" y1="0" x2="210" y2="160" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
-
-                  <!-- Dashed line ambulance → incident (if ambulanciaId) -->
+              <emx-glass-card style="padding: 0; overflow: hidden;">
+                <div class="flex items-center justify-between px-4 py-2 flex-shrink-0"
+                     style="border-bottom: 1px solid var(--border-glass);">
+                  <div class="flex items-center gap-2">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" stroke-width="2"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+                    <span class="eyebrow">Ruta · Tiempo real</span>
+                  </div>
                   @if (ticket()?.ambulanciaId) {
-                    <line x1="60" y1="100" x2="140" y2="80"
-                          stroke="var(--accent-cyan)" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.7"/>
+                    <span class="font-mono text-xs" style="color: var(--accent-cyan);">● En movimiento</span>
+                  }
+                </div>
+                <svg width="100%" viewBox="0 0 300 180" style="display:block; background: #0a1628;">
+                  <defs>
+                    <pattern id="miniGrid" width="20" height="20" patternUnits="userSpaceOnUse">
+                      <path d="M0 0H20M0 0V20" stroke="rgba(148,163,184,0.06)" stroke-width="0.5"/>
+                    </pattern>
+                  </defs>
+                  <rect width="300" height="180" fill="url(#miniGrid)"/>
+                  <!-- roads -->
+                  <path d="M0 110 C 80 90, 160 120, 240 100 S 300 85, 300 85" stroke="rgba(148,163,184,0.25)" stroke-width="3" fill="none"/>
+                  <path d="M0 50 C 80 60, 160 45, 300 70" stroke="rgba(148,163,184,0.18)" stroke-width="2" fill="none"/>
+                  <!-- river -->
+                  <path d="M0 148 C 100 155, 220 140, 300 150 L 300 180 L 0 180 Z" fill="rgba(10,37,64,0.5)"/>
+
+                  <!-- Animated route line (ambulance → incident) -->
+                  @if (ticket()?.ambulanciaId) {
+                    <path d="M 65 90 Q 140 75, 185 70" stroke="var(--accent-cyan)" stroke-width="2" fill="none" stroke-dasharray="5 4">
+                      <animate attributeName="stroke-dashoffset" from="0" to="-18" dur="1.4s" repeatCount="indefinite"/>
+                    </path>
+                  }
+                  <!-- Route to hospital -->
+                  <path d="M 185 70 Q 230 62, 255 58" stroke="rgba(16,185,129,0.5)" stroke-width="1.5" fill="none" stroke-dasharray="4 4"/>
+
+                  <!-- Incident pulse -->
+                  <circle cx="185" cy="70" r="18" fill="var(--accent-red)" opacity="0.15">
+                    <animate attributeName="r" from="12" to="24" dur="1.8s" repeatCount="indefinite"/>
+                    <animate attributeName="opacity" from="0.3" to="0" dur="1.8s" repeatCount="indefinite"/>
+                  </circle>
+                  <circle cx="185" cy="70" r="6" fill="var(--accent-red)" stroke="white" stroke-width="1.5"/>
+                  <text x="198" y="68" font-family="IBM Plex Mono,monospace" font-size="9" fill="var(--accent-red)">{{ ticket()?.codigo ?? ticket()?.id }}</text>
+
+                  <!-- Ambulance -->
+                  @if (ticket()?.ambulanciaId) {
+                    <rect x="56" y="81" width="18" height="18" rx="4" fill="#0f172a" stroke="var(--accent-blue)" stroke-width="1.5"
+                          filter="drop-shadow(0 0 6px rgba(59,130,246,0.5))"/>
+                    <path d="M61 90 H 70 M 65 85 V 95" stroke="var(--accent-blue)" stroke-width="1.5" stroke-linecap="round"/>
+                    <text x="78" y="94" font-family="IBM Plex Mono,monospace" font-size="9" fill="var(--accent-blue)">AMB-{{ ticket()?.ambulanciaId }}</text>
                   }
 
-                  <!-- Incident marker -->
-                  <circle cx="140" cy="80" r="14" fill="rgba(239,68,68,0.25)" stroke="var(--accent-red)" stroke-width="1.5"/>
-                  <circle cx="140" cy="80" r="5" fill="var(--accent-red)"/>
-                  <text x="140" y="77" text-anchor="middle" font-size="7" fill="white" font-family="monospace" dy="3">INC</text>
-
-                  <!-- Ambulance marker -->
-                  @if (ticket()?.ambulanciaId) {
-                    <circle cx="60" cy="100" r="12" fill="rgba(59,130,246,0.25)" stroke="var(--accent-blue)" stroke-width="1.5"/>
-                    <circle cx="60" cy="100" r="4" fill="var(--accent-blue)"/>
-                    <text x="60" y="97" text-anchor="middle" font-size="7" fill="white" font-family="monospace" dy="3">AMB</text>
-                  }
-
-                  <!-- Hospital marker -->
-                  <circle cx="220" cy="55" r="12" fill="rgba(16,185,129,0.2)" stroke="var(--accent-emerald)" stroke-width="1.5"/>
-                  <text x="220" y="52" text-anchor="middle" font-size="7" fill="var(--accent-emerald)" font-family="monospace" dy="3">HSP</text>
+                  <!-- Hospital -->
+                  <rect x="247" y="50" width="16" height="16" rx="3" fill="rgba(16,185,129,0.15)" stroke="var(--accent-emerald)" stroke-width="1.5"/>
+                  <path d="M251 58 H 259 M 255 54 V 62" stroke="var(--accent-emerald)" stroke-width="1.5" stroke-linecap="round"/>
+                  <text x="238" y="44" font-family="IBM Plex Mono,monospace" font-size="8" fill="var(--accent-emerald)">HSP</text>
                 </svg>
               </emx-glass-card>
 
@@ -697,6 +733,34 @@ export class EmergencyDetailComponent implements OnInit {
       next: () => this.load(),
       error: () => this.error.set('Error al cancelar el ticket'),
     });
+  }
+
+  timelineColor(estado: string): string {
+    const map: Record<string, string> = {
+      'RECIBIDO':   'var(--accent-red)',
+      'DESPACHADO': 'var(--accent-blue)',
+      'EN_CAMINO':  'var(--accent-blue)',
+      'EN_SITIO':   'var(--accent-amber)',
+      'TRASLADO':   'var(--accent-cyan)',
+      'ENTREGADO':  'var(--accent-emerald)',
+      'CERRADO':    'var(--text-muted)',
+      'CANCELADO':  'var(--accent-red)',
+    };
+    return map[estado] ?? 'var(--text-muted)';
+  }
+
+  timelineLabel(estado: string): string {
+    const map: Record<string, string> = {
+      'RECIBIDO':   'CREACIÓN',
+      'DESPACHADO': 'DESPACHO',
+      'EN_CAMINO':  'EN RUTA',
+      'EN_SITIO':   'EN SITIO',
+      'TRASLADO':   'TRASLADO',
+      'ENTREGADO':  'ENTREGADO',
+      'CERRADO':    'CIERRE',
+      'CANCELADO':  'CANCELADO',
+    };
+    return map[estado] ?? estado;
   }
 
   formatDate(iso?: string): string {
