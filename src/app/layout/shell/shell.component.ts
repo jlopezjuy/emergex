@@ -3,6 +3,7 @@ import { RouterOutlet } from '@angular/router';
 import { SidebarComponent } from '../sidebar/sidebar.component';
 import { HeaderComponent } from '../header/header.component';
 import { EmergencyQuickCreateModalComponent } from '../../shared/components/emergency/emergency-quick-create-modal/emergency-quick-create-modal.component';
+import { InstitutionalModalComponent } from '../../shared/components/emergency/institutional-modal/institutional-modal.component';
 import { EmergencyApiService } from '../../data-access/api/emergency.api';
 import { EmergencyStore } from '../../core/stores/emergency.store';
 import { FleetStore } from '../../core/stores/fleet.store';
@@ -17,6 +18,7 @@ import { CrearTicketRequest } from '../../data-access/dto/ticket.dto';
     SidebarComponent,
     HeaderComponent,
     EmergencyQuickCreateModalComponent,
+    InstitutionalModalComponent,
   ],
   template: `
     <div class="flex h-screen overflow-hidden" style="background: var(--bg-deep);">
@@ -27,6 +29,7 @@ import { CrearTicketRequest } from '../../data-access/dto/ticket.dto';
           [criticalCount]="criticalCount()"
           [availableCount]="availableCount()"
           (createEmergency)="showCreateModal.set(true)"
+          (createInstitutional)="showInstitutionalModal.set(true)"
         />
         <main class="flex-1 overflow-auto" style="background: var(--bg-deep);">
           <router-outlet />
@@ -40,6 +43,13 @@ import { CrearTicketRequest } from '../../data-access/dto/ticket.dto';
         (closed)="showCreateModal.set(false)"
       />
     }
+
+    @if (showInstitutionalModal()) {
+      <emx-institutional-modal
+        (closed)="showInstitutionalModal.set(false)"
+        (submitted)="showInstitutionalModal.set(false)"
+      />
+    }
   `,
 })
 export class ShellComponent implements OnInit {
@@ -49,6 +59,7 @@ export class ShellComponent implements OnInit {
   private auth = inject(AuthService);
 
   readonly showCreateModal = signal(false);
+  readonly showInstitutionalModal = signal(false);
 
   ngOnInit(): void {
     if (!this.auth.currentAccount()) {

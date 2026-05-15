@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, OnDestroy } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
@@ -8,123 +8,400 @@ import { AuthService } from '../../../core/auth/auth.service';
   standalone: true,
   imports: [ReactiveFormsModule],
   template: `
-    <div
-      class="min-h-screen flex items-center justify-center"
-      style="background: var(--bg-deep);"
-    >
-      <!-- Background glow -->
-      <div
-        class="absolute inset-0 pointer-events-none"
-        style="background: radial-gradient(ellipse 60% 40% at 50% 20%, rgba(59,130,246,0.08), transparent);"
-      ></div>
+    <div class="login">
 
-      <!-- Card -->
-      <div
-        class="glass-strong rounded-card p-8 w-full relative z-10"
-        style="max-width: 380px;"
-      >
-        <!-- Logo -->
-        <div class="flex flex-col items-center gap-3 mb-8">
-          <div
-            class="w-14 h-14 rounded-card flex items-center justify-center"
-            style="background: var(--accent-blue);"
-          >
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-              <!-- Cross / medical -->
-              <rect x="11" y="4" width="6" height="20" rx="2" fill="white"/>
-              <rect x="4" y="11" width="20" height="6" rx="2" fill="white"/>
+      <!-- ── Animated background ── -->
+      <div class="login__bg" aria-hidden="true">
+        <svg viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" style="width:100%;height:100%">
+          <defs>
+            <radialGradient id="bgGlowR" cx="20%" cy="30%" r="50%">
+              <stop offset="0%" stop-color="rgba(239,68,68,0.18)"/>
+              <stop offset="100%" stop-color="transparent"/>
+            </radialGradient>
+            <radialGradient id="bgGlowB" cx="80%" cy="75%" r="50%">
+              <stop offset="0%" stop-color="rgba(59,130,246,0.16)"/>
+              <stop offset="100%" stop-color="transparent"/>
+            </radialGradient>
+            <pattern id="loginGrid" width="48" height="48" patternUnits="userSpaceOnUse">
+              <path d="M0 0H48M0 0V48" stroke="rgba(148,163,184,0.06)" stroke-width="0.6"/>
+            </pattern>
+          </defs>
+          <rect width="1200" height="800" fill="url(#bgGlowR)"/>
+          <rect width="1200" height="800" fill="url(#bgGlowB)"/>
+          <rect width="1200" height="800" fill="url(#loginGrid)"/>
+        </svg>
+      </div>
+
+      <!-- ── Top bar ── -->
+      <div class="login__topbar">
+        <div class="login__brand">
+          <div class="login__brand-mark">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3v18M3 12h18"/>
             </svg>
           </div>
-          <div class="text-center">
-            <h1 class="font-mono font-bold text-xl tracking-tight" style="color: var(--text-primary);">
-              EMERGEX
-            </h1>
-            <p class="text-xs mt-0.5" style="color: var(--text-muted);">
-              Sistema de Gestión de Emergencias
-            </p>
+          <div>
+            <div style="font-size:14px;font-weight:600;letter-spacing:-0.01em">Emergex</div>
+            <div class="eyebrow" style="margin-top:1px">Cuando cada minuto cuenta</div>
           </div>
         </div>
+        <div style="display:flex;align-items:center;gap:14px">
+          <div class="login__status">
+            <span class="dot-live"></span>
+            <span class="mono micro" style="color:var(--accent-emerald)">Sistema operativo</span>
+          </div>
+          <div class="login__clock mono">{{ clock() }}</div>
+        </div>
+      </div>
 
-        <!-- Form -->
-        <form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-4">
+      <!-- ── Center: form + metrics ── -->
+      <div class="login__center">
+
+        <!-- Form card -->
+        <form class="login__card glass-strong" [formGroup]="form" (ngSubmit)="submit()">
+          <div class="login__head">
+            <div class="eyebrow" style="color:var(--accent-red)">● ACCESO RESTRINGIDO</div>
+            <h1 style="margin:8px 0 4px;font-size:24px;font-weight:600;letter-spacing:-0.015em">Centro de Operaciones</h1>
+            <div style="font-size:13px;color:var(--text-secondary)">Identifícate para continuar.</div>
+          </div>
+
           @if (errorMsg()) {
-            <div
-              class="rounded-btn px-3 py-2 text-xs"
-              style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #FCA5A5;"
-            >
-              {{ errorMsg() }}
-            </div>
+            <div class="login__error">{{ errorMsg() }}</div>
           }
 
-          <div class="flex flex-col gap-1">
-            <label class="text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary);">
-              Usuario
-            </label>
-            <input
-              type="text"
-              formControlName="username"
-              placeholder="nombre.apellido"
-              autocomplete="username"
-              class="rounded-btn px-3 py-2.5 text-sm w-full outline-none transition-all"
-              style="background: var(--surface-glass); border: 1px solid var(--border-strong); color: var(--text-primary);"
-            />
+          <div class="login__fields">
+            <div class="qc-field">
+              <label class="eyebrow">Correo institucional</label>
+              <input
+                class="qc-input"
+                type="text"
+                formControlName="username"
+                placeholder="apellido.nombre@emergex.com.ar"
+                autocomplete="username"
+                autofocus
+              />
+            </div>
+            <div class="qc-field">
+              <label class="eyebrow" style="display:flex;justify-content:space-between;align-items:center">
+                <span>Contraseña</span>
+                <a class="login__link" href="#" (click)="$event.preventDefault()">¿Olvidaste tu contraseña?</a>
+              </label>
+              <input
+                class="qc-input"
+                type="password"
+                formControlName="password"
+                placeholder="••••••••••"
+                autocomplete="current-password"
+              />
+            </div>
+            <div class="qc-field">
+              <label class="eyebrow">Sede operativa</label>
+              <select class="qc-input" formControlName="tenant">
+                <option value="metro_norte">Cruz Médica · Centro (San Salvador de Jujuy)</option>
+                <option value="metro_sur">Cruz Médica · Alto Comedero (Jujuy)</option>
+                <option value="palpala">Cruz Médica · Palpalá (Jujuy)</option>
+              </select>
+            </div>
           </div>
 
-          <div class="flex flex-col gap-1">
-            <label class="text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary);">
-              Contraseña
-            </label>
-            <input
-              type="password"
-              formControlName="password"
-              placeholder="••••••••"
-              autocomplete="current-password"
-              class="rounded-btn px-3 py-2.5 text-sm w-full outline-none transition-all"
-              style="background: var(--surface-glass); border: 1px solid var(--border-strong); color: var(--text-primary);"
-            />
-          </div>
-
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" formControlName="rememberMe" class="rounded" />
-            <span class="text-xs" style="color: var(--text-secondary);">Recordarme</span>
-          </label>
-
-          <button
-            type="submit"
-            class="btn btn--primary mt-2"
+          <button class="btn btn--danger login__cta" type="submit"
             [disabled]="loading() || form.invalid"
-          >
+            [style.opacity]="form.invalid ? '0.5' : '1'">
             @if (loading()) {
-              <svg class="animate-spin" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M7 1a6 6 0 010 12"/>
-              </svg>
-              Ingresando...
+              <span class="login__spin"></span>
+              <span>Validando credenciales…</span>
             } @else {
-              Ingresar al sistema
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              <span>Iniciar sesión</span>
             }
           </button>
+
+          <div class="login__divider"><span>o</span></div>
+
+          <button type="button" class="btn btn--ghost" style="width:100%" (click)="quickDemo()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            Entrar como demo (admin)
+          </button>
+
+          <div class="login__foot">
+            <div class="mono micro">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--accent-emerald)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              Conexión cifrada · TLS 1.3 · ISO 27001
+            </div>
+          </div>
         </form>
 
-        <p class="text-center text-xs mt-6" style="color: var(--text-muted);">
-          Emergex v1.0 · Acceso restringido
-        </p>
+        <!-- Side metrics -->
+        <div class="login__side">
+          <div class="login__metric glass">
+            <div class="eyebrow">Servicios último mes</div>
+            <div class="mono" style="font-size:32px;font-weight:500;margin-top:4px">2,847</div>
+            <div class="mono micro" style="color:var(--accent-emerald)">▲ +12% vs. mes anterior</div>
+          </div>
+          <div class="login__metric glass">
+            <div class="eyebrow">Tiempo medio resp.</div>
+            <div class="mono" style="font-size:32px;font-weight:500;margin-top:4px;color:var(--accent-cyan)">
+              7.4<span style="font-size:14px;color:var(--text-muted);margin-left:4px">min</span>
+            </div>
+            <div class="mono micro" style="color:var(--accent-emerald)">▼ -0.8 min</div>
+          </div>
+          <div class="login__metric glass">
+            <div class="eyebrow">Cumplimiento SLA</div>
+            <div class="mono" style="font-size:32px;font-weight:500;margin-top:4px;color:var(--accent-emerald)">
+              93.2<span style="font-size:14px;color:var(--text-muted);margin-left:4px">%</span>
+            </div>
+            <div class="mono micro" style="color:var(--text-muted)">● 192/192 críticos resueltos</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Bottom bar ── -->
+      <div class="login__bottom">
+        <div class="mono micro" style="color:var(--text-muted)">
+          © 2026 Emergex Healthcare Systems · v3.2.0 · Build 2026.05.15
+        </div>
+        <div style="display:flex;gap:18px">
+          <a class="login__link" href="#" (click)="$event.preventDefault()">Soporte 24/7</a>
+          <a class="login__link" href="#" (click)="$event.preventDefault()">Documentación</a>
+          <a class="login__link" href="#" (click)="$event.preventDefault()">Estado del sistema</a>
+        </div>
       </div>
     </div>
   `,
+  styles: [`
+    :host { display: block; }
+
+    /* ── Full-screen wrapper ── */
+    .login {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-deep);
+      overflow: hidden;
+    }
+
+    /* ── Background ── */
+    .login__bg {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Top bar ── */
+    .login__topbar {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 28px;
+      border-bottom: 1px solid var(--border-hairline);
+      background: rgba(2, 6, 23, 0.4);
+      backdrop-filter: blur(8px);
+    }
+    .login__brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .login__brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #DC2626, #EF4444);
+      box-shadow: 0 0 18px rgba(239, 68, 68, 0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .login__status {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .dot-live {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent-emerald);
+      box-shadow: 0 0 8px var(--accent-emerald);
+      animation: pulse-dot 1.8s infinite;
+      flex-shrink: 0;
+    }
+    .login__clock {
+      font-size: 13px;
+      color: var(--text-secondary);
+      letter-spacing: 0.04em;
+    }
+
+    /* ── Center ── */
+    .login__center {
+      position: relative;
+      z-index: 1;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 32px;
+      padding: 32px 28px;
+    }
+
+    /* ── Form card ── */
+    .login__card {
+      width: 100%;
+      max-width: 420px;
+      border-radius: var(--r-card);
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .login__head {
+      margin-bottom: 24px;
+    }
+    .login__fields {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .login__cta {
+      width: 100%;
+      height: 42px;
+      font-size: 14px;
+      gap: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .login__divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 16px 0;
+      color: var(--text-dim);
+      font-size: 12px;
+    }
+    .login__divider::before,
+    .login__divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border-hairline);
+    }
+    .login__foot {
+      margin-top: 20px;
+      text-align: center;
+      color: var(--text-muted);
+    }
+    .login__error {
+      padding: 8px 12px;
+      border-radius: var(--r-btn);
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.3);
+      color: #FCA5A5;
+      font-size: 12.5px;
+      margin-bottom: 12px;
+    }
+    .login__link {
+      font-size: 11.5px;
+      color: var(--accent-blue);
+      text-decoration: none;
+      transition: opacity 0.15s;
+    }
+    .login__link:hover { opacity: 0.75; }
+
+    /* ── Spin loader ── */
+    .login__spin {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255,255,255,0.25);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Side metrics ── */
+    .login__side {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      width: 220px;
+      flex-shrink: 0;
+    }
+    .login__metric {
+      padding: 18px 20px;
+      border-radius: var(--r-card);
+      border: 1px solid var(--border-glass);
+      background: var(--surface-glass);
+    }
+
+    /* ── Bottom bar ── */
+    .login__bottom {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 28px;
+      border-top: 1px solid var(--border-hairline);
+      background: rgba(2, 6, 23, 0.4);
+      backdrop-filter: blur(8px);
+    }
+
+    /* ── btn--danger override ── */
+    .btn--danger {
+      background: linear-gradient(135deg, #DC2626, #B91C1C);
+      color: white;
+      border-color: transparent;
+      box-shadow: 0 0 16px rgba(239, 68, 68, 0.3);
+    }
+    .btn--danger:hover:not(:disabled) {
+      background: linear-gradient(135deg, #EF4444, #DC2626);
+      box-shadow: 0 0 22px rgba(239, 68, 68, 0.45);
+    }
+
+    /* ── Responsive: hide side metrics on small screens ── */
+    @media (max-width: 768px) {
+      .login__side { display: none; }
+    }
+  `],
 })
-export class LoginComponent {
+export class LoginComponent implements OnDestroy {
   private fb = inject(FormBuilder);
   private auth = inject(AuthService);
   private router = inject(Router);
 
   readonly loading = signal(false);
   readonly errorMsg = signal<string | null>(null);
+  readonly clock = signal(this.fmtTime(new Date()));
+
+  private clockInterval = setInterval(() => this.clock.set(this.fmtTime(new Date())), 1000);
 
   form = this.fb.group({
-    username: ['', Validators.required],
-    password: ['', Validators.required],
-    rememberMe: [false],
+    username:  ['', Validators.required],
+    password:  ['', Validators.required],
+    tenant:    ['metro_norte'],
   });
+
+  ngOnDestroy(): void {
+    clearInterval(this.clockInterval);
+  }
+
+  private fmtTime(d: Date): string {
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  }
+
+  quickDemo(): void {
+    this.form.patchValue({ username: 'admin', password: 'admin' });
+    setTimeout(() => this.submit(), 60);
+  }
 
   submit(): void {
     if (this.form.invalid) {
@@ -139,7 +416,7 @@ export class LoginComponent {
       .login({
         username: val.username!,
         password: val.password!,
-        rememberMe: val.rememberMe ?? false,
+        rememberMe: false,
       })
       .subscribe({
         next: () => {

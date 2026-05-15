@@ -19,7 +19,7 @@ type TabId = 'activo' | 'programar' | 'tripulacion' | 'calendario';
     EmptyStateComponent,
   ],
   template: `
-    <emx-modal-shell [title]="'Configurar: ' + unit().identificador" (closed)="closed.emit()">
+    <emx-modal-shell [title]="'Configurar: ' + (unit().identificador ?? ('U-' + unit().id))" (closed)="closed.emit()">
       <!-- Tabs -->
       <div class="flex gap-1 mb-4 border-b" style="border-color: var(--border-glass);">
         @for (tab of tabs; track tab.id) {

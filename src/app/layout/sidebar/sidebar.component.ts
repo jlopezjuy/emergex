@@ -62,6 +62,26 @@ import { FleetStore } from '../../core/stores/fleet.store';
         </svg>
       </a>
 
+      <!-- Patients / Afiliados -->
+      <a routerLink="/patients" routerLinkActive="nav-active" class="nav-icon-btn" title="Afiliados">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="7" cy="5" r="3"/>
+          <path d="M1 15c0-3.31 2.69-5 6-5"/>
+          <circle cx="13" cy="10" r="2.5"/>
+          <path d="M10.5 14c0-1.93 1.12-3 3.5-3s3.5 1.07 3.5 3"/>
+        </svg>
+      </a>
+
+      <!-- Events -->
+      <a routerLink="/events" routerLinkActive="nav-active" class="nav-icon-btn" title="Eventos">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="3" width="14" height="13" rx="1.5"/>
+          <path d="M2 7h14"/>
+          <path d="M6 1v4M12 1v4"/>
+          <path d="M5 11h2M8.5 11h2M5 13.5h2M8.5 13.5h2M12 11h1"/>
+        </svg>
+      </a>
+
       <!-- Hospitals -->
       <a routerLink="/hospitals" routerLinkActive="nav-active" class="nav-icon-btn" title="Hospitales">
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5">

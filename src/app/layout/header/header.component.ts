@@ -64,6 +64,19 @@ import { AuthService } from '../../core/auth/auth.service';
           Sistema OK
         </div>
 
+        <!-- Institucional -->
+        <button
+          type="button"
+          class="btn btn--ghost btn--sm"
+          (click)="createInstitutional.emit()"
+          style="border-color: rgba(59,130,246,0.35); color: var(--accent-blue);"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          Institucional
+        </button>
+
         <!-- Nueva emergencia -->
         <button
           type="button"
@@ -115,6 +128,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
   availableCount = input(0);
 
   createEmergency = output<void>();
+  createInstitutional = output<void>();
 
   readonly notifications = inject(NotificationStore);
   private auth = inject(AuthService);
