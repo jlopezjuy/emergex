@@ -13,7 +13,7 @@ import { ErrorStateComponent } from '../../shared/components/error-state/error-s
 type Period = '7d' | '30d' | '90d';
 
 interface TopType { tipo: string; count: number; pct: number; }
-interface TopUnit { id: string; tipo: string; servicios: number; pct: number; }
+interface TopUnit { rank: number; id: string; crew: string; servicios: number; }
 
 const TOP_TYPES: TopType[] = [
   { tipo: 'Paro cardiorrespiratorio', count: 23, pct: 100 },
@@ -25,11 +25,11 @@ const TOP_TYPES: TopType[] = [
 ];
 
 const TOP_UNITS: TopUnit[] = [
-  { id: 'U-07', tipo: 'ALS', servicios: 31, pct: 100 },
-  { id: 'U-03', tipo: 'ALS', servicios: 27, pct: 87 },
-  { id: 'U-12', tipo: 'BLS', servicios: 24, pct: 77 },
-  { id: 'U-01', tipo: 'ALS', servicios: 19, pct: 61 },
-  { id: 'U-09', tipo: 'BLS', servicios: 15, pct: 48 },
+  { rank: 1, id: 'U-14', crew: 'Bello · Sosa',     servicios: 187 },
+  { rank: 2, id: 'U-12', crew: 'Ortega · Paz',      servicios: 174 },
+  { rank: 3, id: 'U-25', crew: 'Pino · Vidal',      servicios: 163 },
+  { rank: 4, id: 'U-07', crew: 'Lara · García',     servicios: 151 },
+  { rank: 5, id: 'U-04', crew: 'Soto · Ramírez',    servicios: 143 },
 ];
 
 const HOUR_VALUES = [2, 1, 0, 1, 3, 5, 8, 12, 10, 9, 7, 6, 8, 11, 10, 9, 12, 15, 13, 9, 7, 5, 3, 2];
@@ -48,66 +48,72 @@ const HOUR_VALUES = [2, 1, 0, 1, 3, 5, 8, 12, 10, 9, 7, 6, 8, 11, 10, 9, 12, 15,
   ],
   template: `
     <div class="flex flex-col overflow-y-auto h-full">
-      <!-- Header -->
-      <div class="flex items-center justify-between px-6 pt-6 pb-4">
-        <div>
-          <h1 class="font-semibold text-lg" style="color: var(--text-primary);">Analítica Operativa</h1>
-          <p class="text-sm mt-0.5" style="color: var(--text-muted);">Métricas del centro de operaciones</p>
-        </div>
-        <div class="flex items-center gap-4">
-          <!-- Period tabs -->
-          <div class="flex" style="border-bottom: 1px solid var(--border-glass);">
-            @for (tab of periodTabs; track tab.value) {
-              <button
-                (click)="activePeriod.set(tab.value)"
-                class="px-4 py-2 text-sm font-mono transition-colors"
-                [style]="activePeriod() === tab.value
-                  ? 'color: var(--accent-cyan); border-bottom: 2px solid var(--accent-cyan); margin-bottom: -1px;'
-                  : 'color: var(--text-muted); border-bottom: 2px solid transparent; margin-bottom: -1px;'"
-              >{{ tab.label }}</button>
-            }
+      <!-- Header bar -->
+      <div
+        class="flex items-center justify-between px-6 py-3 flex-shrink-0"
+        style="border-bottom: 1px solid var(--border-glass); background: color-mix(in srgb, var(--surface-glass) 60%, transparent);"
+      >
+        <!-- Left: icon + title + subtitle -->
+        <div class="flex items-center gap-3">
+          <span class="text-lg" style="color: var(--accent-cyan);">📊</span>
+          <div>
+            <h1 class="font-semibold text-sm leading-tight" style="color: var(--text-primary);">Analítica Operativa</h1>
+            <p class="font-mono text-xs" style="color: var(--text-muted);">ÚLTIMOS 30 DÍAS · CDMX METRO NORTE</p>
           </div>
-          <!-- Date picker -->
-          <input
-            type="date"
-            [value]="selectedDate()"
-            (change)="onDateChange($event)"
-            class="rounded px-3 py-1.5 text-sm font-mono"
-            style="background: var(--surface-glass); border: 1px solid var(--border-glass); color: var(--text-primary);"
-          />
+        </div>
+
+        <!-- Center: inline KPI chips -->
+        <div class="flex items-center gap-2">
+          <div class="flex items-center gap-1.5 px-3 py-1 rounded" style="background: var(--surface-glass); border: 1px solid var(--border-glass);">
+            <span class="font-mono text-xs" style="color: var(--text-muted);">SERVICIOS TOTALES</span>
+            <span class="font-mono text-xs font-bold" style="color: var(--text-primary);">2,847</span>
+          </div>
+          <div class="flex items-center gap-1.5 px-3 py-1 rounded" style="background: var(--surface-glass); border: 1px solid var(--border-glass);">
+            <span class="font-mono text-xs" style="color: var(--text-muted);">T. MEDIO RESP.</span>
+            <span class="font-mono text-xs font-bold" style="color: var(--accent-amber);">7.4 min</span>
+          </div>
+          <div class="flex items-center gap-1.5 px-3 py-1 rounded" style="background: var(--surface-glass); border: 1px solid var(--border-glass);">
+            <span class="font-mono text-xs" style="color: var(--text-muted);">CUMPLIMIENTO SLA</span>
+            <span class="font-mono text-xs font-bold" style="color: var(--accent-emerald);">93.2%</span>
+          </div>
+          <div class="flex items-center gap-1.5 px-3 py-1 rounded" style="background: var(--surface-glass); border: 1px solid var(--border-glass);">
+            <span class="font-mono text-xs" style="color: var(--text-muted);">CRÍTICOS RESUELTOS</span>
+            <span class="font-mono text-xs font-bold" style="color: var(--accent-red);">187 / 192</span>
+          </div>
+        </div>
+
+        <!-- Right: period tabs -->
+        <div class="flex" style="border-bottom: 1px solid var(--border-glass);">
+          @for (tab of periodTabs; track tab.value) {
+            <button
+              (click)="activePeriod.set(tab.value)"
+              class="px-4 py-1.5 text-xs font-mono transition-colors"
+              [style]="activePeriod() === tab.value
+                ? 'color: var(--accent-cyan); border-bottom: 2px solid var(--accent-cyan); margin-bottom: -1px;'
+                : 'color: var(--text-muted); border-bottom: 2px solid transparent; margin-bottom: -1px;'"
+            >{{ tab.label }}</button>
+          }
         </div>
       </div>
 
       @if (loading()) {
-        <div class="px-6"><emx-loading-state /></div>
+        <div class="px-6 pt-6"><emx-loading-state /></div>
       } @else if (error()) {
-        <div class="px-6"><emx-error-state [message]="error()!" (retry)="load()" /></div>
+        <div class="px-6 pt-6"><emx-error-state [message]="error()!" (retry)="load()" /></div>
       } @else {
-        <!-- KPIs row -->
-        <div class="grid grid-cols-4 gap-4 px-6 pb-4">
-          <emx-kpi-card label="Total tickets" [value]="data()?.totalTickets" />
-          <emx-kpi-card label="Activos" [value]="data()?.ticketsActivos" accentColor="cyan" />
-          <emx-kpi-card label="SLA cumplido" [value]="slaLabel()" accentColor="emerald" />
-          <emx-kpi-card label="T. resp. prom." [value]="tRespLabel()" accentColor="amber" />
-        </div>
 
-        <!-- Charts grid: 2-col fixed -->
-        <div class="grid gap-4 px-6 pb-6" style="grid-template-columns: repeat(2, 1fr);">
+        <!-- Charts grid: all rows 2-per-row -->
+        <div class="grid gap-4 p-4" style="grid-template-columns: 1fr 1fr;">
 
-          <!-- Chart 1: Tiempo de respuesta (wide, col-span-2) -->
-          <emx-glass-card class="col-span-2">
-            <div class="flex items-start justify-between mb-3">
+          <!-- Row 1 left: TIEMPO DE RESPUESTA -->
+          <emx-glass-card>
+            <div class="flex items-start justify-between mb-2">
               <h2 class="font-mono text-xs uppercase tracking-wider" style="color: var(--text-muted);">
-                Tiempo de respuesta
+                Tiempo de Respuesta
               </h2>
-              <span
-                class="font-mono text-xs px-2 py-0.5 rounded"
-                [style]="tRespDelta() >= 0
-                  ? 'color: var(--accent-amber); background: color-mix(in srgb, var(--accent-amber) 12%, transparent);'
-                  : 'color: var(--accent-emerald); background: color-mix(in srgb, var(--accent-emerald) 12%, transparent);'"
-              >{{ tRespDeltaLabel() }}</span>
+              <span class="font-mono text-xs" style="color: var(--text-muted);">media móvil</span>
             </div>
-            <div class="flex items-end gap-6">
+            <div class="flex items-end gap-4 mb-3">
               <span class="font-mono text-3xl font-bold" style="color: var(--text-primary);">
                 {{ tRespKpi() }} min
               </span>
@@ -115,16 +121,20 @@ const HOUR_VALUES = [2, 1, 0, 1, 3, 5, 8, 12, 10, 9, 7, 6, 8, 11, 10, 9, 12, 15,
                 <emx-sparkline
                   [values]="sparkValues()"
                   color="#22D3EE"
-                  [width]="400"
-                  [height]="56"
+                  [width]="200"
+                  [height]="48"
                 />
               </div>
             </div>
+            <div
+              class="font-mono text-xs font-semibold px-2 py-1 rounded inline-block"
+              style="color: var(--accent-amber); background: color-mix(in srgb, var(--accent-amber) 12%, transparent);"
+            >▼ 0.6 MIN VS. MES ANTERIOR</div>
           </emx-glass-card>
 
-          <!-- Chart 2: Cumplimiento SLA (1 col) -->
+          <!-- Row 1 right: CUMPLIMIENTO SLA -->
           <emx-glass-card>
-            <div class="flex items-start justify-between mb-3">
+            <div class="flex items-start justify-between mb-2">
               <h2 class="font-mono text-xs uppercase tracking-wider" style="color: var(--text-muted);">
                 Cumplimiento SLA
               </h2>
@@ -133,73 +143,90 @@ const HOUR_VALUES = [2, 1, 0, 1, 3, 5, 8, 12, 10, 9, 7, 6, 8, 11, 10, 9, 12, 15,
                 [style]="slaBadgeStyle()"
               >{{ slaBadgeLabel() }}</span>
             </div>
-            <span class="font-mono text-3xl font-bold" style="color: var(--text-primary);">
-              {{ slaKpi() }}%
-            </span>
-            <div class="mt-3">
-              <emx-sparkline
-                [values]="slaSparkValues()"
-                color="#10B981"
-                [width]="260"
-                [height]="48"
-              />
+            <div class="flex items-end gap-4 mb-3">
+              <span class="font-mono text-3xl font-bold" style="color: var(--text-primary);">
+                {{ slaKpi() }} %
+              </span>
+              <div class="flex-1">
+                <emx-sparkline
+                  [values]="slaSparkValues()"
+                  color="#10B981"
+                  [width]="200"
+                  [height]="48"
+                />
+              </div>
             </div>
+            <div
+              class="font-mono text-xs font-semibold px-2 py-1 rounded inline-block"
+              style="color: var(--accent-emerald); background: color-mix(in srgb, var(--accent-emerald) 12%, transparent);"
+            >▲ 2.1% VS. MES ANTERIOR</div>
           </emx-glass-card>
 
-          <!-- Chart 4: Distribución por prioridad (1 col) -->
+          <!-- Row 2 left: VOLUMEN POR HORA -->
           <emx-glass-card>
-            <h2 class="font-mono text-xs uppercase tracking-wider mb-3" style="color: var(--text-muted);">
-              Distribución por prioridad
-            </h2>
-            <emx-donut-chart
-              [size]="110"
-              [strokeWidth]="12"
-              [segments]="prioritySegments()"
-              [centerLabel]="'' + (data()?.ticketsActivos ?? 0)"
-              centerSub="activos"
-            />
-            <div class="flex flex-wrap gap-3 mt-4">
-              @for (seg of prioritySegments(); track seg.label) {
-                <div class="flex items-center gap-1.5">
-                  <span class="w-2 h-2 rounded-full flex-shrink-0" [style.background]="seg.color"></span>
-                  <span class="text-xs" style="color: var(--text-muted);">{{ seg.label }}</span>
-                  <span class="font-mono text-xs font-semibold" style="color: var(--text-primary);">
-                    {{ seg.value }}
-                    <span class="font-normal" style="color: var(--text-muted);">
-                      ({{ priorityPct(seg.value) }}%)
-                    </span>
-                  </span>
-                </div>
-              }
+            <div class="flex items-start justify-between mb-3">
+              <div>
+                <h2 class="font-mono text-xs uppercase tracking-wider" style="color: var(--text-muted);">
+                  Volumen por Hora · Promedio
+                </h2>
+                <p class="font-mono text-xs mt-0.5" style="color: var(--text-primary);">94.9 servicios/día</p>
+              </div>
+              <span
+                class="font-mono text-xs px-2 py-0.5 rounded font-semibold"
+                style="color: var(--accent-red); background: color-mix(in srgb, var(--accent-red) 12%, transparent);"
+              >PICO · 18:00–21:00</span>
             </div>
-          </emx-glass-card>
-
-          <!-- Chart 3: Volumen por hora (wide, col-span-2) -->
-          <emx-glass-card class="col-span-2">
-            <h2 class="font-mono text-xs uppercase tracking-wider mb-4" style="color: var(--text-muted);">
-              Volumen por hora (18–21hs peak)
-            </h2>
             <emx-bars-chart
               [values]="hourValues"
               [labels]="hourLabels"
-              [width]="700"
-              [height]="90"
+              [width]="440"
+              [height]="80"
             />
           </emx-glass-card>
 
-          <!-- Chart 5: Top tipos de emergencia (wide, col-span-2) -->
-          <emx-glass-card class="col-span-2">
+          <!-- Row 2 right: DISTRIBUCIÓN POR PRIORIDAD -->
+          <emx-glass-card>
+            <h2 class="font-mono text-xs uppercase tracking-wider mb-3" style="color: var(--text-muted);">
+              Distribución por Prioridad
+            </h2>
+            <div class="flex items-center gap-4">
+              <emx-donut-chart
+                [size]="110"
+                [strokeWidth]="12"
+                [segments]="prioritySegments()"
+                centerLabel="2847"
+                centerSub="DE 2847"
+              />
+              <div class="flex flex-col gap-2 flex-1">
+                @for (seg of prioritySegments(); track seg.label) {
+                  <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full flex-shrink-0" [style.background]="seg.color"></span>
+                    <span class="font-mono text-xs font-bold" style="color: var(--text-primary);">
+                      {{ seg.value }}
+                    </span>
+                    <span class="text-xs" style="color: var(--text-muted);">· {{ seg.label?.toUpperCase() }} ·</span>
+                    <span class="font-mono text-xs" style="color: var(--text-muted);">
+                      {{ priorityPct(seg.value) }}%
+                    </span>
+                  </div>
+                }
+              </div>
+            </div>
+          </emx-glass-card>
+
+          <!-- Row 3 left: TOP TIPOS DE EMERGENCIA -->
+          <emx-glass-card>
             <h2 class="font-mono text-xs uppercase tracking-wider mb-4" style="color: var(--text-muted);">
-              Top tipos de emergencia
+              Top Tipos de Emergencia
             </h2>
             <div class="flex flex-col gap-3">
               @for (row of topTypes; track row.tipo) {
                 <div class="flex items-center gap-3">
-                  <span class="flex-1 text-sm font-medium truncate" style="color: var(--text-primary);">
+                  <span class="flex-1 text-xs font-medium truncate" style="color: var(--text-primary);">
                     {{ row.tipo }}
                   </span>
                   <div
-                    style="width: 160px; height: 4px; background: var(--surface-glass); border-radius: 2px; flex-shrink: 0;"
+                    style="width: 120px; height: 4px; background: var(--surface-glass); border-radius: 2px; flex-shrink: 0;"
                   >
                     <div
                       style="height: 4px; border-radius: 2px; transition: width 0.3s ease;"
@@ -207,47 +234,35 @@ const HOUR_VALUES = [2, 1, 0, 1, 3, 5, 8, 12, 10, 9, 7, 6, 8, 11, 10, 9, 12, 15,
                       [style.background]="typeBarColor(row.pct)"
                     ></div>
                   </div>
-                  <span class="font-mono text-sm w-6 text-right" style="color: var(--text-secondary);">
-                    {{ row.count }}
-                  </span>
-                  <span class="font-mono text-xs w-10 text-right" style="color: var(--text-muted);">
-                    {{ row.pct }}%
-                  </span>
+                  <span class="font-mono text-xs w-6 text-right" style="color: var(--text-secondary);">{{ row.count }}</span>
+                  <span class="font-mono text-xs w-8 text-right" style="color: var(--text-muted);">{{ row.pct }}%</span>
                 </div>
               }
             </div>
           </emx-glass-card>
 
-          <!-- Chart 6: Top unidades operativas (1 col) -->
-          <emx-glass-card class="col-span-2">
+          <!-- Row 3 right: TOP UNIDADES · MES -->
+          <emx-glass-card>
             <h2 class="font-mono text-xs uppercase tracking-wider mb-4" style="color: var(--text-muted);">
-              Top unidades operativas
+              Top Unidades · Mes
             </h2>
             <div class="flex flex-col gap-3">
-              @for (unit of topUnits; track unit.id; let i = $index) {
+              @for (unit of topUnits; track unit.id) {
                 <div class="flex items-center gap-3">
                   <span
-                    class="font-mono text-base font-bold"
-                    style="width: 28px; flex-shrink: 0; color: var(--text-muted);"
-                  >#{{ i + 1 }}</span>
+                    class="font-mono text-xs font-bold"
+                    style="width: 20px; flex-shrink: 0; color: var(--text-muted);"
+                  >{{ unit.rank.toString().padStart(2, '0') }}</span>
                   <span
-                    class="font-mono font-semibold text-sm"
-                    style="color: var(--accent-cyan); width: 40px; flex-shrink: 0;"
+                    class="font-mono text-xs font-semibold"
+                    style="color: var(--accent-cyan); width: 36px; flex-shrink: 0;"
                   >{{ unit.id }}</span>
                   <span
-                    class="font-mono text-xs px-1.5 py-0.5 rounded"
-                    style="background: var(--surface-glass); color: var(--text-muted); flex-shrink: 0;"
-                  >{{ unit.tipo }}</span>
-                  <div
-                    style="flex: 1; height: 4px; background: var(--surface-glass); border-radius: 2px;"
-                  >
-                    <div
-                      style="height: 4px; border-radius: 2px; background: var(--accent-cyan); transition: width 0.3s ease;"
-                      [style.width.%]="unit.pct"
-                    ></div>
-                  </div>
-                  <span class="font-mono text-sm" style="color: var(--text-secondary); flex-shrink: 0;">
-                    {{ unit.servicios }} servicios
+                    class="text-xs flex-1 truncate"
+                    style="color: var(--text-primary);"
+                  >{{ unit.crew }}</span>
+                  <span class="font-mono text-xs font-bold" style="color: var(--text-secondary); flex-shrink: 0;">
+                    {{ unit.servicios }}
                   </span>
                 </div>
               }
@@ -291,11 +306,11 @@ export class AnalyticsComponent implements OnInit {
 
   // — Chart 1: Tiempo de respuesta —
   readonly tRespKpi = computed(() => {
-    const t = this.data()?.tiempoRespuestaPromedio ?? 8.3;
+    const t = this.data()?.tiempoRespuestaPromedio ?? 7.4;
     return t.toFixed(1);
   });
 
-  readonly tRespDelta = computed(() => 0.4); // mock delta
+  readonly tRespDelta = computed(() => -0.6); // mock delta — negative = improvement
 
   readonly tRespDeltaLabel = computed(() => {
     const d = this.tRespDelta();
@@ -312,7 +327,7 @@ export class AnalyticsComponent implements OnInit {
 
   // — Chart 2: Cumplimiento SLA —
   readonly slaKpi = computed(() => {
-    const sla = this.data()?.slaPromedio ?? 87.2;
+    const sla = this.data()?.slaPromedio ?? 93.2;
     return sla.toFixed(1);
   });
 
@@ -342,9 +357,9 @@ export class AnalyticsComponent implements OnInit {
   readonly prioritySegments = computed<DonutSegment[]>(() => {
     const por = this.data()?.ticketsPorPrioridad ?? {};
     return [
-      { value: por['CRITICA'] ?? 8,  color: 'var(--accent-red)',     label: 'Crítica' },
-      { value: por['URGENTE'] ?? 15, color: 'var(--accent-amber)',   label: 'Urgente' },
-      { value: por['NORMAL'] ?? 21,  color: 'var(--accent-emerald)', label: 'Normal' },
+      { value: por['CRITICA'] ?? 287,  color: 'var(--accent-red)',     label: 'Rojos' },
+      { value: por['URGENTE'] ?? 1124, color: 'var(--accent-amber)',   label: 'Amarillos' },
+      { value: por['NORMAL'] ?? 1436,  color: 'var(--accent-emerald)', label: 'Verdes' },
     ];
   });
 
@@ -355,7 +370,7 @@ export class AnalyticsComponent implements OnInit {
 
   // — Chart 3: Volumen por hora —
   readonly hourLabels = Array.from({ length: 24 }, (_, i) =>
-    i % 6 === 0 ? String(i).padStart(2, '0') : '',
+    i % 3 === 0 ? String(i).padStart(2, '0') : '',
   );
 
   // — Chart 5: Top tipos —
