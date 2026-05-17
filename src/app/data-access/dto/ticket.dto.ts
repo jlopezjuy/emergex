@@ -16,6 +16,11 @@ export interface TicketAsistenciaDTO {
   operador?: string;
   unidadAsignada?: string;
   pacienteDescripcion?: string;
+  horaDespacho?: string;
+  horaLlegada?: string;
+  horaInicioTraslado?: string;
+  horaFinTraslado?: string;
+  horaCierre?: string;
 }
 
 export interface AltaRapidaRequest {
@@ -57,8 +62,22 @@ export interface DespacharRequest {
 }
 
 export interface CerrarTicketRequest {
-  notas?: string;
-  resultado?: string;
+  nota?: string;
+  resolucion?: {
+    impresionClinica: string;
+    tratamientoRealizado?: string;
+    requiereTraslado: boolean;
+    tipoResolucion?: string;
+    destinoTraslado?: string;
+    signosVitales?: {
+      ta?: string;
+      fc?: number;
+      fr?: number;
+      satO2?: number;
+      temp?: number;
+      glucemia?: number;
+    };
+  };
 }
 
 export interface LogEstadoTicketDTO {
@@ -77,6 +96,7 @@ export interface SignosVitalesDTO {
   saturacionO2?: number;
   temperatura?: number;
   frecuenciaRespiratoria?: number;
+  glucemia?: number;
   timestamp?: string;
 }
 
@@ -109,4 +129,64 @@ export interface TripulacionDetalleDTO {
   id?: number;
   nombre?: string;
   rol?: string;
+}
+
+
+export interface ConsultaClinicaDTO {
+  id?: number;
+  fecha?: string;
+  motivoConsulta?: string;
+  evolucion?: string;
+  procedimientoRealizado?: string;
+  observacion?: string;
+  tipoConsulta?: string;
+}
+
+export interface AtencionFullDTO {
+  atencionId?: number;
+  turnoId?: number;
+  ticketId?: number;
+  pacienteId?: number;
+  canal?: string;
+  tipo?: string;
+  estado?: string;
+  observaciones?: string;
+  notas?: ConsultaClinicaDTO[];
+  signos?: any[];
+}
+
+export interface AtencionAsistenciaItemDTO {
+  atencionId: number;
+  turnoId?: number;
+  estado?: string;
+  fechaInicio?: string;
+  fechaFin?: string;
+}
+
+export interface IniciarAtencionDesdeTicketResponse {
+  ticketId: number;
+  turnoId: number;
+  atencionId: number;
+  pacienteId?: number;
+  episodioClinicoId?: number;
+}
+
+export interface TicketEstadoChangedEvent {
+  type: 'TicketEstadoChanged';
+  empresaId?: number;
+  ticketId: number;
+  estadoAnterior?: string;
+  estadoNuevo: string;
+  timestamp?: string;
+}
+
+export interface AsignacionEstadoChangedEvent {
+  type: 'AsignacionEstadoChanged';
+  empresaId?: number;
+  asignacionId?: number;
+  ticketId: number;
+  estadoAnterior?: string;
+  estadoNuevo: string;
+  actorUserId?: number;
+  timestamp?: string;
 }

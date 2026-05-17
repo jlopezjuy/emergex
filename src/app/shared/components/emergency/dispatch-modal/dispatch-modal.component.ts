@@ -1,8 +1,7 @@
 import { Component, inject, input, output, signal, OnInit } from '@angular/core';
-import { TicketAsistenciaDTO, DespacharRequest } from '../../../../data-access/dto/ticket.dto';
-import { UnidadMovilDTO } from '../../../../data-access/dto/ambulancia.dto';
+import { TicketAsistenciaDTO } from '../../../../data-access/dto/ticket.dto';
+import { AsignarMovilRequestDTO, UnidadMovilDTO } from '../../../../data-access/dto/ambulancia.dto';
 import { FleetApiService } from '../../../../data-access/api/fleet.api';
-import { EmergencyApiService } from '../../../../data-access/api/emergency.api';
 import { ModalShellComponent } from '../../modal-shell/modal-shell.component';
 import { LoadingStateComponent } from '../../loading-state/loading-state.component';
 import { EmptyStateComponent } from '../../empty-state/empty-state.component';
@@ -65,7 +64,6 @@ export class DispatchModalComponent implements OnInit {
   closed = output<void>();
 
   private fleetApi = inject(FleetApiService);
-  private emergencyApi = inject(EmergencyApiService);
 
   readonly availableUnits = signal<UnidadMovilDTO[]>([]);
   readonly selectedUnitId = signal<number | null>(null);
@@ -90,8 +88,8 @@ export class DispatchModalComponent implements OnInit {
     const unitId = this.selectedUnitId();
     if (!unitId) return;
     this.dispatching.set(true);
-    const req: DespacharRequest = { ambulanciaId: unitId };
-    this.emergencyApi.despachar(this.emergency().id, req).subscribe({
+    const req: AsignarMovilRequestDTO = { ambulanciaId: unitId, usarTripulacionActiva: true };
+    this.fleetApi.asignarMovil(this.emergency().id, req).subscribe({
       next: () => {
         this.dispatching.set(false);
         this.dispatched.emit();

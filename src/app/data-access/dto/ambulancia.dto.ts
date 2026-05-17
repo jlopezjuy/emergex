@@ -10,7 +10,10 @@ export interface UnidadMovilDTO {
   id: number;
   identificador?: string;
   tipo?: string;
-  estado?: 'DISPONIBLE' | 'EN_RUTA' | 'EN_SITIO' | 'TRASLADO' | 'MANTENIMIENTO' | 'EN_TALLER';
+  estado?: 'DISPONIBLE' | 'EN_SERVICIO' | 'EN_RUTA' | 'EN_SITIO' | 'TRASLADO' | 'MANTENIMIENTO' | 'EN_TALLER' | 'FUERA_SERVICIO';
+  disponibleParaDespacho?: boolean;
+  motivoNoDisponible?: string | null;
+  turnoActual?: string | null;
   tripulacion?: string;
   bateria?: number;
   combustible?: number;
@@ -79,7 +82,8 @@ export interface GeoPosicionDTO {
 
 export interface AsignarMovilRequestDTO {
   ambulanciaId: number;
-  notas?: string;
+  usarTripulacionActiva?: boolean;
+  observacion?: string;
 }
 
 export interface GuardiaMovilDTO {

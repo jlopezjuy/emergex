@@ -16,7 +16,7 @@ import { LoadingStateComponent } from '../../shared/components/loading-state/loa
 import { NewUnitModalComponent } from './new-unit-modal/new-unit-modal.component';
 import { UnitScheduleModalComponent } from './unit-schedule-modal/unit-schedule-modal.component';
 
-type FleetTab = 'TODAS' | 'DISPONIBLE' | 'EN_RUTA' | 'EN_SITIO' | 'TRASLADO' | 'MANTENIMIENTO';
+type FleetTab = 'TODAS' | 'DISPONIBLE' | 'SIN_COBERTURA' | 'EN_SERVICIO' | 'MANTENIMIENTO';
 
 @Component({
   selector: 'app-fleet',
@@ -389,9 +389,8 @@ export class FleetComponent implements OnInit {
   readonly fleetTabs: { id: FleetTab; label: string }[] = [
     { id: 'TODAS', label: 'Todas' },
     { id: 'DISPONIBLE', label: 'Disponibles' },
-    { id: 'EN_RUTA', label: 'En ruta' },
-    { id: 'EN_SITIO', label: 'En sitio' },
-    { id: 'TRASLADO', label: 'Traslado' },
+    { id: 'SIN_COBERTURA', label: 'Sin cobertura' },
+    { id: 'EN_SERVICIO', label: 'En servicio' },
     { id: 'MANTENIMIENTO', label: 'Mantenimiento' },
   ];
 
@@ -399,7 +398,11 @@ export class FleetComponent implements OnInit {
     const tab = this.fleetTab();
     const all = this.ambulancias();
     if (tab === 'TODAS') return all;
-    return all.filter((u) => u.estado === tab);
+    if (tab === 'DISPONIBLE') return all.filter((u) => u.disponibleParaDespacho === true);
+    if (tab === 'SIN_COBERTURA') return all.filter((u) => u.estado === 'DISPONIBLE' && u.disponibleParaDespacho !== true);
+    if (tab === 'EN_SERVICIO') return all.filter((u) => u.estado === 'EN_SERVICIO');
+    if (tab === 'MANTENIMIENTO') return all.filter((u) => u.estado === 'EN_TALLER' || u.estado === 'FUERA_SERVICIO' || u.estado === 'MANTENIMIENTO');
+    return all;
   });
 
   readonly healthMetrics = computed(() => {
@@ -439,7 +442,11 @@ export class FleetComponent implements OnInit {
   tabCount(tabId: FleetTab): number {
     const all = this.ambulancias();
     if (tabId === 'TODAS') return all.length;
-    return all.filter((u) => u.estado === tabId).length;
+    if (tabId === 'DISPONIBLE') return all.filter((u) => u.disponibleParaDespacho === true).length;
+    if (tabId === 'SIN_COBERTURA') return all.filter((u) => u.estado === 'DISPONIBLE' && u.disponibleParaDespacho !== true).length;
+    if (tabId === 'EN_SERVICIO') return all.filter((u) => u.estado === 'EN_SERVICIO').length;
+    if (tabId === 'MANTENIMIENTO') return all.filter((u) => u.estado === 'EN_TALLER' || u.estado === 'FUERA_SERVICIO' || u.estado === 'MANTENIMIENTO').length;
+    return 0;
   }
 
   tRespLabel() {
@@ -471,11 +478,11 @@ export class FleetComponent implements OnInit {
         }
         this.fleetDashboard.set({
           totalUnidades: data.length,
-          disponibles: data.filter((a) => a.estado === 'DISPONIBLE').length,
-          enRuta: data.filter((a) => a.estado === 'EN_RUTA').length,
+          disponibles: data.filter((a) => a.disponibleParaDespacho === true).length,
+          enRuta: data.filter((a) => a.estado === 'EN_SERVICIO' || a.estado === 'EN_RUTA').length,
           enSitio: data.filter((a) => a.estado === 'EN_SITIO').length,
           traslado: data.filter((a) => a.estado === 'TRASLADO').length,
-          mantenimiento: data.filter((a) => a.estado === 'MANTENIMIENTO').length,
+          mantenimiento: data.filter((a) => a.estado === 'EN_TALLER' || a.estado === 'FUERA_SERVICIO' || a.estado === 'MANTENIMIENTO').length,
         });
       });
 

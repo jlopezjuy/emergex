@@ -1,12 +1,23 @@
 import { Injectable, inject, signal, computed, OnDestroy } from '@angular/core';
 import { interval, Subscription } from 'rxjs';
+import { StompSubscription } from '@stomp/stompjs';
 import { EmergencyApiService } from '../../data-access/api/emergency.api';
-import { TicketAsistenciaDTO } from '../../data-access/dto/ticket.dto';
+import { WebsocketService } from '../websocket/websocket.service';
+import {
+  TicketAsistenciaDTO,
+  TicketEstadoChangedEvent,
+  AsignacionEstadoChangedEvent,
+} from '../../data-access/dto/ticket.dto';
+
+const TERMINAL_STATES = new Set(['COMPLETADO', 'CERRADO', 'CANCELADO']);
 
 @Injectable({ providedIn: 'root' })
 export class EmergencyStore implements OnDestroy {
   private api = inject(EmergencyApiService);
+  private ws = inject(WebsocketService);
   private tickerSub: Subscription | null = null;
+  private ticketSub: StompSubscription | null = null;
+  private asignacionSub: StompSubscription | null = null;
 
   readonly emergencies = signal<TicketAsistenciaDTO[]>([]);
   readonly loading = signal(false);
@@ -43,8 +54,37 @@ export class EmergencyStore implements OnDestroy {
     });
   }
 
+  startTicketTracking(): void {
+    if (this.ticketSub) return;
+
+    this.ticketSub = this.ws.subscribe('/topic/tickets', (raw: unknown) => {
+      const event = raw as TicketEstadoChangedEvent;
+      if (!event?.ticketId) return;
+      if (TERMINAL_STATES.has(event.estadoNuevo)) {
+        this.emergencies.update((list) => list.filter((e) => e.id !== event.ticketId));
+        if (this.selectedId() === event.ticketId) this.selectedId.set(null);
+      } else {
+        this.api.getById(event.ticketId).subscribe({
+          next: (ticket) => this.addOrUpdate(ticket),
+          error: () => {},
+        });
+      }
+    });
+
+    this.asignacionSub = this.ws.subscribe('/topic/asignaciones', (raw: unknown) => {
+      const event = raw as AsignacionEstadoChangedEvent;
+      if (!event?.ticketId) return;
+      this.api.getById(event.ticketId).subscribe({
+        next: (ticket) => this.addOrUpdate(ticket),
+        error: () => {},
+      });
+    });
+  }
+
   ngOnDestroy(): void {
     this.tickerSub?.unsubscribe();
+    this.ticketSub?.unsubscribe();
+    this.asignacionSub?.unsubscribe();
   }
 
   selectEmergency(id: number | null): void {

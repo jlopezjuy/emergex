@@ -13,6 +13,10 @@ import {
   CerrarTicketRequest,
   CancelarTicketRequest,
   LogEstadoTicketDTO,
+  SignosVitalesDTO,
+  AtencionFullDTO,
+  AtencionAsistenciaItemDTO,
+  IniciarAtencionDesdeTicketResponse,
 } from '../dto/ticket.dto';
 
 const URGENCIA_MAP: Record<string, TicketAsistenciaDTO['prioridad']> = {
@@ -26,12 +30,16 @@ export class EmergencyApiService {
   private http = inject(HttpClient);
   private base = `${environment.apiUrl}/api/v1/asistencias`;
 
+  private normalizeEstado(rawEstado?: string): string | undefined {
+    return rawEstado === 'COMPLETADO' ? 'CERRADO' : rawEstado;
+  }
+
   private mapTicket(raw: any): TicketAsistenciaDTO {
     return {
       id:                 raw.id,
       codigo:             raw.numeroTicket,
       tipoEmergencia:     raw.descripcionSintomas,
-      estado:             raw.estadoActual,
+      estado:             this.normalizeEstado(raw.estadoActual),
       prioridad:          URGENCIA_MAP[raw.nivelUrgencia] ?? undefined,
       direccion:          raw.direccion,
       ambulanciaId:       raw.ambulancia?.id,
@@ -40,10 +48,40 @@ export class EmergencyApiService {
       operador:           raw.creadoPor?.login,
       fechaCreacion:      raw.horaLlamada,
       pacienteDescripcion: raw.pacienteNombreSnapshot,
-      elapsedSeconds:     raw.esperaMinutos != null ? raw.esperaMinutos * 60 : undefined,
+      horaDespacho:       raw.horaDespacho,
+      horaLlegada:        raw.horaLlegada,
+      horaInicioTraslado: raw.horaInicioTraslado,
+      horaFinTraslado:    raw.horaFinTraslado,
+      horaCierre:         raw.horaCierre,
+      elapsedSeconds:     raw.horaLlamada
+        ? Math.floor((Date.now() - new Date(raw.horaLlamada).getTime()) / 1000)
+        : raw.esperaMinutos != null ? raw.esperaMinutos * 60 : undefined,
       latitud:            undefined,
       longitud:           undefined,
     };
+  }
+
+  private mapResolucionSignos(resolucion: any): SignosVitalesDTO[] {
+    const resumen = resolucion?.resumenSignosVitales;
+    if (!resumen) return [];
+
+    const taMatch = String(resumen).match(/TA:\s*(\d+)\s*\/\s*(\d+)/i);
+    const fcMatch = String(resumen).match(/FC:\s*(\d+)/i);
+    const frMatch = String(resumen).match(/FR:\s*(\d+)/i);
+    const satMatch = String(resumen).match(/SatO2:\s*(\d+)/i);
+    const tempMatch = String(resumen).match(/Temp:\s*([\d.]+)/i);
+    const gluMatch = String(resumen).match(/Glu:\s*(\d+)/i);
+
+    return [{
+      timestamp: resolucion.fechaResolucion,
+      presionSistolica: taMatch ? Number(taMatch[1]) : undefined,
+      presionDiastolica: taMatch ? Number(taMatch[2]) : undefined,
+      frecuenciaCardiaca: fcMatch ? Number(fcMatch[1]) : undefined,
+      frecuenciaRespiratoria: frMatch ? Number(frMatch[1]) : undefined,
+      saturacionO2: satMatch ? Number(satMatch[1]) : undefined,
+      temperatura: tempMatch ? Number(tempMatch[1]) : undefined,
+      glucemia: gluMatch ? Number(gluMatch[1]) : undefined,
+    }];
   }
 
   getActivos(): Observable<TicketAsistenciaDTO[]> {
@@ -64,11 +102,11 @@ export class EmergencyApiService {
         ticket:        raw.ticket ? this.mapTicket(raw.ticket) : undefined,
         timeline:      raw.timeline,
         tripulacion:   (raw.tripulacion ?? []).map((m: any): TripulacionDetalleDTO => ({
-          id:     m.profesionalId,
-          nombre: m.profesionalNombre,
-          rol:    m.rol,
+          id:     m.profesional?.id ?? m.profesionalId ?? m.id,
+          nombre: [m.profesional?.apellido, m.profesional?.nombre].filter(Boolean).join(', ') || m.profesionalNombre || m.nombre,
+          rol:    m.rolEnTicket ?? m.rol,
         })),
-        signos:        [],
+        signos:        this.mapResolucionSignos(raw.resolucion),
         procedimientos: [],
         medicacion:    [],
       })),
@@ -112,8 +150,18 @@ export class EmergencyApiService {
     return this.http.patch<TicketAsistenciaDTO>(`${this.base}/${id}/en-sitio`, {});
   }
 
+  iniciarTraslado(id: number): Observable<TicketAsistenciaDTO> {
+    return this.http.patch<TicketAsistenciaDTO>(`${this.base}/${id}/iniciar-traslado`, {});
+  }
+
+  finalizarTraslado(id: number): Observable<TicketAsistenciaDTO> {
+    return this.http.patch<TicketAsistenciaDTO>(`${this.base}/${id}/finalizar-traslado`, {});
+  }
+
   cerrar(id: number, req: CerrarTicketRequest): Observable<TicketAsistenciaDTO> {
-    return this.http.patch<TicketAsistenciaDTO>(`${this.base}/${id}/cerrar`, req);
+    return this.http.patch<any>(`${this.base}/${id}/cerrar`, req).pipe(
+      map((r) => this.mapTicket(r)),
+    );
   }
 
   cancelar(id: number, req: CancelarTicketRequest): Observable<TicketAsistenciaDTO> {
@@ -126,5 +174,42 @@ export class EmergencyApiService {
 
   agregarNota(id: number, nota: string): Observable<unknown> {
     return this.http.patch<unknown>(`${this.base}/${id}/agregar-nota`, { nota });
+  }
+
+  getAtencionesPorTicket(ticketId: number): Observable<AtencionAsistenciaItemDTO[]> {
+    return this.http.get<AtencionAsistenciaItemDTO[]>(`${environment.apiUrl}/api/atenciones/ticket/${ticketId}/atenciones`);
+  }
+
+  iniciarAtencionDesdeTicket(ticketId: number): Observable<IniciarAtencionDesdeTicketResponse> {
+    return this.http.post<IniciarAtencionDesdeTicketResponse>(
+      `${environment.apiUrl}/api/atenciones/iniciar-desde-ticket/${ticketId}`,
+      { tipoConsulta: 'URGENCIA' },
+    );
+  }
+
+  getAtencionDetalle(atencionId: number): Observable<AtencionFullDTO> {
+    return this.http.get<any>(`${environment.apiUrl}/api/atenciones/${atencionId}/detalle`).pipe(
+      map((raw) => ({
+        ...raw,
+        signos: (raw.signos ?? []).map((s: any) => ({
+          id: s.id,
+          timestamp: s.fechaHora,
+          fechaHora: s.fechaHora,
+          frecuenciaCardiaca: s.frecuenciaCardiaca,
+          presionSistolica: s.presionSistolica,
+          presionDiastolica: s.presionDiastolica,
+          saturacionO2: s.saturacionOxigeno,
+          saturacionOxigeno: s.saturacionOxigeno,
+          temperatura: s.temperatura != null ? Number(s.temperatura) : undefined,
+          frecuenciaRespiratoria: s.frecuenciaRespiratoria,
+          glucemia: s.glucemia,
+          observacion: s.observacion ?? s.observaciones,
+        })),
+      } as AtencionFullDTO)),
+    );
+  }
+
+  guardarAtencionCompleta(req: AtencionFullDTO): Observable<AtencionFullDTO> {
+    return this.http.post<AtencionFullDTO>(`${environment.apiUrl}/api/atenciones/guardar-completa`, req);
   }
 }

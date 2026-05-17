@@ -10,11 +10,13 @@ import {
   NgZone,
   inject,
   signal,
+  computed,
 } from '@angular/core';
 import { Map as MapLibreMap, Marker, NavigationControl, GeoJSONSource } from 'maplibre-gl';
 import type { FeatureCollection, LineString } from 'geojson';
 import { UnidadMovilDTO } from '../../../../data-access/dto/ambulancia.dto';
 import { TicketAsistenciaDTO } from '../../../../data-access/dto/ticket.dto';
+import { ThemeService } from '../../../../core/theme/theme.service';
 
 // ─── San Salvador de Jujuy mock coordinates ───────────────────────────────────
 
@@ -150,6 +152,7 @@ const LEGEND = [
 @Component({
   selector: 'emx-operations-map',
   standalone: true,
+  host: { '[class.is-dark]': 'isDark()' },
   styles: [`
     :host {
       display: block; position: relative;
@@ -157,39 +160,82 @@ const LEGEND = [
     }
     .map-root { width: 100%; height: 100%; }
 
-    /* MapLibre dark-theme overrides */
-    ::ng-deep .maplibregl-ctrl-group {
+    /* MapLibre controls — dark */
+    :host.is-dark ::ng-deep .maplibregl-ctrl-group {
       background: rgba(6,16,31,0.88) !important;
       border: 1px solid rgba(255,255,255,0.08) !important;
       backdrop-filter: blur(12px);
       border-radius: 6px !important;
       overflow: hidden;
     }
-    ::ng-deep .maplibregl-ctrl-group button {
+    :host.is-dark ::ng-deep .maplibregl-ctrl-group button {
       background: transparent !important;
       border: none !important;
       color: rgba(255,255,255,0.7) !important;
     }
-    ::ng-deep .maplibregl-ctrl-group button:hover {
+    :host.is-dark ::ng-deep .maplibregl-ctrl-group button:hover {
       background: rgba(255,255,255,0.06) !important;
     }
-    ::ng-deep .maplibregl-ctrl-group button+button {
+    :host.is-dark ::ng-deep .maplibregl-ctrl-group button+button {
       border-top: 1px solid rgba(255,255,255,0.06) !important;
     }
-    ::ng-deep .maplibregl-ctrl svg path,
-    ::ng-deep .maplibregl-ctrl svg line,
-    ::ng-deep .maplibregl-ctrl svg polygon {
+    :host.is-dark ::ng-deep .maplibregl-ctrl svg path,
+    :host.is-dark ::ng-deep .maplibregl-ctrl svg line,
+    :host.is-dark ::ng-deep .maplibregl-ctrl svg polygon {
       fill: rgba(255,255,255,0.7) !important;
       stroke: rgba(255,255,255,0.7) !important;
     }
+
+    /* MapLibre controls — light */
+    :host:not(.is-dark) ::ng-deep .maplibregl-ctrl-group {
+      background: rgba(255,255,255,0.92) !important;
+      border: 1px solid rgba(0,0,0,0.1) !important;
+      backdrop-filter: blur(12px);
+      border-radius: 6px !important;
+      overflow: hidden;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.12) !important;
+    }
+    :host:not(.is-dark) ::ng-deep .maplibregl-ctrl-group button {
+      background: transparent !important;
+      border: none !important;
+      color: rgba(30,41,59,0.8) !important;
+    }
+    :host:not(.is-dark) ::ng-deep .maplibregl-ctrl-group button:hover {
+      background: rgba(0,0,0,0.05) !important;
+    }
+    :host:not(.is-dark) ::ng-deep .maplibregl-ctrl-group button+button {
+      border-top: 1px solid rgba(0,0,0,0.06) !important;
+    }
+    :host:not(.is-dark) ::ng-deep .maplibregl-ctrl svg path,
+    :host:not(.is-dark) ::ng-deep .maplibregl-ctrl svg line,
+    :host:not(.is-dark) ::ng-deep .maplibregl-ctrl svg polygon {
+      fill: rgba(30,41,59,0.7) !important;
+      stroke: rgba(30,41,59,0.7) !important;
+    }
+
     ::ng-deep .maplibregl-attrib-empty,
     ::ng-deep .maplibregl-ctrl-attrib { display: none !important; }
 
-    /* Legend */
-    .map-legend {
-      position: absolute; bottom: 32px; left: 12px;
+    /* Legend — dark */
+    :host.is-dark .map-legend {
       background: rgba(6,16,31,0.88);
       border: 1px solid rgba(255,255,255,0.07);
+    }
+    :host.is-dark .map-legend-row { color: rgba(148,163,184,0.9); }
+    :host.is-dark .map-coords { color: rgba(100,116,139,0.8); text-shadow: 0 1px 4px rgba(0,0,0,0.8); }
+
+    /* Legend — light */
+    :host:not(.is-dark) .map-legend {
+      background: rgba(255,255,255,0.92);
+      border: 1px solid rgba(0,0,0,0.08);
+      box-shadow: 0 1px 6px rgba(0,0,0,0.1);
+    }
+    :host:not(.is-dark) .map-legend-row { color: rgba(51,65,85,0.85); }
+    :host:not(.is-dark) .map-coords { color: rgba(71,85,105,0.8); text-shadow: none; }
+
+    /* Legend shared */
+    .map-legend {
+      position: absolute; bottom: 32px; left: 12px;
       backdrop-filter: blur(12px);
       border-radius: 6px; padding: 8px 10px;
       pointer-events: none;
@@ -197,7 +243,6 @@ const LEGEND = [
     .map-legend-row {
       display: flex; align-items: center; gap: 6px;
       font-family: monospace; font-size: 9px;
-      color: rgba(148,163,184,0.9);
       text-transform: uppercase; letter-spacing: .04em;
       line-height: 1.8;
     }
@@ -209,9 +254,7 @@ const LEGEND = [
     .map-coords {
       position: absolute; top: 8px; right: 12px;
       font-family: monospace; font-size: 9px;
-      color: rgba(100,116,139,0.8);
       pointer-events: none;
-      text-shadow: 0 1px 4px rgba(0,0,0,0.8);
     }
   `],
   template: `
@@ -245,6 +288,7 @@ export class OperationsMapComponent implements OnDestroy {
   protected readonly zoom = signal('11.0');
 
   private readonly zone = inject(NgZone);
+  private readonly themeService = inject(ThemeService);
   private mapEl = viewChild.required<ElementRef<HTMLDivElement>>('mapEl');
   private map: MapLibreMap | null = null;
   private ambMarkers: Marker[] = [];
@@ -252,8 +296,27 @@ export class OperationsMapComponent implements OnDestroy {
   private mapReady = false;
   private readonly ROUTES_SOURCE = 'emx-routes';
 
+  protected readonly isDark = computed(() => this.themeService.theme() === 'dark');
+
+  private styleUrl(): string {
+    return this.isDark()
+      ? 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json'
+      : 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json';
+  }
+
   constructor() {
     afterNextRender(() => this.initMap());
+
+    effect(() => {
+      const url = this.styleUrl();
+      if (this.map) {
+        this.zone.runOutsideAngular(() => {
+          this.mapReady = false;
+          this.map!.setStyle(url);
+          this.map!.once('style.load', () => this.setupMapLayers());
+        });
+      }
+    });
 
     effect(() => {
       const ambs = this.ambulances();
@@ -273,7 +336,7 @@ export class OperationsMapComponent implements OnDestroy {
     this.zone.runOutsideAngular(() => {
       this.map = new MapLibreMap({
         container: this.mapEl().nativeElement,
-        style: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+        style: this.styleUrl(),
         center: SSJ,
         zoom: 11,
         attributionControl: false,
@@ -284,36 +347,38 @@ export class OperationsMapComponent implements OnDestroy {
         'bottom-right',
       );
 
-      // Sync zoom display
       this.map.on('zoom', () => {
         const z = this.map!.getZoom().toFixed(1);
         this.zone.run(() => this.zoom.set(z));
       });
 
-      this.map.on('load', () => {
-        // Add routes source + layer
-        this.map!.addSource(this.ROUTES_SOURCE, {
-          type: 'geojson',
-          data: { type: 'FeatureCollection', features: [] },
-        });
-
-        this.map!.addLayer({
-          id: 'emx-routes-line',
-          type: 'line',
-          source: this.ROUTES_SOURCE,
-          paint: {
-            'line-color': '#22D3EE',
-            'line-width': 1.2,
-            'line-opacity': 0.45,
-            'line-dasharray': [5, 4],
-          },
-        });
-
-        this.mapReady = true;
-        this.updateMarkers(this.ambulances(), this.emergencies());
-        this.updateRoutes(this.ambulances(), this.emergencies());
-      });
+      this.map.on('load', () => this.setupMapLayers());
     });
+  }
+
+  private setupMapLayers(): void {
+    if (!this.map) return;
+
+    this.map.addSource(this.ROUTES_SOURCE, {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features: [] },
+    });
+
+    this.map.addLayer({
+      id: 'emx-routes-line',
+      type: 'line',
+      source: this.ROUTES_SOURCE,
+      paint: {
+        'line-color': '#22D3EE',
+        'line-width': 1.2,
+        'line-opacity': 0.45,
+        'line-dasharray': [5, 4],
+      },
+    });
+
+    this.mapReady = true;
+    this.updateMarkers(this.ambulances(), this.emergencies());
+    this.updateRoutes(this.ambulances(), this.emergencies());
   }
 
   private updateMarkers(ambs: UnidadMovilDTO[], emgs: TicketAsistenciaDTO[]): void {

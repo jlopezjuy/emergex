@@ -7,6 +7,7 @@ import {
   CerrarTicketRequest,
   CancelarTicketRequest,
   SignosVitalesDTO,
+  AtencionFullDTO,
 } from '../../../data-access/dto/ticket.dto';
 import { LoadingStateComponent } from '../../../shared/components/loading-state/loading-state.component';
 import { ErrorStateComponent } from '../../../shared/components/error-state/error-state.component';
@@ -72,6 +73,18 @@ const ALL_STEPS: StatusStep[] = [
         <div class="flex gap-2">
           @if (canDispatch()) {
             <button type="button" class="btn btn--primary btn--sm" (click)="openDispatch()">Despachar</button>
+          }
+          @if (canMarkEnCamino()) {
+            <button type="button" class="btn btn--primary btn--sm" (click)="marcarEnCamino()">En camino</button>
+          }
+          @if (canMarkEnSitio()) {
+            <button type="button" class="btn btn--primary btn--sm" (click)="marcarEnSitio()">En sitio</button>
+          }
+          @if (canStartTransfer()) {
+            <button type="button" class="btn btn--ghost btn--sm" (click)="iniciarTraslado()">Iniciar traslado</button>
+          }
+          @if (canFinishTransfer()) {
+            <button type="button" class="btn btn--ghost btn--sm" (click)="finalizarTraslado()">Finalizar traslado</button>
           }
           @if (canClose()) {
             <button type="button" class="btn btn--ghost btn--sm" (click)="cerrar()">Cerrar</button>
@@ -157,7 +170,12 @@ const ALL_STEPS: StatusStep[] = [
 
               <!-- 3. Procedimientos -->
               <emx-glass-card>
-                <h2 class="section-label">Procedimientos</h2>
+                <div class="flex items-center justify-between mb-2">
+                  <h2 class="section-label" style="margin:0;">Procedimientos</h2>
+                  @if (canEditClinical()) {
+                    <button type="button" class="btn btn--ghost btn--sm" (click)="openClinicalModal('PROCEDIMIENTO')">Agregar</button>
+                  }
+                </div>
                 @if (procedimientos().length === 0) {
                   <p class="text-xs" style="color: var(--text-muted);">Sin procedimientos registrados</p>
                 } @else {
@@ -176,7 +194,12 @@ const ALL_STEPS: StatusStep[] = [
 
               <!-- 4. Medicación -->
               <emx-glass-card>
-                <h2 class="section-label">Medicación</h2>
+                <div class="flex items-center justify-between mb-2">
+                  <h2 class="section-label" style="margin:0;">Medicación</h2>
+                  @if (canEditClinical()) {
+                    <button type="button" class="btn btn--ghost btn--sm" (click)="openClinicalModal('MEDICACION')">Agregar</button>
+                  }
+                </div>
                 @if (medicacion().length === 0) {
                   <p class="text-xs" style="color: var(--text-muted);">Sin medicación registrada</p>
                 } @else {
@@ -203,7 +226,7 @@ const ALL_STEPS: StatusStep[] = [
               <emx-glass-card>
                 <h2 class="section-label">Estado del incidente</h2>
                 <div class="flex items-start gap-0 overflow-x-auto pb-1">
-                  @for (step of statusSteps; track step.id; let i = $index) {
+                  @for (step of statusSteps(); track step.id; let i = $index) {
                     <!-- Step node -->
                     <div class="flex flex-col items-center gap-1.5 flex-shrink-0" style="min-width: 72px;">
                       <div class="flex items-center w-full">
@@ -219,7 +242,7 @@ const ALL_STEPS: StatusStep[] = [
                              [class.animate-pulse]="stepIndex(step.id) === activeStepIndex()">
                         </div>
                         <!-- Right connector line -->
-                        @if (i < statusSteps.length - 1) {
+                        @if (i < statusSteps().length - 1) {
                           <div class="flex-1 h-px"
                                [style.background]="stepIndex(step.id) < activeStepIndex() ? 'var(--accent-emerald)' : 'var(--border-glass)'">
                           </div>
@@ -236,7 +259,12 @@ const ALL_STEPS: StatusStep[] = [
 
               <!-- 6. Vital Signs 2×2 -->
               <emx-glass-card>
-                <h2 class="section-label">Signos vitales</h2>
+                <div class="flex items-center justify-between mb-3">
+                  <h2 class="section-label" style="margin:0;">Signos vitales</h2>
+                  @if (canEditClinical()) {
+                    <button type="button" class="btn btn--ghost btn--sm" (click)="openClinicalModal('SIGNOS')">Cargar</button>
+                  }
+                </div>
                 <div class="grid grid-cols-2 gap-3">
                   <!-- FC -->
                   <div class="rounded-lg p-3" style="background: var(--bg-glass);">
@@ -540,6 +568,59 @@ const ALL_STEPS: StatusStep[] = [
       </div>
     </div>
 
+    <!-- Clinical data modal -->
+    @if (clinicalModal()) {
+      <div class="clinical-modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="clinical-modal-card flex flex-col gap-5 w-full max-w-2xl">
+          <div class="clinical-modal-header">
+            <div>
+              <p class="clinical-modal-kicker">Carga clínica telefónica</p>
+              <h2 class="clinical-modal-title">{{ clinicalModalTitle() }}</h2>
+              <p class="clinical-modal-subtitle">Carga asistida por operador/despacho. Queda vinculada a la atención y a la historia clínica.</p>
+            </div>
+            <button type="button" class="clinical-close" (click)="clinicalModal.set(null)">×</button>
+          </div>
+
+          @if (clinicalModal() === 'SIGNOS') {
+            <div class="grid grid-cols-3 gap-2">
+              <input class="clinical-input" placeholder="TA ej: 120/80" [value]="svTa()" (input)="svTa.set($any($event.target).value)" />
+              <input class="clinical-input" type="number" placeholder="FC" [value]="svFc()" (input)="svFc.set($any($event.target).value)" />
+              <input class="clinical-input" type="number" placeholder="FR" [value]="svFr()" (input)="svFr.set($any($event.target).value)" />
+              <input class="clinical-input" type="number" placeholder="SpO₂" [value]="svSatO2()" (input)="svSatO2.set($any($event.target).value)" />
+              <input class="clinical-input" type="number" placeholder="Temp" [value]="svTemp()" (input)="svTemp.set($any($event.target).value)" />
+              <input class="clinical-input" type="number" placeholder="Glucemia" [value]="svGlucemia()" (input)="svGlucemia.set($any($event.target).value)" />
+            </div>
+            <textarea rows="2" class="clinical-input" placeholder="Observación" [value]="clinicalObservacion()" (input)="clinicalObservacion.set($any($event.target).value)"></textarea>
+          }
+
+          @if (clinicalModal() === 'PROCEDIMIENTO') {
+            <input class="clinical-input" placeholder="Procedimiento realizado" [value]="clinicalTitulo()" (input)="clinicalTitulo.set($any($event.target).value)" />
+            <textarea rows="4" class="clinical-input" placeholder="Detalle, respuesta del paciente, observaciones" [value]="clinicalDetalle()" (input)="clinicalDetalle.set($any($event.target).value)"></textarea>
+          }
+
+          @if (clinicalModal() === 'MEDICACION') {
+            <div class="grid grid-cols-3 gap-2">
+              <input class="clinical-input" placeholder="Medicamento" [value]="medMedicamento()" (input)="medMedicamento.set($any($event.target).value)" />
+              <input class="clinical-input" placeholder="Dosis" [value]="medDosis()" (input)="medDosis.set($any($event.target).value)" />
+              <input class="clinical-input" placeholder="Vía" [value]="medVia()" (input)="medVia.set($any($event.target).value)" />
+            </div>
+            <textarea rows="3" class="clinical-input" placeholder="Observación / indicación telefónica" [value]="clinicalObservacion()" (input)="clinicalObservacion.set($any($event.target).value)"></textarea>
+          }
+
+          @if (clinicalError()) {
+            <p class="text-xs" style="color: var(--accent-red);">{{ clinicalError() }}</p>
+          }
+
+          <div class="clinical-modal-footer">
+            <button type="button" class="btn btn--ghost btn--sm" (click)="clinicalModal.set(null)">Cancelar</button>
+            <button type="button" class="btn btn--primary btn--sm" [disabled]="savingClinical()" (click)="guardarClinicalModal()">
+              {{ savingClinical() ? 'Guardando…' : 'Guardar' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
     <!-- Cancel dialog -->
     @if (showCancelDialog()) {
       <div class="fixed inset-0 z-50 flex items-center justify-center"
@@ -578,6 +659,74 @@ const ALL_STEPS: StatusStep[] = [
       </div>
     }
 
+    <!-- Close dialog -->
+    @if (showCloseDialog()) {
+      <div class="clinical-modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="clinical-modal-card flex flex-col gap-5 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+          <div class="clinical-modal-header">
+            <div>
+              <p class="clinical-modal-kicker">Cierre operativo</p>
+              <h2 class="clinical-modal-title">Cerrar atención médica</h2>
+              <p class="clinical-modal-subtitle">Registrá resolución, signos vitales y procedimientos antes de completar el caso.</p>
+            </div>
+            <button type="button" class="clinical-close" (click)="showCloseDialog.set(false)">×</button>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <label class="flex flex-col gap-1 col-span-2">
+              <span class="clinical-field-label">Impresión clínica *</span>
+              <textarea rows="3" class="clinical-input" [value]="closeImpresion()" (input)="closeImpresion.set($any($event.target).value)"></textarea>
+            </label>
+            <label class="flex flex-col gap-1 col-span-2">
+              <span class="clinical-field-label">Procedimientos / tratamiento realizado</span>
+              <textarea rows="3" class="clinical-input" [value]="closeTratamiento()" (input)="closeTratamiento.set($any($event.target).value)"></textarea>
+            </label>
+            <label class="flex flex-col gap-1">
+              <span class="clinical-field-label">Tipo resolución</span>
+              <select class="clinical-input" [value]="closeTipoResolucion()" (change)="closeTipoResolucion.set($any($event.target).value)">
+                <option value="RESUELTA_EN_SITIO">Resuelta en sitio</option>
+                <option value="DERIVADO_HOSPITAL">Derivado a hospital</option>
+                <option value="PACIENTE_RECHAZO">Paciente rechaza</option>
+                <option value="SIN_RESPUESTA">Sin respuesta</option>
+              </select>
+            </label>
+            <label class="clinical-checkbox flex items-center gap-2 mt-5">
+              <input type="checkbox" [checked]="closeRequiereTraslado()" (change)="closeRequiereTraslado.set($any($event.target).checked)" />
+              <span>Requiere traslado</span>
+            </label>
+            @if (closeRequiereTraslado()) {
+              <label class="flex flex-col gap-1 col-span-2">
+                <span class="clinical-field-label">Hospital destino</span>
+                <input class="clinical-input" [value]="closeDestino()" (input)="closeDestino.set($any($event.target).value)" />
+              </label>
+            }
+          </div>
+
+          <div>
+            <h3 class="clinical-field-label mb-2">Signos vitales</h3>
+            <div class="grid grid-cols-3 gap-2">
+              <input class="clinical-input" placeholder="TA ej: 120/80" [value]="svTa()" (input)="svTa.set($any($event.target).value)" />
+              <input class="clinical-input" type="number" placeholder="FC" [value]="svFc()" (input)="svFc.set($any($event.target).value)" />
+              <input class="clinical-input" type="number" placeholder="FR" [value]="svFr()" (input)="svFr.set($any($event.target).value)" />
+              <input class="clinical-input" type="number" placeholder="SpO₂" [value]="svSatO2()" (input)="svSatO2.set($any($event.target).value)" />
+              <input class="clinical-input" type="number" placeholder="Temp" [value]="svTemp()" (input)="svTemp.set($any($event.target).value)" />
+              <input class="clinical-input" type="number" placeholder="Glucemia" [value]="svGlucemia()" (input)="svGlucemia.set($any($event.target).value)" />
+            </div>
+          </div>
+
+          <label class="flex flex-col gap-1">
+            <span class="clinical-field-label">Nota de cierre</span>
+            <textarea rows="2" class="clinical-input" [value]="closeNota()" (input)="closeNota.set($any($event.target).value)"></textarea>
+          </label>
+
+          <div class="clinical-modal-footer">
+            <button type="button" class="btn btn--ghost btn--sm" (click)="showCloseDialog.set(false)">Volver</button>
+            <button type="button" class="btn btn--primary btn--sm" [disabled]="!closeImpresion().trim()" (click)="confirmarCierre()">Completar atención</button>
+          </div>
+        </div>
+      </div>
+    }
+
     <!-- Dispatch modal -->
     @if (showDispatch() && ticket()) {
       <emx-dispatch-modal
@@ -595,6 +744,102 @@ const ALL_STEPS: StatusStep[] = [
       letter-spacing: 0.1em;
       color: var(--text-muted);
       margin-bottom: 0.75rem;
+    }
+    .clinical-modal-backdrop {
+      background: rgba(15, 23, 42, 0.54);
+      backdrop-filter: blur(10px) saturate(120%);
+    }
+    .clinical-modal-card {
+      border-radius: 1rem;
+      padding: 1.25rem;
+      background: rgba(248, 250, 252, 0.98);
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      box-shadow: 0 24px 70px rgba(15, 23, 42, 0.32);
+      color: #0f172a;
+    }
+    .clinical-modal-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      padding-bottom: 0.85rem;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+    }
+    .clinical-modal-kicker {
+      font-family: monospace;
+      font-size: 0.64rem;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: #2563eb;
+      margin: 0 0 0.25rem;
+      font-weight: 700;
+    }
+    .clinical-modal-title {
+      margin: 0;
+      color: #0f172a;
+      font-size: 1rem;
+      font-weight: 700;
+    }
+    .clinical-modal-subtitle {
+      margin: 0.25rem 0 0;
+      color: #64748b;
+      font-size: 0.75rem;
+    }
+    .clinical-close {
+      width: 2rem;
+      height: 2rem;
+      border-radius: 0.65rem;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      color: #475569;
+      background: #fff;
+      font-size: 1.25rem;
+      line-height: 1;
+    }
+    .clinical-modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.5rem;
+      padding-top: 0.9rem;
+      border-top: 1px solid rgba(148, 163, 184, 0.22);
+    }
+    .clinical-field-label {
+      display: inline-flex;
+      align-items: center;
+      font-family: monospace;
+      font-size: 0.68rem;
+      line-height: 1;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #475569;
+      font-weight: 700;
+      margin: 0 0 0.35rem;
+    }
+    .clinical-checkbox {
+      color: #0f172a;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+    .clinical-checkbox input {
+      width: 1rem;
+      height: 1rem;
+      accent-color: #2563eb;
+    }
+    .clinical-input {
+      width: 100%;
+      border-radius: 0.65rem;
+      padding: 0.65rem 0.75rem;
+      font-size: 0.875rem;
+      background: #ffffff;
+      border: 1px solid rgba(100, 116, 139, 0.35);
+      color: #0f172a;
+      outline: none;
+      box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
+    }
+    .clinical-input::placeholder {
+      color: #94a3b8;
+    }
+    .clinical-input:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.16);
     }
   `],
 })
@@ -614,12 +859,53 @@ export class EmergencyDetailComponent implements OnInit {
   readonly notaOk = signal(false);
   readonly showCancelDialog = signal(false);
   readonly cancelMotivo = signal('');
+  readonly clinicalAtencion = signal<AtencionFullDTO | null>(null);
+  readonly clinicalModal = signal<'SIGNOS' | 'PROCEDIMIENTO' | 'MEDICACION' | null>(null);
+  readonly savingClinical = signal(false);
+  readonly clinicalError = signal<string | null>(null);
+  readonly clinicalTitulo = signal('');
+  readonly clinicalDetalle = signal('');
+  readonly clinicalObservacion = signal('');
+  readonly medMedicamento = signal('');
+  readonly medDosis = signal('');
+  readonly medVia = signal('');
+  readonly showCloseDialog = signal(false);
+  readonly closeImpresion = signal('');
+  readonly closeTratamiento = signal('');
+  readonly closeTipoResolucion = signal('RESUELTA_EN_SITIO');
+  readonly closeRequiereTraslado = signal(false);
+  readonly closeDestino = signal('');
+  readonly closeNota = signal('');
+  readonly svTa = signal('');
+  readonly svFc = signal('');
+  readonly svFr = signal('');
+  readonly svSatO2 = signal('');
+  readonly svTemp = signal('');
+  readonly svGlucemia = signal('');
 
   // ── Derived data ──────────────────────────────────────────────
   readonly ticket = computed(() => this.detalle()?.ticket ?? null);
-  readonly signos = computed(() => this.detalle()?.signos ?? []);
-  readonly procedimientos = computed(() => this.detalle()?.procedimientos ?? []);
-  readonly medicacion = computed(() => this.detalle()?.medicacion ?? []);
+  readonly signos = computed(() => {
+    const clinical = this.clinicalAtencion()?.signos ?? [];
+    return clinical.length > 0 ? clinical : (this.detalle()?.signos ?? []);
+  });
+  readonly procedimientos = computed(() =>
+    (this.clinicalAtencion()?.notas ?? [])
+      .filter((n) => n.motivoConsulta === 'PROCEDIMIENTO')
+      .map((n) => ({ id: n.id, descripcion: n.procedimientoRealizado ?? n.evolucion, ejecutadoPor: 'Operador', timestamp: n.fecha }))
+  );
+  readonly medicacion = computed(() =>
+    (this.clinicalAtencion()?.notas ?? [])
+      .filter((n) => n.motivoConsulta === 'MEDICACION')
+      .map((n) => ({
+        id: n.id,
+        medicamento: this.extractMedicationPart(n.evolucion, 'Medicamento'),
+        dosis: this.extractMedicationPart(n.evolucion, 'Dosis'),
+        via: this.extractMedicationPart(n.evolucion, 'Vía'),
+        administradoPor: 'Operador',
+        timestamp: n.fecha,
+      }))
+  );
 
   readonly lastSigno = computed((): SignosVitalesDTO | null => {
     const arr = this.signos();
@@ -642,16 +928,30 @@ export class EmergencyDetailComponent implements OnInit {
   });
 
   // ── Status flow ───────────────────────────────────────────────
-  readonly statusSteps: StatusStep[] = ALL_STEPS;
+  readonly statusSteps = computed((): StatusStep[] => {
+    const timelineStates = new Set(this.timeline().map((event) => event.estado));
+    const ticket = this.ticket();
+    const huboTraslado =
+      timelineStates.has('TRASLADO') ||
+      timelineStates.has('ENTREGADO') ||
+      !!ticket?.horaInicioTraslado ||
+      !!ticket?.horaFinTraslado;
+
+    return ALL_STEPS.filter((step) => {
+      if ((step.id === 'TRASLADO' || step.id === 'ENTREGADO') && !huboTraslado) return false;
+      return true;
+    });
+  });
 
   readonly activeStepIndex = computed((): number => {
     const estado = this.ticket()?.estado ?? '';
-    const idx = ALL_STEPS.findIndex((s) => s.id === estado);
-    return idx >= 0 ? idx : 0;
+    const steps = this.statusSteps();
+    const idx = steps.findIndex((s) => s.id === estado);
+    return idx >= 0 ? idx : Math.max(steps.length - 1, 0);
   });
 
   stepIndex(stepId: string): number {
-    return ALL_STEPS.findIndex((s) => s.id === stepId);
+    return this.statusSteps().findIndex((s) => s.id === stepId);
   }
 
   stepDotColor(stepId: string): string {
@@ -668,9 +968,34 @@ export class EmergencyDetailComponent implements OnInit {
     return estado === 'RECIBIDO' || estado === 'EN_ESPERA';
   });
 
+  readonly canMarkEnCamino = computed(() => {
+    const estado = this.ticket()?.estado;
+    return estado === 'RECIBIDO' || estado === 'DESPACHADO';
+  });
+
+  readonly canMarkEnSitio = computed(() => {
+    const estado = this.ticket()?.estado;
+    return estado === 'RECIBIDO' || estado === 'DESPACHADO' || estado === 'EN_CAMINO';
+  });
+
+  readonly canStartTransfer = computed(() => {
+    const t = this.ticket();
+    return t?.estado === 'EN_SITIO' && !t.horaInicioTraslado;
+  });
+
+  readonly canFinishTransfer = computed(() => {
+    const t = this.ticket();
+    return t?.estado === 'EN_SITIO' && !!t.horaInicioTraslado && !t.horaFinTraslado;
+  });
+
   readonly canClose = computed(() => {
     const estado = this.ticket()?.estado;
-    return estado !== 'CERRADO' && estado !== 'CANCELADO';
+    return estado !== 'CERRADO' && estado !== 'COMPLETADO' && estado !== 'CANCELADO';
+  });
+
+  readonly canEditClinical = computed(() => {
+    const estado = this.ticket()?.estado;
+    return estado === 'EN_SITIO' || estado === 'EN_CAMINO' || estado === 'DESPACHADO';
   });
 
   // ── Priority helpers ──────────────────────────────────────────
@@ -742,6 +1067,7 @@ export class EmergencyDetailComponent implements OnInit {
     this.emergencyApi.getDetalle(id).subscribe({
       next: (data) => {
         this.detalle.set(data as TicketDetalleDTO);
+        this.loadClinicalAtencion();
         this.loading.set(false);
       },
       error: () => {
@@ -769,6 +1095,213 @@ export class EmergencyDetailComponent implements OnInit {
     this.load();
   }
 
+  loadClinicalAtencion(): void {
+    this.emergencyApi.getAtencionesPorTicket(this.ticketId).subscribe({
+      next: (items) => {
+        const first = items?.[0];
+        if (!first?.atencionId) {
+          this.clinicalAtencion.set(null);
+          return;
+        }
+        this.emergencyApi.getAtencionDetalle(first.atencionId).subscribe({
+          next: (detalle) => this.clinicalAtencion.set(detalle),
+          error: () => this.clinicalAtencion.set(null),
+        });
+      },
+      error: () => this.clinicalAtencion.set(null),
+    });
+  }
+
+  openClinicalModal(kind: 'SIGNOS' | 'PROCEDIMIENTO' | 'MEDICACION'): void {
+    this.clinicalModal.set(kind);
+    this.clinicalError.set(null);
+    this.clinicalTitulo.set('');
+    this.clinicalDetalle.set('');
+    this.clinicalObservacion.set('');
+    this.medMedicamento.set('');
+    this.medDosis.set('');
+    this.medVia.set('');
+    this.svTa.set('');
+    this.svFc.set('');
+    this.svFr.set('');
+    this.svSatO2.set('');
+    this.svTemp.set('');
+    this.svGlucemia.set('');
+  }
+
+  clinicalModalTitle(): string {
+    switch (this.clinicalModal()) {
+      case 'SIGNOS': return 'Cargar signos vitales';
+      case 'PROCEDIMIENTO': return 'Registrar procedimiento';
+      case 'MEDICACION': return 'Registrar medicación aplicada';
+      default: return 'Carga clínica';
+    }
+  }
+
+  guardarClinicalModal(): void {
+    this.savingClinical.set(true);
+    this.clinicalError.set(null);
+    this.ensureClinicalAtencion().then((atencion) => {
+      const updated: AtencionFullDTO = {
+        ...atencion,
+        tipo: atencion.tipo ?? 'URGENCIA',
+        canal: atencion.canal ?? 'TELEFONICA',
+        estado: atencion.estado ?? 'EN_CURSO',
+        notas: [...(atencion.notas ?? [])],
+        signos: [...(atencion.signos ?? [])],
+      };
+
+      const now = new Date().toISOString();
+      if (this.clinicalModal() === 'SIGNOS') {
+        const parsedTa = this.parseTa(this.svTa());
+        const signo = {
+          fechaHora: now,
+          presionSistolica: parsedTa.sistolica,
+          presionDiastolica: parsedTa.diastolica,
+          frecuenciaCardiaca: this.toNumber(this.svFc()),
+          frecuenciaRespiratoria: this.toNumber(this.svFr()),
+          saturacionOxigeno: this.toNumber(this.svSatO2()),
+          temperatura: this.toNumber(this.svTemp()),
+          glucemia: this.toNumber(this.svGlucemia()),
+          observacion: this.clinicalObservacion().trim() || undefined,
+        };
+        this.validarSignosVitales(signo);
+        updated.signos!.push(signo);
+      }
+
+      if (this.clinicalModal() === 'PROCEDIMIENTO') {
+        const titulo = this.clinicalTitulo().trim();
+        const detalle = this.clinicalDetalle().trim();
+        if (!titulo && !detalle) throw new Error('Indicá procedimiento o detalle');
+        updated.notas!.push({
+          fecha: now,
+          motivoConsulta: 'PROCEDIMIENTO',
+          tipoConsulta: 'URGENCIA',
+          procedimientoRealizado: titulo || detalle,
+          evolucion: detalle || titulo,
+        });
+      }
+
+      if (this.clinicalModal() === 'MEDICACION') {
+        const medicamento = this.medMedicamento().trim();
+        if (!medicamento) throw new Error('Indicá medicamento');
+        updated.notas!.push({
+          fecha: now,
+          motivoConsulta: 'MEDICACION',
+          tipoConsulta: 'URGENCIA',
+          evolucion: `Medicamento: ${medicamento}
+Dosis: ${this.medDosis().trim() || 'S/D'}
+Vía: ${this.medVia().trim() || 'S/D'}
+Observación: ${this.clinicalObservacion().trim() || '—'}`,
+        });
+      }
+
+      this.emergencyApi.guardarAtencionCompleta(this.sanitizeClinicalPayload(updated)).subscribe({
+        next: (saved) => {
+          this.clinicalAtencion.set(saved);
+          this.savingClinical.set(false);
+          this.clinicalModal.set(null);
+          this.load();
+        },
+        error: (error) => {
+          this.savingClinical.set(false);
+          this.clinicalError.set(error?.error?.title ?? error?.error?.detail ?? 'No se pudo guardar la carga clínica');
+        },
+      });
+    }).catch((error) => {
+      this.savingClinical.set(false);
+      this.clinicalError.set(error?.message ?? 'No se pudo preparar la atención clínica');
+    });
+  }
+
+  private ensureClinicalAtencion(): Promise<AtencionFullDTO> {
+    const current = this.clinicalAtencion();
+    if (current?.atencionId && current.turnoId) return Promise.resolve(current);
+    return new Promise((resolve, reject) => {
+      this.emergencyApi.iniciarAtencionDesdeTicket(this.ticketId).subscribe({
+        next: (created) => {
+          this.emergencyApi.getAtencionDetalle(created.atencionId).subscribe({
+            next: resolve,
+            error: reject,
+          });
+        },
+        error: reject,
+      });
+    });
+  }
+
+  private parseTa(value: string): { sistolica?: number; diastolica?: number } {
+    if (!value.trim()) return {};
+    const parts = value.split('/');
+    if (parts.length !== 2) throw new Error('Ingresá la presión arterial como sistólica/diastólica. Ej: 120/80');
+    const [sistolica, diastolica] = parts.map((part) => this.toNumber(part));
+    return { sistolica, diastolica };
+  }
+
+  private toNumber(value: string): number | undefined {
+    if (!value.trim()) return undefined;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+
+  private validarSignosVitales(signo: {
+    presionSistolica?: number;
+    presionDiastolica?: number;
+    frecuenciaCardiaca?: number;
+    frecuenciaRespiratoria?: number;
+    saturacionOxigeno?: number;
+    temperatura?: number;
+    glucemia?: number;
+  }): void {
+    this.validarRango(signo.presionSistolica, 60, 300, 'PA sistólica');
+    this.validarRango(signo.presionDiastolica, 30, 200, 'PA diastólica');
+    this.validarRango(signo.frecuenciaCardiaca, 30, 220, 'frecuencia cardíaca');
+    this.validarRango(signo.frecuenciaRespiratoria, 8, 60, 'frecuencia respiratoria');
+    this.validarRango(signo.saturacionOxigeno, 70, 100, 'SpO₂');
+    this.validarRango(signo.temperatura, 30, 45, 'temperatura');
+    this.validarRango(signo.glucemia, 20, 600, 'glucemia');
+  }
+
+  private validarRango(value: number | undefined, min: number, max: number, label: string): void {
+    if (value === undefined) return;
+    if (value < min || value > max) {
+      throw new Error(`${label} fuera de rango (${min}-${max}). Revisá el dato antes de guardar.`);
+    }
+  }
+
+  private sanitizeClinicalPayload(atencion: AtencionFullDTO): AtencionFullDTO {
+    return {
+      ...atencion,
+      notas: (atencion.notas ?? []).map((nota: any) => ({
+        id: nota.id,
+        fecha: nota.fecha,
+        motivoConsulta: nota.motivoConsulta,
+        tipoConsulta: nota.tipoConsulta,
+        procedimientoRealizado: nota.procedimientoRealizado,
+        evolucion: nota.evolucion,
+        observacion: nota.observacion,
+      })),
+      signos: (atencion.signos ?? []).map((signo: any) => ({
+        id: signo.id,
+        fechaHora: signo.fechaHora ?? signo.timestamp,
+        presionSistolica: signo.presionSistolica,
+        presionDiastolica: signo.presionDiastolica,
+        frecuenciaCardiaca: signo.frecuenciaCardiaca,
+        frecuenciaRespiratoria: signo.frecuenciaRespiratoria,
+        saturacionOxigeno: signo.saturacionOxigeno ?? signo.saturacionO2,
+        temperatura: signo.temperatura,
+        glucemia: signo.glucemia,
+        observacion: signo.observacion,
+      })),
+    };
+  }
+
+  private extractMedicationPart(text: string | undefined, label: string): string | undefined {
+    if (!text) return undefined;
+    const line = text.split('\n').find((l) => l.toLowerCase().startsWith(label.toLowerCase() + ':'));
+    return line?.split(':').slice(1).join(':').trim();
+  }
+
   agregarNota(): void {
     const nota = this.noteText().trim();
     if (!nota) return;
@@ -787,10 +1320,74 @@ export class EmergencyDetailComponent implements OnInit {
     });
   }
 
-  cerrar(): void {
-    const req: CerrarTicketRequest = {};
-    this.emergencyApi.cerrar(this.ticketId, req).subscribe({
+  marcarEnCamino(): void {
+    this.emergencyApi.enCamino(this.ticketId).subscribe({
       next: () => this.load(),
+      error: () => this.error.set('Error al marcar en camino'),
+    });
+  }
+
+  marcarEnSitio(): void {
+    this.emergencyApi.enSitio(this.ticketId).subscribe({
+      next: () => this.load(),
+      error: () => this.error.set('Error al marcar en sitio'),
+    });
+  }
+
+  iniciarTraslado(): void {
+    this.emergencyApi.iniciarTraslado(this.ticketId).subscribe({
+      next: () => this.load(),
+      error: () => this.error.set('Error al iniciar traslado'),
+    });
+  }
+
+  finalizarTraslado(): void {
+    this.emergencyApi.finalizarTraslado(this.ticketId).subscribe({
+      next: () => this.load(),
+      error: () => this.error.set('Error al finalizar traslado'),
+    });
+  }
+
+  cerrar(): void {
+    this.closeImpresion.set('');
+    this.closeTratamiento.set('');
+    this.closeTipoResolucion.set('RESUELTA_EN_SITIO');
+    this.closeRequiereTraslado.set(false);
+    this.closeDestino.set('');
+    this.closeNota.set('');
+    this.svTa.set('');
+    this.svFc.set('');
+    this.svFr.set('');
+    this.svSatO2.set('');
+    this.svTemp.set('');
+    this.svGlucemia.set('');
+    this.showCloseDialog.set(true);
+  }
+
+  confirmarCierre(): void {
+    const req: CerrarTicketRequest = {
+      nota: this.closeNota().trim() || undefined,
+      resolucion: {
+        impresionClinica: this.closeImpresion().trim(),
+        tratamientoRealizado: this.closeTratamiento().trim() || undefined,
+        requiereTraslado: this.closeRequiereTraslado(),
+        tipoResolucion: this.closeTipoResolucion(),
+        destinoTraslado: this.closeDestino().trim() || undefined,
+        signosVitales: {
+          ta: this.svTa().trim() || undefined,
+          fc: this.toNumber(this.svFc()),
+          fr: this.toNumber(this.svFr()),
+          satO2: this.toNumber(this.svSatO2()),
+          temp: this.toNumber(this.svTemp()),
+          glucemia: this.toNumber(this.svGlucemia()),
+        },
+      },
+    };
+    this.emergencyApi.cerrar(this.ticketId, req).subscribe({
+      next: () => {
+        this.showCloseDialog.set(false);
+        this.load();
+      },
       error: () => this.error.set('Error al cerrar el ticket'),
     });
   }
@@ -822,6 +1419,7 @@ export class EmergencyDetailComponent implements OnInit {
       'EN_SITIO':   'var(--accent-amber)',
       'TRASLADO':   'var(--accent-cyan)',
       'ENTREGADO':  'var(--accent-emerald)',
+      'COMPLETADO': 'var(--text-muted)',
       'CERRADO':    'var(--text-muted)',
       'CANCELADO':  'var(--accent-red)',
     };
@@ -836,6 +1434,7 @@ export class EmergencyDetailComponent implements OnInit {
       'EN_SITIO':   'EN SITIO',
       'TRASLADO':   'TRASLADO',
       'ENTREGADO':  'ENTREGADO',
+      'COMPLETADO': 'CIERRE',
       'CERRADO':    'CIERRE',
       'CANCELADO':  'CANCELADO',
     };

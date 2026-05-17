@@ -10,10 +10,7 @@ export class WebsocketService {
 
   connect(token: string): void {
     this.client = new Client({
-      webSocketFactory: () => new SockJS(environment.wsUrl) as WebSocket,
-      connectHeaders: {
-        Authorization: `Bearer ${token}`,
-      },
+      webSocketFactory: () => new SockJS(`${environment.wsUrl}?access_token=${token}`) as WebSocket,
       reconnectDelay: 5000,
       onConnect: () => {
         this.connected.set(true);

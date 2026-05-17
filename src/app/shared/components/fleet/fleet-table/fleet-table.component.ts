@@ -40,9 +40,14 @@ import { BadgeVariant } from '../../status-badge/status-badge.component';
                 </span>
               </td>
               <td class="px-3 py-2.5">
-                <emx-status-badge [variant]="estadoVariant(unit.estado)">
-                  {{ estadoLabel(unit.estado) }}
+                <emx-status-badge [variant]="estadoVariant(unit)">
+                  {{ estadoLabel(unit) }}
                 </emx-status-badge>
+                @if (unit.motivoNoDisponible && unit.estado === 'DISPONIBLE') {
+                  <div class="font-mono mt-1" style="font-size:9px;color:var(--text-muted);letter-spacing:.04em;">
+                    {{ motivoLabel(unit.motivoNoDisponible) }}
+                  </div>
+                }
               </td>
               <td class="px-3 py-2.5" style="color: var(--text-secondary);">{{ unit.tripulacion ?? '—' }}</td>
               <td class="px-3 py-2.5">
@@ -106,25 +111,42 @@ export class FleetTableComponent {
 
   hoveredId: number | null = null;
 
-  estadoVariant(estado?: string): BadgeVariant {
-    switch (estado) {
-      case 'DISPONIBLE': return 'stable';
-      case 'EN_RUTA': return 'info';
+  estadoVariant(unit: UnidadMovilDTO): BadgeVariant {
+    if (unit.disponibleParaDespacho) return 'stable';
+    switch (unit.estado) {
+      case 'DISPONIBLE': return 'info';
+      case 'EN_SERVICIO':
+      case 'EN_RUTA': return 'urgent';
       case 'EN_SITIO': return 'urgent';
       case 'TRASLADO': return 'cyan';
+      case 'EN_TALLER':
+      case 'FUERA_SERVICIO':
       case 'MANTENIMIENTO': return 'critical';
       default: return 'info';
     }
   }
 
-  estadoLabel(estado?: string): string {
-    switch (estado) {
-      case 'DISPONIBLE': return 'Disponible';
+  estadoLabel(unit: UnidadMovilDTO): string {
+    if (unit.disponibleParaDespacho) return 'Disponible';
+    switch (unit.estado) {
+      case 'DISPONIBLE': return 'No despachable';
+      case 'EN_SERVICIO': return 'En servicio';
       case 'EN_RUTA': return 'En ruta';
       case 'EN_SITIO': return 'En sitio';
       case 'TRASLADO': return 'Traslado';
+      case 'EN_TALLER': return 'En taller';
+      case 'FUERA_SERVICIO': return 'Fuera servicio';
       case 'MANTENIMIENTO': return 'Mantenim.';
       default: return '—';
+    }
+  }
+
+  motivoLabel(motivo: string): string {
+    switch (motivo) {
+      case 'SIN_COBERTURA_OPERATIVA': return 'Sin guardia activa';
+      case 'SIN_TRIPULACION_MINIMA': return 'Sin dotación mínima';
+      case 'CON_TICKET_ACTIVO': return 'Con ticket activo';
+      default: return motivo.replaceAll('_', ' ').toLowerCase();
     }
   }
 

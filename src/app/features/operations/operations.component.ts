@@ -301,6 +301,7 @@ export class OperationsComponent implements OnInit {
     if (token) {
       this.ws.connect(token);
       this.fleetStore.startLocationTracking();
+      this.emergencyStore.startTicketTracking();
     }
   }
 
