@@ -1,18 +1,32 @@
-import { Component, output, inject, HostListener, signal, computed } from '@angular/core';
+import { Component, output, inject, HostListener, signal, computed, OnDestroy } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
+import { Subject, debounceTime, distinctUntilChanged, switchMap, catchError, of } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { ModalShellComponent } from '../../modal-shell/modal-shell.component';
-import { CrearTicketRequest } from '../../../../data-access/dto/ticket.dto';
+import { AltaRapidaRequest } from '../../../../data-access/dto/ticket.dto';
+import { environment } from '../../../../../environments/environment';
 
-type TipoAsistencia = CrearTicketRequest['tipoAsistencia'];
-type NivelUrgencia = CrearTicketRequest['nivelUrgencia'];
+type TipoAsistencia = AltaRapidaRequest['tipoAsistencia'];
+type NivelUrgencia  = AltaRapidaRequest['nivelUrgencia'];
+
+interface PacienteResult {
+  id: number;
+  nombre: string;
+  apellido: string;
+  dni?: string;
+  direccion?: string;
+  ciudad?: string;
+  telefono?: string;
+}
 
 const TIPOS_ASISTENCIA: { value: TipoAsistencia; label: string }[] = [
-  { value: 'EMERGENCIA_DOMICILIARIA',    label: 'Emergencia domiciliaria' },
+  { value: 'EMERGENCIA_DOMICILIARIA',     label: 'Emergencia domiciliaria' },
   { value: 'CONTROL_MEDICO_DOMICILIARIO', label: 'Control médico' },
-  { value: 'ENFERMERIA_DOMICILIARIA',    label: 'Enfermería domiciliaria' },
-  { value: 'TRASLADO_PROGRAMADO',        label: 'Traslado programado' },
-  { value: 'VISITA_DOMICILIARIA',        label: 'Visita domiciliaria' },
-  { value: 'ORIENTACION_TELEFONICA',     label: 'Orientación telefónica' },
+  { value: 'ENFERMERIA_DOMICILIARIA',     label: 'Enfermería domiciliaria' },
+  { value: 'TRASLADO_PROGRAMADO',         label: 'Traslado programado' },
+  { value: 'VISITA_DOMICILIARIA',         label: 'Visita domiciliaria' },
+  { value: 'ORIENTACION_TELEFONICA',      label: 'Orientación telefónica' },
 ];
 
 const NIVELES_URGENCIA: { value: NivelUrgencia; label: string; sublabel: string; color: string; bg: string }[] = [
@@ -120,31 +134,92 @@ const NIVELES_URGENCIA: { value: NivelUrgencia; label: string; sublabel: string;
               style="background: var(--surface-glass); border: 1px solid var(--border-strong); color: var(--text-primary);"
             />
           </div>
+
+          <div class="flex flex-col gap-1.5">
+            <label class="eyebrow">Teléfono de contacto</label>
+            <input
+              type="tel"
+              formControlName="telefonoContacto"
+              placeholder="Ej: 0388-15912345"
+              class="rounded-btn px-3 py-2 text-sm w-full"
+              style="background: var(--surface-glass); border: 1px solid var(--border-strong); color: var(--text-primary);"
+            />
+          </div>
         }
 
         <!-- Paciente -->
         <div class="flex flex-col gap-2">
           <label class="eyebrow">Paciente</label>
 
-          <!-- Checkbox no afiliado -->
           <label class="flex items-center gap-2 text-sm cursor-pointer" style="color: var(--text-secondary);">
-            <input
-              type="checkbox"
-              formControlName="noAfiliado"
-              class="rounded"
-            />
+            <input type="checkbox" formControlName="noAfiliado" class="rounded" />
             Paciente no registrado
           </label>
 
           @if (!f['noAfiliado'].value) {
-            <!-- Paciente registrado: búsqueda futura, por ahora campo libre -->
-            <input
-              type="text"
-              formControlName="pacienteBusqueda"
-              placeholder="Nombre del paciente (búsqueda próximamente)"
-              class="rounded-btn px-3 py-2 text-sm w-full"
-              style="background: var(--surface-glass); border: 1px solid var(--border-strong); color: var(--text-primary);"
-            />
+            <!-- Autocomplete de paciente registrado -->
+            <div class="relative" (click)="$event.stopPropagation()">
+              @if (selectedPaciente()) {
+                <!-- Paciente seleccionado -->
+                <div
+                  class="flex items-center justify-between rounded-btn px-3 py-2 text-sm"
+                  style="background: rgba(6,182,212,0.08); border: 1px solid rgba(6,182,212,0.4); color: var(--text-primary);"
+                >
+                  <span>
+                    <span class="font-medium">{{ selectedPaciente()!.apellido }}, {{ selectedPaciente()!.nombre }}</span>
+                    @if (selectedPaciente()!.dni) {
+                      <span class="ml-2 text-xs" style="color: var(--text-muted);">DNI {{ selectedPaciente()!.dni }}</span>
+                    }
+                  </span>
+                  <button
+                    type="button"
+                    class="ml-2 text-xs px-1.5 py-0.5 rounded"
+                    style="color: var(--text-muted); background: var(--surface-glass);"
+                    (click)="clearPaciente()"
+                  >✕</button>
+                </div>
+              } @else {
+                <!-- Input de búsqueda -->
+                <input
+                  type="text"
+                  formControlName="pacienteBusqueda"
+                  placeholder="Buscar por nombre, apellido o DNI..."
+                  autocomplete="off"
+                  class="rounded-btn px-3 py-2 text-sm w-full"
+                  style="background: var(--surface-glass); border: 1px solid var(--border-strong); color: var(--text-primary);"
+                  (focus)="dropdownOpen.set(true)"
+                />
+
+                <!-- Dropdown de resultados -->
+                @if (dropdownOpen() && (searchResults().length > 0 || searching())) {
+                  <div
+                    class="absolute left-0 right-0 top-full mt-1 rounded-btn z-[200]"
+                    style="background: #1a2035; border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 12px 32px rgba(0,0,0,0.6);"
+                  >
+                    @if (searching()) {
+                      <div class="px-3 py-2.5 text-xs" style="color: var(--text-muted);">Buscando...</div>
+                    } @else {
+                      @for (p of searchResults(); track p.id) {
+                        <button
+                          type="button"
+                          class="w-full text-left px-3 py-2.5 text-sm"
+                          style="color: var(--text-primary); border-bottom: 1px solid rgba(255,255,255,0.05);"
+                          [style.background]="hoveredId() === p.id ? 'rgba(255,255,255,0.07)' : 'transparent'"
+                          (mouseenter)="hoveredId.set(p.id)"
+                          (mouseleave)="hoveredId.set(null)"
+                          (click)="selectPaciente(p)"
+                        >
+                          <span class="font-medium">{{ p.apellido }}, {{ p.nombre }}</span>
+                          @if (p.dni) {
+                            <span class="ml-2 text-xs" style="color: var(--text-muted);">DNI {{ p.dni }}</span>
+                          }
+                        </button>
+                      }
+                    }
+                  </div>
+                }
+              }
+            </div>
           } @else {
             <!-- Datos de paciente no afiliado -->
             <div class="grid grid-cols-2 gap-2">
@@ -180,11 +255,11 @@ const NIVELES_URGENCIA: { value: NivelUrgencia; label: string; sublabel: string;
           }
         </div>
 
-        <!-- Nota operador -->
+        <!-- Observación -->
         <div class="flex flex-col gap-1.5">
-          <label class="eyebrow">Nota del operador</label>
+          <label class="eyebrow">Observación</label>
           <textarea
-            formControlName="notaOperador"
+            formControlName="observacion"
             rows="2"
             placeholder="Información adicional para el equipo..."
             class="rounded-btn px-3 py-2 text-sm w-full resize-none"
@@ -212,32 +287,95 @@ const NIVELES_URGENCIA: { value: NivelUrgencia; label: string; sublabel: string;
     </emx-modal-shell>
   `,
 })
-export class EmergencyQuickCreateModalComponent {
-  created = output<CrearTicketRequest>();
-  closed = output<void>();
+export class EmergencyQuickCreateModalComponent implements OnDestroy {
+  created = output<AltaRapidaRequest>();
+  closed  = output<void>();
 
-  private fb = inject(FormBuilder);
+  private fb   = inject(FormBuilder);
+  private http = inject(HttpClient);
 
   readonly tiposAsistencia = TIPOS_ASISTENCIA;
   readonly nivelesUrgencia = NIVELES_URGENCIA;
 
+  // ── Autocomplete state ──
+  readonly selectedPaciente = signal<PacienteResult | null>(null);
+  readonly searchResults    = signal<PacienteResult[]>([]);
+  readonly searching        = signal(false);
+  readonly dropdownOpen     = signal(false);
+  readonly hoveredId        = signal<number | null>(null);
+
+  private destroy$ = new Subject<void>();
+  private search$  = new Subject<string>();
+
   form = this.fb.group({
-    tipoAsistencia:    ['' as TipoAsistencia | '', Validators.required],
-    nivelUrgencia:     ['' as NivelUrgencia | '',  Validators.required],
+    tipoAsistencia:     ['' as TipoAsistencia | '', Validators.required],
+    nivelUrgencia:      ['' as NivelUrgencia  | '', Validators.required],
     descripcionSintomas: ['', [Validators.required, Validators.minLength(1)]],
-    direccion:         [''],
-    notaDireccion:     [''],
-    noAfiliado:        [false],
-    pacienteBusqueda:  [''],
-    pacienteNombre:    [''],
-    pacienteApellido:  [''],
-    pacienteDni:       [''],
-    pacienteTelefono:  [''],
-    notaOperador:      [''],
+    direccion:          [''],
+    notaDireccion:      [''],
+    telefonoContacto:   [''],
+    noAfiliado:         [false],
+    pacienteBusqueda:   [''],
+    pacienteNombre:     [''],
+    pacienteApellido:   [''],
+    pacienteDni:        [''],
+    pacienteTelefono:   [''],
+    observacion:        [''],
   });
 
-  get f() {
-    return this.form.controls;
+  constructor() {
+    this.search$.pipe(
+      debounceTime(300),
+      distinctUntilChanged(),
+      switchMap(query => {
+        if (!query || query.length < 2) {
+          this.searchResults.set([]);
+          this.searching.set(false);
+          return of([]);
+        }
+        this.searching.set(true);
+        return this.http
+          .get<PacienteResult[]>(`${environment.apiUrl}/api/pacientes/search`, { params: { query } })
+          .pipe(catchError(() => of([])));
+      }),
+      takeUntil(this.destroy$),
+    ).subscribe(results => {
+      this.searchResults.set(results);
+      this.searching.set(false);
+    });
+
+    this.f['pacienteBusqueda'].valueChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(v => this.search$.next(v ?? ''));
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  get f() { return this.form.controls; }
+
+  selectPaciente(p: PacienteResult): void {
+    this.selectedPaciente.set(p);
+    this.dropdownOpen.set(false);
+    this.searchResults.set([]);
+    this.f['pacienteBusqueda'].setValue('', { emitEvent: false });
+
+    if (p.direccion) {
+      const dir = p.ciudad ? `${p.direccion}, ${p.ciudad}` : p.direccion;
+      this.f['direccion'].setValue(dir);
+    }
+  }
+
+  clearPaciente(): void {
+    this.selectedPaciente.set(null);
+    this.searchResults.set([]);
+  }
+
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    this.dropdownOpen.set(false);
   }
 
   @HostListener('document:keydown.enter')
@@ -250,30 +388,26 @@ export class EmergencyQuickCreateModalComponent {
       this.form.markAllAsTouched();
       return;
     }
-    const val = this.form.value;
+    const val  = this.form.value;
     const tipo = val.tipoAsistencia as TipoAsistencia;
-    const noAfiliado = !!val.noAfiliado;
 
-    const req: CrearTicketRequest = {
+    const req: AltaRapidaRequest = {
       tipoAsistencia:      tipo,
       nivelUrgencia:       val.nivelUrgencia as NivelUrgencia,
       descripcionSintomas: val.descripcionSintomas!,
+      coberturaAlMomentoId: null,
     };
 
     if (tipo !== 'ORIENTACION_TELEFONICA') {
-      req.direccion = val.direccion || undefined;
-      if (val.notaDireccion) req.notaDireccion = val.notaDireccion;
+      if (val.direccion)       req.direccion        = val.direccion;
+      if (val.notaDireccion)   req.notaDireccion    = val.notaDireccion;
+      if (val.telefonoContacto) req.telefonoContacto = val.telefonoContacto;
     }
 
-    if (noAfiliado) {
-      req.noAfiliado       = true;
-      req.pacienteNombre   = val.pacienteNombre   || undefined;
-      req.pacienteApellido = val.pacienteApellido || undefined;
-      req.pacienteDni      = val.pacienteDni      || undefined;
-      req.pacienteTelefono = val.pacienteTelefono || undefined;
-    }
+    const p = this.selectedPaciente();
+    if (p) req.pacienteId = p.id;
 
-    if (val.notaOperador) req.notaOperador = val.notaOperador;
+    if (val.observacion) req.observacion = val.observacion;
 
     this.created.emit(req);
   }

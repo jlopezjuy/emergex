@@ -1,0 +1,1018 @@
+import { Component, OnInit, inject, signal, computed, HostListener } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { PlansApiService } from '../../data-access/api/plans.api';
+import { PlanDTO, PlanCoverages } from '../../data-access/dto/plan.dto';
+
+// ─── Interfaces ───────────────────────────────────────────────────────────────
+
+type Plan = PlanDTO;
+
+interface PlanForm {
+  name: string;
+  tier: 'basico' | 'medio' | 'premium';
+  description: string;
+  modality: 'individual' | 'familiar' | 'institucional';
+  audience: 'particulares' | 'corporativos';
+  monthly: number;
+  quarterly: number;
+  annual: number;
+  perDependent: number;
+  discountPct: number;
+  monthlyCap: number;
+  freeIncluded: number;
+  carencyDays: number;
+  coverages: PlanCoverages;
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const TIER_COLOR: Record<string, string> = {
+  basico:  'var(--text-muted)',
+  medio:   'var(--accent-blue)',
+  premium: 'var(--accent-emerald)',
+};
+
+const COVERAGE_META: { key: keyof PlanCoverages; name: string; sub: string }[] = [
+  { key: 'emergency',           name: 'Emergencias ALS/BLS',    sub: 'Despacho inmediato 24/7'   },
+  { key: 'homeVisit',           name: 'Visita domiciliaria',     sub: 'Consultas en el hogar'     },
+  { key: 'phoneOrientation',    name: 'Orientación telefónica',  sub: 'Línea médica 24hs'         },
+  { key: 'homeNursing',         name: 'Enfermería domiciliaria', sub: 'Cuidados y curaciones'     },
+  { key: 'monthlyControl',      name: 'Control mensual',         sub: 'Chequeo preventivo'        },
+  { key: 'scheduledTransport',  name: 'Traslado programado',     sub: 'Turnos y estudios'         },
+  { key: 'interurbanTransport', name: 'Traslado interurbano',    sub: 'Larga distancia cubierta'  },
+];
+
+const PLANS_SEED: Plan[] = [
+  {
+    id: 'PL-001', name: 'Plan Básico', description: 'Cobertura esencial para situaciones de urgencia. Ideal como primer plan de salud.',
+    tier: 'basico', modality: 'individual', audience: 'particulares',
+    pricing: { monthly: 18500, quarterly: 52000, annual: 192000, perDependent: 0, discountPct: 13 },
+    limits: { monthlyCap: 2, freeIncluded: 1, carencyDays: 0 },
+    coverages: { emergency: true, homeVisit: false, phoneOrientation: true, homeNursing: false, monthlyControl: false, scheduledTransport: false, interurbanTransport: false },
+    active: true,
+  },
+  {
+    id: 'PL-002', name: 'Plan Familiar', description: 'Cobertura completa para toda la familia con hasta 4 dependientes incluidos.',
+    tier: 'medio', modality: 'familiar', audience: 'particulares',
+    pricing: { monthly: 32400, quarterly: 91800, annual: 336000, perDependent: 5800, discountPct: 14 },
+    limits: { monthlyCap: 4, freeIncluded: 2, carencyDays: 0 },
+    coverages: { emergency: true, homeVisit: true, phoneOrientation: true, homeNursing: false, monthlyControl: true, scheduledTransport: false, interurbanTransport: false },
+    active: true,
+  },
+  {
+    id: 'PL-003', name: 'Plan Familiar Premium', description: 'La cobertura más completa para familias que priorizan la salud sin restricciones.',
+    tier: 'premium', modality: 'familiar', audience: 'particulares',
+    pricing: { monthly: 54800, quarterly: 153000, annual: 570000, perDependent: 8200, discountPct: 13 },
+    limits: { monthlyCap: 0, freeIncluded: 0, carencyDays: 0 },
+    coverages: { emergency: true, homeVisit: true, phoneOrientation: true, homeNursing: true, monthlyControl: true, scheduledTransport: true, interurbanTransport: true },
+    active: true,
+  },
+  {
+    id: 'PL-004', name: 'Plan Joven', description: 'Diseñado para personas de hasta 30 años con coberturas básicas y precio accesible.',
+    tier: 'basico', modality: 'individual', audience: 'particulares',
+    pricing: { monthly: 12900, quarterly: 36200, annual: 134000, perDependent: 0, discountPct: 13 },
+    limits: { monthlyCap: 3, freeIncluded: 1, carencyDays: 30 },
+    coverages: { emergency: true, homeVisit: false, phoneOrientation: true, homeNursing: false, monthlyControl: false, scheduledTransport: false, interurbanTransport: false },
+    active: true,
+  },
+  {
+    id: 'PL-005', name: 'Plan Empresarial Individual', description: 'Para ejecutivos y directivos que requieren atención personalizada y traslados.',
+    tier: 'premium', modality: 'individual', audience: 'particulares',
+    pricing: { monthly: 68000, quarterly: 192000, annual: 708000, perDependent: 0, discountPct: 13 },
+    limits: { monthlyCap: 0, freeIncluded: 0, carencyDays: 0 },
+    coverages: { emergency: true, homeVisit: true, phoneOrientation: true, homeNursing: true, monthlyControl: true, scheduledTransport: true, interurbanTransport: true },
+    active: false,
+  },
+  {
+    id: 'PL-101', name: 'Corporativo Básico', description: 'Cobertura de emergencias y orientación médica para empresas con hasta 50 empleados.',
+    tier: 'basico', modality: 'institucional', audience: 'corporativos',
+    pricing: { monthly: 45000, quarterly: 126000, annual: 468000, perDependent: 0, discountPct: 13 },
+    limits: { monthlyCap: 8, freeIncluded: 3, carencyDays: 0 },
+    coverages: { emergency: true, homeVisit: false, phoneOrientation: true, homeNursing: false, monthlyControl: false, scheduledTransport: false, interurbanTransport: false },
+    active: true,
+  },
+  {
+    id: 'PL-102', name: 'Corporativo Medio', description: 'Plan integral con visitas médicas y traslados programados para equipos de trabajo.',
+    tier: 'medio', modality: 'institucional', audience: 'corporativos',
+    pricing: { monthly: 89000, quarterly: 250000, annual: 924000, perDependent: 0, discountPct: 13 },
+    limits: { monthlyCap: 16, freeIncluded: 6, carencyDays: 0 },
+    coverages: { emergency: true, homeVisit: true, phoneOrientation: true, homeNursing: false, monthlyControl: true, scheduledTransport: true, interurbanTransport: false },
+    active: true,
+  },
+  {
+    id: 'PL-103', name: 'Corporativo Premium', description: 'Cobertura ilimitada para grandes empresas, incluyendo traslados interurbanos y enfermería.',
+    tier: 'premium', modality: 'institucional', audience: 'corporativos',
+    pricing: { monthly: 145000, quarterly: 408000, annual: 1512000, perDependent: 0, discountPct: 13 },
+    limits: { monthlyCap: 0, freeIncluded: 0, carencyDays: 0 },
+    coverages: { emergency: true, homeVisit: true, phoneOrientation: true, homeNursing: true, monthlyControl: true, scheduledTransport: true, interurbanTransport: true },
+    active: true,
+  },
+  {
+    id: 'PL-104', name: 'Educativo Básico', description: 'Para colegios y universidades con cobertura en guardias y eventos escolares.',
+    tier: 'basico', modality: 'institucional', audience: 'corporativos',
+    pricing: { monthly: 35000, quarterly: 98000, annual: 362000, perDependent: 0, discountPct: 14 },
+    limits: { monthlyCap: 6, freeIncluded: 2, carencyDays: 0 },
+    coverages: { emergency: true, homeVisit: false, phoneOrientation: true, homeNursing: false, monthlyControl: false, scheduledTransport: false, interurbanTransport: false },
+    active: true,
+  },
+  {
+    id: 'PL-105', name: 'Salud Partner', description: 'Alianza con clínicas y hospitales privados para derivaciones y guardias integradas.',
+    tier: 'premium', modality: 'institucional', audience: 'corporativos',
+    pricing: { monthly: 120000, quarterly: 336000, annual: 1248000, perDependent: 0, discountPct: 13 },
+    limits: { monthlyCap: 0, freeIncluded: 0, carencyDays: 0 },
+    coverages: { emergency: true, homeVisit: true, phoneOrientation: true, homeNursing: true, monthlyControl: true, scheduledTransport: true, interurbanTransport: true },
+    active: false,
+  },
+];
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function fmtN(n: number): string {
+  return n.toLocaleString('es-AR', { minimumFractionDigits: 0 });
+}
+
+function fmtCurrency(n: number): string {
+  return '$' + fmtN(n);
+}
+
+function emptyForm(): PlanForm {
+  return {
+    name: '', tier: 'basico', description: '', modality: 'individual', audience: 'particulares',
+    monthly: 0, quarterly: 0, annual: 0, perDependent: 0, discountPct: 0,
+    monthlyCap: 0, freeIncluded: 0, carencyDays: 0,
+    coverages: { emergency: false, homeVisit: false, phoneOrientation: false, homeNursing: false, monthlyControl: false, scheduledTransport: false, interurbanTransport: false },
+  };
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
+@Component({
+  selector: 'app-plans',
+  standalone: true,
+  imports: [FormsModule],
+  template: `
+    <div class="screen">
+
+      <!-- ── Header ── -->
+      <div class="screen-head">
+        <div class="screen-head__title">
+          <div class="screen-head__icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+              <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+              <line x1="12" y1="22.08" x2="12" y2="12"/>
+            </svg>
+          </div>
+          <div>
+            <h2>Planes Comerciales</h2>
+            <div class="eyebrow">B2C · B2B · COBERTURAS Y PRECIOS</div>
+          </div>
+        </div>
+
+        <div class="screen-head__kpis">
+          <div class="screen-kpi">
+            <div class="eyebrow">Particulares</div>
+            <div class="mono" style="font-size:18px;font-weight:500;color:var(--accent-blue)">{{ countByAudience('particulares') }}</div>
+          </div>
+          <div class="screen-kpi">
+            <div class="eyebrow">Corporativos</div>
+            <div class="mono" style="font-size:18px;font-weight:500;color:var(--accent-cyan)">{{ countByAudience('corporativos') }}</div>
+          </div>
+          <div class="screen-kpi">
+            <div class="eyebrow">Activos</div>
+            <div class="mono" style="font-size:18px;font-weight:500;color:var(--accent-emerald)">{{ countActive() }}</div>
+          </div>
+          <div class="screen-kpi">
+            <div class="eyebrow">Pausados</div>
+            <div class="mono" style="font-size:18px;font-weight:500;color:var(--text-muted)">{{ countPaused() }}</div>
+          </div>
+        </div>
+
+        <div class="screen-head__actions">
+          <button class="btn btn--ghost btn--sm">Exportar</button>
+          <button class="btn btn--primary btn--sm" (click)="openNewForm()">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="1" x2="6" y2="11"/><line x1="1" y1="6" x2="11" y2="6"/></svg>
+            Nuevo plan
+          </button>
+        </div>
+      </div>
+
+      <!-- ── Big tabs ── -->
+      <div class="plans-tabs">
+        <button class="plans-tab" [attr.data-active]="tab() === 'particulares'" (click)="tab.set('particulares')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+          <div>
+            <div style="font-size:14px;font-weight:600">Planes Particulares</div>
+            <div class="eyebrow">INDIVIDUAL · FAMILIAR — {{ countByAudience('particulares') }} PLANES</div>
+          </div>
+        </button>
+        <button class="plans-tab" [attr.data-active]="tab() === 'corporativos'" (click)="tab.set('corporativos')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+            <polyline points="9 22 9 12 15 12 15 22"/>
+          </svg>
+          <div>
+            <div style="font-size:14px;font-weight:600">Planes Corporativos</div>
+            <div class="eyebrow">INSTITUCIONES · EMPRESAS — {{ countByAudience('corporativos') }} PLANES</div>
+          </div>
+        </button>
+      </div>
+
+      <!-- ── Plans grid ── -->
+      <div class="plans-grid">
+
+        @for (plan of filteredPlans(); track plan.id) {
+          <div class="pricing-card" [class.pricing-card--off]="!plan.active">
+
+            <!-- Ribbon recomendado -->
+            @if (plan.tier === 'premium' && plan.active) {
+              <div style="position:absolute;top:12px;right:-8px;padding:4px 12px;background:var(--accent-emerald);color:white;font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;border-radius:4px;box-shadow:0 2px 8px rgba(16,185,129,0.35)">
+                RECOMENDADO
+              </div>
+            }
+
+            <!-- Card header: tier badge + toggle -->
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <span class="tier-badge" [style.background]="tierColor(plan.tier) + '18'" [style.color]="tierColor(plan.tier)" [style.border]="'1px solid ' + tierColor(plan.tier) + '44'">
+                <span style="width:6px;height:6px;border-radius:50%;background:currentColor;box-shadow:0 0 6px currentColor;display:inline-block"></span>
+                {{ tierLabel(plan.tier) }}
+              </span>
+              <button class="toggle-sw" [class.is-on]="plan.active" (click)="toggleActive(plan.id)" title="{{ plan.active ? 'Pausar plan' : 'Activar plan' }}">
+                <div class="toggle-sw__track">
+                  <div class="toggle-sw__thumb"></div>
+                </div>
+              </button>
+            </div>
+
+            <!-- Nombre + id + modalidad -->
+            <div>
+              <h3 style="font-size:17px;font-weight:700;margin:0 0 2px;letter-spacing:-0.01em">{{ plan.name }}</h3>
+              <div class="mono micro" style="color:var(--text-muted)">{{ plan.id }}</div>
+              <div class="eyebrow" style="margin-top:4px">{{ modalityLabel(plan.modality) }}</div>
+            </div>
+
+            <!-- Precio -->
+            <div>
+              <div style="display:flex;align-items:baseline;gap:3px">
+                <span style="font-size:13px;color:var(--text-secondary);font-family:var(--font-mono)">$</span>
+                <span class="mono" style="font-size:26px;font-weight:700;letter-spacing:-0.02em">{{ fmtN(plan.pricing.monthly) }}</span>
+                <span style="font-size:12px;color:var(--text-muted)">/ mes</span>
+              </div>
+              @if (plan.pricing.discountPct > 0) {
+                <div style="font-size:12px;color:var(--accent-emerald);margin-top:3px;font-family:var(--font-mono)">
+                  {{ fmtCurrency(plan.pricing.annual) }} anual · ahorrás {{ plan.pricing.discountPct }}%
+                </div>
+              }
+            </div>
+
+            <!-- Descripción -->
+            <p style="font-size:12px;color:var(--text-secondary);margin:0;line-height:1.5">{{ plan.description }}</p>
+
+            <!-- Coberturas activas -->
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              @for (cov of activeCoverages(plan); track cov.key) {
+                <div class="cov-icon-btn" [title]="cov.name + ' · ' + cov.sub"
+                  [style.border-color]="tierColor(plan.tier) + '55'"
+                  [style.background]="tierColor(plan.tier) + '14'"
+                  [style.color]="tierColor(plan.tier)">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </div>
+              }
+            </div>
+
+            <!-- Footer: límites + configurar -->
+            <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:auto;padding-top:4px;border-top:1px solid var(--border-hairline)">
+              <div style="font-size:11px">
+                @if (plan.limits.monthlyCap === 0) {
+                  <div style="color:var(--accent-emerald);font-family:var(--font-mono);font-weight:600">Ilimitado</div>
+                } @else {
+                  <div class="mono" style="color:var(--text-secondary)">{{ plan.limits.monthlyCap }} atenciones/mes</div>
+                  @if (plan.limits.freeIncluded > 0) {
+                    <div class="mono micro" style="color:var(--text-muted)">{{ plan.limits.freeIncluded }} sin cargo</div>
+                  }
+                }
+                @if (plan.limits.carencyDays === 0) {
+                  <div style="color:var(--accent-emerald);font-size:10.5px;margin-top:2px">Desde día 1</div>
+                } @else {
+                  <div style="color:var(--text-muted);font-size:10.5px;margin-top:2px">{{ plan.limits.carencyDays }} días carencia</div>
+                }
+              </div>
+              <button class="btn btn--ghost btn--sm" (click)="openEditForm(plan)" style="pointer-events:all">Configurar</button>
+            </div>
+          </div>
+        }
+
+        <!-- Card vacía: crear nuevo plan -->
+        <button class="pricing-card pricing-card--empty" (click)="openNewForm()">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="margin-bottom:8px">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          <span style="font-size:13px;font-weight:500">Crear nuevo plan</span>
+        </button>
+
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════
+         PLAN FORM MODAL
+         ═══════════════════════════════════════════════════════ -->
+    @if (formOpen()) {
+      <div class="qc-overlay" (click)="closeForm()">
+        <div class="qc-modal qc-modal--wide glass-strong" (click)="$event.stopPropagation()">
+
+          <!-- Header modal -->
+          <div class="qc-head">
+            <div>
+              <div class="eyebrow" style="color:var(--accent-blue)">● {{ editingPlan() ? 'EDITAR PLAN' : 'NUEVO PLAN' }}</div>
+              <h2 style="margin:4px 0 0;font-size:20px;font-weight:600;letter-spacing:-0.01em">
+                {{ editingPlan() ? form().name : 'Nuevo plan comercial' }}
+              </h2>
+            </div>
+            <button class="qc-close-btn" (click)="closeForm()">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="1" y1="1" x2="13" y2="13"/><line x1="13" y1="1" x2="1" y2="13"/></svg>
+            </button>
+          </div>
+
+          <div class="qc-body">
+
+            <!-- ── Bloque 1: Información general ── -->
+            <div class="form-section__head">
+              <div class="form-section__step" [style.background]="tierColor(form().tier)">1</div>
+              <div style="font-size:13px;font-weight:600;color:var(--text-primary)">Información general</div>
+            </div>
+
+            <div class="qc-field">
+              <label class="eyebrow">Nombre del plan <span style="color:var(--accent-red)">*</span></label>
+              <input class="qc-input" placeholder="Ej. Plan Familiar Premium" [(ngModel)]="formName" autofocus/>
+            </div>
+
+            <div class="qc-field" style="margin-top:12px">
+              <label class="eyebrow">Nivel</label>
+              <div class="tier-segment">
+                <button type="button" class="tier-btn"
+                  [style.background]="form().tier === 'basico' ? 'var(--text-muted)18' : 'rgba(255,255,255,0.03)'"
+                  [style.border-color]="form().tier === 'basico' ? 'var(--text-muted)' : 'var(--border-glass)'"
+                  [style.color]="form().tier === 'basico' ? 'var(--text-secondary)' : 'var(--text-muted)'"
+                  (click)="patchForm({ tier: 'basico' })">Básico</button>
+                <button type="button" class="tier-btn"
+                  [style.background]="form().tier === 'medio' ? 'rgba(59,130,246,0.1)' : 'rgba(255,255,255,0.03)'"
+                  [style.border-color]="form().tier === 'medio' ? 'var(--accent-blue)' : 'var(--border-glass)'"
+                  [style.color]="form().tier === 'medio' ? 'var(--accent-blue)' : 'var(--text-muted)'"
+                  (click)="patchForm({ tier: 'medio' })">Medio</button>
+                <button type="button" class="tier-btn"
+                  [style.background]="form().tier === 'premium' ? 'rgba(16,185,129,0.1)' : 'rgba(255,255,255,0.03)'"
+                  [style.border-color]="form().tier === 'premium' ? 'var(--accent-emerald)' : 'var(--border-glass)'"
+                  [style.color]="form().tier === 'premium' ? 'var(--accent-emerald)' : 'var(--text-muted)'"
+                  (click)="patchForm({ tier: 'premium' })">Premium</button>
+              </div>
+            </div>
+
+            <div class="qc-field" style="margin-top:12px">
+              <label class="eyebrow">Descripción</label>
+              <textarea class="qc-input" rows="3" placeholder="Descripción breve del plan y su propuesta de valor..." [(ngModel)]="formDescription" style="resize:vertical;min-height:70px"></textarea>
+            </div>
+
+            <div class="qc-field" style="margin-top:12px">
+              <label class="eyebrow">Modalidad</label>
+              <div class="modality-grid">
+                <button type="button" class="modality-card" [attr.data-active]="form().modality === 'individual'" (click)="patchForm({ modality: 'individual' })">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                  <span style="font-size:12px;font-weight:500">Individual</span>
+                </button>
+                <button type="button" class="modality-card" [attr.data-active]="form().modality === 'familiar'" (click)="patchForm({ modality: 'familiar' })">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                  <span style="font-size:12px;font-weight:500">Familiar</span>
+                </button>
+                <button type="button" class="modality-card" [attr.data-active]="form().modality === 'institucional'" (click)="patchForm({ modality: 'institucional' })">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                  <span style="font-size:12px;font-weight:500">Institucional</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="form-section__divider"></div>
+
+            <!-- ── Bloque 2: Precios ── -->
+            <div class="form-section__head">
+              <div class="form-section__step" style="background:var(--accent-emerald)">2</div>
+              <div style="font-size:13px;font-weight:600;color:var(--text-primary)">Configuración de precios</div>
+            </div>
+
+            <!-- Precio mensual destacado -->
+            <div class="pricing-featured">
+              <label class="eyebrow" style="display:block;margin-bottom:6px">Precio mensual <span style="color:var(--accent-red)">*</span></label>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span class="mono" style="font-size:16px;color:var(--text-muted)">$</span>
+                <input class="qc-input" type="number" placeholder="0" [(ngModel)]="formMonthly" style="font-size:18px;font-weight:600;font-family:var(--font-mono)"/>
+              </div>
+            </div>
+
+            <!-- Grid: trimestral / anual / descuento -->
+            <div class="pricing-grid">
+              <div class="qc-field">
+                <label class="eyebrow">Trimestral</label>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span class="mono micro" style="color:var(--text-muted)">$</span>
+                  <input class="qc-input" type="number" placeholder="0" [(ngModel)]="formQuarterly"/>
+                </div>
+                @if (form().quarterly > 0 && form().monthly > 0) {
+                  @let savings3 = form().monthly * 3 - form().quarterly;
+                  @if (savings3 > 0) {
+                    <div style="font-size:10.5px;color:var(--accent-emerald);margin-top:3px;font-family:var(--font-mono)">ahorro vs mensual: {{ fmtCurrency(savings3) }}</div>
+                  }
+                }
+              </div>
+              <div class="qc-field">
+                <label class="eyebrow">Anual</label>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span class="mono micro" style="color:var(--text-muted)">$</span>
+                  <input class="qc-input" type="number" placeholder="0" [(ngModel)]="formAnnual"/>
+                </div>
+                @if (form().annual > 0 && form().monthly > 0) {
+                  @let savings12 = form().monthly * 12 - form().annual;
+                  @if (savings12 > 0) {
+                    <div style="font-size:10.5px;color:var(--accent-emerald);margin-top:3px;font-family:var(--font-mono)">ahorro vs mensual: {{ fmtCurrency(savings12) }}</div>
+                  }
+                }
+              </div>
+              <div class="qc-field">
+                <label class="eyebrow">Descuento %</label>
+                <input class="qc-input" type="number" placeholder="0" [(ngModel)]="formDiscountPct" min="0" max="100"/>
+              </div>
+            </div>
+
+            @if (form().modality === 'familiar') {
+              <div class="qc-field" style="margin-top:12px;padding:10px 14px;border-radius:10px;border:1px solid var(--border-glass);background:rgba(255,255,255,0.02)">
+                <label class="eyebrow">Precio por dependiente adicional</label>
+                <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+                  <span class="mono" style="color:var(--text-muted)">$</span>
+                  <input class="qc-input" type="number" placeholder="0" [(ngModel)]="formPerDependent"/>
+                </div>
+              </div>
+            }
+
+            <div class="form-section__divider"></div>
+
+            <!-- ── Bloque 3: Límites y carencias ── -->
+            <div class="form-section__head">
+              <div class="form-section__step" style="background:var(--accent-amber)">3</div>
+              <div style="font-size:13px;font-weight:600;color:var(--text-primary)">Límites y carencias</div>
+            </div>
+
+            <div class="pricing-grid">
+              <div class="qc-field">
+                <label class="eyebrow">Tope mensual <span style="color:var(--text-muted)">(0=ilimitado)</span></label>
+                <input class="qc-input" type="number" placeholder="0" [(ngModel)]="formMonthlyCap" min="0"/>
+                <div class="mono micro" style="color:var(--text-muted);margin-top:3px">0 = sin límite de atenciones</div>
+              </div>
+              <div class="qc-field">
+                <label class="eyebrow">Atenciones sin cargo</label>
+                <input class="qc-input" type="number" placeholder="0" [(ngModel)]="formFreeIncluded" min="0"/>
+                <div class="mono micro" style="color:var(--text-muted);margin-top:3px">incluidas sin costo adicional</div>
+                @if (form().freeIncluded > form().monthlyCap && form().monthlyCap > 0) {
+                  <div style="font-size:11px;color:var(--accent-red);margin-top:4px">Las gratuitas no pueden superar el tope</div>
+                }
+              </div>
+              <div class="qc-field">
+                <label class="eyebrow">Días de carencia</label>
+                <input class="qc-input" type="number" placeholder="0" [(ngModel)]="formCarencyDays" min="0"/>
+                <div class="mono micro" style="color:var(--text-muted);margin-top:3px">0 = cobertura inmediata</div>
+              </div>
+            </div>
+
+            <div class="form-section__divider"></div>
+
+            <!-- ── Bloque 4: Coberturas ── -->
+            <div class="form-section__head">
+              <div class="form-section__step" style="background:var(--accent-blue)">4</div>
+              <div style="font-size:13px;font-weight:600;color:var(--text-primary)">Coberturas incluidas</div>
+              <span class="mono micro" style="margin-left:auto;color:var(--accent-blue)">{{ activeCoverageCount() }}/7 ACTIVAS</span>
+            </div>
+
+            <div class="coverages-grid">
+              @for (cov of coverageMeta; track cov.key) {
+                <div class="coverage-card" [attr.data-active]="form().coverages[cov.key]" (click)="toggleCoverage(cov.key)">
+                  <div style="width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,0.05);border:1px solid var(--border-glass);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                  </div>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-size:12px;font-weight:500;color:var(--text-primary)">{{ cov.name }}</div>
+                    <div class="mono micro" style="color:var(--text-muted)">{{ cov.sub }}</div>
+                  </div>
+                  <!-- Mini toggle -->
+                  <div class="cov-mini-toggle">
+                    <button type="button" class="toggle-sw" [class.is-on]="form().coverages[cov.key]" (click)="$event.stopPropagation()">
+                      <div class="toggle-sw__track">
+                        <div class="toggle-sw__thumb"></div>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              }
+            </div>
+
+          </div><!-- /qc-body -->
+
+          <div class="qc-foot">
+            <div class="qc-hint">
+              <span class="kbd">Esc</span> cerrar &nbsp;·&nbsp;
+              {{ activeCoverageCount() }}/7 coberturas activas
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn--ghost" (click)="closeForm()">Cancelar</button>
+              <button class="btn btn--primary" [disabled]="!canSubmit()" [style.opacity]="canSubmit() ? '1' : '0.5'" (click)="saveForm()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                Guardar plan
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    }
+  `,
+  styles: [`
+    :host { display: block; height: 100%; overflow-y: auto; }
+
+    /* ── Plans tabs ── */
+    .plans-tabs {
+      display: flex;
+      gap: 8px;
+      padding: 0 0 16px;
+      flex-shrink: 0;
+    }
+    .plans-tab {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex: 1;
+      padding: 14px 18px;
+      border-radius: 12px;
+      border: 1px solid var(--border-glass);
+      background: rgba(255,255,255,0.02);
+      color: var(--text-secondary);
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.15s;
+    }
+    .plans-tab:hover { background: rgba(255,255,255,0.05); color: var(--text-primary); }
+    .plans-tab[data-active="true"] {
+      background: rgba(59,130,246,0.08);
+      border-color: rgba(59,130,246,0.35);
+      color: var(--accent-blue);
+      box-shadow: -3px 0 0 var(--accent-blue) inset;
+    }
+
+    /* ── Plans grid ── */
+    .plans-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+      padding: 0;
+      align-content: start;
+    }
+
+    /* ── Pricing card ── */
+    .pricing-card {
+      position: relative;
+      border-radius: 14px;
+      border: 1px solid var(--border-glass);
+      background: var(--bg-elevated);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: all 0.15s;
+    }
+    .pricing-card:hover { border-color: var(--border-strong); box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+    .pricing-card--off { opacity: 0.45; }
+    .pricing-card--empty {
+      border-style: dashed;
+      cursor: pointer;
+      align-items: center;
+      justify-content: center;
+      min-height: 200px;
+      color: var(--text-muted);
+      background: transparent;
+    }
+    .pricing-card--empty:hover { background: rgba(255,255,255,0.03); color: var(--text-secondary); }
+
+    /* ── Tier badge ── */
+    .tier-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 8px;
+      border-radius: 5px;
+      font-size: 10.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    /* ── Coverage icon btn ── */
+    .cov-icon-btn {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid;
+      flex-shrink: 0;
+    }
+
+    /* ── Toggle switch ── */
+    .toggle-sw {
+      display: inline-flex;
+      align-items: center;
+      gap: 0;
+      padding: 0;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+    }
+    .toggle-sw__track {
+      width: 34px; height: 18px;
+      border-radius: 999px;
+      background: rgba(148,163,184,0.32);
+      position: relative;
+      transition: all 0.16s;
+      border: 1px solid rgba(148,163,184,0.32);
+    }
+    .toggle-sw__thumb {
+      position: absolute;
+      top: 1px; left: 1px;
+      width: 14px; height: 14px;
+      border-radius: 99px;
+      background: white;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+      transition: all 0.16s;
+    }
+    .toggle-sw.is-on .toggle-sw__track {
+      background: var(--accent-emerald);
+      border-color: var(--accent-emerald);
+    }
+    .toggle-sw.is-on .toggle-sw__thumb { left: 17px; }
+
+    /* ── Form sections ── */
+    .form-section__head {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .form-section__step {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700;
+      color: white;
+      flex-shrink: 0;
+    }
+    .form-section__divider {
+      height: 1px;
+      background: var(--border-hairline);
+      margin: 20px 0;
+    }
+
+    /* ── Modality grid ── */
+    .modality-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .modality-card {
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--border-glass);
+      background: transparent;
+      cursor: pointer;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-secondary);
+      transition: all 0.15s;
+    }
+    .modality-card:hover { background: rgba(255,255,255,0.04); color: var(--text-primary); }
+    .modality-card[data-active="true"] {
+      background: rgba(59,130,246,0.1);
+      border-color: rgba(59,130,246,0.4);
+      color: var(--accent-blue);
+    }
+
+    /* ── Pricing inputs ── */
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+    }
+    .pricing-featured {
+      padding: 14px 16px;
+      border-radius: 10px;
+      border: 1px solid rgba(59,130,246,0.35);
+      background: rgba(59,130,246,0.06);
+      margin-bottom: 10px;
+    }
+
+    /* ── Coverage cards ── */
+    .coverage-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border-glass);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .coverage-card:hover { background: rgba(255,255,255,0.03); }
+    .coverage-card[data-active="true"] {
+      background: rgba(59,130,246,0.08);
+      border-color: rgba(59,130,246,0.35);
+    }
+    .coverages-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .cov-mini-toggle { margin-left: auto; }
+
+    /* ── Tier segment ── */
+    .tier-segment {
+      display: flex;
+      gap: 4px;
+    }
+    .tier-btn {
+      flex: 1;
+      height: 34px;
+      border-radius: var(--r-btn);
+      border: 1px solid var(--border-glass);
+      background: rgba(255,255,255,0.03);
+      cursor: pointer;
+      font-size: 12px;
+      font-family: var(--font-sans);
+      color: var(--text-muted);
+      transition: all 0.15s;
+    }
+    .tier-btn:hover { background: rgba(255,255,255,0.06); }
+
+    /* ── Close button ── */
+    .qc-close-btn {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      border: 1px solid var(--border-glass);
+      background: rgba(255,255,255,0.04);
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.15s;
+    }
+    .qc-close-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
+
+    /* ── Modal ── */
+    .qc-overlay {
+      position: fixed; inset: 0; z-index: 300;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(3px);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .qc-modal {
+      width: 540px;
+      max-width: 95vw;
+      max-height: 90vh;
+      border-radius: var(--r-card);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .qc-modal--wide { width: 640px; }
+    .qc-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      padding: 20px 20px 16px;
+      flex-shrink: 0;
+      border-bottom: 1px solid var(--border-hairline);
+    }
+    .qc-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+    }
+    .qc-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      border-top: 1px solid var(--border-hairline);
+      flex-shrink: 0;
+    }
+    .qc-hint {
+      font-size: 11.5px;
+      color: var(--text-muted);
+    }
+    .qc-row {
+      display: flex;
+      gap: 12px;
+    }
+    .qc-field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+  `],
+})
+export class PlansComponent implements OnInit {
+
+  private api = inject(PlansApiService);
+
+  readonly coverageMeta = COVERAGE_META;
+
+  // ── State ──
+  readonly tab = signal<'particulares' | 'corporativos'>('particulares');
+  readonly plans = signal<Plan[]>([]);
+  readonly formOpen = signal(false);
+  readonly editingPlan = signal<Plan | null>(null);
+  readonly form = signal<PlanForm>(emptyForm());
+
+  // ── Two-way ngModel bridges (signals + getters/setters) ──
+  get formName(): string { return this.form().name; }
+  set formName(v: string) { this.patchForm({ name: v }); }
+
+  get formDescription(): string { return this.form().description; }
+  set formDescription(v: string) { this.patchForm({ description: v }); }
+
+  get formMonthly(): number { return this.form().monthly; }
+  set formMonthly(v: number) { this.patchForm({ monthly: +v }); }
+
+  get formQuarterly(): number { return this.form().quarterly; }
+  set formQuarterly(v: number) { this.patchForm({ quarterly: +v }); }
+
+  get formAnnual(): number { return this.form().annual; }
+  set formAnnual(v: number) { this.patchForm({ annual: +v }); }
+
+  get formDiscountPct(): number { return this.form().discountPct; }
+  set formDiscountPct(v: number) { this.patchForm({ discountPct: +v }); }
+
+  get formPerDependent(): number { return this.form().perDependent; }
+  set formPerDependent(v: number) { this.patchForm({ perDependent: +v }); }
+
+  get formMonthlyCap(): number { return this.form().monthlyCap; }
+  set formMonthlyCap(v: number) { this.patchForm({ monthlyCap: +v }); }
+
+  get formFreeIncluded(): number { return this.form().freeIncluded; }
+  set formFreeIncluded(v: number) { this.patchForm({ freeIncluded: +v }); }
+
+  get formCarencyDays(): number { return this.form().carencyDays; }
+  set formCarencyDays(v: number) { this.patchForm({ carencyDays: +v }); }
+
+  // ── Computed ──
+  readonly filteredPlans = computed(() =>
+    this.plans().filter(p => p.audience === this.tab())
+  );
+
+  readonly canSubmit = computed(() => this.form().name.trim().length > 0);
+
+  readonly activeCoverageCount = computed(() => {
+    const c = this.form().coverages;
+    return (Object.keys(c) as (keyof PlanCoverages)[]).filter(k => c[k]).length;
+  });
+
+  // ── KPI helpers ──
+  countByAudience(audience: 'particulares' | 'corporativos'): number {
+    return this.plans().filter(p => p.audience === audience).length;
+  }
+
+  countActive(): number {
+    return this.plans().filter(p => p.active).length;
+  }
+
+  countPaused(): number {
+    return this.plans().filter(p => !p.active).length;
+  }
+
+  // ── Display helpers ──
+  tierColor(tier: string): string {
+    return TIER_COLOR[tier] ?? 'var(--text-muted)';
+  }
+
+  tierLabel(tier: string): string {
+    const labels: Record<string, string> = { basico: 'Básico', medio: 'Medio', premium: 'Premium' };
+    return labels[tier] ?? tier;
+  }
+
+  modalityLabel(modality: string): string {
+    const labels: Record<string, string> = { individual: 'Individual', familiar: 'Familiar', institucional: 'Institucional' };
+    return labels[modality] ?? modality;
+  }
+
+  activeCoverages(plan: Plan): { key: keyof PlanCoverages; name: string; sub: string }[] {
+    return COVERAGE_META.filter(m => plan.coverages[m.key]);
+  }
+
+  readonly fmtN = fmtN;
+  readonly fmtCurrency = fmtCurrency;
+
+  // ── Lifecycle ──
+  ngOnInit(): void {
+    this.api.getAll().subscribe(data => this.plans.set(data));
+  }
+
+  // ── Actions ──
+  toggleActive(id: string): void {
+    this.plans.update(list =>
+      list.map(p => p.id === id ? { ...p, active: !p.active } : p)
+    );
+  }
+
+  openNewForm(): void {
+    this.editingPlan.set(null);
+    this.form.set({ ...emptyForm(), audience: this.tab() });
+    this.formOpen.set(true);
+  }
+
+  openEditForm(plan: Plan): void {
+    this.editingPlan.set(plan);
+    this.form.set({
+      name: plan.name,
+      tier: plan.tier,
+      description: plan.description ?? '',
+      modality: plan.modality,
+      audience: plan.audience,
+      monthly: plan.pricing.monthly,
+      quarterly: plan.pricing.quarterly,
+      annual: plan.pricing.annual,
+      perDependent: plan.pricing.perDependent,
+      discountPct: plan.pricing.discountPct,
+      monthlyCap: plan.limits.monthlyCap,
+      freeIncluded: plan.limits.freeIncluded,
+      carencyDays: plan.limits.carencyDays,
+      coverages: { ...plan.coverages },
+    });
+    this.formOpen.set(true);
+  }
+
+  closeForm(): void {
+    this.formOpen.set(false);
+    this.editingPlan.set(null);
+  }
+
+  patchForm(patch: Partial<PlanForm>): void {
+    this.form.set({ ...this.form(), ...patch });
+  }
+
+  toggleCoverage(key: keyof PlanCoverages): void {
+    const coverages = { ...this.form().coverages, [key]: !this.form().coverages[key] };
+    this.patchForm({ coverages });
+  }
+
+  saveForm(): void {
+    if (!this.canSubmit()) return;
+    const f = this.form();
+    const editing = this.editingPlan();
+
+    const dto: Plan = {
+      id: editing?.id ?? '',
+      name: f.name,
+      description: f.description,
+      tier: f.tier,
+      modality: f.modality,
+      audience: f.audience,
+      pricing: {
+        monthly: f.monthly,
+        quarterly: f.quarterly,
+        annual: f.annual,
+        perDependent: f.perDependent,
+        discountPct: f.discountPct,
+      },
+      limits: {
+        monthlyCap: f.monthlyCap,
+        freeIncluded: f.freeIncluded,
+        carencyDays: f.carencyDays,
+      },
+      coverages: { ...f.coverages },
+      active: editing?.active ?? true,
+    };
+
+    const op = editing ? this.api.update(dto) : this.api.create(dto);
+    op.subscribe(() => {
+      this.api.getAll().subscribe(data => this.plans.set(data));
+      this.closeForm();
+    });
+  }
+
+  @HostListener('document:keydown.escape')
+  onEsc(): void {
+    if (this.formOpen()) { this.closeForm(); }
+  }
+}

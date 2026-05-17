@@ -8,7 +8,7 @@ import { EmergencyApiService } from '../../data-access/api/emergency.api';
 import { EmergencyStore } from '../../core/stores/emergency.store';
 import { FleetStore } from '../../core/stores/fleet.store';
 import { AuthService } from '../../core/auth/auth.service';
-import { CrearTicketRequest } from '../../data-access/dto/ticket.dto';
+import { AltaRapidaRequest } from '../../data-access/dto/ticket.dto';
 
 @Component({
   selector: 'emx-shell',
@@ -88,9 +88,9 @@ export class ShellComponent implements OnInit {
     }
   }
 
-  onEmergencyCreated(req: CrearTicketRequest): void {
+  onEmergencyCreated(req: AltaRapidaRequest): void {
     this.showCreateModal.set(false);
-    this.emergencyApi.crear(req).subscribe({
+    this.emergencyApi.altaRapida(req).subscribe({
       next: (ticket) => this.emergencyStore.addOrUpdate(ticket),
       error: () => console.error('Error al crear ticket'),
     });

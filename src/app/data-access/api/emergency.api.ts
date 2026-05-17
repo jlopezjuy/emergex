@@ -8,6 +8,7 @@ import {
   TicketDetalleDTO,
   TripulacionDetalleDTO,
   CrearTicketRequest,
+  AltaRapidaRequest,
   DespacharRequest,
   CerrarTicketRequest,
   CancelarTicketRequest,
@@ -90,6 +91,13 @@ export class EmergencyApiService {
 
   crear(req: CrearTicketRequest): Observable<TicketAsistenciaDTO> {
     return this.http.post<TicketAsistenciaDTO>(`${this.base}/recibir-llamada`, req);
+  }
+
+  altaRapida(req: AltaRapidaRequest): Observable<TicketAsistenciaDTO> {
+    return this.http.post<any>(
+      `${environment.apiUrl}/api/operador-emergencias/tickets/alta-rapida`,
+      req,
+    ).pipe(map((r) => this.mapTicket(r)));
   }
 
   despachar(id: number, req: DespacharRequest): Observable<TicketAsistenciaDTO> {

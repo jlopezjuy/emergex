@@ -149,8 +149,8 @@ export class FleetApiService {
     return this.http.get<GuardiaMovilDTO[]>(`${this.base}/ambulancias/${ambulanciaId}/guardias`);
   }
 
-  guardarGuardias(ambulanciaId: number, req: GuardiaMovilDTO[]): Observable<GuardiaMovilDTO[]> {
-    return this.http.put<GuardiaMovilDTO[]>(`${this.base}/ambulancias/${ambulanciaId}/guardias`, req);
+  guardarGuardias(ambulanciaId: number, req: GuardiaDTO[]): Observable<GuardiaDTO[]> {
+    return this.http.put<GuardiaDTO[]>(`${this.base}/ambulancias/${ambulanciaId}/guardias`, { guardias: req });
   }
 
   desactivarGuardia(guardiaId: number, observacion?: string): Observable<void> {

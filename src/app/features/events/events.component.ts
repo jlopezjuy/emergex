@@ -1,8 +1,10 @@
 import { Component, signal, computed, inject, OnInit } from '@angular/core';
+import { catchError, of } from 'rxjs';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import type { BadgeVariant } from '../../shared/components/status-badge/status-badge.component';
+import { EventsApiService } from '../../data-access/api/events.api';
+import type { FrontendEvento } from '../../data-access/api/events.api';
 import { FleetApiService } from '../../data-access/api/fleet.api';
-import { catchError, of } from 'rxjs';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -76,22 +78,7 @@ interface NewEventForm {
   units: string[];
 }
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
-
-const SEED_EVENTS: EventItem[] = [
-  { id: 'EV-1240', name: 'Gimnasia vs. Atl. Tucumán', type: 'Deportivo', org: 'Gimnasia y Esgrima de Jujuy', responsible: 'Lic. R. Ávila', attendees: 18000, address: 'Estadio 23 de Agosto · Centro', dateFrom: '2026-05-09', timeFrom: '16:30', dateTo: '2026-05-09', timeTo: '20:30', units: ['U-04', 'U-09', 'U-14'], status: 'closed' },
-  { id: 'EV-1241', name: 'Recital · Divididos en Jujuy', type: 'Musical / Concierto', org: 'Tabacal Music', responsible: 'M. Salinas', attendees: 12000, address: 'Anfiteatro Snopek · Cuyaya', dateFrom: '2026-05-14', timeFrom: '20:00', dateTo: '2026-05-15', timeTo: '01:30', units: ['U-07', 'U-21', 'U-25'], status: 'inprogress' },
-  { id: 'EV-1242', name: 'Maratón de Jujuy 2026', type: 'Deportivo', org: 'Municipalidad de SS Jujuy', responsible: 'Dir. Deportes Mpal.', attendees: 6500, address: 'Plaza Belgrano · circuito Centro', dateFrom: '2026-05-17', timeFrom: '07:00', dateTo: '2026-05-17', timeTo: '12:00', units: ['U-09', 'U-22'], status: 'scheduled' },
-  { id: 'EV-1243', name: 'Acto Día del Maestro · UNJu', type: 'Educativo', org: 'Universidad Nacional de Jujuy', responsible: 'Vicerrectorado', attendees: 1200, address: 'Auditorio UNJu · Alto Padilla', dateFrom: '2026-05-19', timeFrom: '10:00', dateTo: '2026-05-19', timeTo: '12:30', units: ['U-25'], status: 'scheduled' },
-  { id: 'EV-1244', name: 'Convención Cámara Comercio', type: 'Corporativo', org: 'Cámara de Comercio de Jujuy', responsible: 'Sr. Pereyra', attendees: 800, address: 'Hotel Altos de la Viña', dateFrom: '2026-05-22', timeFrom: '09:00', dateTo: '2026-05-22', timeTo: '18:00', units: ['U-31'], status: 'scheduled' },
-  { id: 'EV-1245', name: 'Procesión Virgen del Rosario', type: 'Religioso', org: 'Diócesis de Jujuy', responsible: 'Pbro. M. Cárdenas', attendees: 9500, address: 'Iglesia Catedral · Plaza Belgrano', dateFrom: '2026-05-24', timeFrom: '17:00', dateTo: '2026-05-24', timeTo: '22:00', units: ['U-07', 'U-14'], status: 'scheduled' },
-  { id: 'EV-1246', name: 'Sesión Legislativa · Acto Provincial', type: 'Político', org: 'Gobierno de la Provincia', responsible: 'Sec. Gobierno', attendees: 2500, address: 'Casa de Gobierno · Centro', dateFrom: '2026-06-02', timeFrom: '11:00', dateTo: '2026-06-02', timeTo: '14:00', units: ['U-04'], status: 'scheduled' },
-  { id: 'EV-1247', name: 'Fiesta Aniversario UCSE', type: 'Educativo', org: 'UCSE Sede Jujuy', responsible: 'Decanato', attendees: 1800, address: 'Campus UCSE · Centro', dateFrom: '2026-06-07', timeFrom: '18:00', dateTo: '2026-06-08', timeTo: '01:00', units: ['U-31', 'U-22'], status: 'scheduled' },
-  { id: 'EV-1248', name: 'Casamiento · Salón Norte', type: 'Privado / Social', org: 'Cervecería Salón Norte', responsible: 'Familia López', attendees: 220, address: 'Salón Norte · Bajo La Viña', dateFrom: '2026-06-13', timeFrom: '20:00', dateTo: '2026-06-14', timeTo: '03:00', units: ['U-21'], status: 'scheduled' },
-  { id: 'EV-1249', name: 'Festival Tabacal · Día 1', type: 'Musical / Concierto', org: 'Tabacal Music', responsible: 'M. Salinas', attendees: 22000, address: 'Predio Tabacal · Acceso Norte', dateFrom: '2026-06-20', timeFrom: '18:00', dateTo: '2026-06-21', timeTo: '02:00', units: ['U-04', 'U-07', 'U-14', 'U-25'], status: 'scheduled' },
-  { id: 'EV-1250', name: 'Festival Tabacal · Día 2', type: 'Musical / Concierto', org: 'Tabacal Music', responsible: 'M. Salinas', attendees: 25000, address: 'Predio Tabacal · Acceso Norte', dateFrom: '2026-06-21', timeFrom: '18:00', dateTo: '2026-06-22', timeTo: '02:00', units: ['U-04', 'U-07', 'U-14', 'U-25'], status: 'scheduled' },
-  { id: 'EV-1251', name: 'Liga Jujueña · Clásico Local', type: 'Deportivo', org: 'Liga Jujueña de Fútbol', responsible: 'Pres. Liga', attendees: 8500, address: 'Estadio 23 de Agosto · Centro', dateFrom: '2026-07-05', timeFrom: '15:30', dateTo: '2026-07-05', timeTo: '19:00', units: ['U-09'], status: 'scheduled' },
-];
+// ─── Static data ──────────────────────────────────────────────────────────────
 
 const AMBULANCES: AmbUnit[] = [
   { id: 'U-04', crew: 'Soto · Vega',       type: 'ALS', status: 'available'    },
@@ -128,8 +115,6 @@ function initialForm(): NewEventForm {
     units: [],
   };
 }
-
-let nextEvId = 1;
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -739,6 +724,7 @@ let nextEvId = 1;
   `,
 })
 export class EventsComponent implements OnInit {
+  private eventsApi = inject(EventsApiService);
   private fleetApi = inject(FleetApiService);
 
   // ── Ambulances signal (populated from backend on init) ────────────────────
@@ -892,6 +878,7 @@ export class EventsComponent implements OnInit {
   // ── Lifecycle ──────────────────────────────────────────────────────────────
 
   ngOnInit(): void {
+    this.loadEvents();
     this.fleetApi.ambulancias().pipe(
       catchError(() => of([])),
     ).subscribe(units => {
@@ -904,35 +891,37 @@ export class EventsComponent implements OnInit {
     });
   }
 
-  // ── Methods ────────────────────────────────────────────────────────────────
-
-  addEvent(ev: EventItem): void {
-    this.events.update(arr => [ev, ...arr]);
+  private loadEvents(): void {
+    this.eventsApi.getAll().pipe(
+      catchError(() => of([])),
+    ).subscribe(data => this.events.set(data));
   }
+
+  // ── Methods ────────────────────────────────────────────────────────────────
 
   submitNewEvent(): void {
     const f = this.form();
-    const id = `EV-${nextEvId++}`;
-    const ev: EventItem = {
-      id,
-      name: f.name,
-      type: f.type,
-      org: f.org,
-      responsible: f.responsible,
-      attendees: f.attendees ?? 0,
-      address: f.address,
-      dateFrom: f.dateFrom,
-      timeFrom: f.timeFrom,
-      dateTo: f.dateTo,
-      timeTo: f.timeTo,
-      units: [...f.units],
-      status: 'scheduled',
+    const payload: FrontendEvento = {
+      id:          '',
+      name:        f.name,
+      type:        f.type as FrontendEvento['type'],
+      org:         f.org || '',
+      responsible: f.responsible || '',
+      attendees:   f.attendees ?? 0,
+      address:     f.address,
+      dateFrom:    f.dateFrom,
+      timeFrom:    f.timeFrom,
+      dateTo:      f.dateTo,
+      timeTo:      f.timeTo,
+      units:       [...f.units],
+      status:      'scheduled',
     };
-    this.addEvent(ev);
-    this.newEventOpen.set(false);
-    this.form.set(initialForm());
-    this.formStep.set(0);
-    // TODO: POST /api/v1/eventos cuando esté disponible en backend
+    this.eventsApi.create(payload).subscribe(() => {
+      this.loadEvents();
+      this.newEventOpen.set(false);
+      this.form.set(initialForm());
+      this.formStep.set(0);
+    });
   }
 
   openNewEvent(): void {

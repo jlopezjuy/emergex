@@ -1,287 +1,214 @@
 import { Component, input, output, inject, signal, computed, OnInit } from '@angular/core';
-import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { catchError, of } from 'rxjs';
 import { FleetApiService } from '../../../data-access/api/fleet.api';
-import { UnidadMovilDTO, TurnoMovilDTO, TripulacionMovilDTO, GuardiaDTO, LogTurnoDTO } from '../../../data-access/dto/ambulancia.dto';
-import { ModalShellComponent } from '../../../shared/components/modal-shell/modal-shell.component';
+import { UnidadMovilDTO, GuardiaDTO, TripulacionGuardiaDTO, LogTurnoDTO, ProfesionalDisponibleDTO } from '../../../data-access/dto/ambulancia.dto';
 import { LoadingStateComponent } from '../../../shared/components/loading-state/loading-state.component';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
+import { StaffApiService } from '../../../data-access/api/staff.api';
 
-type TabId = 'activo' | 'programar' | 'tripulacion' | 'calendario';
+type TabId = 'tripulacion' | 'turnos' | 'calendario';
+type RolTripulacionUi = 'MEDICO' | 'ENFERMERO' | 'PARAMEDICO' | 'CHOFER';
+
+type TurnoConfigUi = {
+  uiId: string;
+  label: string;
+  horaInicio: string;
+  horaFin: string;
+  vigenciaDesde: string;
+  vigenciaHasta?: string;
+  diasActivos: boolean[];
+  tripulacion: TripulacionGuardiaDTO[];
+};
+
+const DIAS = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES', 'SABADO', 'DOMINGO'];
+const DIA_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
 @Component({
   selector: 'emx-unit-schedule-modal',
   standalone: true,
-  imports: [
-    ReactiveFormsModule,
-    ModalShellComponent,
-    LoadingStateComponent,
-    EmptyStateComponent,
-  ],
+  imports: [LoadingStateComponent, EmptyStateComponent],
   template: `
-    <emx-modal-shell [title]="'Configurar: ' + (unit().identificador ?? ('U-' + unit().id))" (closed)="closed.emit()">
-      <!-- Tabs -->
-      <div class="flex gap-1 mb-4 border-b" style="border-color: var(--border-glass);">
-        @for (tab of tabs; track tab.id) {
-          <button
-            type="button"
-            class="px-3 py-2 text-xs font-semibold transition-colors"
-            [style.color]="activeTab() === tab.id ? 'var(--accent-cyan)' : 'var(--text-muted)'"
-            [style.border-bottom]="activeTab() === tab.id ? '2px solid var(--accent-cyan)' : '2px solid transparent'"
-            (click)="setTab(tab.id)"
-          >{{ tab.label }}</button>
-        }
-      </div>
-
-      <!-- TAB: Turno activo -->
-      @if (activeTab() === 'activo') {
-        @if (loadingTurno()) {
-          <emx-loading-state />
-        } @else if (turnoActivo()) {
-          <div class="flex flex-col gap-3 text-sm">
-            <div class="grid grid-cols-2 gap-4">
-              <div>
-                <p class="text-xs" style="color: var(--text-muted);">ID Turno</p>
-                <p class="font-mono font-semibold mt-0.5" style="color: var(--text-primary);">#{{ turnoActivo()!.id }}</p>
-              </div>
-              <div>
-                <p class="text-xs" style="color: var(--text-muted);">Tipo</p>
-                <p class="font-semibold mt-0.5" style="color: var(--text-primary);">{{ turnoActivo()!.tipo ?? '—' }}</p>
-              </div>
-              <div>
-                <p class="text-xs" style="color: var(--text-muted);">Inicio</p>
-                <p class="font-mono text-xs mt-0.5" style="color: var(--text-primary);">{{ formatDate(turnoActivo()!.fechaInicio) }}</p>
-              </div>
-              <div>
-                <p class="text-xs" style="color: var(--text-muted);">Fin</p>
-                <p class="font-mono text-xs mt-0.5" style="color: var(--text-primary);">{{ formatDate(turnoActivo()!.fechaFin) }}</p>
-              </div>
+    <div class="fixed inset-0 z-50 flex items-center justify-center" style="background: rgba(2,6,23,0.75); backdrop-filter: blur(4px);" (click)="closed.emit()">
+      <div class="glass-strong rounded-card w-full max-h-[92vh] flex flex-col overflow-hidden" style="max-width:920px; min-width:320px;" (click)="$event.stopPropagation()">
+        <div class="flex items-center justify-between px-6 py-4 border-b" style="border-color: var(--border-glass);">
+          <div>
+            <div class="eyebrow" style="color:var(--accent-blue)">CONFIGURACIÓN · UNIDAD</div>
+            <div class="flex items-center gap-2 mt-1">
+              <h2 class="font-semibold text-2xl" style="color:var(--text-primary)">{{ unit().identificador ?? ('U-' + unit().id) }}</h2>
+              <span class="badge badge--stable">{{ unit().tipo ?? 'AMBULANCIA' }}</span>
             </div>
+          </div>
+          <button type="button" class="action-icon" (click)="closed.emit()">✕</button>
+        </div>
 
-            @if (turnoActivo()!.tripulacion && turnoActivo()!.tripulacion!.length > 0) {
-              <div class="border-t pt-3" style="border-color: var(--border-glass);">
-                <p class="text-xs font-semibold mb-2" style="color: var(--text-muted);">Tripulación</p>
-                <ul class="flex flex-col gap-1">
-                  @for (m of turnoActivo()!.tripulacion!; track m.id) {
-                    <li class="text-sm flex items-center gap-2">
-                      <span class="w-1.5 h-1.5 rounded-full flex-shrink-0" style="background: var(--accent-cyan);"></span>
-                      <span style="color: var(--text-primary);">{{ m.nombre ?? 'Prof. ' + m.profesionalId }}</span>
-                      <span class="text-xs" style="color: var(--text-muted);">{{ m.rol }}</span>
-                    </li>
+        <div class="flex-1 overflow-y-auto px-6 py-4">
+          <div class="flex gap-1 mb-4 border-b" style="border-color: var(--border-glass);">
+            @for (tab of tabs; track tab.id) {
+              <button type="button" class="px-3 py-2 text-xs font-semibold"
+                [style.color]="activeTab() === tab.id ? 'var(--accent-cyan)' : 'var(--text-muted)'"
+                [style.border-bottom]="activeTab() === tab.id ? '2px solid var(--accent-cyan)' : '2px solid transparent'"
+                (click)="setTab(tab.id)">{{ tab.label }}</button>
+            }
+          </div>
+
+          @if (activeTab() === 'tripulacion') {
+            @if (loadingGuardias()) { <emx-loading-state /> } @else {
+              <div class="flex items-center justify-between mb-3">
+                <div class="eyebrow">TRIPULACIÓN DEL TURNO · {{ selectedTurno()?.tripulacion?.length ?? 0 }} MIEMBROS</div>
+                <button type="button" class="btn btn--ghost btn--sm" (click)="showCrewPicker.update(v => !v)">+ Agregar miembro</button>
+              </div>
+
+              <div class="mb-3">
+                <label class="eyebrow">Turno configurado</label>
+                <select class="qc-input mt-1" [value]="selectedTurno()?.uiId ?? ''" (change)="seleccionarTurno($event)">
+                  @for (t of turnosUi(); track t.uiId) {
+                    <option [value]="t.uiId">{{ t.label }} · {{ t.horaInicio }}–{{ t.horaFin }}</option>
                   }
-                </ul>
+                </select>
               </div>
-            }
-          </div>
-        } @else {
-          <emx-empty-state message="Sin turno activo en esta unidad" />
-        }
-      }
 
-      <!-- TAB: Programar turno -->
-      @if (activeTab() === 'programar') {
-        <form [formGroup]="turnoForm" (ngSubmit)="crearTurno()" class="flex flex-col gap-4">
-          <div class="flex flex-col gap-1">
-            <label class="text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary);">
-              Inicio *
-            </label>
-            <input
-              type="datetime-local"
-              formControlName="fechaInicio"
-              class="rounded px-3 py-2 text-sm w-full"
-              style="background: var(--surface-glass); border: 1px solid var(--border-glass); color: var(--text-primary);"
-            />
-          </div>
-          <div class="flex flex-col gap-1">
-            <label class="text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary);">
-              Fin *
-            </label>
-            <input
-              type="datetime-local"
-              formControlName="fechaFin"
-              class="rounded px-3 py-2 text-sm w-full"
-              style="background: var(--surface-glass); border: 1px solid var(--border-glass); color: var(--text-primary);"
-            />
-          </div>
-          <div class="flex flex-col gap-1">
-            <label class="text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary);">
-              Tipo de turno *
-            </label>
-            <select
-              formControlName="tipo"
-              class="rounded px-3 py-2 text-sm w-full"
-              style="background: var(--surface-glass); border: 1px solid var(--border-glass); color: var(--text-primary);"
-            >
-              <option value="Matutino">Matutino</option>
-              <option value="Nocturno">Nocturno</option>
-              <option value="Partido">Partido</option>
-            </select>
-          </div>
-          @if (turnoError()) {
-            <p class="text-xs" style="color: var(--accent-red);">{{ turnoError() }}</p>
-          }
-          @if (turnoOk()) {
-            <p class="text-xs" style="color: var(--accent-emerald);">Turno creado correctamente.</p>
-          }
-          <button
-            type="submit"
-            class="btn btn--primary btn--sm self-start"
-            [disabled]="turnoForm.invalid || savingTurno()"
-          >{{ savingTurno() ? 'Guardando…' : 'Crear turno' }}</button>
-        </form>
-      }
-
-      <!-- TAB: Tripulación -->
-      @if (activeTab() === 'tripulacion') {
-        @if (loadingTurnos()) {
-          <emx-loading-state />
-        } @else {
-          <div class="flex flex-col gap-4">
-            <!-- Select turno -->
-            <div class="flex flex-col gap-1">
-              <label class="text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary);">
-                Turno
-              </label>
-              <select
-                class="rounded px-3 py-2 text-sm"
-                style="background: var(--surface-glass); border: 1px solid var(--border-glass); color: var(--text-primary);"
-                (change)="onSelectTurno($event)"
-              >
-                <option value="">Seleccioná un turno</option>
-                @for (t of turnos(); track t.id) {
-                  <option [value]="t.id">#{{ t.id }} · {{ t.tipo }} · {{ formatDate(t.fechaInicio) }}</option>
-                }
-              </select>
-            </div>
-
-            <!-- Crew list -->
-            @if (selectedTurno()) {
-              @if ((selectedTurno()!.tripulacion ?? []).length === 0) {
-                <emx-empty-state message="Sin tripulación en este turno" />
-              } @else {
-                <ul class="flex flex-col gap-2">
-                  @for (m of selectedTurno()!.tripulacion!; track m.id) {
-                    <li class="flex items-center gap-2 text-sm px-3 py-2 rounded"
-                      style="background: var(--surface-glass); border: 1px solid var(--border-glass);">
-                      <span class="flex-1" style="color: var(--text-primary);">
-                        {{ m.nombre ?? 'Prof. ' + m.profesionalId }}
-                      </span>
-                      <span class="text-xs" style="color: var(--text-muted);">{{ m.rol }}</span>
-                    </li>
-                  }
-                </ul>
-              }
-
-              <!-- Add crew sub-form -->
-              <div class="border-t pt-4" style="border-color: var(--border-glass);">
-                <p class="text-xs font-semibold mb-2" style="color: var(--text-muted);">Agregar tripulante</p>
-                <form [formGroup]="crewForm" (ngSubmit)="agregarTripulante()" class="flex gap-2">
-                  <input
-                    type="number"
-                    formControlName="profesionalId"
-                    placeholder="ID profesional"
-                    class="rounded px-2 py-1.5 text-sm flex-1"
-                    style="background: var(--surface-glass); border: 1px solid var(--border-glass); color: var(--text-primary);"
-                  />
-                  <input
-                    type="text"
-                    formControlName="rol"
-                    placeholder="Rol (Médico, Enfermero...)"
-                    class="rounded px-2 py-1.5 text-sm flex-1"
-                    style="background: var(--surface-glass); border: 1px solid var(--border-glass); color: var(--text-primary);"
-                  />
-                  <button
-                    type="submit"
-                    class="btn btn--primary btn--sm"
-                    [disabled]="crewForm.invalid || addingCrew()"
-                  >{{ addingCrew() ? '…' : 'Agregar' }}</button>
-                </form>
-                @if (crewError()) {
-                  <p class="text-xs mt-1" style="color: var(--accent-red);">{{ crewError() }}</p>
-                }
-              </div>
-            }
-          </div>
-        }
-      }
-
-      <!-- TAB: Calendario -->
-      @if (activeTab() === 'calendario') {
-        @if (loadingLogs()) {
-          <emx-loading-state />
-        } @else if (!loadingLogs() && logsTurnos().length === 0) {
-          <emx-empty-state message="Sin historial de turnos registrado para esta unidad" />
-        }
-        <div class="flex flex-col gap-4" [style.display]="logsTurnos().length === 0 && !loadingLogs() ? 'none' : 'flex'">
-          <!-- Month navigation -->
-          <div class="flex items-center justify-between">
-            <button type="button" class="btn btn--ghost btn--sm" (click)="prevMonth()">‹</button>
-            <div class="text-center">
-              <div class="font-semibold" style="color:var(--text-primary);">{{ calMonthLabel() }}</div>
-              <div class="eyebrow">Disponibilidad · Unidad {{ unit().identificador }}</div>
-            </div>
-            <button type="button" class="btn btn--ghost btn--sm" (click)="nextMonth()">›</button>
-          </div>
-
-          <!-- Day-of-week headers -->
-          <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:3px;">
-            @for (d of ['L','M','M','J','V','S','D']; track $index) {
-              <div class="eyebrow" style="text-align:center; padding:4px 0;">{{ d }}</div>
-            }
-          </div>
-
-          <!-- Calendar cells -->
-          <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:3px;">
-            @for (day of calCells(); track $index; let i = $index) {
-              @if (day === null) {
-                <div style="min-height:52px; border-radius:6px; border:1px solid transparent;"></div>
-              } @else {
-                <div
-                  style="min-height:52px; border-radius:6px; border:1px solid; padding:4px 5px; display:flex; flex-direction:column; align-items:flex-start; justify-content:space-between; position:relative;"
-                  [style.background]="cellStyle(dayOfWeekForCell(i)).bg"
-                  [style.border-color]="isToday(day) ? 'var(--accent-blue)' : cellStyle(dayOfWeekForCell(i)).border"
-                  [style.box-shadow]="isToday(day) ? '0 0 0 1px var(--accent-blue)' : 'none'"
-                >
-                  <span
-                    class="font-mono"
-                    style="font-size:11px; font-weight:500; line-height:1;"
-                    [style.color]="isToday(day) ? 'var(--accent-blue)' : 'var(--text-secondary)'"
-                  >{{ day }}</span>
-                  @if (cellStyle(dayOfWeekForCell(i)).tag === 'OFF') {
-                    <span class="font-mono" style="font-size:8px; letter-spacing:0.1em; color:var(--text-muted); align-self:flex-end;">OFF</span>
-                  } @else {
-                    <span
-                      class="font-mono"
-                      style="font-size:8px; letter-spacing:0.08em; color:white; padding:2px 5px; border-radius:3px; align-self:flex-end;"
-                      [style.background]="cellStyle(dayOfWeekForCell(i)).tagBg"
-                    >{{ cellStyle(dayOfWeekForCell(i)).tag }}</span>
+              @if (showCrewPicker()) {
+                <div class="us-picker mb-3">
+                  @for (p of profesionalesDisponibles(); track p.profesionalId) {
+                    <button type="button" class="us-picker__row" (click)="agregarTripulanteSimple(p)">
+                      <span class="flex-1">{{ p.profesionalNombre }}</span>
+                      <span class="cert-chip">{{ p.especialidad ?? 'Profesional' }}</span>
+                      <span style="color:var(--accent-emerald);font-weight:700">+</span>
+                    </button>
                   }
                 </div>
               }
+
+              @if (!selectedTurno()) {
+                <emx-empty-state message="Agregá un turno antes de configurar tripulación" />
+              } @else if ((selectedTurno()!.tripulacion ?? []).length === 0) {
+                <emx-empty-state message="Sin tripulación en este turno" />
+              } @else {
+                <ul class="flex flex-col gap-2">
+                  @for (m of selectedTurno()!.tripulacion; track $index; let i = $index) {
+                    <li class="us-crew-card">
+                      <span class="flex-1" style="color: var(--text-primary);">{{ nombreTripulante(m) }}</span>
+                      <select
+                        class="qc-input"
+                        style="width:160px;height:30px"
+                        (change)="cambiarRolTripulante(selectedTurno()!.uiId, i, selectValue($event))"
+                      >
+                        @for (rol of rolesTripulacion; track rol) {
+                          <option [value]="rol" [selected]="rol === (m.rol ?? 'PARAMEDICO')">{{ rol }}</option>
+                        }
+                      </select>
+                      <button type="button" class="us-remove" (click)="quitarTripulante(m.profesionalId)">✕</button>
+                    </li>
+                  }
+                </ul>
+              }
+            }
+          }
+
+          @if (activeTab() === 'turnos') {
+            <div class="flex flex-col gap-3">
+              <div class="flex items-center justify-between">
+                <div class="eyebrow">TURNOS DEFINIDOS · {{ turnosUi().length }}</div>
+                <button type="button" class="btn btn--ghost btn--sm" (click)="crearTurnoRapido()">+ Nuevo turno</button>
+              </div>
+
+              @for (t of turnosUi(); track t.uiId) {
+                <div class="us-shift-card" style="border-left-color: var(--accent-blue)">
+                  <div class="us-shift-card__head">
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <span class="qc-prio-dot" style="background: var(--accent-blue)"></span>
+                      <input class="qc-input" style="width:130px;height:30px" [value]="t.label" (change)="actualizarTurno(t.uiId, 'label', inputValue($event))" />
+                      <input type="time" class="qc-input" style="width:110px;height:30px" [value]="t.horaInicio" (change)="actualizarTurno(t.uiId, 'horaInicio', inputValue($event))" />
+                      <span class="mono micro" style="color: var(--text-muted)">→</span>
+                      <input type="time" class="qc-input" style="width:110px;height:30px" [value]="t.horaFin" (change)="actualizarTurno(t.uiId, 'horaFin', inputValue($event))" />
+                      <span class="mono micro" style="color: var(--text-muted)">{{ horasTurno(t) }}h</span>
+                    </div>
+                    <button type="button" class="us-remove" (click)="eliminarTurno(t.uiId)">🗑</button>
+                  </div>
+
+                  <div class="eyebrow mt-3">RANGO OPERATIVO</div>
+                  <div class="flex gap-2 mt-2 flex-wrap">
+                    <input type="date" class="qc-input" style="width:160px" [value]="t.vigenciaDesde" (change)="actualizarTurno(t.uiId, 'vigenciaDesde', inputValue($event))" />
+                    <input type="date" class="qc-input" style="width:160px" [value]="t.vigenciaHasta ?? ''" (change)="actualizarTurno(t.uiId, 'vigenciaHasta', inputValue($event))" />
+                  </div>
+
+                  <div class="eyebrow mt-3">DÍAS ACTIVOS</div>
+                  <div class="us-dow mt-2">
+                    @for (d of diaLabels; track $index) {
+                      <button type="button" class="us-dow__btn"
+                        [style.border-color]="t.diasActivos[$index] ? 'var(--accent-blue)' : 'var(--border-glass)'"
+                        [style.background]="t.diasActivos[$index] ? 'rgba(59,130,246,0.15)' : 'rgba(2,6,23,0.35)'"
+                        [style.color]="t.diasActivos[$index] ? 'var(--accent-blue)' : 'var(--text-secondary)'"
+                        (click)="toggleDiaTurno(t.uiId, $index)">{{ d }}</button>
+                    }
+                  </div>
+
+                  <div class="eyebrow mt-3">LÍDER DE TURNO</div>
+                  <div class="rounded px-3 py-2 text-sm mt-1" style="border:1px solid var(--border-glass)">{{ getLiderTurno(t) }}</div>
+
+                  <div class="flex items-center justify-between mt-3">
+                    <div class="eyebrow">TRIPULACIÓN · {{ t.tripulacion.length }} MIEMBROS</div>
+                    <button type="button" class="btn btn--ghost btn--sm" (click)="configurarTripulacionTurno(t.uiId)">
+                      + Configurar tripulación
+                    </button>
+                  </div>
+                  @if (t.tripulacion.length > 0) {
+                    <div class="flex flex-wrap gap-2 mt-2">
+                      @for (m of t.tripulacion; track m.profesionalId) {
+                        <span class="cert-chip">{{ nombreTripulante(m) }} · {{ m.rol }}</span>
+                      }
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          }
+
+          @if (activeTab() === 'calendario') {
+            @if (loadingLogs()) { <emx-loading-state /> }
+            <div class="flex flex-col gap-4">
+              <div class="flex items-center justify-between">
+                <button type="button" class="btn btn--ghost btn--sm" (click)="prevMonth()">‹</button>
+                <div class="text-center">
+                  <div class="font-semibold" style="color:var(--text-primary);">{{ calMonthLabel() }}</div>
+                  <div class="eyebrow">Disponibilidad · Unidad {{ unit().identificador }}</div>
+                </div>
+                <button type="button" class="btn btn--ghost btn--sm" (click)="nextMonth()">›</button>
+              </div>
+              <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:3px;">
+                @for (d of diaLabels; track $index) { <div class="eyebrow" style="text-align:center; padding:4px 0;">{{ d }}</div> }
+              </div>
+              <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:3px;">
+                @for (day of calCells(); track $index; let i = $index) {
+                  @if (day === null) { <div style="min-height:52px; border-radius:6px;"></div> }
+                  @else {
+                    <div style="min-height:52px; border-radius:6px; border:1px solid; padding:4px 5px; display:flex; flex-direction:column; justify-content:space-between"
+                      [style.background]="cellStyle(dayOfWeekForCell(i)).bg"
+                      [style.border-color]="isToday(day) ? 'var(--accent-blue)' : cellStyle(dayOfWeekForCell(i)).border">
+                      <span class="font-mono" style="font-size:11px">{{ day }}</span>
+                      <span class="font-mono" style="font-size:8px; color:white; padding:2px 5px; border-radius:3px; align-self:flex-end;" [style.background]="cellStyle(dayOfWeekForCell(i)).tagBg">{{ cellStyle(dayOfWeekForCell(i)).tag }}</span>
+                    </div>
+                  }
+                }
+              </div>
+            </div>
+          }
+        </div>
+
+        <div class="px-6 py-4 border-t flex justify-between gap-2" style="border-color: var(--border-glass);">
+          <div>
+            <div class="eyebrow"><span class="kbd">Esc</span> cerrar · los cambios se aplican al guardar</div>
+            @if (saveError()) {
+              <div class="text-xs mt-1" style="color: var(--accent-red);">{{ saveError() }}</div>
             }
           </div>
-
-          <!-- Legend -->
-          <div class="flex items-center gap-4 flex-wrap" style="padding-top:8px; border-top:1px solid var(--border-glass);">
-            @for (item of calLegend; track item.tag) {
-              <div class="flex items-center gap-1.5">
-                @if (item.tagBg) {
-                  <span class="font-mono" style="font-size:8px; padding:2px 5px; border-radius:3px; color:white;"
-                    [style.background]="item.tagBg">{{ item.tag }}</span>
-                } @else {
-                  <span class="font-mono" style="font-size:8px; color:var(--text-muted);">{{ item.tag }}</span>
-                }
-                <span style="font-size:11px; color:var(--text-secondary);">{{ item.label }}</span>
-              </div>
-            }
+          <div class="flex gap-2">
+            <button type="button" class="btn btn--ghost btn--sm" (click)="closed.emit()">Cancelar</button>
+            <button type="button" class="btn btn--primary btn--sm" [disabled]="saving()" (click)="guardarConfiguracion()">{{ saving() ? 'Guardando…' : 'Guardar configuración' }}</button>
           </div>
         </div>
-      }
-
-      <div footer class="flex gap-2">
-        <button type="button" class="btn btn--ghost btn--sm" (click)="closed.emit()">Cerrar</button>
       </div>
-    </emx-modal-shell>
+    </div>
   `,
 })
 export class UnitScheduleModalComponent implements OnInit {
@@ -289,33 +216,26 @@ export class UnitScheduleModalComponent implements OnInit {
   closed = output<void>();
 
   private fleetApi = inject(FleetApiService);
-  private fb = inject(FormBuilder);
+  private staffApi = inject(StaffApiService);
 
-  readonly activeTab = signal<TabId>('activo');
+  readonly activeTab = signal<TabId>('tripulacion');
   readonly tabs: { id: TabId; label: string }[] = [
-    { id: 'activo', label: 'Turno activo' },
-    { id: 'programar', label: 'Programar turno' },
     { id: 'tripulacion', label: 'Tripulación' },
+    { id: 'turnos', label: 'Turnos' },
     { id: 'calendario', label: 'Calendario' },
   ];
+  readonly diaLabels = DIA_LABELS;
+  readonly rolesTripulacion: RolTripulacionUi[] = ['MEDICO', 'ENFERMERO', 'PARAMEDICO', 'CHOFER'];
 
-  // Turno activo tab
-  readonly loadingTurno = signal(false);
-  readonly turnoActivo = signal<TurnoMovilDTO | null>(null);
+  readonly loadingGuardias = signal(false);
+  readonly turnosUi = signal<TurnoConfigUi[]>([]);
+  readonly selectedTurnoId = signal<string | null>(null);
+  readonly selectedTurno = computed(() => this.turnosUi().find((t) => t.uiId === this.selectedTurnoId()) ?? this.turnosUi()[0] ?? null);
+  readonly showCrewPicker = signal(false);
+  readonly saving = signal(false);
+  readonly saveError = signal<string | null>(null);
+  readonly profesionalesDisponibles = signal<ProfesionalDisponibleDTO[]>([]);
 
-  // Programar turno tab
-  readonly savingTurno = signal(false);
-  readonly turnoError = signal<string | null>(null);
-  readonly turnoOk = signal(false);
-
-  // Tripulacion tab
-  readonly loadingTurnos = signal(false);
-  readonly turnos = signal<TurnoMovilDTO[]>([]);
-  readonly selectedTurno = signal<TurnoMovilDTO | null>(null);
-  readonly addingCrew = signal(false);
-  readonly crewError = signal<string | null>(null);
-
-  // Calendario tab
   readonly loadingLogs = signal(false);
   readonly logsTurnos = signal<LogTurnoDTO[]>([]);
   readonly calMonth = signal(new Date());
@@ -323,7 +243,7 @@ export class UnitScheduleModalComponent implements OnInit {
   readonly calCells = computed((): (number | null)[] => {
     const m = this.calMonth();
     const first = new Date(m.getFullYear(), m.getMonth(), 1);
-    const startDay = (first.getDay() + 6) % 7; // Monday-first, 0=Mon
+    const startDay = (first.getDay() + 6) % 7;
     const daysInMonth = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate();
     const cells: (number | null)[] = [];
     for (let i = 0; i < startDay; i++) cells.push(null);
@@ -338,136 +258,244 @@ export class UnitScheduleModalComponent implements OnInit {
     return `${names[m.getMonth()]} ${m.getFullYear()}`;
   });
 
-  readonly calLegend = [
-    { tag: 'MAT', tagBg: 'var(--accent-blue)',    label: 'Matutino · 06:00–18:00' },
-    { tag: 'NOC', tagBg: 'var(--accent-cyan)',    label: 'Nocturno · 18:00–06:00' },
-    { tag: 'PAR', tagBg: 'var(--accent-emerald)', label: 'Partido · 08:00–20:00' },
-    { tag: 'OFF', tagBg: '',                       label: 'Sin turno' },
-  ];
-
-  turnoForm = this.fb.group({
-    fechaInicio: ['', Validators.required],
-    fechaFin: ['', Validators.required],
-    tipo: ['Matutino', Validators.required],
-  });
-
-  crewForm = this.fb.group({
-    profesionalId: [null as number | null, Validators.required],
-    rol: ['', Validators.required],
-  });
-
   ngOnInit(): void {
-    this.loadTurnoActivo();
+    this.loadGuardias();
+    this.loadLogsTurnos();
+    this.loadProfesionales();
   }
 
   setTab(id: TabId): void {
     this.activeTab.set(id);
-    if (id === 'tripulacion' && this.turnos().length === 0) {
-      this.loadTurnos();
+  }
+
+  loadProfesionales(): void {
+    this.staffApi.getDisponibles().pipe(catchError(() => of([]))).subscribe((list) => {
+      this.profesionalesDisponibles.set((list ?? []).map((p) => ({
+        profesionalId: p.id,
+        profesionalNombre: `${p.apellido}, ${p.nombre}`.replace(/^,\s*/, '').trim(),
+        especialidad: p.especialidad ?? null,
+      })));
+    });
+  }
+
+  loadGuardias(): void {
+    this.loadingGuardias.set(true);
+    this.fleetApi.getGuardias(this.unit().id).pipe(catchError(() => of([]))).subscribe((guardias) => {
+      const turnos = this.agruparGuardias(guardias ?? []);
+      this.turnosUi.set(turnos.length ? turnos : [this.nuevoTurno('Matutino', '06:00', '18:00')]);
+      this.selectedTurnoId.set(this.turnosUi()[0]?.uiId ?? null);
+      this.loadingGuardias.set(false);
+    });
+  }
+
+  agruparGuardias(guardias: GuardiaDTO[]): TurnoConfigUi[] {
+    const map = new Map<string, TurnoConfigUi>();
+    for (const g of guardias.filter((x) => x.estado !== 'CANCELADA')) {
+      const key = `${g.horaInicio}|${g.horaFin}|${g.vigenciaDesde}|${g.vigenciaHasta ?? ''}`;
+      const item = map.get(key) ?? {
+        uiId: `g-${map.size}-${Date.now()}`,
+        label: this.inferirLabel(g.horaInicio, g.horaFin),
+        horaInicio: (g.horaInicio ?? '06:00').slice(0, 5),
+        horaFin: (g.horaFin ?? '18:00').slice(0, 5),
+        vigenciaDesde: g.vigenciaDesde ?? this.todayIsoDate(),
+        vigenciaHasta: g.vigenciaHasta,
+        diasActivos: [false, false, false, false, false, false, false],
+        tripulacion: g.tripulacion ?? [],
+      };
+      if (item.tripulacion.length === 0 && (g.tripulacion ?? []).length > 0) {
+        item.tripulacion = g.tripulacion ?? [];
+      }
+      const idx = DIAS.indexOf(g.diaSemana ?? '');
+      if (idx >= 0) item.diasActivos[idx] = true;
+      map.set(key, item);
     }
-    if (id === 'calendario' && this.logsTurnos().length === 0 && !this.loadingLogs()) {
-      this.loadLogsTurnos();
+    return [...map.values()];
+  }
+
+  inferirLabel(inicio?: string, fin?: string): string {
+    if ((inicio ?? '').startsWith('18') || (fin ?? '').startsWith('06')) return 'Nocturno';
+    return 'Matutino';
+  }
+
+  nuevoTurno(label: string, horaInicio: string, horaFin: string): TurnoConfigUi {
+    const nocturno = label.toLowerCase().includes('noct');
+    return {
+      uiId: `local-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      label,
+      horaInicio,
+      horaFin,
+      vigenciaDesde: this.todayIsoDate(),
+      vigenciaHasta: undefined,
+      diasActivos: nocturno ? [false, false, false, false, true, true, true] : [true, true, true, true, true, false, false],
+      tripulacion: [],
+    };
+  }
+
+  seleccionarTurno(event: Event): void {
+    this.selectedTurnoId.set((event.target as HTMLSelectElement).value);
+  }
+
+  configurarTripulacionTurno(uiId: string): void {
+    this.selectedTurnoId.set(uiId);
+    this.showCrewPicker.set(true);
+    this.activeTab.set('tripulacion');
+  }
+
+  crearTurnoRapido(): void {
+    const nocturno = this.turnosUi().length % 2 === 1;
+    const turno = nocturno ? this.nuevoTurno('Nocturno', '18:00', '06:00') : this.nuevoTurno('Matutino', '06:00', '18:00');
+    this.turnosUi.update((list) => [...list, turno]);
+    this.selectedTurnoId.set(turno.uiId);
+  }
+
+  eliminarTurno(uiId: string): void {
+    this.turnosUi.update((list) => list.filter((x) => x.uiId !== uiId));
+    if (this.selectedTurnoId() === uiId) this.selectedTurnoId.set(this.turnosUi()[0]?.uiId ?? null);
+  }
+
+  actualizarTurno(uiId: string, field: keyof Pick<TurnoConfigUi, 'label' | 'horaInicio' | 'horaFin' | 'vigenciaDesde' | 'vigenciaHasta'>, value: string): void {
+    this.turnosUi.update((list) => list.map((t) => t.uiId === uiId ? { ...t, [field]: value || undefined } : t));
+  }
+
+  toggleDiaTurno(uiId: string, idx: number): void {
+    this.turnosUi.update((list) => list.map((t) => {
+      if (t.uiId !== uiId) return t;
+      const dias = [...t.diasActivos];
+      dias[idx] = !dias[idx];
+      return { ...t, diasActivos: dias };
+    }));
+  }
+
+  agregarTripulanteSimple(p: ProfesionalDisponibleDTO): void {
+    const turno = this.selectedTurno();
+    if (!turno?.uiId || !p.profesionalId) return;
+    const trip: TripulacionGuardiaDTO = {
+      profesionalId: p.profesionalId,
+      profesionalNombre: p.profesionalNombre,
+      especialidad: p.especialidad,
+      rol: this.inferirRol(p),
+      activo: true,
+    };
+    this.turnosUi.update((list) => list.map((t) => {
+      if (t.uiId !== turno.uiId || t.tripulacion.some((m) => m.profesionalId === p.profesionalId)) return t;
+      return { ...t, tripulacion: [...t.tripulacion, trip] };
+    }));
+    this.showCrewPicker.set(false);
+  }
+
+  quitarTripulante(profesionalId?: number): void {
+    const turno = this.selectedTurno();
+    if (!turno?.uiId || !profesionalId) return;
+    this.turnosUi.update((list) => list.map((t) => t.uiId === turno.uiId ? { ...t, tripulacion: t.tripulacion.filter((m) => m.profesionalId !== profesionalId) } : t));
+  }
+
+  cambiarRolTripulante(uiId: string, tripulanteIndex: number, rol: string): void {
+    this.saveError.set(null);
+    this.turnosUi.update((list) => list.map((t) => t.uiId === uiId ? {
+      ...t,
+      tripulacion: t.tripulacion.map((m, idx) => idx === tripulanteIndex ? { ...m, rol } : m),
+    } : t));
+  }
+
+  selectValue(event: Event): string {
+    return (event.target as HTMLSelectElement).value;
+  }
+
+  guardarConfiguracion(): void {
+    this.saveError.set(null);
+    const errores = this.validarConfiguracion();
+    if (errores.length > 0) {
+      this.saveError.set(errores[0]);
+      return;
     }
+    const guardias: GuardiaDTO[] = [];
+    for (const t of this.turnosUi()) {
+      t.diasActivos.forEach((activo, idx) => {
+        if (!activo) return;
+        guardias.push({
+          ambulanciaId: this.unit().id,
+          diaSemana: DIAS[idx],
+          horaInicio: t.horaInicio,
+          horaFin: t.horaFin,
+          estado: 'ACTIVA',
+          vigenciaDesde: t.vigenciaDesde,
+          vigenciaHasta: t.vigenciaHasta || undefined,
+          tripulacion: t.tripulacion.map((m) => ({ ...m, activo: true })),
+        });
+      });
+    }
+    this.saving.set(true);
+    this.fleetApi.guardarGuardias(this.unit().id, guardias).subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.closed.emit();
+      },
+      error: () => {
+        this.saving.set(false);
+        this.saveError.set('No se pudo guardar. Revisá dotación mínima y solapamientos.');
+      },
+    });
+  }
+
+  validarConfiguracion(): string[] {
+    const errores: string[] = [];
+    for (const t of this.turnosUi()) {
+      if (!t.diasActivos.some(Boolean)) continue;
+      const roles = t.tripulacion.map((m) => m.rol);
+      const tieneChofer = roles.includes('CHOFER');
+      const tieneMedico = roles.includes('MEDICO');
+      const tieneEnfermeroOParamedico = roles.includes('ENFERMERO') || roles.includes('PARAMEDICO');
+      const tipo = (this.unit().tipo ?? 'AMBULANCIA').toUpperCase();
+      if (tipo.includes('AMBULANCIA') && (!tieneChofer || !tieneMedico || !tieneEnfermeroOParamedico)) {
+        errores.push(`${t.label}: dotación mínima AMBULANCIA = CHOFER + MEDICO + ENFERMERO/PARAMEDICO.`);
+      } else if (tipo.includes('TRASLADO') && !tieneChofer) {
+        errores.push(`${t.label}: dotación mínima TRASLADO = CHOFER.`);
+      } else if (tipo.includes('UTILITARIO') && (!tieneChofer || (!tieneMedico && !tieneEnfermeroOParamedico))) {
+        errores.push(`${t.label}: dotación mínima UTILITARIO = CHOFER + MEDICO/PARAMEDICO.`);
+      }
+    }
+    return errores;
   }
 
   loadLogsTurnos(): void {
     this.loadingLogs.set(true);
-    this.fleetApi
-      .getLogsTurnos(this.unit().id)
-      .pipe(catchError(() => of([])))
-      .subscribe((data) => {
-        this.logsTurnos.set(data);
-        this.loadingLogs.set(false);
-      });
-  }
-
-  loadTurnoActivo(): void {
-    this.loadingTurno.set(true);
-    this.fleetApi
-      .turnoActivo(this.unit().id)
-      .pipe(catchError(() => of(null)))
-      .subscribe((t) => {
-        this.turnoActivo.set(t);
-        this.loadingTurno.set(false);
-      });
-  }
-
-  loadTurnos(): void {
-    this.loadingTurnos.set(true);
-    this.fleetApi
-      .turnos(this.unit().id)
-      .pipe(catchError(() => of([])))
-      .subscribe((data) => {
-        this.turnos.set(data);
-        this.loadingTurnos.set(false);
-      });
-  }
-
-  crearTurno(): void {
-    if (this.turnoForm.invalid) {
-      this.turnoForm.markAllAsTouched();
-      return;
-    }
-    this.savingTurno.set(true);
-    this.turnoError.set(null);
-    this.turnoOk.set(false);
-    const val = this.turnoForm.value;
-    const req: TurnoMovilDTO = {
-      ambulanciaId: this.unit().id,
-      fechaInicio: new Date(val.fechaInicio!).toISOString(),
-      fechaFin:    new Date(val.fechaFin!).toISOString(),
-      estado:      'PROGRAMADO',
-      tipo:        val.tipo!,
-    };
-    this.fleetApi.crearTurno(req).subscribe({
-      next: () => {
-        this.savingTurno.set(false);
-        this.turnoOk.set(true);
-        this.turnoForm.reset({ tipo: 'Matutino' });
-        this.loadTurnoActivo();
-      },
-      error: () => {
-        this.savingTurno.set(false);
-        this.turnoError.set('Error al crear el turno. Verificá las fechas.');
-      },
+    this.fleetApi.getLogsTurnos(this.unit().id).pipe(catchError(() => of([]))).subscribe((data) => {
+      this.logsTurnos.set(data);
+      this.loadingLogs.set(false);
     });
   }
 
-  onSelectTurno(event: Event): void {
-    const id = Number((event.target as HTMLSelectElement).value);
-    const turno = this.turnos().find((t) => t.id === id) ?? null;
-    this.selectedTurno.set(turno);
-    this.crewError.set(null);
+  inferirRol(p: ProfesionalDisponibleDTO): RolTripulacionUi {
+    const e = (p.especialidad ?? '').toLowerCase();
+    if (e.includes('enfer')) return 'ENFERMERO';
+    if (e.includes('med')) return 'MEDICO';
+    return 'PARAMEDICO';
   }
 
-  agregarTripulante(): void {
-    if (this.crewForm.invalid) {
-      this.crewForm.markAllAsTouched();
-      return;
-    }
-    const turno = this.selectedTurno();
-    if (!turno?.id) return;
-    this.addingCrew.set(true);
-    this.crewError.set(null);
-    const val = this.crewForm.value;
-    const req: TripulacionMovilDTO = {
-      profesionalId: val.profesionalId!,
-      rol: val.rol ?? undefined,
-    };
-    this.fleetApi.agregarTripulacion(turno.id, req).subscribe({
-      next: (m) => {
-        this.addingCrew.set(false);
-        this.crewForm.reset();
-        // Append to current turno crew list
-        this.selectedTurno.update((t) =>
-          t ? { ...t, tripulacion: [...(t.tripulacion ?? []), m] } : t,
-        );
-      },
-      error: () => {
-        this.addingCrew.set(false);
-        this.crewError.set('Error al agregar el tripulante.');
-      },
-    });
+  getLiderTurno(t: TurnoConfigUi): string {
+    const first = t.tripulacion[0];
+    if (!first) return 'Sin asignar';
+    return `${this.nombreTripulante(first)} · ${first.rol ?? 'Soporte'}`;
+  }
+
+  nombreTripulante(m: TripulacionGuardiaDTO): string {
+    return m.nombre ?? m.profesionalNombre ?? (m.profesionalId ? `Prof. ${m.profesionalId}` : 'Profesional');
+  }
+
+  horasTurno(t: TurnoConfigUi): number {
+    const [ih, im] = t.horaInicio.split(':').map(Number);
+    const [fh, fm] = t.horaFin.split(':').map(Number);
+    let min = (fh * 60 + fm) - (ih * 60 + im);
+    if (min <= 0) min += 1440;
+    return Math.round(min / 60);
+  }
+
+  inputValue(event: Event): string {
+    return (event.target as HTMLInputElement).value;
+  }
+
+  todayIsoDate(): string {
+    return new Date().toISOString().slice(0, 10);
   }
 
   prevMonth(): void {
@@ -480,21 +508,14 @@ export class UnitScheduleModalComponent implements OnInit {
     this.calMonth.set(new Date(m.getFullYear(), m.getMonth() + 1, 1));
   }
 
-  cellShiftKind(dayOfWeek: number): 'MAT' | 'NOC' | 'PAR' | 'OFF' {
-    if (dayOfWeek >= 5) return 'OFF';
-    const tipo = this.unit().tipo ?? 'ALS';
-    if (tipo === 'ALS') return dayOfWeek % 3 === 0 ? 'NOC' : 'MAT';
-    return dayOfWeek % 2 === 0 ? 'PAR' : 'MAT';
+  cellShiftKind(dayOfWeek: number): 'MAT' | 'NOC' {
+    return dayOfWeek >= 5 ? 'NOC' : 'MAT';
   }
 
   cellStyle(dayOfWeek: number): { bg: string; border: string; tag: string; tagBg: string } {
     const kind = this.cellShiftKind(dayOfWeek);
-    switch (kind) {
-      case 'MAT': return { bg: 'rgba(59,130,246,0.12)', border: 'rgba(59,130,246,0.35)', tag: 'MAT', tagBg: 'var(--accent-blue)' };
-      case 'NOC': return { bg: 'rgba(34,211,238,0.12)', border: 'rgba(34,211,238,0.35)', tag: 'NOC', tagBg: 'var(--accent-cyan)' };
-      case 'PAR': return { bg: 'rgba(16,185,129,0.10)', border: 'rgba(16,185,129,0.30)', tag: 'PAR', tagBg: 'var(--accent-emerald)' };
-      case 'OFF': return { bg: 'rgba(148,163,184,0.04)', border: 'var(--border-hairline)', tag: 'OFF', tagBg: '' };
-    }
+    if (kind === 'MAT') return { bg: 'rgba(59,130,246,0.12)', border: 'rgba(59,130,246,0.35)', tag: 'MAT', tagBg: 'var(--accent-blue)' };
+    return { bg: 'rgba(34,211,238,0.12)', border: 'rgba(34,211,238,0.35)', tag: 'NOC', tagBg: 'var(--accent-cyan)' };
   }
 
   isToday(day: number | null): boolean {
@@ -505,16 +526,6 @@ export class UnitScheduleModalComponent implements OnInit {
   }
 
   dayOfWeekForCell(cellIndex: number): number {
-    return cellIndex % 7; // 0=Mon, 6=Sun
-  }
-
-  formatDate(iso: string): string {
-    if (!iso) return '—';
-    return new Date(iso).toLocaleString('es-AR', {
-      day: '2-digit',
-      month: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    return cellIndex % 7;
   }
 }

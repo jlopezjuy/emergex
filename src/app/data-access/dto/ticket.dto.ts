@@ -18,6 +18,18 @@ export interface TicketAsistenciaDTO {
   pacienteDescripcion?: string;
 }
 
+export interface AltaRapidaRequest {
+  tipoAsistencia: 'EMERGENCIA_DOMICILIARIA' | 'ORIENTACION_TELEFONICA' | 'ENFERMERIA_DOMICILIARIA' | 'CONTROL_MEDICO_DOMICILIARIO' | 'TRASLADO_PROGRAMADO' | 'VISITA_DOMICILIARIA';
+  nivelUrgencia: 'ROJO' | 'AMARILLO' | 'VERDE' | 'AZUL';
+  descripcionSintomas: string;
+  direccion?: string;
+  notaDireccion?: string;
+  telefonoContacto?: string;
+  pacienteId?: number;
+  observacion?: string;
+  coberturaAlMomentoId?: number | null;
+}
+
 export interface CrearTicketRequest {
   tipoAsistencia: 'EMERGENCIA_DOMICILIARIA' | 'ORIENTACION_TELEFONICA' | 'ENFERMERIA_DOMICILIARIA' | 'CONTROL_MEDICO_DOMICILIARIO' | 'TRASLADO_PROGRAMADO' | 'VISITA_DOMICILIARIA';
   nivelUrgencia: 'ROJO' | 'AMARILLO' | 'VERDE' | 'AZUL';

@@ -105,6 +105,7 @@ export interface TripulacionGuardiaDTO {
   id?: number;
   profesionalId?: number;
   profesionalNombre?: string;
+  nombre?: string;
   rol?: string;
   especialidad?: string | null;
   activo?: boolean;

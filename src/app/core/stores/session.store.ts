@@ -2,6 +2,7 @@ import { Injectable, inject, computed } from '@angular/core';
 import { AuthService } from '../auth/auth.service';
 
 const ROLES = {
+  ADMIN: 'ROLE_ADMIN',
   PROPIETARIO: 'ROLE_PROPIETARIO',
   ADMINISTRADOR: 'ROLE_ADMINISTRADOR',
   DESPACHANTE: 'ROLE_DESPACHANTE',
@@ -21,6 +22,7 @@ export class SessionStore {
 
   readonly isAdmin = computed(
     () =>
+      this.authorities().includes(ROLES.ADMIN) ||
       this.authorities().includes(ROLES.ADMINISTRADOR) ||
       this.authorities().includes(ROLES.PROPIETARIO),
   );
