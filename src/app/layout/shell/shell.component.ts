@@ -8,7 +8,7 @@ import { EmergencyApiService } from '../../data-access/api/emergency.api';
 import { EmergencyStore } from '../../core/stores/emergency.store';
 import { FleetStore } from '../../core/stores/fleet.store';
 import { AuthService } from '../../core/auth/auth.service';
-import { AltaRapidaRequest } from '../../data-access/dto/ticket.dto';
+import { AltaRapidaRequest, TicketAsistenciaDTO } from '../../data-access/dto/ticket.dto';
 
 @Component({
   selector: 'emx-shell',
@@ -47,7 +47,7 @@ import { AltaRapidaRequest } from '../../data-access/dto/ticket.dto';
     @if (showInstitutionalModal()) {
       <emx-institutional-modal
         (closed)="showInstitutionalModal.set(false)"
-        (submitted)="showInstitutionalModal.set(false)"
+        (submitted)="onInstitutionalSubmitted($event)"
       />
     }
   `,
@@ -94,5 +94,9 @@ export class ShellComponent implements OnInit {
       next: (ticket) => this.emergencyStore.addOrUpdate(ticket),
       error: () => console.error('Error al crear ticket'),
     });
+  }
+
+  onInstitutionalSubmitted(ticket: TicketAsistenciaDTO): void {
+    this.emergencyStore.addOrUpdate(ticket);
   }
 }

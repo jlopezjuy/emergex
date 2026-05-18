@@ -44,19 +44,29 @@ export interface CrearTicketRequest {
   nivelUrgencia: 'ROJO' | 'AMARILLO' | 'VERDE' | 'AZUL';
   descripcionSintomas: string;
   direccion?: string;
+  notaDireccion?: string;
   latitud?: number;
   longitud?: number;
   direccionNormalizada?: string;
   geocodingProvider?: string;
-  notaDireccion?: string;
+  // Sujeto
   pacienteId?: number;
+  miembroInstitucionId?: number;
+  // Cobertura institucional
+  institucionId?: number;
+  contratoCoberturaId?: number;
+  // Persona transitoria inline
   noAfiliado?: boolean;
   pacienteNombre?: string;
   pacienteApellido?: string;
   pacienteDni?: string;
   pacienteTelefono?: string;
+  // Traslado preliminar
+  tipoTraslado?: 'URBANO' | 'CLINICA' | 'INTERURBANO' | 'INTRANOSOCOMIAL' | 'ALTA_MEDICA';
+  // Despacho
   ambulanciaId?: number;
   notaOperador?: string;
+  canal?: 'PRESENCIAL' | 'TELEFONICA' | 'VIDEOLLAMADA';
 }
 
 export interface CancelarTicketRequest {

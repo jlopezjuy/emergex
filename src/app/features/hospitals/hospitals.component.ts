@@ -1,12 +1,14 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { catchError, of } from 'rxjs';
 import { HospitalApiService } from '../../data-access/api/hospital.api';
-import { AreaProtegidaDTO } from '../../data-access/dto/hospital.dto';
+import { HospitalDTO } from '../../data-access/dto/hospital.dto';
+import { HospitalModalComponent } from './hospital-modal.component';
 
 // HospitalLocal agrega 'codigo' derivado del id ya que el backend no lo expone aún.
-// El campo 'nivel' ya viene del DTO (AreaProtegidaDTO.nivel).
-interface HospitalLocal extends AreaProtegidaDTO {
+interface HospitalLocal extends Omit<HospitalDTO, 'especialidades'> {
   codigo: string;
+  distanciaKm?: number;
+  especialidades?: string[];
 }
 
 type StatusFilter = 'TODOS' | 'DISPONIBLE' | 'LIMITADO' | 'SATURADO';
@@ -14,7 +16,7 @@ type StatusFilter = 'TODOS' | 'DISPONIBLE' | 'LIMITADO' | 'SATURADO';
 @Component({
   selector: 'app-hospitals',
   standalone: true,
-  imports: [],
+  imports: [HospitalModalComponent],
   template: `
     <div style="display:flex; flex-direction:column; height:100%; overflow:hidden; background:var(--bg-deep);">
 
@@ -38,7 +40,15 @@ type StatusFilter = 'TODOS' | 'DISPONIBLE' | 'LIMITADO' | 'SATURADO';
               </div>
             }
           </div>
-          <button type="button" class="btn btn--ghost btn--sm">Actualizar capacidades</button>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button type="button" class="btn btn--primary btn--sm" (click)="openCreateModal()">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M6 2v8M2 6h8"/>
+              </svg>
+              Registrar Hospital
+            </button>
+            <button type="button" class="btn btn--ghost btn--sm" (click)="loadHospitals()">Actualizar capacidades</button>
+          </div>
         </div>
 
         <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:8px;">
@@ -122,11 +132,16 @@ type StatusFilter = 'TODOS' | 'DISPONIBLE' | 'LIMITADO' | 'SATURADO';
                   </svg>
                 </div>
                 <!-- Name + meta -->
-                <div style="flex:1;min-width:0;">
-                  <h2 style="font-size:14px;font-weight:600;color:var(--text-primary);margin:0 0 3px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ h.nombre }}</h2>
-                  <p style="font-size:10px;color:var(--text-muted);margin:0;font-family:var(--font-mono);">
-                    {{ asLocal(h).codigo ?? '' }}{{ asLocal(h).nivel ? ' · ' + asLocal(h).nivel : '' }}{{ h.distanciaKm != null ? ' · ' + h.distanciaKm + ' km' : '' }}
-                  </p>
+                <div style="flex:1;min-width:0;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                  <div style="min-width:0;flex:1;">
+                    <h2 style="font-size:14px;font-weight:600;color:var(--text-primary);margin:0 0 3px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ h.nombre }}</h2>
+                    <p style="font-size:10px;color:var(--text-muted);margin:0;font-family:var(--font-mono);">
+                      {{ h.codigo ?? '' }}{{ h.nivel ? ' · ' + h.nivel.replace('_', ' ') : '' }}{{ h.distanciaKm != null ? ' · ' + h.distanciaKm + ' km' : '' }}
+                    </p>
+                  </div>
+                  <button type="button" class="btn btn--ghost" style="padding: 4px; height: 24px; width: 24px; min-width: auto; display: flex; align-items: center; justify-content: center; border-radius: 6px; border: 1px solid var(--border-glass);" (click)="openEditModal(h)">
+                    <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 9.5l7.5-7.5 1.5 1.5-7.5 7.5H1v-1.5z"/></svg>
+                  </button>
                 </div>
                 <!-- Status badge -->
                 <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;">
@@ -144,17 +159,8 @@ type StatusFilter = 'TODOS' | 'DISPONIBLE' | 'LIMITADO' | 'SATURADO';
                 </div>
               </div>
 
-              <!-- Stats: 3 columns -->
-              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
-                <div>
-                  <div style="font-size:9px;font-family:var(--font-mono);color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">Camas libres</div>
-                  <div style="font-size:16px;font-weight:700;font-family:var(--font-mono);" [style.color]="barColor(camasPct(h))">
-                    {{ h.camasLibres ?? '—' }}<span style="font-size:11px;font-weight:400;color:var(--text-muted);"> / {{ h.camasTotales ?? '—' }}</span>
-                  </div>
-                  <div style="height:3px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;margin-top:5px;">
-                    <div [style.width.%]="camasPct(h)" [style.background]="barColor(camasPct(h))" style="height:100%;border-radius:2px;"></div>
-                  </div>
-                </div>
+              <!-- Stats: 2 columns -->
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
                 <div>
                   <div style="font-size:9px;font-family:var(--font-mono);color:var(--text-muted);text-transform:uppercase;margin-bottom:4px;">Urgencias · Ocup.</div>
                   <div style="font-size:16px;font-weight:700;font-family:var(--font-mono);" [style.color]="urgenciasColor(h.ocupacionUrgencias ?? 0)">
@@ -169,7 +175,9 @@ type StatusFilter = 'TODOS' | 'DISPONIBLE' | 'LIMITADO' | 'SATURADO';
                   <div style="font-size:16px;font-weight:700;font-family:var(--font-mono);" [style.color]="esperaColor(h.tiempoEsperaMin ?? 0)">
                     {{ h.tiempoEsperaMin ?? '—' }}<span style="font-size:11px;font-weight:400;color:var(--text-muted);"> min</span>
                   </div>
-                  <div style="height:3px;background:rgba(255,255,255,0.06);border-radius:2px;margin-top:5px;"></div>
+                  <div style="height:3px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;margin-top:5px;">
+                    <div [style.width.%]="waitPct(h.tiempoEsperaMin ?? 0)" [style.background]="esperaColor(h.tiempoEsperaMin ?? 0)" style="height:100%;border-radius:2px;"></div>
+                  </div>
                 </div>
               </div>
 
@@ -203,6 +211,15 @@ type StatusFilter = 'TODOS' | 'DISPONIBLE' | 'LIMITADO' | 'SATURADO';
           }
         </div>
       </div>
+
+      <!-- Modal for creation / edition -->
+      @if (showModal()) {
+        <emx-hospital-modal
+          [hospital]="selectedHospital()"
+          (saved)="onModalSaved()"
+          (closed)="closeModal()"
+        />
+      }
     </div>
   `,
 })
@@ -216,6 +233,9 @@ export class HospitalsComponent implements OnInit {
   readonly searchQuery = signal('');
   readonly statusFilter = signal<StatusFilter>('TODOS');
 
+  readonly showModal = signal(false);
+  readonly selectedHospital = signal<HospitalDTO | null>(null);
+
   readonly filterOptions: { label: string; value: StatusFilter }[] = [
     { label: 'Todos', value: 'TODOS' },
     { label: 'Disponibles', value: 'DISPONIBLE' },
@@ -225,14 +245,16 @@ export class HospitalsComponent implements OnInit {
 
   readonly aggregateStats = computed(() => {
     const all = this.hospitals();
-    const camasLibres = all.reduce((s, h) => s + (h.camasLibres ?? 0), 0);
+    const ocupacionPromedio = all.length
+      ? Math.round(all.reduce((s, h) => s + (h.ocupacionUrgencias ?? 0), 0) / all.length)
+      : 0;
     const enDesvio = all.filter(h => h.enDerivacion).length;
     const espera = all.length
       ? Math.round(all.reduce((s, h) => s + (h.tiempoEsperaMin ?? 0), 0) / all.length)
       : 0;
     return [
       { label: 'Hospitales',  value: all.length,             color: 'var(--text-primary)' },
-      { label: 'Camas libres', value: camasLibres,            color: 'var(--accent-emerald)' },
+      { label: 'Ocup. urgencias', value: ocupacionPromedio + '%', color: 'var(--accent-emerald)' },
       { label: 'En desvío',   value: enDesvio,               color: enDesvio > 0 ? 'var(--accent-amber)' : 'var(--text-primary)' },
       { label: 'Espera med.', value: espera + ' min',        color: 'var(--text-primary)' },
     ];
@@ -253,7 +275,12 @@ export class HospitalsComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    this.loadHospitals();
+  }
+
+  loadHospitals(): void {
     this.loading.set(true);
+    this.error.set(null);
     this.hospitalApi
       .getAll()
       .pipe(catchError(() => {
@@ -261,18 +288,77 @@ export class HospitalsComponent implements OnInit {
         return of([]);
       }))
       .subscribe((data) => {
-        // Mapear AreaProtegidaDTO → HospitalLocal: derivar 'codigo' del id
-        const mapped: HospitalLocal[] = data.map((h) => ({
-          ...h,
-          codigo: 'H-' + String(h.id).padStart(2, '0'),
-        }));
+        const mapped: HospitalLocal[] = data.map((h) => {
+          const especialidades = h.especialidades 
+            ? h.especialidades.split(',').map(s => s.trim()) 
+            : [];
+
+          return {
+            id: h.id,
+            nombre: h.nombre,
+            cuit: h.cuit,
+            direccion: h.direccion,
+            telefono: h.telefono,
+            ciudad: h.ciudad,
+            provincia: h.provincia,
+            codigoEstablecimiento: h.codigoEstablecimiento,
+            activo: h.activo,
+            tipo: h.tipo || 'HOSPITAL',
+            nivel: h.nivel || 'BAJA_COMPLEJIDAD',
+            latitud: h.latitud,
+            longitud: h.longitud,
+            distanciaKm: 2.5 + (h.id % 10) * 1.5,
+            enDerivacion: h.enDerivacion ?? false,
+            estado: h.estado || 'DISPONIBLE',
+            ocupacionUrgencias: h.ocupacionUrgencias ?? 0,
+            tiempoEsperaMin: h.tiempoEsperaMin ?? 0,
+            especialidades: especialidades,
+            codigo: 'H-' + String(h.id).padStart(2, '0')
+          };
+        });
         this.hospitals.set(mapped);
         this.loading.set(false);
       });
   }
 
-  asLocal(h: AreaProtegidaDTO): HospitalLocal {
-    return h as HospitalLocal;
+  openCreateModal(): void {
+    this.selectedHospital.set(null);
+    this.showModal.set(true);
+  }
+
+  openEditModal(hospital: HospitalLocal): void {
+    const dto: HospitalDTO = {
+      id: hospital.id,
+      nombre: hospital.nombre,
+      cuit: hospital.cuit,
+      tipo: hospital.tipo,
+      direccion: hospital.direccion,
+      ciudad: hospital.ciudad,
+      provincia: hospital.provincia,
+      telefono: hospital.telefono,
+      codigoEstablecimiento: hospital.codigoEstablecimiento,
+      activo: hospital.activo,
+      nivel: hospital.nivel,
+      latitud: hospital.latitud,
+      longitud: hospital.longitud,
+      estado: hospital.estado,
+      ocupacionUrgencias: hospital.ocupacionUrgencias,
+      tiempoEsperaMin: hospital.tiempoEsperaMin,
+      especialidades: hospital.especialidades?.join(','),
+      enDerivacion: hospital.enDerivacion
+    };
+    this.selectedHospital.set(dto);
+    this.showModal.set(true);
+  }
+
+  closeModal(): void {
+    this.showModal.set(false);
+    this.selectedHospital.set(null);
+  }
+
+  onModalSaved(): void {
+    this.closeModal();
+    this.loadHospitals();
   }
 
   estadoLabel(estado?: string): string {
@@ -284,15 +370,8 @@ export class HospitalsComponent implements OnInit {
     }
   }
 
-  camasPct(h: AreaProtegidaDTO): number {
-    if (!h.camasTotales) return 0;
-    return ((h.camasLibres ?? 0) / h.camasTotales) * 100;
-  }
-
-  barColor(pct: number): string {
-    if (pct >= 40) return 'var(--accent-emerald)';
-    if (pct >= 20) return 'var(--accent-amber)';
-    return 'var(--accent-red)';
+  waitPct(min: number): number {
+    return Math.min(100, (min / 120) * 100);
   }
 
   urgenciasColor(pct: number): string {
