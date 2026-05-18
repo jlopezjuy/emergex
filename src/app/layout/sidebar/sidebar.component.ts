@@ -81,6 +81,15 @@ import { FleetStore } from '../../core/stores/fleet.store';
         </svg>
       </a>
 
+      <!-- Facturación -->
+      <a routerLink="/facturacion" routerLinkActive="nav-active" class="nav-icon-btn" title="Facturación">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="2" width="14" height="14" rx="2"/>
+          <path d="M5 6h8M5 9h6M5 12h4"/>
+          <path d="M12 11l1.5 1.5L16 10"/>
+        </svg>
+      </a>
+
       <!-- Plans -->
       <a routerLink="/plans" routerLinkActive="nav-active" class="nav-icon-btn" title="Planes comerciales">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">

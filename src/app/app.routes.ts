@@ -60,6 +60,11 @@ export const routes: Routes = [
           import('./features/patients/patients.component').then((m) => m.PatientsComponent),
       },
       {
+        path: 'patients/:id',
+        loadComponent: () =>
+          import('./features/patients/patient-detail/patient-detail.component').then((m) => m.PatientDetailComponent),
+      },
+      {
         path: 'institutions',
         loadComponent: () =>
           import('./features/institutions/institutions.component').then((m) => m.InstitutionsComponent),
@@ -68,6 +73,11 @@ export const routes: Routes = [
         path: 'plans',
         loadComponent: () =>
           import('./features/plans/plans.component').then((m) => m.PlansComponent),
+      },
+      {
+        path: 'facturacion',
+        loadComponent: () =>
+          import('./features/facturacion/facturacion.component').then((m) => m.FacturacionComponent),
       },
       {
         path: 'hospitals',
