@@ -17,6 +17,8 @@ import { GlassCardComponent } from '../../../shared/components/glass-card/glass-
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
 import { DispatchModalComponent } from '../../../shared/components/emergency/dispatch-modal/dispatch-modal.component';
 import { SparklineComponent } from '../../../shared/components/charts/sparkline/sparkline.component';
+import { OperationsMapComponent } from '../../../shared/components/map/operations-map/operations-map.component';
+import { UnidadMovilDTO } from '../../../data-access/dto/ambulancia.dto';
 
 interface StatusStep {
   id: string;
@@ -43,6 +45,7 @@ const ALL_STEPS: StatusStep[] = [
     EmptyStateComponent,
     DispatchModalComponent,
     SparklineComponent,
+    OperationsMapComponent,
   ],
   template: `
     <div class="flex flex-col h-full overflow-hidden" style="background: var(--bg-base);">
@@ -479,7 +482,7 @@ const ALL_STEPS: StatusStep[] = [
                 </dl>
               </emx-glass-card>
 
-              <!-- 11. Mini mapa SVG -->
+              <!-- 11. Mapa real -->
               <emx-glass-card style="padding: 0; overflow: hidden;">
                 <div class="flex items-center justify-between px-4 py-2 flex-shrink-0"
                      style="border-bottom: 1px solid var(--border-glass);">
@@ -489,51 +492,25 @@ const ALL_STEPS: StatusStep[] = [
                   </div>
                   @if (ticket()?.ambulanciaId) {
                     <span class="font-mono text-xs" style="color: var(--accent-cyan);">● En movimiento</span>
+                  } @else if (ticket()?.latitud) {
+                    <span class="font-mono text-xs" style="color: var(--accent-amber);">● Domicilio</span>
                   }
                 </div>
-                <svg width="100%" viewBox="0 0 300 180" style="display:block; background: #0a1628;">
-                  <defs>
-                    <pattern id="miniGrid" width="20" height="20" patternUnits="userSpaceOnUse">
-                      <path d="M0 0H20M0 0V20" stroke="rgba(148,163,184,0.06)" stroke-width="0.5"/>
-                    </pattern>
-                  </defs>
-                  <rect width="300" height="180" fill="url(#miniGrid)"/>
-                  <!-- roads -->
-                  <path d="M0 110 C 80 90, 160 120, 240 100 S 300 85, 300 85" stroke="rgba(148,163,184,0.25)" stroke-width="3" fill="none"/>
-                  <path d="M0 50 C 80 60, 160 45, 300 70" stroke="rgba(148,163,184,0.18)" stroke-width="2" fill="none"/>
-                  <!-- river -->
-                  <path d="M0 148 C 100 155, 220 140, 300 150 L 300 180 L 0 180 Z" fill="rgba(10,37,64,0.5)"/>
-
-                  <!-- Animated route line (ambulance → incident) -->
-                  @if (ticket()?.ambulanciaId) {
-                    <path d="M 65 90 Q 140 75, 185 70" stroke="var(--accent-cyan)" stroke-width="2" fill="none" stroke-dasharray="5 4">
-                      <animate attributeName="stroke-dashoffset" from="0" to="-18" dur="1.4s" repeatCount="indefinite"/>
-                    </path>
-                  }
-                  <!-- Route to hospital -->
-                  <path d="M 185 70 Q 230 62, 255 58" stroke="rgba(16,185,129,0.5)" stroke-width="1.5" fill="none" stroke-dasharray="4 4"/>
-
-                  <!-- Incident pulse -->
-                  <circle cx="185" cy="70" r="18" fill="var(--accent-red)" opacity="0.15">
-                    <animate attributeName="r" from="12" to="24" dur="1.8s" repeatCount="indefinite"/>
-                    <animate attributeName="opacity" from="0.3" to="0" dur="1.8s" repeatCount="indefinite"/>
-                  </circle>
-                  <circle cx="185" cy="70" r="6" fill="var(--accent-red)" stroke="white" stroke-width="1.5"/>
-                  <text x="198" y="68" font-family="IBM Plex Mono,monospace" font-size="9" fill="var(--accent-red)">{{ ticket()?.codigo ?? ticket()?.id }}</text>
-
-                  <!-- Ambulance -->
-                  @if (ticket()?.ambulanciaId) {
-                    <rect x="56" y="81" width="18" height="18" rx="4" fill="#0f172a" stroke="var(--accent-blue)" stroke-width="1.5"
-                          filter="drop-shadow(0 0 6px rgba(59,130,246,0.5))"/>
-                    <path d="M61 90 H 70 M 65 85 V 95" stroke="var(--accent-blue)" stroke-width="1.5" stroke-linecap="round"/>
-                    <text x="78" y="94" font-family="IBM Plex Mono,monospace" font-size="9" fill="var(--accent-blue)">AMB-{{ ticket()?.ambulanciaId }}</text>
-                  }
-
-                  <!-- Hospital -->
-                  <rect x="247" y="50" width="16" height="16" rx="3" fill="rgba(16,185,129,0.15)" stroke="var(--accent-emerald)" stroke-width="1.5"/>
-                  <path d="M251 58 H 259 M 255 54 V 62" stroke="var(--accent-emerald)" stroke-width="1.5" stroke-linecap="round"/>
-                  <text x="238" y="44" font-family="IBM Plex Mono,monospace" font-size="8" fill="var(--accent-emerald)">HSP</text>
-                </svg>
+                @if (ticket()?.latitud || mapAmbulances().length > 0) {
+                  <div style="height: 190px;">
+                    <emx-operations-map
+                      [ambulances]="mapAmbulances()"
+                      [emergencies]="mapTickets()"
+                      [selectedEmergencyId]="ticket()?.id ?? null"
+                      [autoFit]="true"
+                      [showLegend]="false"
+                    />
+                  </div>
+                } @else {
+                  <div class="px-4 py-8 text-center" style="background:#0a1628; color: var(--text-muted);">
+                    No hay ubicación geocodificada para este domicilio.
+                  </div>
+                }
               </emx-glass-card>
 
               <!-- 12. Evidence Card -->
@@ -653,26 +630,29 @@ const ALL_STEPS: StatusStep[] = [
 
     <!-- Cancel dialog -->
     @if (showCancelDialog()) {
-      <div class="fixed inset-0 z-50 flex items-center justify-center"
-           style="background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);">
-        <div class="rounded-xl p-6 flex flex-col gap-4 w-full max-w-sm"
-             style="background: var(--bg-surface); border: 1px solid var(--border-glass);">
-          <h2 class="font-semibold text-base" style="color: var(--text-primary);">¿Cancelar emergencia?</h2>
-          <p class="text-xs" style="color: var(--text-muted);">Esta acción es irreversible. Indicá el motivo de la cancelación.</p>
+      <div class="clinical-modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="clinical-modal-card cancel-modal-card flex flex-col gap-4 w-full max-w-md">
+          <div class="clinical-modal-header">
+            <div>
+              <p class="clinical-modal-kicker cancel-modal-kicker">Acción irreversible</p>
+              <h2 class="clinical-modal-title">¿Cancelar emergencia?</h2>
+              <p class="clinical-modal-subtitle">Indicá el motivo para dejar trazabilidad operativa.</p>
+            </div>
+            <button type="button" class="clinical-close" (click)="showCancelDialog.set(false); cancelMotivo.set('')">×</button>
+          </div>
           <div class="flex flex-col gap-1.5">
-            <label class="text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary);">
+            <label class="clinical-field-label">
               Motivo *
             </label>
             <input
               type="text"
-              class="rounded-btn px-3 py-2 text-sm w-full"
-              style="background: var(--bg-glass); border: 1px solid var(--border-strong); color: var(--text-primary); outline: none;"
+              class="clinical-input"
               placeholder="Ej: llamada duplicada, paciente no encontrado..."
               [value]="cancelMotivo()"
               (input)="cancelMotivo.set($any($event.target).value)"
             />
           </div>
-          <div class="flex gap-2 justify-end pt-1">
+          <div class="clinical-modal-footer">
             <button
               type="button"
               class="btn btn--ghost btn--sm"
@@ -940,7 +920,7 @@ const ALL_STEPS: StatusStep[] = [
     .clinical-modal-subtitle {
       margin: 0.25rem 0 0;
       color: #64748b;
-      font-size: 0.75rem;
+      font-size: 0.85rem;
     }
     .clinical-close {
       width: 2rem;
@@ -999,6 +979,12 @@ const ALL_STEPS: StatusStep[] = [
       border-color: #3b82f6;
       box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.16);
     }
+    .cancel-modal-card {
+      box-shadow: 0 24px 70px rgba(127, 29, 29, 0.22), 0 12px 40px rgba(15, 23, 42, 0.25);
+    }
+    .cancel-modal-kicker {
+      color: #dc2626;
+    }
   `],
 })
 export class EmergencyDetailComponent implements OnInit {
@@ -1011,6 +997,7 @@ export class EmergencyDetailComponent implements OnInit {
   readonly error = signal<string | null>(null);
   readonly detalle = signal<TicketDetalleDTO | null>(null);
   readonly timeline = signal<LogEstadoTicketDTO[]>([]);
+  readonly tracking = signal<any | null>(null);
   readonly showDispatch = signal(false);
   readonly noteText = signal('');
   readonly notaError = signal<string | null>(null);
@@ -1092,6 +1079,26 @@ export class EmergencyDetailComponent implements OnInit {
         timestamp: n.fecha,
       }))
   );
+
+  readonly mapTickets = computed(() => {
+    const t = this.ticket();
+    return t?.latitud != null && t.longitud != null ? [t] : [];
+  });
+
+  readonly mapAmbulances = computed((): UnidadMovilDTO[] => {
+    const t = this.ticket();
+    const pos = this.tracking()?.ultimaPosicionAmbulancia;
+    if (!t?.ambulanciaId || pos?.latitud == null || pos?.longitud == null) return [];
+    return [{
+      id: t.ambulanciaId,
+      identificador: t.unidadAsignada ?? `AMB-${t.ambulanciaId}`,
+      tipo: 'AMBULANCIA',
+      estado: t.estado === 'EN_SITIO' ? 'EN_SITIO' : t.estado === 'TRASLADO' ? 'TRASLADO' : 'EN_RUTA',
+      latitud: Number(pos.latitud),
+      longitud: Number(pos.longitud),
+      ticketActivo: t.id,
+    } as UnidadMovilDTO];
+  });
 
   readonly lastSigno = computed((): SignosVitalesDTO | null => {
     const arr = this.signos();
@@ -1278,6 +1285,8 @@ export class EmergencyDetailComponent implements OnInit {
       next: (data) => {
         this.detalle.set(data as TicketDetalleDTO);
         this.loadClinicalAtencion();
+        this.loadTicketGeo(id);
+        this.loadTracking(id);
         this.loading.set(false);
       },
       error: () => {
@@ -1289,6 +1298,32 @@ export class EmergencyDetailComponent implements OnInit {
     this.emergencyApi.getTimeline(id).subscribe({
       next: (data) => this.timeline.set(data),
       error: () => this.timeline.set([]),
+    });
+  }
+
+  private loadTicketGeo(id: number): void {
+    this.emergencyApi.getLatestGeo('TICKET', id).subscribe({
+      next: (geo) => {
+        this.detalle.update((current) => {
+          if (!current?.ticket) return current;
+          return {
+            ...current,
+            ticket: {
+              ...current.ticket,
+              latitud: geo.latitud,
+              longitud: geo.longitud,
+            },
+          };
+        });
+      },
+      error: () => void 0,
+    });
+  }
+
+  private loadTracking(id: number): void {
+    this.emergencyApi.getTracking(id).subscribe({
+      next: (tracking) => this.tracking.set(tracking),
+      error: () => this.tracking.set(null),
     });
   }
 

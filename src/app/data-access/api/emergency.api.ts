@@ -129,6 +129,20 @@ export class EmergencyApiService {
     );
   }
 
+  getLatestGeo(targetType: 'TICKET' | 'AMBULANCIA', targetId: number): Observable<{ latitud: number; longitud: number; timestamp?: string }> {
+    return this.http.get<any>(`${environment.apiUrl}/api/v1/geo/posiciones/${targetType}/${targetId}/latest`).pipe(
+      map((geo) => ({
+        latitud: Number(geo.latitud),
+        longitud: Number(geo.longitud),
+        timestamp: geo.timestamp,
+      })),
+    );
+  }
+
+  getTracking(id: number): Observable<any> {
+    return this.http.get<any>(`${environment.apiUrl}/api/v1/tickets/${id}/tracking`);
+  }
+
   crear(req: CrearTicketRequest): Observable<TicketAsistenciaDTO> {
     return this.http.post<TicketAsistenciaDTO>(`${this.base}/recibir-llamada`, req);
   }

@@ -1,5 +1,6 @@
 import { Injectable, inject, signal, computed, OnDestroy } from '@angular/core';
-import { interval, Subscription } from 'rxjs';
+import { forkJoin, interval, Observable, of, Subscription } from 'rxjs';
+import { catchError, map, switchMap } from 'rxjs/operators';
 import { StompSubscription } from '@stomp/stompjs';
 import { EmergencyApiService } from '../../data-access/api/emergency.api';
 import { WebsocketService } from '../websocket/websocket.service';
@@ -31,7 +32,13 @@ export class EmergencyStore implements OnDestroy {
   loadActivos(): void {
     this.loading.set(true);
     this.error.set(null);
-    this.api.getActivos().subscribe({
+    this.api.getActivos().pipe(
+      switchMap((data) =>
+        data.length > 0
+          ? forkJoin(data.map((ticket) => this.withLatestGeo(ticket)))
+          : of([]),
+      ),
+    ).subscribe({
       next: (data) => {
         this.emergencies.set(data);
         this.loading.set(false);
@@ -64,7 +71,9 @@ export class EmergencyStore implements OnDestroy {
         this.emergencies.update((list) => list.filter((e) => e.id !== event.ticketId));
         if (this.selectedId() === event.ticketId) this.selectedId.set(null);
       } else {
-        this.api.getById(event.ticketId).subscribe({
+        this.api.getById(event.ticketId).pipe(
+          switchMap((ticket) => this.withLatestGeo(ticket)),
+        ).subscribe({
           next: (ticket) => this.addOrUpdate(ticket),
           error: () => {},
         });
@@ -74,7 +83,9 @@ export class EmergencyStore implements OnDestroy {
     this.asignacionSub = this.ws.subscribe('/topic/asignaciones', (raw: unknown) => {
       const event = raw as AsignacionEstadoChangedEvent;
       if (!event?.ticketId) return;
-      this.api.getById(event.ticketId).subscribe({
+      this.api.getById(event.ticketId).pipe(
+        switchMap((ticket) => this.withLatestGeo(ticket)),
+      ).subscribe({
         next: (ticket) => this.addOrUpdate(ticket),
         error: () => {},
       });
@@ -101,5 +112,23 @@ export class EmergencyStore implements OnDestroy {
       }
       return [ticket, ...list];
     });
+
+    if (ticket.latitud == null || ticket.longitud == null) {
+      this.withLatestGeo(ticket).subscribe((enriched) => {
+        if (enriched.latitud != null && enriched.longitud != null) {
+          this.emergencies.update((list) =>
+            list.map((e) => e.id === enriched.id ? { ...e, latitud: enriched.latitud, longitud: enriched.longitud } : e),
+          );
+        }
+      });
+    }
+  }
+
+  private withLatestGeo(ticket: TicketAsistenciaDTO): Observable<TicketAsistenciaDTO> {
+    if (ticket.latitud != null && ticket.longitud != null) return of(ticket);
+    return this.api.getLatestGeo('TICKET', ticket.id).pipe(
+      map((geo) => ({ ...ticket, latitud: geo.latitud, longitud: geo.longitud })),
+      catchError(() => of(ticket)),
+    );
   }
 }

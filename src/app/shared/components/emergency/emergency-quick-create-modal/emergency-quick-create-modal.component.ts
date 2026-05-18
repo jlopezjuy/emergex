@@ -4,8 +4,11 @@ import { HttpClient } from '@angular/common/http';
 import { Subject, debounceTime, distinctUntilChanged, switchMap, catchError, of } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { ModalShellComponent } from '../../modal-shell/modal-shell.component';
+import { LocationPickerMapComponent } from '../../map/location-picker-map/location-picker-map.component';
 import { AltaRapidaRequest } from '../../../../data-access/dto/ticket.dto';
 import { environment } from '../../../../../environments/environment';
+import { GeocodeResult } from '../../../map/geocoder-provider';
+import { HttpGeocoderProvider } from '../../../map/providers/http-geocoder.provider';
 
 type TipoAsistencia = AltaRapidaRequest['tipoAsistencia'];
 type NivelUrgencia  = AltaRapidaRequest['nivelUrgencia'];
@@ -39,7 +42,7 @@ const NIVELES_URGENCIA: { value: NivelUrgencia; label: string; sublabel: string;
 @Component({
   selector: 'emx-emergency-quick-create-modal',
   standalone: true,
-  imports: [ReactiveFormsModule, ModalShellComponent],
+  imports: [ReactiveFormsModule, ModalShellComponent, LocationPickerMapComponent],
   template: `
     <emx-modal-shell title="Nueva Emergencia" (closed)="closed.emit()">
       <form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-5">
@@ -121,6 +124,38 @@ const NIVELES_URGENCIA: { value: NivelUrgencia; label: string; sublabel: string;
             />
             @if (f['direccion'].invalid && f['direccion'].touched) {
               <span class="text-xs" style="color: var(--accent-red);">Campo requerido</span>
+            }
+            @if (geocodeSearching()) {
+              <span class="text-xs" style="color: var(--text-muted);">Buscando ubicación...</span>
+            }
+            @if (geocodeResults().length > 0) {
+              <div class="flex flex-col rounded-btn overflow-hidden" style="border:1px solid rgba(148,163,184,.35); background:#fff;">
+                @for (result of geocodeResults(); track result.address) {
+                  <button
+                    type="button"
+                    class="text-left px-3 py-2 text-xs"
+                    style="color:#0f172a; border-bottom:1px solid rgba(148,163,184,.18);"
+                    (click)="selectGeocode(result)"
+                  >
+                    <span class="font-medium">{{ result.label }}</span>
+                    <span class="block mt-0.5" style="color:#64748b;">{{ result.lat.toFixed(5) }}, {{ result.lng.toFixed(5) }}</span>
+                  </button>
+                }
+              </div>
+            }
+            <div class="rounded-btn overflow-hidden" style="border:1px solid rgba(148,163,184,.35); background:#f8fafc;">
+              <emx-location-picker-map
+                [lat]="selectedLocation()?.lat ?? null"
+                [lng]="selectedLocation()?.lng ?? null"
+                (pointChanged)="setManualLocation($event)"
+              />
+            </div>
+            @if (selectedLocation()) {
+              <span class="text-xs" style="color: var(--accent-emerald);">
+                Ubicación confirmada · {{ selectedLocation()!.lat.toFixed(5) }}, {{ selectedLocation()!.lng.toFixed(5) }}
+              </span>
+            } @else {
+              <span class="text-xs" style="color: var(--accent-amber);">Sin ubicación confirmada. Podés registrar igual, pero el mapa no tendrá punto exacto.</span>
             }
           </div>
 
@@ -291,8 +326,9 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
   created = output<AltaRapidaRequest>();
   closed  = output<void>();
 
-  private fb   = inject(FormBuilder);
-  private http = inject(HttpClient);
+  private fb       = inject(FormBuilder);
+  private http     = inject(HttpClient);
+  private geocoder = inject(HttpGeocoderProvider);
 
   readonly tiposAsistencia = TIPOS_ASISTENCIA;
   readonly nivelesUrgencia = NIVELES_URGENCIA;
@@ -303,9 +339,13 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
   readonly searching        = signal(false);
   readonly dropdownOpen     = signal(false);
   readonly hoveredId        = signal<number | null>(null);
+  readonly geocodeResults   = signal<GeocodeResult[]>([]);
+  readonly geocodeSearching = signal(false);
+  readonly selectedLocation = signal<GeocodeResult | null>(null);
 
   private destroy$ = new Subject<void>();
   private search$  = new Subject<string>();
+  private geocode$ = new Subject<string>();
 
   form = this.fb.group({
     tipoAsistencia:     ['' as TipoAsistencia | '', Validators.required],
@@ -347,6 +387,30 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
     this.f['pacienteBusqueda'].valueChanges
       .pipe(takeUntil(this.destroy$))
       .subscribe(v => this.search$.next(v ?? ''));
+
+    this.geocode$.pipe(
+      debounceTime(650),
+      distinctUntilChanged(),
+      switchMap(query => {
+        const q = (query ?? '').trim();
+        this.selectedLocation.set(null);
+        if (q.length < 4) {
+          this.geocodeResults.set([]);
+          this.geocodeSearching.set(false);
+          return of([]);
+        }
+        this.geocodeSearching.set(true);
+        return this.geocoder.search(q).catch(() => []);
+      }),
+      takeUntil(this.destroy$),
+    ).subscribe(results => {
+      this.geocodeResults.set(results);
+      this.geocodeSearching.set(false);
+    });
+
+    this.f['direccion'].valueChanges
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(v => this.geocode$.next(v ?? ''));
   }
 
   ngOnDestroy(): void {
@@ -371,6 +435,23 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
   clearPaciente(): void {
     this.selectedPaciente.set(null);
     this.searchResults.set([]);
+  }
+
+  selectGeocode(result: GeocodeResult): void {
+    this.selectedLocation.set(result);
+    this.geocodeResults.set([]);
+    this.f['direccion'].setValue(result.address || result.label, { emitEvent: false });
+  }
+
+  setManualLocation(point: { lat: number; lng: number }): void {
+    const currentAddress = this.f['direccion'].value ?? '';
+    this.selectedLocation.set({
+      label: currentAddress || 'Ubicación manual',
+      address: currentAddress || 'Ubicación manual',
+      lat: point.lat,
+      lng: point.lng,
+      provider: 'manual',
+    });
   }
 
   @HostListener('document:click')
@@ -402,6 +483,13 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
       if (val.direccion)       req.direccion        = val.direccion;
       if (val.notaDireccion)   req.notaDireccion    = val.notaDireccion;
       if (val.telefonoContacto) req.telefonoContacto = val.telefonoContacto;
+      const loc = this.selectedLocation();
+      if (loc) {
+        req.latitud = loc.lat;
+        req.longitud = loc.lng;
+        req.direccionNormalizada = loc.address;
+        req.geocodingProvider = loc.provider;
+      }
     }
 
     const p = this.selectedPaciente();

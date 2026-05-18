@@ -28,6 +28,10 @@ export interface AltaRapidaRequest {
   nivelUrgencia: 'ROJO' | 'AMARILLO' | 'VERDE' | 'AZUL';
   descripcionSintomas: string;
   direccion?: string;
+  latitud?: number;
+  longitud?: number;
+  direccionNormalizada?: string;
+  geocodingProvider?: string;
   notaDireccion?: string;
   telefonoContacto?: string;
   pacienteId?: number;
@@ -40,6 +44,10 @@ export interface CrearTicketRequest {
   nivelUrgencia: 'ROJO' | 'AMARILLO' | 'VERDE' | 'AZUL';
   descripcionSintomas: string;
   direccion?: string;
+  latitud?: number;
+  longitud?: number;
+  direccionNormalizada?: string;
+  geocodingProvider?: string;
   notaDireccion?: string;
   pacienteId?: number;
   noAfiliado?: boolean;

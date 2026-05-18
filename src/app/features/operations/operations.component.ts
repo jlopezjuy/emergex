@@ -74,6 +74,7 @@ type FeedTab = 'TODAS' | 'SIN_ASIGNAR' | 'CRITICAS';
             [ambulances]="fleetStore.ambulances()"
             [emergencies]="emergencyStore.emergencies()"
             [selectedEmergencyId]="emergencyStore.selectedId()"
+            [autoFit]="true"
             (selectEmergency)="emergencyStore.selectEmergency($event)"
             (selectAmbulance)="onSelectAmbulance($event)"
           />

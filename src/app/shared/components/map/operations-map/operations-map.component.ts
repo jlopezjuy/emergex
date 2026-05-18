@@ -12,7 +12,7 @@ import {
   signal,
   computed,
 } from '@angular/core';
-import { Map as MapLibreMap, Marker, NavigationControl, GeoJSONSource } from 'maplibre-gl';
+import { LngLatBounds, Map as MapLibreMap, Marker, NavigationControl, GeoJSONSource } from 'maplibre-gl';
 import type { FeatureCollection, LineString } from 'geojson';
 import { UnidadMovilDTO } from '../../../../data-access/dto/ambulancia.dto';
 import { TicketAsistenciaDTO } from '../../../../data-access/dto/ticket.dto';
@@ -35,10 +35,10 @@ function unitLngLat(unit: UnidadMovilDTO): [number, number] {
     : mockLngLat(unit.id, 0.12);
 }
 
-function ticketLngLat(ticket: TicketAsistenciaDTO): [number, number] {
+function ticketLngLat(ticket: TicketAsistenciaDTO): [number, number] | null {
   return ticket.longitud != null && ticket.latitud != null
     ? [ticket.longitud, ticket.latitud]
-    : mockLngLat((ticket.id ?? 0) + 50, 0.1);
+    : null;
 }
 
 // ─── Colour helpers ───────────────────────────────────────────────────────────
@@ -260,32 +260,40 @@ const LEGEND = [
   template: `
     <div #mapEl class="map-root"></div>
 
-    <!-- Legend overlay -->
-    <div class="map-legend">
-      @for (item of legend; track item.label) {
-        <div class="map-legend-row">
-          <div class="map-legend-dot" [style.background]="item.color"></div>
-          {{ item.label }}
-        </div>
-      }
-    </div>
+    @if (showLegend()) {
+      <div class="map-legend">
+        @for (item of legend; track item.label) {
+          <div class="map-legend-row">
+            <div class="map-legend-dot" [style.background]="item.color"></div>
+            {{ item.label }}
+          </div>
+        }
+      </div>
+    }
 
     <!-- Coordinates overlay -->
-    <div class="map-coords">
-      LAT {{ zoom() ? '-24.1858' : '—' }} · LNG {{ zoom() ? '-65.2995' : '—' }} · ZOOM {{ zoom() }}×
-    </div>
+    @if (showCoords()) {
+      <div class="map-coords">
+        LAT {{ centerLat() }} · LNG {{ centerLng() }} · ZOOM {{ zoom() }}×
+      </div>
+    }
   `,
 })
 export class OperationsMapComponent implements OnDestroy {
   ambulances = input<UnidadMovilDTO[]>([]);
   emergencies = input<TicketAsistenciaDTO[]>([]);
   selectedEmergencyId = input<number | null>(null);
+  autoFit = input(false);
+  showLegend = input(true);
+  showCoords = input(true);
 
   selectAmbulance = output<number>();
   selectEmergency = output<number>();
 
   protected readonly legend = LEGEND;
   protected readonly zoom = signal('11.0');
+  protected readonly centerLat = signal(SSJ[1].toFixed(4));
+  protected readonly centerLng = signal(SSJ[0].toFixed(4));
 
   private readonly zone = inject(NgZone);
   private readonly themeService = inject(ThemeService);
@@ -347,12 +355,20 @@ export class OperationsMapComponent implements OnDestroy {
         'bottom-right',
       );
 
-      this.map.on('zoom', () => {
-        const z = this.map!.getZoom().toFixed(1);
-        this.zone.run(() => this.zoom.set(z));
-      });
+      this.map.on('move', () => this.syncViewportSignals());
 
       this.map.on('load', () => this.setupMapLayers());
+    });
+  }
+
+  private syncViewportSignals(): void {
+    if (!this.map) return;
+    const center = this.map.getCenter();
+    const z = this.map.getZoom().toFixed(1);
+    this.zone.run(() => {
+      this.zoom.set(z);
+      this.centerLat.set(center.lat.toFixed(4));
+      this.centerLng.set(center.lng.toFixed(4));
     });
   }
 
@@ -379,6 +395,8 @@ export class OperationsMapComponent implements OnDestroy {
     this.mapReady = true;
     this.updateMarkers(this.ambulances(), this.emergencies());
     this.updateRoutes(this.ambulances(), this.emergencies());
+    this.fitToVisibleData(this.ambulances(), this.emergencies());
+    this.syncViewportSignals();
   }
 
   private updateMarkers(ambs: UnidadMovilDTO[], emgs: TicketAsistenciaDTO[]): void {
@@ -394,13 +412,30 @@ export class OperationsMapComponent implements OnDestroy {
     });
 
     this.emgMarkers.forEach((m) => m.remove());
-    this.emgMarkers = emgs.map((ticket) => {
-      const [lng, lat] = ticketLngLat(ticket);
+    this.emgMarkers = emgs.flatMap((ticket) => {
+      const lngLat = ticketLngLat(ticket);
+      if (!lngLat) return [];
       const el = createEmgEl(ticket, () => {
         if (ticket.id != null) this.zone.run(() => this.selectEmergency.emit(ticket.id!));
       });
-      return new Marker({ element: el, anchor: 'bottom' }).setLngLat([lng, lat]).addTo(this.map!);
+      return [new Marker({ element: el, anchor: 'bottom' }).setLngLat(lngLat).addTo(this.map!)];
     });
+    this.fitToVisibleData(ambs, emgs);
+  }
+
+  private fitToVisibleData(ambs: UnidadMovilDTO[], emgs: TicketAsistenciaDTO[]): void {
+    if (!this.map || !this.autoFit()) return;
+    const coords: [number, number][] = [
+      ...ambs.filter((a) => a.longitud != null && a.latitud != null).map((a) => [a.longitud!, a.latitud!] as [number, number]),
+      ...emgs.filter((e) => e.longitud != null && e.latitud != null).map((e) => [e.longitud!, e.latitud!] as [number, number]),
+    ];
+    if (coords.length === 0) return;
+    if (coords.length === 1) {
+      this.map.flyTo({ center: coords[0], zoom: 14, essential: true });
+      return;
+    }
+    const bounds = coords.reduce((acc, coord) => acc.extend(coord), new LngLatBounds(coords[0], coords[0]));
+    this.map.fitBounds(bounds, { padding: 36, maxZoom: 14, duration: 600 });
   }
 
   private updateRoutes(ambs: UnidadMovilDTO[], emgs: TicketAsistenciaDTO[]): void {
@@ -412,11 +447,13 @@ export class OperationsMapComponent implements OnDestroy {
       .flatMap((a) => {
         const ticket = ticketMap.get(a.ticketActivo!);
         if (!ticket) return [];
+        const ticketPosition = ticketLngLat(ticket);
+        if (!ticketPosition) return [];
         return [{
           type: 'Feature' as const,
           geometry: {
             type: 'LineString' as const,
-            coordinates: [unitLngLat(a), ticketLngLat(ticket)],
+            coordinates: [unitLngLat(a), ticketPosition],
           },
           properties: {},
         }];
