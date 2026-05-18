@@ -194,24 +194,24 @@ const NIVELES_URGENCIA: { value: NivelUrgencia; label: string; sublabel: string;
                 @if (dropdownOpen() && (searchResults().length > 0 || searching())) {
                   <div
                     class="absolute left-0 right-0 top-full mt-1 rounded-btn z-[200]"
-                    style="background: #1a2035; border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 12px 32px rgba(0,0,0,0.6);"
+                    style="background: #ffffff; border: 1px solid rgba(148,163,184,0.45); box-shadow: 0 14px 34px rgba(15,23,42,0.18); overflow: hidden;"
                   >
                     @if (searching()) {
-                      <div class="px-3 py-2.5 text-xs" style="color: var(--text-muted);">Buscando...</div>
+                      <div class="px-3 py-2.5 text-xs" style="color: #64748b;">Buscando...</div>
                     } @else {
                       @for (p of searchResults(); track p.id) {
                         <button
                           type="button"
                           class="w-full text-left px-3 py-2.5 text-sm"
-                          style="color: var(--text-primary); border-bottom: 1px solid rgba(255,255,255,0.05);"
-                          [style.background]="hoveredId() === p.id ? 'rgba(255,255,255,0.07)' : 'transparent'"
+                          style="color: #0f172a; border-bottom: 1px solid rgba(148,163,184,0.22);"
+                          [style.background]="hoveredId() === p.id ? 'rgba(59,130,246,0.10)' : '#ffffff'"
                           (mouseenter)="hoveredId.set(p.id)"
                           (mouseleave)="hoveredId.set(null)"
                           (click)="selectPaciente(p)"
                         >
                           <span class="font-medium">{{ p.apellido }}, {{ p.nombre }}</span>
                           @if (p.dni) {
-                            <span class="ml-2 text-xs" style="color: var(--text-muted);">DNI {{ p.dni }}</span>
+                            <span class="ml-2 text-xs" style="color: #64748b;">DNI {{ p.dni }}</span>
                           }
                         </button>
                       }

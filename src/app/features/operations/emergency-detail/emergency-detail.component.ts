@@ -8,6 +8,8 @@ import {
   CancelarTicketRequest,
   SignosVitalesDTO,
   AtencionFullDTO,
+  HospitalDTO,
+  EntregaHospitalariaDTO,
 } from '../../../data-access/dto/ticket.dto';
 import { LoadingStateComponent } from '../../../shared/components/loading-state/loading-state.component';
 import { ErrorStateComponent } from '../../../shared/components/error-state/error-state.component';
@@ -419,7 +421,12 @@ const ALL_STEPS: StatusStep[] = [
 
               <!-- 9. Unidad asignada -->
               <emx-glass-card>
-                <h2 class="section-label">Unidad asignada</h2>
+                <div class="flex items-center justify-between gap-2 mb-2">
+                  <h2 class="section-label" style="margin:0;">Unidad asignada</h2>
+                  @if (!ticket()?.ambulanciaId && canDispatch()) {
+                    <button type="button" class="btn btn--primary btn--sm" (click)="openDispatch()">Asignar unidad</button>
+                  }
+                </div>
                 @if (ticket()?.ambulanciaId) {
                   <p class="font-mono font-semibold text-lg" style="color: var(--accent-cyan);">
                     AMB-{{ ticket()?.ambulanciaId }}
@@ -589,6 +596,29 @@ const ALL_STEPS: StatusStep[] = [
               <input class="clinical-input" type="number" placeholder="SpO₂" [value]="svSatO2()" (input)="svSatO2.set($any($event.target).value)" />
               <input class="clinical-input" type="number" placeholder="Temp" [value]="svTemp()" (input)="svTemp.set($any($event.target).value)" />
               <input class="clinical-input" type="number" placeholder="Glucemia" [value]="svGlucemia()" (input)="svGlucemia.set($any($event.target).value)" />
+              <div class="col-span-3 mt-1" style="border-top: 1px solid rgba(148,163,184,0.2); padding-top: 0.75rem;">
+                <p class="clinical-field-label mb-2">Glasgow (opcional)</p>
+                <div class="grid grid-cols-4 gap-2">
+                  <input class="clinical-input" type="number" placeholder="Ocular (1-4)" min="1" max="4"
+                         [value]="glasgowOcular()" (input)="glasgowOcular.set($any($event.target).value)" />
+                  <input class="clinical-input" type="number" placeholder="Verbal (1-5)" min="1" max="5"
+                         [value]="glasgowVerbal()" (input)="glasgowVerbal.set($any($event.target).value)" />
+                  <input class="clinical-input" type="number" placeholder="Motor (1-6)" min="1" max="6"
+                         [value]="glasgowMotor()" (input)="glasgowMotor.set($any($event.target).value)" />
+                  <div class="rounded-lg px-3 py-2 flex items-center justify-center font-mono font-bold text-lg"
+                       style="background: var(--bg-glass, #f1f5f9); color: #0f172a; border: 1px solid rgba(100,116,139,0.35);">
+                    {{ glasgowTotal() ?? '—' }}
+                  </div>
+                </div>
+                <select class="clinical-input mt-2"
+                        [value]="avpu()" (change)="avpu.set($any($event.target).value)">
+                  <option value="">AVPU (no registrado)</option>
+                  <option value="ALERTA">Alerta</option>
+                  <option value="VOZ">Responde a voz</option>
+                  <option value="DOLOR">Responde a dolor</option>
+                  <option value="INCONSCIENTE">Inconsciente</option>
+                </select>
+              </div>
             </div>
             <textarea rows="2" class="clinical-input" placeholder="Observación" [value]="clinicalObservacion()" (input)="clinicalObservacion.set($any($event.target).value)"></textarea>
           }
@@ -672,6 +702,13 @@ const ALL_STEPS: StatusStep[] = [
             <button type="button" class="clinical-close" (click)="showCloseDialog.set(false)">×</button>
           </div>
 
+          @if (trasladoEnCurso()) {
+            <div class="col-span-2 rounded-lg px-4 py-3" style="background: rgba(245,158,11,0.12); border: 1px solid var(--accent-amber);">
+              <p class="text-xs font-semibold" style="color: var(--accent-amber);">⚠ Traslado en curso sin finalizar</p>
+              <p class="text-xs mt-1" style="color: var(--text-secondary);">El traslado fue iniciado pero no se registró la entrega hospitalaria. Completá el acta de entrega antes de cerrar para cumplir con la Ley 17.132.</p>
+            </div>
+          }
+
           <div class="grid grid-cols-2 gap-3">
             <label class="flex flex-col gap-1 col-span-2">
               <span class="clinical-field-label">Impresión clínica *</span>
@@ -697,7 +734,26 @@ const ALL_STEPS: StatusStep[] = [
             @if (closeRequiereTraslado()) {
               <label class="flex flex-col gap-1 col-span-2">
                 <span class="clinical-field-label">Hospital destino</span>
-                <input class="clinical-input" [value]="closeDestino()" (input)="closeDestino.set($any($event.target).value)" />
+                @if (hospitales().length > 0) {
+                  <select class="clinical-input"
+                          [value]="closeHospitalId() ?? ''"
+                          (change)="closeHospitalId.set($any($event.target).value ? Number($any($event.target).value) : null)">
+                    <option value="">Seleccionar hospital del catálogo...</option>
+                    @for (h of hospitales(); track h.id) {
+                      <option [value]="h.id">{{ h.nombre }}{{ h.ciudad ? ' — ' + h.ciudad : '' }}</option>
+                    }
+                  </select>
+                } @else {
+                  <input class="clinical-input" placeholder="Nombre del hospital" [value]="closeDestino()" (input)="closeDestino.set($any($event.target).value)" />
+                }
+              </label>
+              <label class="clinical-checkbox flex items-center gap-2 col-span-2">
+                <input type="checkbox" [checked]="closeUrgenciaVital()" (change)="closeUrgenciaVital.set($any($event.target).checked)" />
+                <span>Urgencia vital — traslado sin consentimiento posible (Ley 26.529, art. 5)</span>
+              </label>
+              <label class="clinical-checkbox flex items-center gap-2 col-span-2">
+                <input type="checkbox" [checked]="closeNotificadoSAME107()" (change)="closeNotificadoSAME107.set($any($event.target).checked)" />
+                <span>Derivación notificada al SAME 107</span>
               </label>
             }
           </div>
@@ -711,6 +767,29 @@ const ALL_STEPS: StatusStep[] = [
               <input class="clinical-input" type="number" placeholder="SpO₂" [value]="svSatO2()" (input)="svSatO2.set($any($event.target).value)" />
               <input class="clinical-input" type="number" placeholder="Temp" [value]="svTemp()" (input)="svTemp.set($any($event.target).value)" />
               <input class="clinical-input" type="number" placeholder="Glucemia" [value]="svGlucemia()" (input)="svGlucemia.set($any($event.target).value)" />
+              <div class="col-span-3 mt-1" style="border-top: 1px solid rgba(148,163,184,0.2); padding-top: 0.75rem;">
+                <p class="clinical-field-label mb-2">Glasgow (opcional)</p>
+                <div class="grid grid-cols-4 gap-2">
+                  <input class="clinical-input" type="number" placeholder="Ocular (1-4)" min="1" max="4"
+                         [value]="glasgowOcular()" (input)="glasgowOcular.set($any($event.target).value)" />
+                  <input class="clinical-input" type="number" placeholder="Verbal (1-5)" min="1" max="5"
+                         [value]="glasgowVerbal()" (input)="glasgowVerbal.set($any($event.target).value)" />
+                  <input class="clinical-input" type="number" placeholder="Motor (1-6)" min="1" max="6"
+                         [value]="glasgowMotor()" (input)="glasgowMotor.set($any($event.target).value)" />
+                  <div class="rounded-lg px-3 py-2 flex items-center justify-center font-mono font-bold text-lg"
+                       style="background: var(--bg-glass, #f1f5f9); color: #0f172a; border: 1px solid rgba(100,116,139,0.35);">
+                    {{ glasgowTotal() ?? '—' }}
+                  </div>
+                </div>
+                <select class="clinical-input mt-2"
+                        [value]="avpu()" (change)="avpu.set($any($event.target).value)">
+                  <option value="">AVPU (no registrado)</option>
+                  <option value="ALERTA">Alerta</option>
+                  <option value="VOZ">Responde a voz</option>
+                  <option value="DOLOR">Responde a dolor</option>
+                  <option value="INCONSCIENTE">Inconsciente</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -722,6 +801,85 @@ const ALL_STEPS: StatusStep[] = [
           <div class="clinical-modal-footer">
             <button type="button" class="btn btn--ghost btn--sm" (click)="showCloseDialog.set(false)">Volver</button>
             <button type="button" class="btn btn--primary btn--sm" [disabled]="!closeImpresion().trim()" (click)="confirmarCierre()">Completar atención</button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Entrega Hospitalaria modal -->
+    @if (showEntregaModal()) {
+      <div class="clinical-modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="clinical-modal-card flex flex-col gap-5 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div class="clinical-modal-header">
+            <div>
+              <p class="clinical-modal-kicker">Acta de entrega — Ley 17.132</p>
+              <h2 class="clinical-modal-title">Entrega hospitalaria</h2>
+              <p class="clinical-modal-subtitle">Registrá los datos del receptor antes de finalizar el traslado. Este acta tiene valor legal.</p>
+            </div>
+            <button type="button" class="clinical-close" (click)="showEntregaModal.set(false)">×</button>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <!-- Hospital -->
+            <label class="flex flex-col gap-1 col-span-2">
+              <span class="clinical-field-label">Hospital receptor</span>
+              @if (hospitales().length > 0) {
+                <select class="clinical-input"
+                        [value]="entregaHospitalId() ?? ''"
+                        (change)="entregaHospitalId.set($any($event.target).value ? Number($any($event.target).value) : null)">
+                  <option value="">Seleccionar hospital...</option>
+                  @for (h of hospitales(); track h.id) {
+                    <option [value]="h.id">{{ h.nombre }}{{ h.ciudad ? ' — ' + h.ciudad : '' }}</option>
+                  }
+                </select>
+              } @else {
+                <input class="clinical-input" placeholder="Hospital (cargá hospitales desde configuración)" disabled />
+              }
+            </label>
+
+            <!-- Receptor -->
+            <label class="flex flex-col gap-1">
+              <span class="clinical-field-label">Nombre del receptor *</span>
+              <input class="clinical-input" placeholder="Dr./Dra. Apellido" [value]="entregaReceptorNombre()" (input)="entregaReceptorNombre.set($any($event.target).value)" />
+            </label>
+            <label class="flex flex-col gap-1">
+              <span class="clinical-field-label">Matrícula del receptor</span>
+              <input class="clinical-input" placeholder="MN / MP 12345" [value]="entregaReceptorMatricula()" (input)="entregaReceptorMatricula.set($any($event.target).value)" />
+            </label>
+            <label class="flex flex-col gap-1 col-span-2">
+              <span class="clinical-field-label">Servicio receptor</span>
+              <input class="clinical-input" placeholder="Ej: Guardia, UTI, Clínica Médica" [value]="entregaServicioReceptor()" (input)="entregaServicioReceptor.set($any($event.target).value)" />
+            </label>
+
+            <!-- Condición al momento de entrega -->
+            <div class="col-span-2">
+              <p class="clinical-field-label mb-2">Condición del paciente al momento de entrega</p>
+              <div class="grid grid-cols-4 gap-2">
+                <input class="clinical-input" placeholder="PA (ej: 120/80)" [value]="entregaPa()" (input)="entregaPa.set($any($event.target).value)" />
+                <input class="clinical-input" type="number" placeholder="FC" [value]="entregaFc()" (input)="entregaFc.set($any($event.target).value)" />
+                <input class="clinical-input" type="number" placeholder="SpO₂ %" [value]="entregaSatO2()" (input)="entregaSatO2.set($any($event.target).value)" />
+                <input class="clinical-input" type="number" placeholder="Glasgow total" min="3" max="15" [value]="entregaGlasgow()" (input)="entregaGlasgow.set($any($event.target).value)" />
+              </div>
+            </div>
+
+            <!-- Firma -->
+            <label class="flex flex-col gap-1 col-span-2">
+              <span class="clinical-field-label">Firma del receptor (texto / código)</span>
+              <textarea rows="2" class="clinical-input" placeholder="Nombre completo y aclaración del receptor como constancia digital" [value]="entregaFirmaReceptor()" (input)="entregaFirmaReceptor.set($any($event.target).value)"></textarea>
+            </label>
+          </div>
+
+          @if (entregaError()) {
+            <p class="text-xs" style="color: #dc2626;">{{ entregaError() }}</p>
+          }
+
+          <div class="clinical-modal-footer">
+            <button type="button" class="btn btn--ghost btn--sm" (click)="showEntregaModal.set(false)">Cancelar</button>
+            <button type="button" class="btn btn--primary btn--sm"
+                    [disabled]="entregaSaving() || !entregaReceptorNombre().trim()"
+                    (click)="confirmarEntregaHospitalaria()">
+              {{ entregaSaving() ? 'Registrando...' : 'Registrar entrega y finalizar traslado' }}
+            </button>
           </div>
         </div>
       </div>
@@ -883,6 +1041,34 @@ export class EmergencyDetailComponent implements OnInit {
   readonly svTemp = signal('');
   readonly svGlucemia = signal('');
 
+  // Glasgow / AVPU (both in signos modal and close dialog)
+  readonly glasgowOcular = signal('');
+  readonly glasgowVerbal = signal('');
+  readonly glasgowMotor = signal('');
+  readonly avpu = signal<'ALERTA' | 'VOZ' | 'DOLOR' | 'INCONSCIENTE' | ''>('');
+
+  // Close dialog — regulatory fields
+  readonly closeUrgenciaVital = signal(false);
+  readonly closeNotificadoSAME107 = signal(false);
+  readonly closeHospitalId = signal<number | null>(null);
+
+  // Hospital catalog
+  readonly hospitales = signal<HospitalDTO[]>([]);
+
+  // EntregaHospitalaria modal
+  readonly showEntregaModal = signal(false);
+  readonly entregaReceptorNombre = signal('');
+  readonly entregaReceptorMatricula = signal('');
+  readonly entregaServicioReceptor = signal('');
+  readonly entregaHospitalId = signal<number | null>(null);
+  readonly entregaGlasgow = signal('');
+  readonly entregaPa = signal('');
+  readonly entregaFc = signal('');
+  readonly entregaSatO2 = signal('');
+  readonly entregaFirmaReceptor = signal('');
+  readonly entregaSaving = signal(false);
+  readonly entregaError = signal<string | null>(null);
+
   // ── Derived data ──────────────────────────────────────────────
   readonly ticket = computed(() => this.detalle()?.ticket ?? null);
   readonly signos = computed(() => {
@@ -911,6 +1097,17 @@ export class EmergencyDetailComponent implements OnInit {
     const arr = this.signos();
     return arr.length > 0 ? (arr[arr.length - 1] ?? null) : null;
   });
+
+  readonly glasgowTotal = computed((): number | null => {
+    const o = Number(this.glasgowOcular());
+    const v = Number(this.glasgowVerbal());
+    const m = Number(this.glasgowMotor());
+    if (!o && !v && !m) return null;
+    return (o || 0) + (v || 0) + (m || 0);
+  });
+
+  // Expose Number constructor for template use
+  readonly Number = Number;
 
   // Notas del timeline (entries with notas text)
   readonly timelineNotes = computed(() =>
@@ -964,18 +1161,18 @@ export class EmergencyDetailComponent implements OnInit {
 
   // ── Action guards ─────────────────────────────────────────────
   readonly canDispatch = computed(() => {
-    const estado = this.ticket()?.estado;
-    return estado === 'RECIBIDO' || estado === 'EN_ESPERA';
+    const t = this.ticket();
+    return !t?.ambulanciaId && (t?.estado === 'RECIBIDO' || t?.estado === 'EN_ESPERA');
   });
 
   readonly canMarkEnCamino = computed(() => {
-    const estado = this.ticket()?.estado;
-    return estado === 'RECIBIDO' || estado === 'DESPACHADO';
+    const t = this.ticket();
+    return !!t?.ambulanciaId && (t.estado === 'RECIBIDO' || t.estado === 'DESPACHADO');
   });
 
   readonly canMarkEnSitio = computed(() => {
-    const estado = this.ticket()?.estado;
-    return estado === 'RECIBIDO' || estado === 'DESPACHADO' || estado === 'EN_CAMINO';
+    const t = this.ticket();
+    return !!t?.ambulanciaId && (t.estado === 'RECIBIDO' || t.estado === 'DESPACHADO' || t.estado === 'EN_CAMINO');
   });
 
   readonly canStartTransfer = computed(() => {
@@ -991,6 +1188,11 @@ export class EmergencyDetailComponent implements OnInit {
   readonly canClose = computed(() => {
     const estado = this.ticket()?.estado;
     return estado !== 'CERRADO' && estado !== 'COMPLETADO' && estado !== 'CANCELADO';
+  });
+
+  readonly trasladoEnCurso = computed(() => {
+    const t = this.ticket();
+    return !!t?.horaInicioTraslado && !t.horaFinTraslado;
   });
 
   readonly canEditClinical = computed(() => {
@@ -1057,6 +1259,14 @@ export class EmergencyDetailComponent implements OnInit {
   // ── Lifecycle ─────────────────────────────────────────────────
   ngOnInit(): void {
     this.load();
+    this.loadHospitales();
+  }
+
+  loadHospitales(): void {
+    this.emergencyApi.getHospitales().subscribe({
+      next: (data) => this.hospitales.set(data),
+      error: () => {} // non-critical
+    });
   }
 
   load(): void {
@@ -1127,6 +1337,10 @@ export class EmergencyDetailComponent implements OnInit {
     this.svSatO2.set('');
     this.svTemp.set('');
     this.svGlucemia.set('');
+    this.glasgowOcular.set('');
+    this.glasgowVerbal.set('');
+    this.glasgowMotor.set('');
+    this.avpu.set('');
   }
 
   clinicalModalTitle(): string {
@@ -1163,6 +1377,11 @@ export class EmergencyDetailComponent implements OnInit {
           saturacionOxigeno: this.toNumber(this.svSatO2()),
           temperatura: this.toNumber(this.svTemp()),
           glucemia: this.toNumber(this.svGlucemia()),
+          glasgowOcular: this.toNumber(this.glasgowOcular()) ?? undefined,
+          glasgowVerbal: this.toNumber(this.glasgowVerbal()) ?? undefined,
+          glasgowMotor: this.toNumber(this.glasgowMotor()) ?? undefined,
+          glasgowTotal: this.glasgowTotal() ?? undefined,
+          avpu: this.avpu() || undefined,
           observacion: this.clinicalObservacion().trim() || undefined,
         };
         this.validarSignosVitales(signo);
@@ -1291,6 +1510,11 @@ Observación: ${this.clinicalObservacion().trim() || '—'}`,
         saturacionOxigeno: signo.saturacionOxigeno ?? signo.saturacionO2,
         temperatura: signo.temperatura,
         glucemia: signo.glucemia,
+        glasgowOcular: signo.glasgowOcular,
+        glasgowVerbal: signo.glasgowVerbal,
+        glasgowMotor: signo.glasgowMotor,
+        glasgowTotal: signo.glasgowTotal,
+        avpu: signo.avpu,
         observacion: signo.observacion,
       })),
     };
@@ -1342,9 +1566,63 @@ Observación: ${this.clinicalObservacion().trim() || '—'}`,
   }
 
   finalizarTraslado(): void {
-    this.emergencyApi.finalizarTraslado(this.ticketId).subscribe({
-      next: () => this.load(),
-      error: () => this.error.set('Error al finalizar traslado'),
+    // Reset entrega modal signals
+    this.entregaReceptorNombre.set('');
+    this.entregaReceptorMatricula.set('');
+    this.entregaServicioReceptor.set('');
+    this.entregaHospitalId.set(null);
+    this.entregaGlasgow.set('');
+    this.entregaPa.set('');
+    this.entregaFc.set('');
+    this.entregaSatO2.set('');
+    this.entregaFirmaReceptor.set('');
+    this.entregaError.set(null);
+    this.showEntregaModal.set(true);
+  }
+
+  confirmarEntregaHospitalaria(): void {
+    const nombre = this.entregaReceptorNombre().trim();
+    if (!nombre) {
+      this.entregaError.set('El nombre del receptor es obligatorio');
+      return;
+    }
+
+    this.entregaSaving.set(true);
+    this.entregaError.set(null);
+
+    const dto: EntregaHospitalariaDTO = {
+      receptorNombre: nombre,
+      receptorMatricula: this.entregaReceptorMatricula().trim() || undefined,
+      servicioReceptor: this.entregaServicioReceptor().trim() || undefined,
+      hospitalId: this.entregaHospitalId() ?? undefined,
+      horaEntrega: new Date().toISOString(),
+      condicionEntregaGlasgow: this.toNumber(this.entregaGlasgow()) ?? undefined,
+      condicionEntregaPa: this.entregaPa().trim() || undefined,
+      condicionEntregaFc: this.toNumber(this.entregaFc()) ?? undefined,
+      condicionEntregaSatO2: this.toNumber(this.entregaSatO2()) ?? undefined,
+      firmaReceptor: this.entregaFirmaReceptor().trim() || undefined,
+    };
+
+    this.emergencyApi.registrarEntregaHospitalaria(this.ticketId, dto).subscribe({
+      next: () => {
+        // Now finalize the transfer
+        this.emergencyApi.finalizarTraslado(this.ticketId).subscribe({
+          next: () => {
+            this.showEntregaModal.set(false);
+            this.entregaSaving.set(false);
+            this.load();
+          },
+          error: () => {
+            this.entregaSaving.set(false);
+            this.entregaError.set('Entrega registrada pero error al finalizar traslado');
+            this.load();
+          },
+        });
+      },
+      error: (err) => {
+        this.entregaSaving.set(false);
+        this.entregaError.set(err?.error?.detail ?? 'Error al registrar la entrega hospitalaria');
+      },
     });
   }
 
@@ -1361,6 +1639,13 @@ Observación: ${this.clinicalObservacion().trim() || '—'}`,
     this.svSatO2.set('');
     this.svTemp.set('');
     this.svGlucemia.set('');
+    this.glasgowOcular.set('');
+    this.glasgowVerbal.set('');
+    this.glasgowMotor.set('');
+    this.avpu.set('');
+    this.closeUrgenciaVital.set(false);
+    this.closeNotificadoSAME107.set(false);
+    this.closeHospitalId.set(null);
     this.showCloseDialog.set(true);
   }
 
@@ -1372,7 +1657,11 @@ Observación: ${this.clinicalObservacion().trim() || '—'}`,
         tratamientoRealizado: this.closeTratamiento().trim() || undefined,
         requiereTraslado: this.closeRequiereTraslado(),
         tipoResolucion: this.closeTipoResolucion(),
-        destinoTraslado: this.closeDestino().trim() || undefined,
+        destinoTraslado: this.closeHospitalId()
+          ? ((this.hospitales().find(h => h.id === this.closeHospitalId())?.nombre ?? this.closeDestino().trim()) || undefined)
+          : (this.closeDestino().trim() || undefined),
+        urgenciaVitalSinConsentimiento: this.closeUrgenciaVital() || undefined,
+        notificadoSAME107: this.closeNotificadoSAME107() || undefined,
         signosVitales: {
           ta: this.svTa().trim() || undefined,
           fc: this.toNumber(this.svFc()),
@@ -1380,6 +1669,12 @@ Observación: ${this.clinicalObservacion().trim() || '—'}`,
           satO2: this.toNumber(this.svSatO2()),
           temp: this.toNumber(this.svTemp()),
           glucemia: this.toNumber(this.svGlucemia()),
+          // Glasgow y AVPU van en signosVitales — es donde el backend los persiste
+          glasgowOcular: this.toNumber(this.glasgowOcular()) ?? undefined,
+          glasgowVerbal: this.toNumber(this.glasgowVerbal()) ?? undefined,
+          glasgowMotor: this.toNumber(this.glasgowMotor()) ?? undefined,
+          glasgowTotal: this.glasgowTotal() ?? undefined,
+          avpu: this.avpu() || undefined,
         },
       },
     };

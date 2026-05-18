@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { Observable, of } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import {
   TicketAsistenciaDTO,
@@ -17,6 +17,8 @@ import {
   AtencionFullDTO,
   AtencionAsistenciaItemDTO,
   IniciarAtencionDesdeTicketResponse,
+  HospitalDTO,
+  EntregaHospitalariaDTO,
 } from '../dto/ticket.dto';
 
 const URGENCIA_MAP: Record<string, TicketAsistenciaDTO['prioridad']> = {
@@ -211,5 +213,24 @@ export class EmergencyApiService {
 
   guardarAtencionCompleta(req: AtencionFullDTO): Observable<AtencionFullDTO> {
     return this.http.post<AtencionFullDTO>(`${environment.apiUrl}/api/atenciones/guardar-completa`, req);
+  }
+
+  getHospitales(): Observable<HospitalDTO[]> {
+    return this.http.get<HospitalDTO[]>(`${environment.apiUrl}/api/hospitales`);
+  }
+
+  registrarEntregaHospitalaria(ticketId: number, dto: EntregaHospitalariaDTO): Observable<EntregaHospitalariaDTO> {
+    return this.http.post<EntregaHospitalariaDTO>(
+      `${this.base}/${ticketId}/entrega-hospitalaria`,
+      dto
+    );
+  }
+
+  getEntregaHospitalaria(ticketId: number): Observable<EntregaHospitalariaDTO | null> {
+    return this.http.get<EntregaHospitalariaDTO>(
+      `${this.base}/${ticketId}/entrega-hospitalaria`
+    ).pipe(
+      catchError(() => of(null))
+    );
   }
 }

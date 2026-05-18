@@ -69,6 +69,9 @@ export interface CerrarTicketRequest {
     requiereTraslado: boolean;
     tipoResolucion?: string;
     destinoTraslado?: string;
+    consentimientoTrasladoId?: number;
+    urgenciaVitalSinConsentimiento?: boolean;
+    notificadoSAME107?: boolean;
     signosVitales?: {
       ta?: string;
       fc?: number;
@@ -76,6 +79,11 @@ export interface CerrarTicketRequest {
       satO2?: number;
       temp?: number;
       glucemia?: number;
+      glasgowOcular?: number;
+      glasgowVerbal?: number;
+      glasgowMotor?: number;
+      glasgowTotal?: number;
+      avpu?: 'ALERTA' | 'VOZ' | 'DOLOR' | 'INCONSCIENTE';
     };
   };
 }
@@ -98,6 +106,11 @@ export interface SignosVitalesDTO {
   frecuenciaRespiratoria?: number;
   glucemia?: number;
   timestamp?: string;
+  glasgowOcular?: number;
+  glasgowVerbal?: number;
+  glasgowMotor?: number;
+  glasgowTotal?: number;
+  avpu?: string;
 }
 
 export interface ProcedimientoDTO {
@@ -189,4 +202,34 @@ export interface AsignacionEstadoChangedEvent {
   estadoNuevo: string;
   actorUserId?: number;
   timestamp?: string;
+}
+
+export interface HospitalDTO {
+  id: number;
+  nombre: string;
+  cuit?: string;
+  tipo?: string;
+  direccion?: string;
+  ciudad?: string;
+  provincia?: string;
+  telefono?: string;
+  codigoEstablecimiento?: string;
+  activo?: boolean;
+}
+
+export interface EntregaHospitalariaDTO {
+  id?: number;
+  ticketId?: number;
+  hospitalId?: number;
+  hospitalNombre?: string;
+  receptorNombre: string;
+  receptorMatricula?: string;
+  servicioReceptor?: string;
+  horaEntrega: string;
+  condicionEntregaGlasgow?: number;
+  condicionEntregaPa?: string;
+  condicionEntregaFc?: number;
+  condicionEntregaSatO2?: number;
+  firmaReceptor?: string;
+  archivoAdjuntoActa?: string;
 }
