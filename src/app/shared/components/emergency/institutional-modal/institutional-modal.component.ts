@@ -473,8 +473,8 @@ function avatarOf(name: string): string {
     /* ── Overlay + Modal ── */
     .qc-overlay {
       position: fixed; inset: 0; z-index: 300;
-      background: rgba(0,0,0,0.55);
-      backdrop-filter: blur(3px);
+      background: rgba(15, 23, 42, 0.54);
+      backdrop-filter: blur(8px) saturate(120%);
       display: flex; align-items: center; justify-content: center;
     }
     .qc-modal {
@@ -485,6 +485,12 @@ function avatarOf(name: string): string {
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      background:
+        radial-gradient(520px 320px at 20% 0%, rgba(59, 130, 246, 0.08), transparent 65%),
+        rgba(255, 255, 255, 0.98);
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
+      color: #0f172a;
     }
     .qc-modal--wide { width: 680px; }
     .qc-head {
@@ -508,15 +514,15 @@ function avatarOf(name: string): string {
     .qc-close-btn {
       width: 32px; height: 32px;
       border-radius: 8px;
-      border: 1px solid var(--border-glass);
-      background: rgba(255,255,255,0.04);
-      color: var(--text-muted);
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      background: rgba(255,255,255,0.9);
+      color: #64748b;
       cursor: pointer;
       display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
       transition: all 0.15s;
     }
-    .qc-close-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
+    .qc-close-btn:hover { background: #fff; color: #0f172a; }
 
     /* ── Wizard step bar ── */
     .wiz-steps {
@@ -547,7 +553,7 @@ function avatarOf(name: string): string {
       color: var(--text-muted);
       white-space: nowrap;
     }
-    .wiz-step:hover { background: rgba(255,255,255,0.04); color: var(--text-primary); }
+    .wiz-step:hover { background: rgba(59,130,246,0.08); color: var(--text-primary); }
     .wiz-step[data-active="true"] {
       background: rgba(59,130,246,0.1);
       border-color: rgba(59,130,246,0.3);
@@ -566,10 +572,11 @@ function avatarOf(name: string): string {
 
     /* ── Autocomplete ── */
     .ac-wrap {
-      border: 1px solid var(--border-glass);
+      border: 1px solid rgba(148, 163, 184, 0.32);
       border-radius: var(--r-btn);
-      background: rgba(2,6,23,0.5);
+      background: rgba(248, 250, 252, 0.92);
       overflow: hidden;
+      box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.03);
     }
     .ac-input-row {
       display: flex;
@@ -592,7 +599,7 @@ function avatarOf(name: string): string {
       width: 20px; height: 20px;
       border-radius: 4px;
       border: none;
-      background: rgba(255,255,255,0.08);
+      background: rgba(15,23,42,0.06);
       color: var(--text-muted);
       cursor: pointer;
       display: flex; align-items: center; justify-content: center;
@@ -616,7 +623,7 @@ function avatarOf(name: string): string {
       transition: background 0.1s;
     }
     .ac-row:last-child { border-bottom: none; }
-    .ac-row:hover { background: rgba(255,255,255,0.04); }
+    .ac-row:hover { background: rgba(59,130,246,0.08); }
     .ac-row__icon {
       width: 28px; height: 28px;
       border-radius: 8px;
@@ -664,13 +671,13 @@ function avatarOf(name: string): string {
       padding: 12px 14px;
       border-radius: 10px;
       border: 1px solid var(--border-glass);
-      background: rgba(255,255,255,0.03);
+      background: rgba(248, 250, 252, 0.78);
       color: var(--text-muted);
       cursor: pointer;
       transition: all 0.15s;
       text-align: left;
     }
-    .patient-tab:hover { background: rgba(255,255,255,0.06); color: var(--text-primary); }
+    .patient-tab:hover { background: rgba(59,130,246,0.08); color: var(--text-primary); }
     .patient-tab[data-active="true"] {
       background: rgba(59,130,246,0.1);
       border-color: rgba(59,130,246,0.35);
@@ -703,7 +710,7 @@ function avatarOf(name: string): string {
       transition: all 0.15s;
       width: 100%;
     }
-    .prio-card:hover { background: rgba(255,255,255,0.04); }
+    .prio-card:hover { background: rgba(59,130,246,0.07); }
     .prio-card[data-active="true"] { box-shadow: 0 0 0 1px currentColor; }
     .prio-card__dot {
       width: 10px; height: 10px;
@@ -715,7 +722,7 @@ function avatarOf(name: string): string {
     .wiz-summary {
       padding: 14px 16px;
       border-radius: 10px;
-      background: rgba(255,255,255,0.03);
+      background: rgba(248, 250, 252, 0.78);
       border: 1px solid var(--border-glass);
     }
     .wiz-summary__grid {
@@ -739,6 +746,70 @@ function avatarOf(name: string): string {
     }
     .btn--danger:hover:not(:disabled) {
       background: linear-gradient(135deg, #EF4444, #DC2626);
+    }
+
+    :host-context([data-theme="light"]) .qc-input,
+    :host-context([data-theme="light"]) .ac-input {
+      color: #0f172a;
+    }
+
+    :host-context([data-theme="light"]) .qc-input {
+      background: #fff;
+      border-color: rgba(100, 116, 139, 0.35);
+      box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
+    }
+
+    :host-context([data-theme="light"]) .qc-input:focus {
+      background: #fff;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.16);
+    }
+
+    :host-context([data-theme="dark"]) .qc-overlay {
+      background: rgba(0, 0, 0, 0.62);
+    }
+
+    :host-context([data-theme="dark"]) .qc-modal {
+      background:
+        radial-gradient(560px 340px at 18% 0%, rgba(59, 130, 246, 0.11), transparent 65%),
+        rgba(30, 41, 59, 0.96);
+      border-color: rgba(148, 163, 184, 0.28);
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.52);
+      color: var(--text-primary);
+    }
+
+    :host-context([data-theme="dark"]) .qc-close-btn {
+      background: rgba(15, 23, 42, 0.72);
+      border-color: rgba(148, 163, 184, 0.22);
+      color: var(--text-muted);
+    }
+
+    :host-context([data-theme="dark"]) .qc-close-btn:hover {
+      background: rgba(30, 41, 59, 0.92);
+      color: var(--text-primary);
+    }
+
+    :host-context([data-theme="dark"]) .ac-wrap,
+    :host-context([data-theme="dark"]) .qc-input {
+      background: rgba(15, 23, 42, 0.72);
+      border-color: rgba(148, 163, 184, 0.18);
+    }
+
+    :host-context([data-theme="dark"]) .qc-input:focus {
+      background: rgba(15, 23, 42, 0.9);
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+    }
+
+    :host-context([data-theme="dark"]) .patient-tab,
+    :host-context([data-theme="dark"]) .wiz-summary {
+      background: rgba(15, 23, 42, 0.42);
+    }
+
+    :host-context([data-theme="dark"]) .ac-row:hover,
+    :host-context([data-theme="dark"]) .patient-tab:hover,
+    :host-context([data-theme="dark"]) .prio-card:hover {
+      background: rgba(59, 130, 246, 0.10);
     }
   `],
 })

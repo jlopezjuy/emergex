@@ -148,13 +148,25 @@ import { EmergencySlaBarComponent } from '../emergency-sla-bar/emergency-sla-bar
         rgba(255, 255, 255, 0.72);
     }
 
-    :host-context(.dark) .emergency-card,
-    :host-context(.is-dark) .emergency-card {
+    :host-context([data-theme="dark"]) .emergency-card {
       background:
-        linear-gradient(135deg, var(--priority-bg), transparent 48%),
-        rgba(15, 23, 42, 0.55);
-      border-color: rgba(148, 163, 184, 0.18);
-      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+        linear-gradient(135deg, color-mix(in srgb, var(--priority-color) 13%, transparent), transparent 54%),
+        rgba(15, 23, 42, 0.78);
+      border-color: color-mix(in srgb, var(--priority-color) 24%, rgba(148, 163, 184, 0.16));
+      box-shadow:
+        0 16px 34px rgba(0, 0, 0, 0.34),
+        inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    }
+
+    :host-context([data-theme="dark"]) .emergency-card--selected,
+    :host-context([data-theme="dark"]) .emergency-card:hover {
+      background:
+        linear-gradient(135deg, color-mix(in srgb, var(--priority-color) 18%, transparent), transparent 58%),
+        rgba(30, 41, 59, 0.86);
+      box-shadow:
+        0 20px 42px rgba(0, 0, 0, 0.42),
+        0 0 0 3px color-mix(in srgb, var(--priority-color) 14%, transparent),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
     }
   `],
 })

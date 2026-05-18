@@ -39,8 +39,8 @@ type FeedTab = 'TODAS' | 'SIN_ASIGNAR' | 'CRITICAS';
         <!-- Map (center/left) -->
         <div class="relative overflow-hidden">
           <!-- Map header overlay -->
-          <div class="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 py-2.5 flex-shrink-0"
-            style="background: linear-gradient(to bottom, rgba(6,16,31,0.85) 60%, transparent); pointer-events: none;">
+          <div class="ops-map-header absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 py-2.5 flex-shrink-0"
+            style="pointer-events: none;">
             <div class="flex items-center gap-2" style="pointer-events: none;">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--text-muted)" stroke-width="1.5">
                 <path d="M8.5 1l-3.5 1.5-3.5-1.5v10l3.5 1.5 3.5-1.5 3.5 1.5V2.5L8.5 1z"/>
@@ -83,8 +83,7 @@ type FeedTab = 'TODAS' | 'SIN_ASIGNAR' | 'CRITICAS';
 
         <!-- Feed panel (right) -->
         <div
-          class="flex flex-col overflow-hidden border-l"
-          style="border-color: var(--border-glass);"
+          class="ops-feed-panel flex flex-col overflow-hidden border-l"
         >
           <!-- Feed panel title -->
           <div class="flex items-center justify-between px-3 py-2 border-b flex-shrink-0"
@@ -226,6 +225,32 @@ type FeedTab = 'TODAS' | 'SIN_ASIGNAR' | 'CRITICAS';
       />
     }
   `,
+  styles: [`
+    .ops-map-header {
+      background: linear-gradient(to bottom, rgba(248, 250, 252, 0.92) 0%, rgba(248, 250, 252, 0.76) 58%, transparent 100%);
+      border-bottom: 1px solid rgba(15, 23, 42, 0.07);
+      backdrop-filter: blur(10px);
+    }
+
+    .ops-feed-panel {
+      border-color: var(--border-glass);
+      background:
+        radial-gradient(700px 420px at 50% 110%, rgba(59, 130, 246, 0.06), transparent 65%),
+        var(--bg-deep);
+    }
+
+    :host-context([data-theme="dark"]) .ops-map-header {
+      background: linear-gradient(to bottom, rgba(2, 6, 23, 0.88) 0%, rgba(2, 6, 23, 0.68) 58%, transparent 100%);
+      border-bottom-color: rgba(255, 255, 255, 0.06);
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+    }
+
+    :host-context([data-theme="light"]) .ops-feed-panel {
+      background:
+        radial-gradient(650px 420px at 50% 105%, rgba(59, 130, 246, 0.08), transparent 65%),
+        linear-gradient(180deg, rgba(248, 250, 252, 0.96), rgba(241, 245, 249, 0.94));
+    }
+  `],
 })
 export class OperationsComponent implements OnInit {
   readonly emergencyStore = inject(EmergencyStore);
