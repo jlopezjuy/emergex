@@ -74,6 +74,7 @@ type FeedTab = 'TODAS' | 'SIN_ASIGNAR' | 'CRITICAS';
             [ambulances]="fleetStore.ambulances()"
             [emergencies]="emergencyStore.emergencies()"
             [selectedEmergencyId]="emergencyStore.selectedId()"
+            [focusRequest]="mapFocusRequest()"
             [autoFit]="true"
             (selectEmergency)="emergencyStore.selectEmergency($event)"
             (selectAmbulance)="onSelectAmbulance($event)"
@@ -236,6 +237,7 @@ export class OperationsComponent implements OnInit {
 
   readonly dashboard = signal<DashboardOperativoDTO | null>(null);
   readonly selectedAmbulanceId = signal<number | null>(null);
+  readonly mapFocusRequest = signal(0);
 
   readonly activeTab = signal<FeedTab>('TODAS');
   feedSearch = '';
@@ -327,6 +329,7 @@ export class OperationsComponent implements OnInit {
 
   onLocate(emergency: TicketAsistenciaDTO): void {
     this.emergencyStore.selectEmergency(emergency.id);
+    this.mapFocusRequest.update((value) => value + 1);
   }
 
   onCall(emergency: TicketAsistenciaDTO): void {

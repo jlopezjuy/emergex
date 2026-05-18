@@ -283,6 +283,7 @@ export class OperationsMapComponent implements OnDestroy {
   ambulances = input<UnidadMovilDTO[]>([]);
   emergencies = input<TicketAsistenciaDTO[]>([]);
   selectedEmergencyId = input<number | null>(null);
+  focusRequest = input(0);
   autoFit = input(false);
   showLegend = input(true);
   showCoords = input(true);
@@ -302,6 +303,8 @@ export class OperationsMapComponent implements OnDestroy {
   private ambMarkers: Marker[] = [];
   private emgMarkers: Marker[] = [];
   private mapReady = false;
+  private lastFitSignature = '';
+  private lastFocusSignature = '';
   private readonly ROUTES_SOURCE = 'emx-routes';
 
   protected readonly isDark = computed(() => this.themeService.theme() === 'dark');
@@ -336,6 +339,15 @@ export class OperationsMapComponent implements OnDestroy {
         });
       }
     });
+
+    effect(() => {
+      const selectedId = this.selectedEmergencyId();
+      const focusRequest = this.focusRequest();
+      const emgs = this.emergencies();
+      if (this.mapReady && selectedId != null) {
+        this.zone.runOutsideAngular(() => this.focusEmergency(selectedId, emgs, focusRequest));
+      }
+    });
   }
 
   private initMap(): void {
@@ -355,9 +367,9 @@ export class OperationsMapComponent implements OnDestroy {
         'bottom-right',
       );
 
-      this.map.on('move', () => this.syncViewportSignals());
+    this.map.on('move', () => this.syncViewportSignals());
 
-      this.map.on('load', () => this.setupMapLayers());
+    this.map.on('load', () => this.setupMapLayers());
     });
   }
 
@@ -430,12 +442,41 @@ export class OperationsMapComponent implements OnDestroy {
       ...emgs.filter((e) => e.longitud != null && e.latitud != null).map((e) => [e.longitud!, e.latitud!] as [number, number]),
     ];
     if (coords.length === 0) return;
+    const signature = coords
+      .map(([lng, lat]) => `${lng.toFixed(5)},${lat.toFixed(5)}`)
+      .sort()
+      .join('|');
+    if (signature === this.lastFitSignature) return;
+    if (this.lastFitSignature) {
+      this.lastFitSignature = signature;
+      return;
+    }
+    this.lastFitSignature = signature;
     if (coords.length === 1) {
       this.map.flyTo({ center: coords[0], zoom: 14, essential: true });
       return;
     }
     const bounds = coords.reduce((acc, coord) => acc.extend(coord), new LngLatBounds(coords[0], coords[0]));
     this.map.fitBounds(bounds, { padding: 36, maxZoom: 14, duration: 600 });
+  }
+
+  private focusEmergency(ticketId: number, emgs: TicketAsistenciaDTO[], focusRequest: number): void {
+    if (!this.map) return;
+    const ticket = emgs.find((e) => e.id === ticketId);
+    if (!ticket) return;
+    const position = ticketLngLat(ticket);
+    if (!position) return;
+
+    const signature = `${focusRequest}:${ticketId}:${position[0].toFixed(5)},${position[1].toFixed(5)}`;
+    if (signature === this.lastFocusSignature) return;
+    this.lastFocusSignature = signature;
+
+    this.map.flyTo({
+      center: position,
+      zoom: Math.max(this.map.getZoom(), 15),
+      essential: true,
+      duration: 650,
+    });
   }
 
   private updateRoutes(ambs: UnidadMovilDTO[], emgs: TicketAsistenciaDTO[]): void {
