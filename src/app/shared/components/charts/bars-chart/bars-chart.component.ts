@@ -15,25 +15,28 @@ interface Bar {
       [attr.width]="width()"
       [attr.height]="height()"
       [attr.viewBox]="'0 0 ' + width() + ' ' + height()"
+      style="overflow: visible;"
     >
       @for (bar of bars(); track $index; let i = $index) {
         <rect
           [attr.x]="barX(i)"
-          [attr.y]="height() - bar.height - 20"
+          [attr.y]="height() - bar.height - 14"
           [attr.width]="barWidth()"
           [attr.height]="bar.height"
-          rx="2"
+          rx="2.5"
           [attr.fill]="bar.isPeak ? 'var(--accent-red)' : 'var(--accent-cyan)'"
-          fill-opacity="0.7"
+          fill-opacity="0.8"
         />
-        <text
-          [attr.x]="barX(i) + barWidth() / 2"
-          [attr.y]="height() - 4"
-          text-anchor="middle"
-          font-family="IBM Plex Mono, monospace"
-          font-size="9"
-          fill="var(--text-muted)"
-        >{{ bar.label }}</text>
+        @if (i === 0 || i === count() - 1 || (i % 3 === 0 && (count() - 1 - i) >= 2)) {
+          <text
+            [attr.x]="barX(i) + barWidth() / 2"
+            [attr.y]="height() - 2"
+            text-anchor="middle"
+            font-family="IBM Plex Mono, monospace"
+            font-size="8.5"
+            fill="var(--text-muted)"
+          >{{ bar.label }}</text>
+        }
       }
     </svg>
   `,
@@ -45,11 +48,11 @@ export class BarsChartComponent {
   height = input(80);
 
   private maxVal = computed(() => Math.max(...this.values(), 1));
-  private count = computed(() => this.values().length);
+  count = computed(() => this.values().length);
 
   barWidth = computed(() =>
     this.count() > 0
-      ? Math.max(4, (this.width() / this.count()) * 0.6)
+      ? Math.max(4, (this.width() / this.count()) * 0.65)
       : 8,
   );
 
@@ -62,7 +65,7 @@ export class BarsChartComponent {
 
   bars = computed((): Bar[] => {
     const max = this.maxVal();
-    const availH = this.height() - 24;
+    const availH = Math.max(8, this.height() - 18);
     return this.values().map((v, i) => ({
       value: v,
       label: this.labels()[i] ?? String(i),

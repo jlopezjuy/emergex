@@ -159,8 +159,8 @@ type FeedTab = 'TODAS' | 'SIN_ASIGNAR' | 'CRITICAS';
 
       <!-- Telemetry bar (bottom) -->
       <div
-        class="px-4 py-3 border-t flex-shrink-0"
-        style="height: 110px; border-color: var(--border-glass); background: var(--bg-elevated);"
+        class="px-4 py-2 border-t flex-shrink-0"
+        style="height: 136px; border-color: var(--border-glass); background: var(--bg-elevated);"
       >
         <emx-telemetry-bar
           [ambulances]="fleetStore.ambulances()"

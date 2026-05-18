@@ -1,4 +1,5 @@
 import { Component, signal, computed, inject, OnInit } from '@angular/core';
+import { environment } from '../../../environments/environment';
 import { NgClass, NgFor, NgIf } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { catchError, of } from 'rxjs';
@@ -361,7 +362,7 @@ export class CommunicationsComponent implements OnInit {
   );
 
   ngOnInit(): void {
-    this.http.get<any[]>('http://localhost:8080/api/v1/notificaciones/log').pipe(
+    this.http.get<any[]>(`${environment.apiUrl}/api/v1/notificaciones/log`).pipe(
       catchError(() => of([])),
     ).subscribe((items: any[]) => {
       const entries: LogEntry[] = (items ?? []).map((item, idx) => ({

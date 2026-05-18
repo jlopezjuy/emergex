@@ -19,20 +19,20 @@ const HOURLY_PATTERN = [
     <div class="grid grid-cols-4 gap-3 h-full">
 
       <!-- Card 1: Fleet donut -->
-      <div class="glass rounded-panel px-3 py-2 flex items-center gap-3 overflow-hidden">
+      <div class="glass rounded-panel px-3.5 py-2 flex items-center gap-4 overflow-hidden">
         <emx-donut-chart
           [segments]="fleetSegments()"
-          [size]="72"
+          [size]="76"
           [strokeWidth]="8"
           [centerLabel]="disponibles()"
           centerSub="disp."
         />
         <div class="flex flex-col gap-1 min-w-0">
-          <span class="eyebrow" style="color: var(--text-muted);">Unidades</span>
+          <span class="eyebrow text-xs" style="color: var(--text-muted); letter-spacing: 0.06em;">UNIDADES</span>
           @for (item of fleetLegend(); track item.label) {
-            <div class="flex items-center gap-1.5">
+            <div class="flex items-center gap-2">
               <div class="w-2 h-2 rounded-full flex-shrink-0" [style.background]="item.color"></div>
-              <span class="font-mono text-xs" style="color: var(--text-secondary);">
+              <span class="font-mono text-xs font-medium" style="color: var(--text-secondary);">
                 {{ item.count }} {{ item.label }}
               </span>
             </div>
@@ -41,85 +41,85 @@ const HOURLY_PATTERN = [
       </div>
 
       <!-- Card 2: Response time sparkline -->
-      <div class="glass rounded-panel px-3 py-2 flex flex-col gap-1 overflow-hidden">
-        <span class="eyebrow" style="color: var(--text-muted);">Resp. Promedio</span>
-        <div class="flex items-end gap-2">
-          <span class="font-mono font-bold" style="font-size: 22px; color: var(--text-primary); line-height: 1;">
+      <div class="glass rounded-panel px-3.5 py-2 flex flex-col gap-1 overflow-hidden">
+        <span class="eyebrow text-xs" style="color: var(--text-muted); letter-spacing: 0.06em;">RESP. PROMEDIO</span>
+        <div class="flex items-end gap-2 mt-0.5">
+          <span class="font-mono font-bold" style="font-size: 26px; color: var(--text-primary); line-height: 1;">
             {{ respTime() }}
           </span>
-          <span class="font-mono text-xs mb-0.5" style="color: var(--text-muted);">min</span>
+          <span class="font-mono text-sm mb-0.5" style="color: var(--text-muted);">min</span>
         </div>
         <emx-sparkline
           [values]="sparkValues()"
           color="var(--accent-cyan)"
           [width]="160"
-          [height]="30"
+          [height]="28"
         />
         <div class="flex items-center gap-2 mt-auto">
           <span
-            class="badge font-mono"
+            class="badge font-mono text-xs"
             [style.background]="slaOk() ? 'var(--accent-emerald-dim)' : 'var(--accent-red-dim)'"
             [style.color]="slaOk() ? 'var(--accent-emerald)' : 'var(--accent-red)'"
           >SLA {{ sla() }}%</span>
-          <span class="font-mono" style="font-size: 10px; color: var(--text-muted);">P95 · {{ p95() }}m</span>
+          <span class="font-mono text-xs" style="color: var(--text-muted);">P95 · {{ p95() }}m</span>
         </div>
       </div>
 
       <!-- Card 3: System load bars -->
-      <div class="glass rounded-panel px-3 py-2 flex flex-col gap-1 overflow-hidden">
-        <span class="eyebrow" style="color: var(--text-muted);">Carga del Sistema</span>
-        <div class="flex items-end gap-1">
+      <div class="glass rounded-panel px-3.5 py-2 flex flex-col gap-1 overflow-hidden">
+        <span class="eyebrow text-xs" style="color: var(--text-muted); letter-spacing: 0.06em;">CARGA DEL SISTEMA</span>
+        <div class="flex items-end gap-2 mt-0.5">
           <span
             class="font-mono font-bold"
-            style="font-size: 22px; line-height: 1;"
+            style="font-size: 26px; line-height: 1;"
             [style.color]="loadColor()"
           >{{ loadPct() }}%</span>
-          <span class="font-mono text-xs mb-0.5" style="color: var(--text-muted);">actual</span>
+          <span class="font-mono text-sm mb-0.5" style="color: var(--text-muted);">actual</span>
         </div>
         <emx-bars-chart
           [values]="loadBars()"
           [labels]="loadLabels()"
           [width]="190"
-          [height]="44"
+          [height]="36"
         />
         <div class="flex items-center justify-between mt-auto">
-          <span class="font-mono" style="font-size: 10px; color: var(--text-muted);">
+          <span class="font-mono text-xs" style="color: var(--text-muted);">
             Pico · {{ peakHour() }}h
           </span>
-          <span class="font-mono" style="font-size: 10px; color: var(--accent-red);">
+          <span class="font-mono text-xs font-semibold" style="color: var(--accent-red);">
             {{ peakVal() }}% max
           </span>
         </div>
       </div>
 
       <!-- Card 4: Criticals -->
-      <div class="glass rounded-panel px-3 py-2 flex flex-col gap-1 overflow-hidden">
-        <span class="eyebrow" style="color: var(--text-muted);">Activas Críticas</span>
-        <div class="flex items-end gap-2">
+      <div class="glass rounded-panel px-3.5 py-2 flex flex-col gap-1 overflow-hidden">
+        <span class="eyebrow text-xs" style="color: var(--text-muted); letter-spacing: 0.06em;">ACTIVAS CRÍTICAS</span>
+        <div class="flex items-end gap-2 mt-0.5">
           <span
             class="font-mono font-bold"
-            style="font-size: 32px; line-height: 1; color: var(--accent-red);"
+            style="font-size: 36px; line-height: 1; color: var(--accent-red);"
           >{{ criticas() }}</span>
-          <span class="font-mono text-xs mb-1" style="color: var(--text-muted);">en curso</span>
+          <span class="font-mono text-sm mb-1" style="color: var(--text-muted);">en curso</span>
         </div>
-        <div class="grid grid-cols-2 gap-1 mt-auto">
+        <div class="grid grid-cols-2 gap-1.5 mt-auto">
           <div
-            class="rounded px-2 py-1 flex flex-col"
+            class="rounded px-2 py-1.5 flex flex-col gap-0.5"
             style="background: var(--accent-amber-dim);"
           >
-            <span class="font-mono font-semibold text-sm" style="color: var(--accent-amber); line-height: 1.2;">
+            <span class="font-mono font-bold text-base" style="color: var(--accent-amber); line-height: 1.1;">
               {{ urgentes() }}
             </span>
-            <span class="font-mono" style="font-size: 9px; color: var(--text-muted);">urgentes</span>
+            <span class="font-mono text-xs" style="color: var(--text-muted);">urgentes</span>
           </div>
           <div
-            class="rounded px-2 py-1 flex flex-col"
+            class="rounded px-2 py-1.5 flex flex-col gap-0.5"
             style="background: var(--surface-glass);"
           >
-            <span class="font-mono font-semibold text-sm" style="color: var(--text-secondary); line-height: 1.2;">
+            <span class="font-mono font-bold text-base" style="color: var(--text-secondary); line-height: 1.1;">
               {{ sinAsignar() }}
             </span>
-            <span class="font-mono" style="font-size: 9px; color: var(--text-muted);">sin asignar</span>
+            <span class="font-mono text-xs" style="color: var(--text-muted);">sin asignar</span>
           </div>
         </div>
       </div>

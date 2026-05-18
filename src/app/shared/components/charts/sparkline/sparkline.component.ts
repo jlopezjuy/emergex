@@ -84,8 +84,8 @@ export class SparklineComponent {
     const h = this.height();
     const first = pts[0];
     const last = pts[pts.length - 1];
-    const line = pts.map((p) => `${p.x},${p.y}`).join(' ');
-    return `M${first.x},${h} L${line.replace(',', ' L').split(' L').join(' L')} L${last.x},${h} Z`.replace('M', 'M').replace('L', 'L');
+    const pathSegments = pts.map((p) => `${p.x},${p.y}`).join(' L ');
+    return `M ${first.x},${h} L ${pathSegments} L ${last.x},${h} Z`;
   });
 
   lastPoint = computed(() => {

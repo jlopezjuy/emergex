@@ -35,15 +35,12 @@ import { AuthService } from '../../../core/auth/auth.service';
       <!-- ── Top bar ── -->
       <div class="login__topbar">
         <div class="login__brand">
-          <div class="login__brand-mark">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 3v18M3 12h18"/>
-            </svg>
-          </div>
-          <div>
-            <div style="font-size:14px;font-weight:600;letter-spacing:-0.01em">Emergex</div>
-            <div class="eyebrow" style="margin-top:1px">Cuando cada minuto cuenta</div>
-          </div>
+          <img
+            src="images/logo/logoEmergex.png"
+            alt="Emergex"
+            style="height:34px;width:auto;object-fit:contain;"
+          >
+          <div class="eyebrow" style="margin-top:1px">Cuando cada minuto cuenta</div>
         </div>
         <div style="display:flex;align-items:center;gap:14px">
           <div class="login__status">
@@ -71,12 +68,12 @@ import { AuthService } from '../../../core/auth/auth.service';
 
           <div class="login__fields">
             <div class="qc-field">
-              <label class="eyebrow">Correo institucional</label>
+              <label class="eyebrow">Nombre de usuario</label>
               <input
                 class="qc-input"
                 type="text"
                 formControlName="username"
-                placeholder="apellido.nombre@emergex.com.ar"
+                placeholder="Nombre de usuario de la cuenta"
                 autocomplete="username"
                 autofocus
               />
@@ -94,14 +91,6 @@ import { AuthService } from '../../../core/auth/auth.service';
                 autocomplete="current-password"
               />
             </div>
-            <div class="qc-field">
-              <label class="eyebrow">Sede operativa</label>
-              <select class="qc-input" formControlName="tenant">
-                <option value="metro_norte">Cruz Médica · Centro (San Salvador de Jujuy)</option>
-                <option value="metro_sur">Cruz Médica · Alto Comedero (Jujuy)</option>
-                <option value="palpala">Cruz Médica · Palpalá (Jujuy)</option>
-              </select>
-            </div>
           </div>
 
           <button class="btn btn--danger login__cta" type="submit"
@@ -116,12 +105,7 @@ import { AuthService } from '../../../core/auth/auth.service';
             }
           </button>
 
-          <div class="login__divider"><span>o</span></div>
-
-          <button type="button" class="btn btn--ghost" style="width:100%" (click)="quickDemo()">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-            Entrar como demo (admin)
-          </button>
+          <div class="login__divider"></div>
 
           <div class="login__foot">
             <div class="mono micro">
@@ -205,17 +189,6 @@ import { AuthService } from '../../../core/auth/auth.service';
       display: flex;
       align-items: center;
       gap: 10px;
-    }
-    .login__brand-mark {
-      width: 34px;
-      height: 34px;
-      border-radius: 8px;
-      background: linear-gradient(135deg, #DC2626, #EF4444);
-      box-shadow: 0 0 18px rgba(239, 68, 68, 0.45);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
     }
     .login__status {
       display: flex;
@@ -384,9 +357,8 @@ export class LoginComponent implements OnDestroy {
   private clockInterval = setInterval(() => this.clock.set(this.fmtTime(new Date())), 1000);
 
   form = this.fb.group({
-    username:  ['', Validators.required],
-    password:  ['', Validators.required],
-    tenant:    ['metro_norte'],
+    username: ['', Validators.required],
+    password: ['', Validators.required],
   });
 
   ngOnDestroy(): void {
@@ -398,10 +370,6 @@ export class LoginComponent implements OnDestroy {
     return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
   }
 
-  quickDemo(): void {
-    this.form.patchValue({ username: 'admin', password: 'admin' });
-    setTimeout(() => this.submit(), 60);
-  }
 
   submit(): void {
     if (this.form.invalid) {
