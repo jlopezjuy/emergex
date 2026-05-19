@@ -8,12 +8,13 @@ export class WebsocketService {
   private client!: Client;
   readonly connected = signal(false);
 
-  connect(token: string): void {
+  connect(token: string, onConnected?: () => void): void {
     this.client = new Client({
       webSocketFactory: () => new SockJS(`${environment.wsUrl}?access_token=${token}`) as WebSocket,
       reconnectDelay: 5000,
       onConnect: () => {
         this.connected.set(true);
+        onConnected?.();
       },
       onDisconnect: () => {
         this.connected.set(false);

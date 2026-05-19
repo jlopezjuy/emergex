@@ -328,9 +328,10 @@ export class OperationsComponent implements OnInit, OnDestroy {
 
     const token = this.auth.getToken();
     if (token) {
-      this.ws.connect(token);
-      this.fleetStore.startLocationTracking();
-      this.emergencyStore.startTicketTracking();
+      this.ws.connect(token, () => {
+        this.fleetStore.startLocationTracking();
+        this.emergencyStore.startTicketTracking();
+      });
     }
   }
 
