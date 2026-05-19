@@ -128,6 +128,15 @@ import { FleetStore } from '../../core/stores/fleet.store';
         </svg>
       </a>
 
+      <!-- Internación Domiciliaria -->
+      <a routerLink="/internacion" routerLinkActive="nav-active" class="nav-icon-btn" title="Internación Domiciliaria">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 9l6-7 6 7v6a1 1 0 01-1 1h-3v-4H7v4H4a1 1 0 01-1-1V9z"/>
+          <path d="M9 13v0"/>
+          <path d="M7 7h4M7 9.5h4"/>
+        </svg>
+      </a>
+
       <!-- Analytics -->
       <a routerLink="/analytics" routerLinkActive="nav-active" class="nav-icon-btn" title="Analítica">
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5">

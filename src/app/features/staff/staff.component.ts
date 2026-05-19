@@ -51,6 +51,7 @@ interface StaffMember {
   photoUrl?: string | null;
   empresaId?: number;
   userId?: number | null;
+  createdAt?: string;
 }
 
 interface StaffForm {
@@ -170,7 +171,7 @@ function specById(catalog: CatalogItem[], id: string): CatalogItem | undefined {
       </div>
 
       <!-- ── Table card ── -->
-      <div class="glass-strong pt-card">
+      <div class="glass-strong pt-card ml-4 mr-4">
 
         <!-- Toolbar -->
         <div class="pt-toolbar">
@@ -208,7 +209,7 @@ function specById(catalog: CatalogItem[], id: string): CatalogItem | undefined {
         </div>
 
         <!-- Table -->
-        <div class="data-table-wrap scroll-y">
+        <div class="data-table-wrap scroll-y ml">
           <table class="data-table" style="width:100%;min-width:820px">
             <thead>
               <tr>
@@ -650,6 +651,19 @@ function specById(catalog: CatalogItem[], id: string): CatalogItem | undefined {
 
     /* ── Table ── */
     .scroll-y { overflow-y: auto; }
+    .pt-card .data-table thead th:first-child,
+    .pt-card .data-table tbody td:first-child {
+      padding-left: 16px;
+    }
+    .pt-card .data-table thead th:last-child,
+    .pt-card .data-table tbody td:last-child {
+      padding-right: 16px;
+    }
+
+    :host-context([data-theme="light"]) .pt-card .data-table thead th {
+      color: rgba(15, 23, 42, 0.78);
+      background: rgba(148, 163, 184, 0.52);
+    }
 
     /* ── Pagination ── */
     .pt-pagination {
@@ -1009,6 +1023,18 @@ function specById(catalog: CatalogItem[], id: string): CatalogItem | undefined {
     }
     .spec-drop__item:hover { background: rgba(255,255,255,0.05); }
     .spec-drop__item--selected { background: rgba(59,130,246,0.05); }
+
+    :host-context([data-theme="light"]) .qc-modal .qc-input,
+    :host-context([data-theme="light"]) .qc-modal .spec-multiselect,
+    :host-context([data-theme="light"]) .qc-modal .spec-search-input {
+      background: #f8fafc !important;
+      border-color: rgba(148, 163, 184, 0.35) !important;
+      color: #0f172a !important;
+    }
+    :host-context([data-theme="light"]) .qc-modal .qc-input::placeholder,
+    :host-context([data-theme="light"]) .qc-modal .spec-search-input::placeholder {
+      color: #64748b !important;
+    }
   `],
 })
 export class StaffComponent implements OnInit {
@@ -1062,6 +1088,7 @@ export class StaffComponent implements OnInit {
       avatar:      (b.nombre[0] ?? '') + (b.apellido[0] ?? ''),
       empresaId:   b.empresa?.id ?? 0,
       userId:      b.user?.id ?? null,
+      createdAt:   b.createdAt,
     };
   };
 
@@ -1267,6 +1294,7 @@ export class StaffComponent implements OnInit {
         id:                   numId,
         nombre:               f.firstName.trim(),
         apellido:             f.lastName.trim(),
+        createdAt:            editing.createdAt ?? new Date().toISOString(),
         matricula:            f.matricula.trim() || undefined,
         telefono:             f.phone.trim() || undefined,
         email:                f.email.trim() || undefined,

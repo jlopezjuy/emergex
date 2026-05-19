@@ -87,6 +87,13 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'internacion',
+        loadChildren: () =>
+          import('./features/internacion/internacion.routes').then(
+            (m) => m.INTERNACION_ROUTES,
+          ),
+      },
+      {
         path: 'communications',
         loadComponent: () =>
           import('./features/communications/communications.component').then(

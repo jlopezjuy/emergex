@@ -31,13 +31,13 @@ type FleetTab = 'TODAS' | 'DISPONIBLE' | 'SIN_COBERTURA' | 'EN_SERVICIO' | 'MANT
     UnitScheduleModalComponent,
   ],
   template: `
-    <div class="h-full flex overflow-hidden">
+    <div class="h-full flex flex-col xl:flex-row overflow-hidden">
 
       <!-- Left scrollable section -->
-      <div class="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
+      <div class="flex-1 min-w-0 overflow-y-auto p-4 sm:p-6 flex flex-col gap-6">
 
         <!-- Page header -->
-        <div class="flex items-center gap-4">
+        <div class="flex flex-wrap items-start gap-3 sm:gap-4">
           <!-- Icon + title -->
           <div style="width:36px;height:36px;border-radius:10px;background:rgba(34,211,238,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--accent-cyan)" stroke-width="1.5">
@@ -51,16 +51,16 @@ type FleetTab = 'TODAS' | 'DISPONIBLE' | 'SIN_COBERTURA' | 'EN_SERVICIO' | 'MANT
             <p class="font-mono text-xs mt-0.5" style="color:var(--text-muted);">UNIDADES MÓVILES</p>
           </div>
           <!-- Inline KPIs -->
-          <div class="flex items-center gap-0 ml-4 rounded-lg overflow-hidden flex-shrink-0" style="border:1px solid var(--border-glass);background:var(--bg-elevated);">
+          <div class="order-3 lg:order-none w-full lg:w-auto flex items-center gap-0 rounded-lg overflow-x-auto flex-shrink-0" style="border:1px solid var(--border-glass);background:var(--bg-elevated);">
             @for (kpi of headerKpis(); track kpi.label) {
-              <div class="px-4 py-2 text-center" style="border-right:1px solid var(--border-glass);"
+              <div class="px-3 sm:px-4 py-2 text-center min-w-[96px]" style="border-right:1px solid var(--border-glass);"
                 [style.borderRight]="$last ? 'none' : '1px solid var(--border-glass)'">
                 <div class="font-mono text-xs uppercase tracking-wider" style="color:var(--text-muted);">{{ kpi.label }}</div>
                 <div class="font-mono font-bold text-lg leading-none mt-1" [style.color]="kpi.color">{{ kpi.value }}</div>
               </div>
             }
           </div>
-          <div class="flex items-center gap-2 ml-auto flex-shrink-0">
+          <div class="ml-auto w-full sm:w-auto flex items-center justify-end gap-2 flex-shrink-0">
             <button type="button" class="btn btn--ghost btn--sm">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8v2a1 1 0 001 1h6a1 1 0 001-1V8M6 1v6M3.5 5L6 7.5 8.5 5"/></svg>
               Exportar CSV
@@ -73,7 +73,7 @@ type FleetTab = 'TODAS' | 'DISPONIBLE' | 'SIN_COBERTURA' | 'EN_SERVICIO' | 'MANT
         </div>
 
         <!-- Status donut + table -->
-        <div class="grid gap-6" style="grid-template-columns: 280px 1fr;">
+        <div class="grid grid-cols-1 xl:grid-cols-[280px_minmax(0,1fr)] gap-6">
           <!-- Left panel: donut + health metrics -->
           <div class="flex flex-col gap-4">
             <emx-glass-card>
@@ -113,11 +113,11 @@ type FleetTab = 'TODAS' | 'DISPONIBLE' | 'SIN_COBERTURA' | 'EN_SERVICIO' | 'MANT
                 Unidades móviles
               </h2>
               <!-- Fleet tabs -->
-              <div class="flex items-center gap-0.5">
+              <div class="flex items-center gap-0.5 overflow-x-auto">
                 @for (tab of fleetTabs; track tab.id) {
                   <button
                     type="button"
-                    class="px-2.5 py-1 text-xs font-medium rounded-t transition-all"
+                    class="px-2.5 py-1 text-xs font-medium rounded-t transition-all whitespace-nowrap"
                     [style.color]="fleetTab() === tab.id ? 'var(--accent-cyan)' : 'var(--text-muted)'"
                     [style.border-bottom]="fleetTab() === tab.id ? '2px solid var(--accent-cyan)' : '2px solid transparent'"
                     (click)="fleetTab.set(tab.id)"
@@ -139,7 +139,7 @@ type FleetTab = 'TODAS' | 'DISPONIBLE' | 'SIN_COBERTURA' | 'EN_SERVICIO' | 'MANT
 
         <!-- Metrics strip -->
         @if (metricas()) {
-          <div class="grid grid-cols-4 gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 gap-4">
             <emx-kpi-card
               label="T. Resp. prom."
               [value]="tRespLabel()"
@@ -166,9 +166,16 @@ type FleetTab = 'TODAS' | 'DISPONIBLE' | 'SIN_COBERTURA' | 'EN_SERVICIO' | 'MANT
 
       <!-- Right detail panel -->
       @if (selectedUnit()) {
+        <button
+          type="button"
+          class="fixed inset-0 z-30 2xl:hidden"
+          style="background: rgba(2,6,23,0.45); backdrop-filter: blur(2px);"
+          (click)="selectedUnit.set(null)"
+          aria-label="Cerrar detalle de unidad"
+        ></button>
         <div
-          class="flex flex-col overflow-y-auto flex-shrink-0"
-          style="width:320px; border-left:1px solid var(--border-glass); background:var(--bg-elevated);"
+          class="fixed inset-y-0 right-0 z-40 flex flex-col overflow-y-auto flex-shrink-0 w-[380px] max-w-[92vw] border-l 2xl:static 2xl:inset-auto 2xl:right-auto 2xl:z-auto 2xl:w-[320px] 2xl:max-w-none"
+          style="border-color:var(--border-glass); background:var(--bg-elevated);"
         >
           <!-- Panel header -->
           <div class="flex items-center justify-between px-4 py-3 border-b flex-shrink-0"
@@ -193,7 +200,7 @@ type FleetTab = 'TODAS' | 'DISPONIBLE' | 'SIN_COBERTURA' | 'EN_SERVICIO' | 'MANT
               </div>
             </div>
             <!-- Close + Estado badge -->
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 flex-wrap justify-end">
               <span
                 class="badge"
                 [class]="unitEstadoBadge(selectedUnit()!.estado)"
@@ -208,7 +215,7 @@ type FleetTab = 'TODAS' | 'DISPONIBLE' | 'SIN_COBERTURA' | 'EN_SERVICIO' | 'MANT
           <div class="flex flex-col gap-4 p-4">
 
             <!-- Info grid -->
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="grid grid-cols-2 gap-[10px]">
               <div>
                 <div class="eyebrow">Sede</div>
                 <div class="font-mono font-semibold" style="font-size:12px;color:var(--text-primary);margin-top:3px;">BASE 04 · NORTE</div>
@@ -312,8 +319,8 @@ type FleetTab = 'TODAS' | 'DISPONIBLE' | 'SIN_COBERTURA' | 'EN_SERVICIO' | 'MANT
                       <div style="font-size:10px;color:var(--text-muted);">{{ g.horaInicio ?? '—' }} → {{ g.horaFin ?? '—' }}</div>
                     </div>
                     <span style="font-size:10px;padding:2px 6px;border-radius:4px;"
-                      [style.background]="g.estado === 'ACTIVO' ? 'rgba(16,185,129,0.12)' : 'rgba(255,255,255,0.06)'"
-                      [style.color]="g.estado === 'ACTIVO' ? 'var(--accent-emerald)' : 'var(--text-muted)'">
+                      [style.background]="g.estado === 'ACTIVA' ? 'rgba(16,185,129,0.12)' : 'rgba(255,255,255,0.06)'"
+                      [style.color]="g.estado === 'ACTIVA' ? 'var(--accent-emerald)' : 'var(--text-muted)'">
                       {{ g.estado ?? '—' }}
                     </span>
                   </div>
@@ -335,7 +342,7 @@ type FleetTab = 'TODAS' | 'DISPONIBLE' | 'SIN_COBERTURA' | 'EN_SERVICIO' | 'MANT
             }
 
             <!-- Action buttons -->
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 flex-wrap">
               <button type="button" class="btn btn--primary btn--sm" style="flex:1;justify-content:center;">
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 6h8M7 3l3 3-3 3"/></svg>
                 Despachar
@@ -366,6 +373,7 @@ type FleetTab = 'TODAS' | 'DISPONIBLE' | 'SIN_COBERTURA' | 'EN_SERVICIO' | 'MANT
     @if (configuringUnit()) {
       <emx-unit-schedule-modal
         [unit]="configuringUnit()!"
+        (saved)="onScheduleSaved()"
         (closed)="configuringUnit.set(null)"
       />
     }
@@ -471,10 +479,16 @@ export class FleetComponent implements OnInit {
       .subscribe((data) => {
         this.ambulancias.set(data);
         this.loading.set(false);
-        // Auto-select first unit so right panel is visible on load
-        if (data.length > 0 && !this.selectedUnit()) {
-          this.selectedUnit.set(data[0]);
-          this.loadUnitDetail(data[0]);
+        if (this.selectedUnit()) {
+          const selectedId = this.selectedUnit()!.id;
+          const refreshed = data.find((u) => u.id === selectedId) ?? null;
+          this.selectedUnit.set(refreshed);
+          if (refreshed) {
+            this.loadUnitDetail(refreshed);
+          } else {
+            this.unitGuardias.set([]);
+            this.unitLogs.set([]);
+          }
         }
         this.fleetDashboard.set({
           totalUnidades: data.length,
@@ -523,6 +537,14 @@ export class FleetComponent implements OnInit {
 
   onConfigUnit(unit: UnidadMovilDTO): void {
     this.configuringUnit.set(unit);
+  }
+
+  onScheduleSaved(): void {
+    this.loadAll();
+    const unit = this.selectedUnit();
+    if (unit) {
+      this.loadUnitDetail(unit);
+    }
   }
 
   onUnitCreated(): void {

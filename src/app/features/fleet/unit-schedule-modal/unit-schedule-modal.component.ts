@@ -214,6 +214,7 @@ const DIA_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 export class UnitScheduleModalComponent implements OnInit {
   unit = input.required<UnidadMovilDTO>();
   closed = output<void>();
+  saved = output<void>();
 
   private fleetApi = inject(FleetApiService);
   private staffApi = inject(StaffApiService);
@@ -428,6 +429,7 @@ export class UnitScheduleModalComponent implements OnInit {
     this.fleetApi.guardarGuardias(this.unit().id, guardias).subscribe({
       next: () => {
         this.saving.set(false);
+        this.saved.emit();
         this.closed.emit();
       },
       error: () => {

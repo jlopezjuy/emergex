@@ -27,6 +27,7 @@ type PutBody = {
   id: number;
   nombre: string;
   apellido: string;
+  createdAt: string;
   activo: boolean;
   atencionDomiciliaria: boolean;
   atencionEmergencia: boolean;

@@ -52,7 +52,26 @@ export class FleetApiService {
   }
 
   dashboard(): Observable<FlotaDashboardDTO> {
-    return this.http.get<FlotaDashboardDTO>(`${this.base}/dashboard`);
+    return this.http.get<any>(`${this.base}/dashboard`).pipe(
+      map((raw) => {
+        const unidades = Array.isArray(raw?.unidades) ? raw.unidades : [];
+        const countByEstado = (estado: string) => unidades.filter((u: any) => u?.estado === estado).length;
+        const disponibles = typeof raw?.disponibles === 'number'
+          ? raw.disponibles
+          : unidades.filter((u: any) => u?.disponibleParaDespacho === true).length;
+
+        return {
+          totalUnidades: raw?.totalUnidades ?? raw?.flotaTotal ?? unidades.length ?? 0,
+          disponibles,
+          enRuta: raw?.enRuta ?? countByEstado('EN_RUTA'),
+          enSitio: raw?.enSitio ?? countByEstado('EN_SITIO'),
+          traslado: raw?.traslado ?? countByEstado('TRASLADO'),
+          mantenimiento:
+            raw?.mantenimiento ??
+            countByEstado('EN_TALLER') + countByEstado('MANTENIMIENTO') + countByEstado('FUERA_SERVICIO'),
+        } as FlotaDashboardDTO;
+      }),
+    );
   }
 
   ambulancias(): Observable<UnidadMovilDTO[]> {
