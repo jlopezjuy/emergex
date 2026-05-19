@@ -139,6 +139,17 @@ function ensureKeyframes(): void {
   document.head.appendChild(style);
 }
 
+function formatDistance(m: number): string {
+  if (m >= 1000) return `${(m / 1000).toFixed(1)} km`;
+  return `${Math.round(m)} m`;
+}
+
+function formatDuration(s: number): string {
+  const mins = s / 60;
+  if (mins >= 1) return `${Math.round(mins)} min`;
+  return `${Math.round(s)} seg`;
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const LEGEND = [
@@ -256,9 +267,57 @@ const LEGEND = [
       font-family: monospace; font-size: 9px;
       pointer-events: none;
     }
+
+    /* Route Info Card */
+    .route-info-card {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      backdrop-filter: blur(12px);
+      border-radius: 8px;
+      padding: 8px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(6, 16, 31, 0.88);
+      font-family: monospace;
+      pointer-events: none;
+      z-index: 10;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    }
+    :host:not(.is-dark) .route-info-card {
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    }
+    .route-info-title {
+      font-size: 8px;
+      color: rgba(148, 163, 184, 0.6);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    :host:not(.is-dark) .route-info-title {
+      color: rgba(71, 85, 105, 0.7);
+    }
+    .route-info-value {
+      font-size: 11px;
+      font-weight: 700;
+      color: #22D3EE;
+    }
+    :host:not(.is-dark) .route-info-value {
+      color: #0369a1;
+    }
   `],
   template: `
     <div #mapEl class="map-root"></div>
+
+    @if (activeRouteInfo()) {
+      <div class="route-info-card">
+        <span class="route-info-title">Ruta real</span>
+        <span class="route-info-value">{{ activeRouteInfo()?.distance }} · {{ activeRouteInfo()?.duration }}</span>
+      </div>
+    }
 
     @if (showLegend()) {
       <div class="map-legend">
@@ -295,6 +354,7 @@ export class OperationsMapComponent implements OnDestroy {
   protected readonly zoom = signal('11.0');
   protected readonly centerLat = signal(SSJ[1].toFixed(4));
   protected readonly centerLng = signal(SSJ[0].toFixed(4));
+  readonly activeRouteInfo = signal<{ distance: string; duration: string } | null>(null);
 
   private readonly zone = inject(NgZone);
   private readonly themeService = inject(ThemeService);
@@ -398,9 +458,8 @@ export class OperationsMapComponent implements OnDestroy {
       source: this.ROUTES_SOURCE,
       paint: {
         'line-color': '#22D3EE',
-        'line-width': 1.2,
-        'line-opacity': 0.45,
-        'line-dasharray': [5, 4],
+        'line-width': 2.8,
+        'line-opacity': 0.75,
       },
     });
 
@@ -479,33 +538,87 @@ export class OperationsMapComponent implements OnDestroy {
     });
   }
 
-  private updateRoutes(ambs: UnidadMovilDTO[], emgs: TicketAsistenciaDTO[]): void {
+  private async fetchOSRMRoute(start: [number, number], end: [number, number]): Promise<{ geometry: any; distance: number; duration: number } | null> {
+    try {
+      const url = `https://router.project-osrm.org/route/v1/driving/${start[0]},${start[1]};${end[0]},${end[1]}?geometries=geojson&overview=full`;
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      const data = await res.json();
+      if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+        return {
+          geometry: data.routes[0].geometry,
+          distance: data.routes[0].distance,
+          duration: data.routes[0].duration,
+        };
+      }
+    } catch (e) {
+      console.error('Error fetching OSRM route:', e);
+    }
+    return null;
+  }
+
+  private async updateRoutes(ambs: UnidadMovilDTO[], emgs: TicketAsistenciaDTO[]): Promise<void> {
     if (!this.map || !this.map.getSource(this.ROUTES_SOURCE)) return;
 
     const ticketMap = new Map(emgs.map((e) => [e.id, e]));
-    const features = ambs
+    const activeRoutePairs = ambs
       .filter((a) => a.ticketActivo != null)
       .flatMap((a) => {
         const ticket = ticketMap.get(a.ticketActivo!);
         if (!ticket) return [];
         const ticketPosition = ticketLngLat(ticket);
         if (!ticketPosition) return [];
-        return [{
-          type: 'Feature' as const,
+        return [{ unit: a, ticket, start: unitLngLat(a), end: ticketPosition }];
+      });
+
+    if (activeRoutePairs.length === 0) {
+      this.activeRouteInfo.set(null);
+      (this.map.getSource(this.ROUTES_SOURCE) as GeoJSONSource).setData({
+        type: 'FeatureCollection',
+        features: [],
+      });
+      return;
+    }
+
+    const features: any[] = [];
+    let selectedRouteInfo: { distance: string; duration: string } | null = null;
+
+    for (const pair of activeRoutePairs) {
+      const routeData = await this.fetchOSRMRoute(pair.start, pair.end);
+      if (routeData) {
+        features.push({
+          type: 'Feature',
+          geometry: routeData.geometry,
+          properties: {},
+        });
+        if (pair.ticket.id === this.selectedEmergencyId()) {
+          selectedRouteInfo = {
+            distance: formatDistance(routeData.distance),
+            duration: formatDuration(routeData.duration),
+          };
+        }
+      } else {
+        features.push({
+          type: 'Feature',
           geometry: {
-            type: 'LineString' as const,
-            coordinates: [unitLngLat(a), ticketPosition],
+            type: 'LineString',
+            coordinates: [pair.start, pair.end],
           },
           properties: {},
-        }];
-      });
+        });
+      }
+    }
+
+    this.activeRouteInfo.set(selectedRouteInfo);
 
     const geojson: FeatureCollection<LineString> = {
       type: 'FeatureCollection',
       features,
     };
 
-    (this.map.getSource(this.ROUTES_SOURCE) as GeoJSONSource).setData(geojson);
+    if (this.map && this.map.getSource(this.ROUTES_SOURCE)) {
+      (this.map.getSource(this.ROUTES_SOURCE) as GeoJSONSource).setData(geojson);
+    }
   }
 
   ngOnDestroy(): void {

@@ -16,17 +16,19 @@ export class DashboardApiService {
       map((raw) => ({
         fecha:                  raw.fecha,
         ticketsActivos:         raw.ticketsActivos,
-        totalTickets:           raw.ticketsActivosDetalle?.length ?? 0,
+        totalTickets:           raw.totalTicketsDia ?? 0,
         ticketsCriticos:        raw.ticketsPorUrgencia?.ROJO ?? 0,
         unidadesDisponibles:    raw.movilesActivos,
-        totalUnidades:          undefined,
-        slaPromedio:            0,
-        tiempoRespuestaPromedio: raw.esperaPromedioMinutos,
+        totalUnidades:          raw.movilesActivos,
+        slaPromedio:            raw.slaPromedio ?? 100,
+        tiempoRespuestaPromedio: raw.esperaPromedioMinutos ?? 0,
         ticketsPorPrioridad: {
           CRITICA:  raw.ticketsPorUrgencia?.ROJO    ?? 0,
           URGENTE:  raw.ticketsPorUrgencia?.AMARILLO ?? 0,
           NORMAL:   raw.ticketsPorUrgencia?.VERDE    ?? 0,
         },
+        tiemposRespuestaHistorico: raw.tiemposRespuestaHistorico ?? [],
+        cargaPorHora: raw.cargaPorHora ?? {},
       } as DashboardOperativoDTO)),
     );
   }

@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, OnInit, OnDestroy } from '@angular/core';
 import { EmergencyStore } from '../../core/stores/emergency.store';
 import { FleetStore } from '../../core/stores/fleet.store';
 import { WebsocketService } from '../../core/websocket/websocket.service';
@@ -252,7 +252,7 @@ type FeedTab = 'TODAS' | 'SIN_ASIGNAR' | 'CRITICAS';
     }
   `],
 })
-export class OperationsComponent implements OnInit {
+export class OperationsComponent implements OnInit, OnDestroy {
   readonly emergencyStore = inject(EmergencyStore);
   readonly fleetStore = inject(FleetStore);
   private ws = inject(WebsocketService);
@@ -313,17 +313,18 @@ export class OperationsComponent implements OnInit {
   readonly showDispatchModal = signal(false);
   readonly dispatchingEmergency = signal<TicketAsistenciaDTO | null>(null);
 
+  private refreshInterval: any;
+
   ngOnInit(): void {
     this.emergencyStore.loadActivos();
     this.emergencyStore.startTicker();
 
-    this.fleetApi.ambulancias().subscribe({
-      next: (data) => this.fleetStore.setAmbulances(data),
-    });
+    this.refreshDashboardAndFleet();
 
-    this.dashboardApi.operativo().subscribe({
-      next: (data) => this.dashboard.set(data),
-    });
+    // Mantener la telemetría y flota en tiempo real cada 5 segundos
+    this.refreshInterval = setInterval(() => {
+      this.refreshDashboardAndFleet();
+    }, 5000);
 
     const token = this.auth.getToken();
     if (token) {
@@ -331,6 +332,22 @@ export class OperationsComponent implements OnInit {
       this.fleetStore.startLocationTracking();
       this.emergencyStore.startTicketTracking();
     }
+  }
+
+  ngOnDestroy(): void {
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval);
+    }
+  }
+
+  refreshDashboardAndFleet(): void {
+    this.fleetApi.ambulancias().subscribe({
+      next: (data) => this.fleetStore.setAmbulances(data),
+    });
+
+    this.dashboardApi.operativo().subscribe({
+      next: (data) => this.dashboard.set(data),
+    });
   }
 
   onSelectAmbulance(id: number): void {
@@ -350,6 +367,7 @@ export class OperationsComponent implements OnInit {
   onDispatched(): void {
     this.closeDispatch();
     this.emergencyStore.loadActivos();
+    this.refreshDashboardAndFleet();
   }
 
   onLocate(emergency: TicketAsistenciaDTO): void {

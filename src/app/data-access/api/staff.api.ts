@@ -10,6 +10,30 @@ export interface SubespecialidadCatalogItem {
   descripcion?: string;
 }
 
+export interface IProfesionalOnboardingRequest {
+  profesional: {
+    nombre: string;
+    apellido: string;
+    matricula: string;
+    documento?: string | null;
+    telefono?: string | null;
+    email?: string | null;
+    atencionDomiciliaria: boolean;
+    atencionEmergencia: boolean;
+    activo: boolean;
+  };
+  especialidades: {
+    especialidadPrincipalId: number;
+    subespecialidadIds: number[];
+  };
+  usuario: {
+    username?: string | null;
+    email?: string | null;
+    passwordTemporal?: string | null;
+    authorities: string[];
+  };
+}
+
 type CreateBody = Pick<ProfesionalSaludDTO,
   'nombre' | 'apellido' | 'activo' | 'atencionDomiciliaria' | 'atencionEmergencia'
 > & Partial<Pick<ProfesionalSaludDTO,
@@ -43,6 +67,7 @@ type PutBody = {
 export class StaffApiService {
   private http = inject(HttpClient);
   private v1 = `${environment.apiUrl}/api/v1`;
+  private v2 = `${environment.apiUrl}/api/v2/profesionales`;
   private crud = `${environment.apiUrl}/api/profesional-saluds`;
 
   getProfesionales(): Observable<ProfesionalSaludDTO[]> {
@@ -69,5 +94,21 @@ export class StaffApiService {
 
   patch(id: number, body: PatchBody): Observable<ProfesionalSaludDTO> {
     return this.http.patch<ProfesionalSaludDTO>(`${this.crud}/${id}`, body);
+  }
+
+  onboardingCreate(payload: IProfesionalOnboardingRequest): Observable<ProfesionalSaludDTO> {
+    return this.http.post<ProfesionalSaludDTO>(`${this.v2}/onboarding`, payload);
+  }
+
+  onboardingUpdate(id: number, payload: IProfesionalOnboardingRequest): Observable<ProfesionalSaludDTO> {
+    return this.http.put<ProfesionalSaludDTO>(`${this.v2}/onboarding/${id}`, payload);
+  }
+
+  getAuthorities(): Observable<string[]> {
+    return this.http.get<string[]>(`${this.v2}/authorities`);
+  }
+
+  getAuthoritiesByProfesional(id: number): Observable<string[]> {
+    return this.http.get<string[]>(`${this.v2}/${id}/authorities`);
   }
 }

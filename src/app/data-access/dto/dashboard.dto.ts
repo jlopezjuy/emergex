@@ -8,4 +8,6 @@ export interface DashboardOperativoDTO {
   slaPromedio?: number;
   ticketsPorPrioridad?: Record<string, number>;
   tiempoRespuestaPromedio?: number;
+  tiemposRespuestaHistorico?: number[];
+  cargaPorHora?: Record<string, number>;
 }

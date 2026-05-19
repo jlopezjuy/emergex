@@ -87,7 +87,7 @@ const HOURLY_PATTERN = [
             Pico · {{ peakHour() }}h
           </span>
           <span class="font-mono text-xs font-semibold" style="color: var(--accent-red);">
-            {{ peakVal() }}% max
+            {{ peakVal() }}{{ hasRealCarga() ? ' casos' : '% max' }}
           </span>
         </div>
       </div>
@@ -149,12 +149,16 @@ export class TelemetryBarComponent {
       ].filter((s) => s.value > 0);
     }
     const counts = ambs.reduce<Record<string, number>>((acc, a) => {
-      const k = a.estado ?? 'DESCONOCIDO';
+      let k = a.estado ?? 'DESCONOCIDO';
+      if (k === 'EN_TALLER' || k === 'FUERA_SERVICIO') {
+        k = 'MANTENIMIENTO';
+      }
       acc[k] = (acc[k] ?? 0) + 1;
       return acc;
     }, {});
     const colorMap: Record<string, string> = {
       DISPONIBLE: '#10B981',
+      EN_SERVICIO: '#3B82F6',
       EN_RUTA: '#3B82F6',
       EN_SITIO: '#F59E0B',
       TRASLADO: '#22D3EE',
@@ -163,26 +167,27 @@ export class TelemetryBarComponent {
     return Object.entries(counts).map(([estado, count]) => ({
       value: count,
       color: colorMap[estado] ?? '#64748B',
-      label: estado,
+      label: estado === 'EN_SERVICIO' ? 'En ruta' : estado,
     }));
   });
 
   fleetLegend = computed(() => {
     const ambs = this.ambulances();
     const items = [
-      { key: 'DISPONIBLE', label: 'Disp.', color: '#10B981' },
-      { key: 'EN_RUTA', label: 'En ruta', color: '#3B82F6' },
-      { key: 'EN_SITIO', label: 'En sitio', color: '#F59E0B' },
-      { key: 'TRASLADO', label: 'Traslado', color: '#22D3EE' },
-      { key: 'MANTENIMIENTO', label: 'Mant.', color: '#64748B' },
+      { keys: ['DISPONIBLE'], label: 'Disp.', color: '#10B981' },
+      { keys: ['EN_SERVICIO', 'EN_RUTA'], label: 'En ruta', color: '#3B82F6' },
+      { keys: ['EN_SITIO'], label: 'En sitio', color: '#F59E0B' },
+      { keys: ['TRASLADO'], label: 'Traslado', color: '#22D3EE' },
+      { keys: ['MANTENIMIENTO', 'EN_TALLER', 'FUERA_SERVICIO'], label: 'Mant.', color: '#64748B' },
     ];
     if (ambs.length === 0) {
-      return items.slice(0, 2).map((item) => ({ ...item, count: 0 }));
+      return items.slice(0, 2).map((item) => ({ label: item.label, color: item.color, count: 0 }));
     }
     return items
       .map((item) => ({
-        ...item,
-        count: ambs.filter((a) => a.estado === item.key).length,
+        label: item.label,
+        color: item.color,
+        count: ambs.filter((a) => a.estado && item.keys.includes(a.estado)).length,
       }))
       .filter((item) => item.count > 0);
   });
@@ -193,7 +198,7 @@ export class TelemetryBarComponent {
     return t != null ? t.toFixed(1) : '—';
   });
 
-  sla = computed(() => this.dashboard()?.slaPromedio ?? 0);
+  sla = computed(() => Math.round(this.dashboard()?.slaPromedio ?? 100));
   slaOk = computed(() => this.sla() >= 85);
   p95 = computed(() => {
     const t = this.dashboard()?.tiempoRespuestaPromedio ?? 8;
@@ -202,14 +207,30 @@ export class TelemetryBarComponent {
 
   // 12-point sparkline based on typical response pattern (minutes)
   sparkValues = computed(() => {
+    const hist = this.dashboard()?.tiemposRespuestaHistorico ?? [];
+    if (hist.length > 0) return hist;
     const base = this.dashboard()?.tiempoRespuestaPromedio ?? 8;
     return [9.2, 8.8, 10.1, 8.3, 7.9, 9.5, 11.2, 8.4, 7.8, 9.1, base, base].map(
-      (v) => Math.max(0, v + (base - 8.4)),
+      (v) => Math.max(0, v + (base - 8.4))
     );
   });
 
   // --- Card 3: System load ---
-  loadPct = computed(() => this.dashboard()?.slaPromedio ?? 0);
+  loadPct = computed(() => {
+    const ambs = this.ambulances();
+    if (ambs.length > 0) {
+      const activeUnits = ambs.filter(
+        (a) => a.estado === 'EN_SERVICIO' || a.estado === 'EN_RUTA' || a.estado === 'EN_SITIO' || a.estado === 'TRASLADO'
+      ).length;
+      const totalUnits = ambs.filter(
+        (a) => a.estado === 'DISPONIBLE' || a.estado === 'EN_SERVICIO' || a.estado === 'EN_RUTA' || a.estado === 'EN_SITIO' || a.estado === 'TRASLADO'
+      ).length || 1;
+      return Math.min(100, Math.round((activeUnits * 100) / totalUnits));
+    }
+    const activos = this.dashboard()?.ticketsActivos ?? 0;
+    const total = this.dashboard()?.totalUnidades ?? 5;
+    return Math.min(100, Math.round((activos * 100) / (total || 1)));
+  });
 
   loadColor = computed(() => {
     const v = this.loadPct();
@@ -219,16 +240,25 @@ export class TelemetryBarComponent {
   });
 
   loadBars = computed((): number[] => {
+    const carga = this.dashboard()?.cargaPorHora;
+    if (carga && Object.keys(carga).length > 0) {
+      return this.loadLabels().map((label) => Number(carga[label] ?? 0));
+    }
     const now = new Date().getHours();
     return HOURLY_PATTERN.slice(now - 17 < 0 ? 0 : now - 17, now + 1);
   });
 
   loadLabels = computed((): string[] => {
     const now = new Date().getHours();
-    const start = Math.max(0, now - 17);
-    return Array.from({ length: this.loadBars().length }, (_, i) =>
-      String((start + i) % 24).padStart(2, '0'),
-    );
+    return Array.from({ length: 18 }, (_, i) => {
+      const h = (now - 17 + i + 24) % 24;
+      return String(h).padStart(2, '0');
+    });
+  });
+
+  hasRealCarga = computed(() => {
+    const carga = this.dashboard()?.cargaPorHora;
+    return !!(carga && Object.keys(carga).length > 0);
   });
 
   peakHour = computed((): string => {
@@ -245,7 +275,9 @@ export class TelemetryBarComponent {
   urgentes = computed(() => this.dashboard()?.ticketsPorPrioridad?.['URGENTE'] ?? 0);
   sinAsignar = computed(() => {
     const activos = this.dashboard()?.ticketsActivos ?? 0;
-    const disp = this.ambulances().filter((a) => a.estado === 'EN_RUTA' || a.estado === 'EN_SITIO' || a.estado === 'TRASLADO').length;
-    return Math.max(0, activos - disp);
+    const busy = this.ambulances().filter(
+      (a) => a.estado === 'EN_SERVICIO' || a.estado === 'EN_RUTA' || a.estado === 'EN_SITIO' || a.estado === 'TRASLADO'
+    ).length;
+    return Math.max(0, activos - busy);
   });
 }

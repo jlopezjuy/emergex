@@ -2,7 +2,7 @@ import { Component, signal, computed, HostListener, OnInit, inject } from '@angu
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
-import { StaffApiService, SubespecialidadCatalogItem } from '../../data-access/api/staff.api';
+import { StaffApiService, SubespecialidadCatalogItem, IProfesionalOnboardingRequest } from '../../data-access/api/staff.api';
 import { ProfesionalSaludDTO } from '../../data-access/dto/staff.dto';
 
 // ─── Catalogs ─────────────────────────────────────────────────────────────────
@@ -38,6 +38,7 @@ interface StaffMember {
   matricula: string;
   phone: string;
   email: string;
+  documento?: string | null;
   linkedUser: boolean;
   role: string;
   unit: string;
@@ -52,6 +53,8 @@ interface StaffMember {
   empresaId?: number;
   userId?: number | null;
   createdAt?: string;
+  especialidadPrincipalId?: number | null;
+  authorities?: string[];
 }
 
 interface StaffForm {
@@ -59,6 +62,7 @@ interface StaffForm {
   firstName: string;
   lastName: string;
   matricula: string;
+  documento: string;
   phone: string;
   email: string;
   linkedUser: boolean;
@@ -66,6 +70,10 @@ interface StaffForm {
   domiciliary: boolean;
   emergency: boolean;
   active: boolean;
+  username: string;
+  passwordTemporal: string;
+  authorities: string[];
+  especialidadPrincipalId: number | null;
 }
 
 // ─── Seed data ────────────────────────────────────────────────────────────────
@@ -102,6 +110,7 @@ function emptyForm(): StaffForm {
     firstName: '',
     lastName: '',
     matricula: '',
+    documento: '',
     phone: '',
     email: '',
     linkedUser: false,
@@ -109,6 +118,10 @@ function emptyForm(): StaffForm {
     domiciliary: false,
     emergency: false,
     active: true,
+    username: '',
+    passwordTemporal: '',
+    authorities: ['ROLE_USER'],
+    especialidadPrincipalId: null,
   };
 }
 
@@ -343,20 +356,24 @@ function specById(catalog: CatalogItem[], id: string): CatalogItem | undefined {
     @if (formOpen()) {
       <div class="qc-overlay" (click)="closeForm()">
         <div class="qc-modal qc-modal--wide glass-strong" (click)="$event.stopPropagation()">
+          
+          <!-- Head -->
           <div class="qc-head">
             <div>
-              <div class="eyebrow" style="color:var(--accent-cyan)">● {{ editingStaff() ? 'EDITAR PROFESIONAL' : 'ALTA DE PROFESIONAL' }}</div>
-              <h2 style="margin:4px 0 0;font-size:20px;font-weight:600;letter-spacing:-0.01em">
-                {{ editingStaff() ? (form().prefix + ' ' + form().firstName + ' ' + form().lastName) : 'Nuevo profesional' }}
+              <h2 style="font-size:16px;font-weight:600;color:var(--text-primary)">
+                {{ editingStaff() ? 'Editar Profesional' : 'Alta de Profesional' }}
               </h2>
+              <div class="eyebrow mono micro" style="margin-top:2px">
+                {{ editingStaff() ? 'ID: ' + editingStaff()?.id : 'Nuevo registro operativo' }}
+              </div>
             </div>
             <button class="qc-close-btn" (click)="closeForm()">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="1" y1="1" x2="13" y2="13"/><line x1="13" y1="1" x2="1" y2="13"/></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
           </div>
 
-          <div class="qc-body scroll-y" style="max-height:60vh;overflow-y:auto;padding:20px">
-            <div style="display:flex;flex-direction:column;gap:20px">
+          <!-- Body -->
+          <div class="qc-body scroll-y" style="display:flex;flex-direction:column;gap:20px;padding:20px">
 
               <!-- Sección 1: Datos personales -->
               <div>
@@ -385,18 +402,25 @@ function specById(catalog: CatalogItem[], id: string): CatalogItem | undefined {
                       <label class="eyebrow">Apellido <span style="color:var(--accent-red)">*</span></label>
                       <input class="qc-input" placeholder="Ej. Soto" [(ngModel)]="form().lastName" (ngModelChange)="patchForm({ lastName: $event })"/>
                     </div>
-                    <div class="qc-field" style="width:140px;flex-shrink:0">
+                  </div>
+
+                  <div class="qc-row">
+                    <div class="qc-field" style="flex:1">
+                      <label class="eyebrow">Documento</label>
+                      <input class="qc-input mono" placeholder="DNI / CUIL" [(ngModel)]="form().documento" (ngModelChange)="patchForm({ documento: $event })"/>
+                    </div>
+                    <div class="qc-field" style="flex:1">
                       <label class="eyebrow">Matrícula <span style="color:var(--accent-red)">*</span></label>
                       <input class="qc-input mono" placeholder="MP 14887" [(ngModel)]="form().matricula" (ngModelChange)="patchForm({ matricula: $event })"/>
+                    </div>
+                    <div class="qc-field" style="flex:1">
+                      <label class="eyebrow">Teléfono</label>
+                      <input class="qc-input" placeholder="+54 388 4123-7754" [(ngModel)]="form().phone" (ngModelChange)="patchForm({ phone: $event })"/>
                     </div>
                   </div>
 
                   <div class="qc-row">
                     <div class="qc-field" style="flex:1">
-                      <label class="eyebrow">Teléfono</label>
-                      <input class="qc-input" placeholder="+54 388 4123-7754" [(ngModel)]="form().phone" (ngModelChange)="patchForm({ phone: $event })"/>
-                    </div>
-                    <div class="qc-field" style="flex:2">
                       <label class="eyebrow">Email</label>
                       <input class="qc-input" type="email" placeholder="apellido@emergex.com.ar" [(ngModel)]="form().email" (ngModelChange)="patchForm({ email: $event })"/>
                     </div>
@@ -415,6 +439,41 @@ function specById(catalog: CatalogItem[], id: string): CatalogItem | undefined {
                     </div>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:0.7"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                   </div>
+
+                  <!-- Panel de Configuración de Credenciales Animado -->
+                  @if (form().linkedUser) {
+                    <div class="user-credentials-panel glass-weak" style="border: 1px dashed rgba(59,130,246,0.3); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 12px; margin-top: 4px;">
+                      <div style="display: flex; align-items: center; gap: 6px;">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                        <span class="eyebrow" style="color: var(--accent-blue); font-size: 10px;">Ajustes de Credenciales y Seguridad</span>
+                      </div>
+
+                      <div class="qc-row">
+                        <div class="qc-field" style="flex:1">
+                          <label class="eyebrow">Nombre de usuario (Login)</label>
+                          <input class="qc-input mono" placeholder="Sugerido: nombre.apellido" [(ngModel)]="form().username" (ngModelChange)="patchForm({ username: $event })"/>
+                        </div>
+                        <div class="qc-field" style="flex:1">
+                          <label class="eyebrow">Contraseña temporal</label>
+                          <input class="qc-input mono" type="password" placeholder="Dejar en blanco para autogenerar" [(ngModel)]="form().passwordTemporal" (ngModelChange)="patchForm({ passwordTemporal: $event })"/>
+                        </div>
+                      </div>
+
+                      <div class="qc-field">
+                        <label class="eyebrow">Roles y Permisos en el Sistema <span style="color:var(--accent-red)">*</span></label>
+                        <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;">
+                          @for (role of systemAuthorities(); track role) {
+                            <button type="button" class="filter-chip" style="height: 28px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--border-glass);"
+                              [attr.data-on]="form().authorities.includes(role)"
+                              (click)="toggleAuthority(role)">
+                              {{ role.replace('ROLE_', '') }}
+                            </button>
+                          }
+                        </div>
+                        <span class="mono micro" style="color: var(--text-muted); margin-top: 2px;">ROLE_USER se asigna siempre por defecto.</span>
+                      </div>
+                    </div>
+                  }
                 </div>
               </div>
 
@@ -431,20 +490,41 @@ function specById(catalog: CatalogItem[], id: string): CatalogItem | undefined {
 
                   <!-- Multiselect especialidades -->
                   <div class="qc-field">
-                    <label class="eyebrow">Especialidades y certificaciones</label>
+                    <label class="eyebrow">Especialidades y certificaciones <span style="color:var(--accent-red)">*</span></label>
                     <div class="spec-multiselect">
                       <!-- chips seleccionados -->
                       @if (form().specialties.length > 0) {
-                        <div style="display:flex;flex-wrap:wrap;gap:4px;padding:8px 10px 4px">
+                        <div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 10px 6px;border-bottom:1px solid var(--border-hairline)">
                           @for (sid of form().specialties; track sid) {
                             @let sp = getSpec(sid);
                             @if (sp) {
+                              @let isPrincipal = form().especialidadPrincipalId === Number(sid);
                               <span class="spec-chip"
                                 [style.background]="groupColor(sp.group).bg"
                                 [style.color]="groupColor(sp.group).fg"
-                                [style.border-color]="groupColor(sp.group).border"
+                                [style.border-color]="isPrincipal ? 'var(--accent-cyan)' : groupColor(sp.group).border"
+                                [style.box-shadow]="isPrincipal ? '0 0 8px rgba(34,211,238,0.2)' : 'none'"
+                                style="position:relative; padding-left: 22px;"
                               >
+                                <button type="button"
+                                  (click)="setPrincipalSpecialty(sid); $event.stopPropagation()"
+                                  style="position: absolute; left: 4px; top: 50%; transform: translateY(-50%); background: transparent; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0;"
+                                  [title]="isPrincipal ? 'Especialidad Principal' : 'Marcar como Principal'"
+                                >
+                                  <svg width="11" height="11" viewBox="0 0 24 24"
+                                    [attr.fill]="isPrincipal ? 'var(--accent-cyan)' : 'none'"
+                                    [attr.stroke]="isPrincipal ? 'var(--accent-cyan)' : 'var(--text-muted)'"
+                                    stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+                                    [style.opacity]="isPrincipal ? '1' : '0.4'"
+                                    style="transition: all 0.15s;"
+                                  >
+                                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                                  </svg>
+                                </button>
                                 {{ sp.name }}
+                                @if (isPrincipal) {
+                                  <span class="mono micro" style="color:var(--accent-cyan); font-size: 8.5px; font-weight: 700; margin-left: 2px;">(P)</span>
+                                }
                                 <button class="spec-chip__remove" (click)="removeSpecialty(sid); $event.stopPropagation()">
                                   <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="1" y1="1" x2="7" y2="7"/><line x1="7" y1="1" x2="1" y2="7"/></svg>
                                 </button>
@@ -456,11 +536,11 @@ function specById(catalog: CatalogItem[], id: string): CatalogItem | undefined {
                       <!-- input búsqueda -->
                       <div style="position:relative">
                         <input
-                          class="qc-input spec-search-input"
-                          placeholder="Buscar especialidad…"
-                          [(ngModel)]="specQuery"
-                          (focus)="specDropOpen.set(true)"
-                          (click)="$event.stopPropagation()"
+                           class="qc-input spec-search-input"
+                           placeholder="Buscar especialidad…"
+                           [(ngModel)]="specQuery"
+                           (focus)="specDropOpen.set(true)"
+                           (click)="$event.stopPropagation()"
                         />
                         @if (specDropOpen() && filteredSpecs().length > 0) {
                           <div class="spec-dropdown" (click)="$event.stopPropagation()">
@@ -564,9 +644,7 @@ function specById(catalog: CatalogItem[], id: string): CatalogItem | undefined {
 
                 </div>
               </div>
-
             </div>
-          </div>
 
           <div class="qc-foot">
             <div class="qc-hint">
@@ -1039,14 +1117,17 @@ function specById(catalog: CatalogItem[], id: string): CatalogItem | undefined {
 })
 export class StaffComponent implements OnInit {
   private staffApi = inject(StaffApiService);
+  protected readonly Number = Number;
 
   ngOnInit(): void {
     forkJoin({
       catalog: this.staffApi.getSubespecialidadesCatalog(),
       staff:   this.staffApi.getProfesionales(),
-    }).subscribe(({ catalog, staff }) => {
+      roles:   this.staffApi.getAuthorities(),
+    }).subscribe(({ catalog, staff, roles }) => {
       this.catalog.set(catalog.map(toCatalogItem));
       this.staff.set(staff.map(this.mapToMember));
+      this.systemAuthorities.set(roles);
     });
   }
 
@@ -1067,6 +1148,11 @@ export class StaffComponent implements OnInit {
       : firstName.startsWith('Op') ? 'Op.'
       : 'Dr.';
 
+    const primarySpec = b.especialidad
+      ? this.catalog().find(c => c.name.toLowerCase() === b.especialidad!.toLowerCase())
+      : undefined;
+    const especialidadPrincipalId = primarySpec ? Number(primarySpec.id) : (specialties[0] ? Number(specialties[0]) : null);
+
     return {
       id:          String(b.id),
       firstName:   b.nombre,
@@ -1075,6 +1161,7 @@ export class StaffComponent implements OnInit {
       matricula:   b.matricula ?? '',
       phone:       b.telefono ?? '',
       email:       b.email ?? '',
+      documento:   b.documento ?? '',
       photoUrl:    b.foto ?? null,
       domiciliary: b.atencionDomiciliaria,
       emergency:   b.atencionEmergencia,
@@ -1089,6 +1176,7 @@ export class StaffComponent implements OnInit {
       empresaId:   b.empresa?.id ?? 0,
       userId:      b.user?.id ?? null,
       createdAt:   b.createdAt,
+      especialidadPrincipalId,
     };
   };
 
@@ -1109,6 +1197,7 @@ export class StaffComponent implements OnInit {
   // ── State ──
   readonly catalog = signal<CatalogItem[]>([]);
   readonly staff = signal<StaffMember[]>(STAFF_SEED);
+  readonly systemAuthorities = signal<string[]>([]);
   readonly searchQuery = signal('');
   readonly statusFilter = signal('all');
   readonly habFilter = signal('all');
@@ -1166,7 +1255,9 @@ export class StaffComponent implements OnInit {
     return !this.saving() &&
       f.firstName.trim().length > 0 &&
       f.lastName.trim().length > 0 &&
-      f.matricula.trim().length > 0;
+      f.matricula.trim().length > 0 &&
+      f.specialties.length > 0 &&
+      f.especialidadPrincipalId != null;
   });
 
   readonly filteredSpecs = computed(() => {
@@ -1231,15 +1322,43 @@ export class StaffComponent implements OnInit {
   // ── Specialty management ──
   toggleSpecialty(id: string): void {
     const current = this.form().specialties;
+    let nextSpecialties = [...current];
     if (current.includes(id)) {
-      this.patchForm({ specialties: current.filter(s => s !== id) });
+      nextSpecialties = current.filter(s => s !== id);
     } else {
-      this.patchForm({ specialties: [...current, id] });
+      nextSpecialties.push(id);
     }
+
+    let principalId = this.form().especialidadPrincipalId;
+    if (nextSpecialties.length === 0) {
+      principalId = null;
+    } else if (principalId === null || !nextSpecialties.includes(String(principalId))) {
+      principalId = Number(nextSpecialties[0]);
+    }
+
+    this.patchForm({
+      specialties: nextSpecialties,
+      especialidadPrincipalId: principalId
+    });
   }
 
   removeSpecialty(id: string): void {
-    this.patchForm({ specialties: this.form().specialties.filter(s => s !== id) });
+    const nextSpecialties = this.form().specialties.filter(s => s !== id);
+    let principalId = this.form().especialidadPrincipalId;
+    if (nextSpecialties.length === 0) {
+      principalId = null;
+    } else if (principalId === null || !nextSpecialties.includes(String(principalId))) {
+      principalId = Number(nextSpecialties[0]);
+    }
+
+    this.patchForm({
+      specialties: nextSpecialties,
+      especialidadPrincipalId: principalId
+    });
+  }
+
+  setPrincipalSpecialty(id: string): void {
+    this.patchForm({ especialidadPrincipalId: Number(id) });
   }
 
   // ── Form actions ──
@@ -1254,18 +1373,32 @@ export class StaffComponent implements OnInit {
   openEditForm(m: StaffMember): void {
     this.editingStaff.set(m);
     this.form.set({
-      prefix:      m.prefix,
-      firstName:   m.firstName,
-      lastName:    m.lastName,
-      matricula:   m.matricula,
-      phone:       m.phone,
-      email:       m.email,
-      linkedUser:  m.linkedUser,
-      specialties: [...m.specialties],
-      domiciliary: m.domiciliary,
-      emergency:   m.emergency,
-      active:      m.active,
+      prefix:                  m.prefix,
+      firstName:               m.firstName,
+      lastName:                m.lastName,
+      matricula:               m.matricula,
+      documento:               m.documento ?? '',
+      phone:                   m.phone,
+      email:                   m.email,
+      linkedUser:              m.linkedUser,
+      specialties:             [...m.specialties],
+      domiciliary:             m.domiciliary,
+      emergency:               m.emergency,
+      active:                  m.active,
+      username:                m.email ? m.email.split('@')[0] : '',
+      passwordTemporal:        '',
+      authorities:             ['ROLE_USER'],
+      especialidadPrincipalId: m.especialidadPrincipalId ?? null,
     });
+
+    if (m.linkedUser) {
+      this.staffApi.getAuthoritiesByProfesional(Number(m.id)).subscribe({
+        next: (auths) => {
+          this.patchForm({ authorities: auths });
+        }
+      });
+    }
+
     this.specQuery = '';
     this.specDropOpen.set(false);
     this.formOpen.set(true);
@@ -1281,45 +1414,53 @@ export class StaffComponent implements OnInit {
     this.form.set({ ...this.form(), ...patch });
   }
 
+  toggleAuthority(role: string): void {
+    const current = this.form().authorities;
+    if (current.includes(role)) {
+      this.patchForm({ authorities: current.filter(r => r !== role) });
+    } else {
+      this.patchForm({ authorities: [...current, role] });
+    }
+  }
+
   saveForm(): void {
     if (!this.canSubmit()) return;
     const f = this.form();
     const editing = this.editingStaff();
-    const subespecialidads = f.specialties.map(id => ({ id: Number(id) }));
     this.saving.set(true);
 
-    if (editing) {
-      const numId = Number(editing.id);
-      this.staffApi.put(numId, {
-        id:                   numId,
+    const payload: IProfesionalOnboardingRequest = {
+      profesional: {
         nombre:               f.firstName.trim(),
         apellido:             f.lastName.trim(),
-        createdAt:            editing.createdAt ?? new Date().toISOString(),
-        matricula:            f.matricula.trim() || undefined,
-        telefono:             f.phone.trim() || undefined,
-        email:                f.email.trim() || undefined,
+        matricula:            f.matricula.trim(),
+        documento:            f.documento.trim() || null,
+        telefono:             f.phone.trim() || null,
+        email:                f.email.trim() || null,
         atencionDomiciliaria: f.domiciliary,
         atencionEmergencia:   f.emergency,
         activo:               f.active,
-        empresa:              { id: editing.empresaId ?? 0 },
-        user:                 editing.userId != null ? { id: editing.userId! } : undefined,
-        subespecialidads,
-      }).subscribe({
+      },
+      especialidades: {
+        especialidadPrincipalId: Number(f.especialidadPrincipalId),
+        subespecialidadIds:      f.specialties.map(id => Number(id)),
+      },
+      usuario: {
+        username:         f.linkedUser ? (f.username.trim() || null) : null,
+        email:            f.linkedUser ? (f.email.trim() || null) : null,
+        passwordTemporal: f.linkedUser ? (f.passwordTemporal.trim() || null) : null,
+        authorities:      f.linkedUser ? f.authorities : ['ROLE_USER'],
+      }
+    };
+
+    if (editing) {
+      const numId = Number(editing.id);
+      this.staffApi.onboardingUpdate(numId, payload).subscribe({
         next: () => { this.loadStaff(); this.closeForm(); this.saving.set(false); },
         error: () => this.saving.set(false),
       });
     } else {
-      this.staffApi.create({
-        nombre:               f.firstName.trim(),
-        apellido:             f.lastName.trim(),
-        activo:               f.active,
-        atencionDomiciliaria: f.domiciliary,
-        atencionEmergencia:   f.emergency,
-        matricula:            f.matricula.trim() || undefined,
-        telefono:             f.phone.trim() || undefined,
-        email:                f.email.trim() || undefined,
-        subespecialidads,
-      }).subscribe({
+      this.staffApi.onboardingCreate(payload).subscribe({
         next: () => { this.loadStaff(); this.closeForm(); this.saving.set(false); },
         error: () => this.saving.set(false),
       });

@@ -5,6 +5,7 @@ export interface ProfesionalSaludDTO {
   matricula?: string;
   telefono?: string;
   email?: string;
+  documento?: string;
   foto?: string;
   atencionDomiciliaria: boolean;
   atencionEmergencia: boolean;

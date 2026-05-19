@@ -340,7 +340,7 @@ const ALL_STEPS: StatusStep[] = [
                   <emx-empty-state message="Sin eventos registrados" />
                 } @else {
                   <ol class="flex flex-col gap-0">
-                    @for (ev of timeline(); track ev.id; let last = $last) {
+                    @for (ev of reversedTimeline(); track ev.id; let last = $last) {
                       <li class="flex gap-3">
                         <div class="flex flex-col items-center flex-shrink-0">
                           <div class="w-2.5 h-2.5 rounded-full mt-0.5 flex-shrink-0"
@@ -997,6 +997,7 @@ export class EmergencyDetailComponent implements OnInit {
   readonly error = signal<string | null>(null);
   readonly detalle = signal<TicketDetalleDTO | null>(null);
   readonly timeline = signal<LogEstadoTicketDTO[]>([]);
+  readonly reversedTimeline = computed(() => [...this.timeline()].reverse());
   readonly tracking = signal<any | null>(null);
   readonly showDispatch = signal(false);
   readonly noteText = signal('');
