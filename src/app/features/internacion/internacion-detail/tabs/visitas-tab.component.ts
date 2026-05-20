@@ -2,6 +2,7 @@ import { Component, input, inject, signal, computed } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder } from '@angular/forms';
 import { DatePipe } from '@angular/common';
 import { InternacionApiService } from '../../../../data-access/api/internacion.api';
+import { addDaysLocalYmd, localDateYmd } from '../../../../shared/utils/date-local.util';
 import {
   InternacionDomiciliariaDTO,
   VisitaProgramadaDTO,
@@ -271,10 +272,8 @@ export class VisitasTabComponent {
 }
 
 function today(): string {
-  return new Date().toISOString().split('T')[0];
+  return localDateYmd();
 }
 function thirtyDaysLater(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 30);
-  return d.toISOString().split('T')[0];
+  return addDaysLocalYmd(30);
 }

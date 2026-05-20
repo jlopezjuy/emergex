@@ -2,6 +2,7 @@ import { Component, signal, computed, HostListener, inject, OnInit } from '@angu
 import { FormsModule } from '@angular/forms';
 import { catchError, of } from 'rxjs';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
+import { localDateYmd } from '../../shared/utils/date-local.util';
 import {
   FacturacionApiService,
   FacturaDTO,
@@ -55,7 +56,7 @@ function fmtPeriodo(desde?: string, hasta?: string, tipoPeriodo?: string): strin
 }
 
 function todayISO(): string {
-  return new Date().toISOString().split('T')[0];
+  return localDateYmd();
 }
 
 function estadoColor(estado: string): string {

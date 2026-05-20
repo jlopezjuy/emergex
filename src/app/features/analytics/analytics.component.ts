@@ -3,6 +3,7 @@ import { catchError, of } from 'rxjs';
 import { DashboardApiService } from '../../data-access/api/dashboard.api';
 import { DashboardOperativoDTO } from '../../data-access/dto/dashboard.dto';
 import { GlassCardComponent } from '../../shared/components/glass-card/glass-card.component';
+import { localDateYmd } from '../../shared/utils/date-local.util';
 import { DonutChartComponent, DonutSegment } from '../../shared/components/charts/donut-chart/donut-chart.component';
 import { SparklineComponent } from '../../shared/components/charts/sparkline/sparkline.component';
 import { BarsChartComponent } from '../../shared/components/charts/bars-chart/bars-chart.component';
@@ -269,7 +270,7 @@ export class AnalyticsComponent implements OnInit {
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
   readonly data = signal<DashboardOperativoDTO | null>(null);
-  readonly selectedDate = signal<string>(new Date().toISOString().slice(0, 10));
+  readonly selectedDate = signal<string>(localDateYmd());
   readonly activePeriod = signal<Period>('30d');
 
   readonly periodTabs: { value: Period; label: string }[] = [

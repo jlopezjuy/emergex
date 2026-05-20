@@ -1472,8 +1472,11 @@ Observación: ${this.clinicalObservacion().trim() || '—'}`,
   private ensureClinicalAtencion(): Promise<AtencionFullDTO> {
     const current = this.clinicalAtencion();
     if (current?.atencionId && current.turnoId) return Promise.resolve(current);
+
+    const profesionalId = this.resolveProfesionalIdParaAtencion();
+
     return new Promise((resolve, reject) => {
-      this.emergencyApi.iniciarAtencionDesdeTicket(this.ticketId).subscribe({
+      this.emergencyApi.iniciarAtencionDesdeTicket(this.ticketId, profesionalId).subscribe({
         next: (created) => {
           this.emergencyApi.getAtencionDetalle(created.atencionId).subscribe({
             next: resolve,
@@ -1483,6 +1486,14 @@ Observación: ${this.clinicalObservacion().trim() || '—'}`,
         error: reject,
       });
     });
+  }
+
+  private resolveProfesionalIdParaAtencion(): number | undefined {
+    const tripulacion = this.detalle()?.tripulacion ?? [];
+    if (!tripulacion.length) return undefined;
+
+    const medico = tripulacion.find((t) => (t.rol ?? '').toUpperCase().includes('MED'));
+    return medico?.id ?? tripulacion[0]?.id;
   }
 
   private parseTa(value: string): { sistolica?: number; diastolica?: number } {

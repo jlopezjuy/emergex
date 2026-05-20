@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { catchError, of } from 'rxjs';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
+import { localDateYmd } from '../../shared/utils/date-local.util';
 import { PatientApiService } from '../../data-access/api/patient.api';
 import { PlansApiService } from '../../data-access/api/plans.api';
 import { AuthService } from '../../core/auth/auth.service';
@@ -107,11 +108,11 @@ function sinceMonthFromISO(iso?: string): string {
   if (!iso) return '—';
   const d = new Date(iso);
   const months = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  return `${months[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+  return `${months[d.getMonth()]} ${d.getFullYear()}`;
 }
 
 function todayISO(): string {
-  return new Date().toISOString().split('T')[0];
+  return localDateYmd();
 }
 
 function parentescoToRol(p: string): 'CO_TITULAR' | 'DEPENDIENTE' {

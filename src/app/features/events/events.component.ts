@@ -5,6 +5,7 @@ import type { BadgeVariant } from '../../shared/components/status-badge/status-b
 import { EventsApiService } from '../../data-access/api/events.api';
 import type { FrontendEvento } from '../../data-access/api/events.api';
 import { FleetApiService } from '../../data-access/api/fleet.api';
+import { localDateYmd } from '../../shared/utils/date-local.util';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -774,7 +775,7 @@ export class EventsComponent implements OnInit {
   // ── Computed ───────────────────────────────────────────────────────────────
   readonly headerKpis = computed(() => {
     const all = this.events();
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localDateYmd();
     const thisMonth = today.slice(0, 7);
     const hoy   = all.filter(e => e.dateFrom === today).length;
     const mes   = all.filter(e => e.dateFrom.startsWith(thisMonth)).length;

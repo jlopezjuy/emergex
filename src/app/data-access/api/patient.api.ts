@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { localDateYmd } from '../../shared/utils/date-local.util';
 import {
   PacienteDTO,
   CreatePacienteRequest,
@@ -46,7 +47,7 @@ export class PatientApiService {
   }
 
   removeMiembro(miembroId: number, motivo?: string): Observable<unknown> {
-    const today = new Date().toISOString().split('T')[0];
+    const today = localDateYmd();
     return this.http.patch<unknown>(`${this.miembrosBase}/${miembroId}`, {
       fechaSalida: today,
       estado: 'INACTIVA',

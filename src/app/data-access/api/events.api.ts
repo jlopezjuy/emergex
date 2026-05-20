@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
+import { localDateYmd } from '../../shared/utils/date-local.util';
 
 type BackendTipoEvento =
   | 'DEPORTIVO'
@@ -79,7 +80,7 @@ const TIPO_REVERSE_MAP: Record<FrontendEventType, BackendTipoEvento> = {
 
 function splitInstant(iso: string): { date: string; time: string } {
   const d = new Date(iso);
-  const date = d.toISOString().slice(0, 10);
+  const date = localDateYmd(d);
   const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
   return { date, time };
 }

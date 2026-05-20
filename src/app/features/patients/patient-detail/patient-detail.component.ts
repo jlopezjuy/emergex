@@ -11,6 +11,7 @@ import {
   CreatePacienteRequest, CrearCoberturaRequest, RegistrarPagoRequest,
 } from '../../../data-access/dto/patient.dto';
 import { PlanDTO } from '../../../data-access/dto/plan.dto';
+import { localDateYmd } from '../../../shared/utils/date-local.util';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -67,7 +68,7 @@ function fmtPeriodo(desde?: string, hasta?: string): string {
 }
 
 function todayISO(): string {
-  return new Date().toISOString().split('T')[0];
+  return localDateYmd();
 }
 
 function sexoFromGender(g: 'M' | 'F' | 'X'): 'MASCULINO' | 'FEMENINO' | 'OTRO' {

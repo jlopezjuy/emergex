@@ -196,10 +196,13 @@ export class EmergencyApiService {
     return this.http.get<AtencionAsistenciaItemDTO[]>(`${environment.apiUrl}/api/atenciones/ticket/${ticketId}/atenciones`);
   }
 
-  iniciarAtencionDesdeTicket(ticketId: number): Observable<IniciarAtencionDesdeTicketResponse> {
+  iniciarAtencionDesdeTicket(ticketId: number, profesionalId?: number): Observable<IniciarAtencionDesdeTicketResponse> {
     return this.http.post<IniciarAtencionDesdeTicketResponse>(
       `${environment.apiUrl}/api/atenciones/iniciar-desde-ticket/${ticketId}`,
-      { tipoConsulta: 'URGENCIA' },
+      {
+        tipoConsulta: 'URGENCIA',
+        ...(profesionalId ? { profesionalId } : {}),
+      },
     );
   }
 
