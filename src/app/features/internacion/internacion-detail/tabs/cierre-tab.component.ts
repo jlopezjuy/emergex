@@ -1,4 +1,4 @@
-import { Component, input, inject, signal, computed } from '@angular/core';
+import { Component, input, inject, signal, computed, DestroyRef } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { DatePipe } from '@angular/common';
@@ -10,6 +10,7 @@ import {
   EstadoVisita,
   EstadoPrescripcion,
 } from '../../../../data-access/dto/internacion.dto';
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 @Component({
   selector: 'emx-cierre-tab',
@@ -125,6 +126,7 @@ import {
   `,
 })
 export class CierreTabComponent {
+    private destroyRef = inject(DestroyRef);
   internacion = input.required<InternacionDomiciliariaDTO>();
   private api = inject(InternacionApiService);
   private store = inject(InternacionStore);
@@ -170,19 +172,19 @@ export class CierreTabComponent {
       motivoAlta: f.motivoAlta || undefined,
     };
 
-    this.api.cerrarInternacion(this.internacion().id, dto).subscribe({
-      next: (data) => {
-        this.submitting.set(false);
-        this.store.actualizarEnLista(data);
-        this.msg.set('Internación cerrada correctamente');
-        this.msgError.set(false);
-        setTimeout(() => this.router.navigate(['/internacion']), 1500);
-      },
-      error: (err) => {
-        this.submitting.set(false);
-        this.msg.set(err?.error?.detail ?? 'Error al cerrar internación');
-        this.msgError.set(true);
-      },
-    });
+    this.api.cerrarInternacion(this.internacion().id, dto).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: (data) => {
+              this.submitting.set(false);
+              this.store.actualizarEnLista(data);
+              this.msg.set('Internación cerrada correctamente');
+              this.msgError.set(false);
+              setTimeout(() => this.router.navigate(['/internacion']), 1500);
+            },
+            error: (err) => {
+              this.submitting.set(false);
+              this.msg.set(err?.error?.detail ?? 'Error al cerrar internación');
+              this.msgError.set(true);
+            },
+          });
   }
 }

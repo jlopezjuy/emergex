@@ -1,4 +1,4 @@
-import { Component, input, inject, signal } from '@angular/core';
+import { Component, input, inject, signal, DestroyRef } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { DatePipe } from '@angular/common';
 import { InternacionApiService } from '../../../../data-access/api/internacion.api';
@@ -6,6 +6,7 @@ import {
   InternacionDomiciliariaDTO,
   EvaluacionDomiciliariaDTO,
 } from '../../../../data-access/dto/internacion.dto';
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 @Component({
   selector: 'emx-evaluacion-tab',
@@ -237,6 +238,7 @@ import {
   `,
 })
 export class EvaluacionTabComponent {
+    private destroyRef = inject(DestroyRef);
   internacion = input.required<InternacionDomiciliariaDTO>();
   private api = inject(InternacionApiService);
   private fb = inject(FormBuilder);
@@ -303,17 +305,17 @@ export class EvaluacionTabComponent {
       espacioAdecuado: this.f.espacioAdecuado.value || undefined,
     };
 
-    this.api.cargarEvaluacion(this.internacion().id, dto).subscribe({
-      next: () => {
-        this.submitting.set(false);
-        this.editing.set(false);
-        // Refresh parent will pick up the change on next tab switch
-      },
-      error: (err) => {
-        this.submitting.set(false);
-        this.error.set(err?.error?.detail ?? 'Error al guardar evaluación');
-      },
-    });
+    this.api.cargarEvaluacion(this.internacion().id, dto).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: () => {
+              this.submitting.set(false);
+              this.editing.set(false);
+              // Refresh parent will pick up the change on next tab switch
+            },
+            error: (err) => {
+              this.submitting.set(false);
+              this.error.set(err?.error?.detail ?? 'Error al guardar evaluación');
+            },
+          });
   }
 
   resultadoColor(r: string): string {

@@ -1,10 +1,11 @@
-import { Component, input, output, inject, signal, computed, OnInit } from '@angular/core';
+import { Component, input, output, inject, signal, computed, OnInit, DestroyRef } from '@angular/core';
 import { catchError, of } from 'rxjs';
 import { FleetApiService } from '../../../data-access/api/fleet.api';
 import { UnidadMovilDTO, GuardiaDTO, TripulacionGuardiaDTO, LogTurnoDTO, ProfesionalDisponibleDTO } from '../../../data-access/dto/ambulancia.dto';
 import { LoadingStateComponent } from '../../../shared/components/loading-state/loading-state.component';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
 import { StaffApiService } from '../../../data-access/api/staff.api';
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 type TabId = 'tripulacion' | 'turnos' | 'calendario';
 type RolTripulacionUi = 'MEDICO' | 'ENFERMERO' | 'PARAMEDICO' | 'CHOFER';
@@ -212,6 +213,7 @@ const DIA_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
   `,
 })
 export class UnitScheduleModalComponent implements OnInit {
+    private destroyRef = inject(DestroyRef);
   unit = input.required<UnidadMovilDTO>();
   closed = output<void>();
   saved = output<void>();
@@ -270,7 +272,7 @@ export class UnitScheduleModalComponent implements OnInit {
   }
 
   loadProfesionales(): void {
-    this.staffApi.getDisponibles().pipe(catchError(() => of([]))).subscribe((list) => {
+    this.staffApi.getDisponibles().pipe(catchError(() => of([])), takeUntilDestroyed(this.destroyRef)).subscribe((list) => {
       this.profesionalesDisponibles.set((list ?? []).map((p) => ({
         profesionalId: p.id,
         profesionalNombre: `${p.apellido}, ${p.nombre}`.replace(/^,\s*/, '').trim(),
@@ -281,7 +283,7 @@ export class UnitScheduleModalComponent implements OnInit {
 
   loadGuardias(): void {
     this.loadingGuardias.set(true);
-    this.fleetApi.getGuardias(this.unit().id).pipe(catchError(() => of([]))).subscribe((guardias) => {
+    this.fleetApi.getGuardias(this.unit().id).pipe(catchError(() => of([])), takeUntilDestroyed(this.destroyRef)).subscribe((guardias) => {
       const turnos = this.agruparGuardias(guardias ?? []);
       this.turnosUi.set(turnos.length ? turnos : [this.nuevoTurno('Matutino', '06:00', '18:00')]);
       this.selectedTurnoId.set(this.turnosUi()[0]?.uiId ?? null);
@@ -426,17 +428,17 @@ export class UnitScheduleModalComponent implements OnInit {
       });
     }
     this.saving.set(true);
-    this.fleetApi.guardarGuardias(this.unit().id, guardias).subscribe({
-      next: () => {
-        this.saving.set(false);
-        this.saved.emit();
-        this.closed.emit();
-      },
-      error: () => {
-        this.saving.set(false);
-        this.saveError.set('No se pudo guardar. Revisá dotación mínima y solapamientos.');
-      },
-    });
+    this.fleetApi.guardarGuardias(this.unit().id, guardias).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: () => {
+              this.saving.set(false);
+              this.saved.emit();
+              this.closed.emit();
+            },
+            error: () => {
+              this.saving.set(false);
+              this.saveError.set('No se pudo guardar. Revisá dotación mínima y solapamientos.');
+            },
+          });
   }
 
   validarConfiguracion(): string[] {
@@ -461,7 +463,7 @@ export class UnitScheduleModalComponent implements OnInit {
 
   loadLogsTurnos(): void {
     this.loadingLogs.set(true);
-    this.fleetApi.getLogsTurnos(this.unit().id).pipe(catchError(() => of([]))).subscribe((data) => {
+    this.fleetApi.getLogsTurnos(this.unit().id).pipe(catchError(() => of([])), takeUntilDestroyed(this.destroyRef)).subscribe((data) => {
       this.logsTurnos.set(data);
       this.loadingLogs.set(false);
     });

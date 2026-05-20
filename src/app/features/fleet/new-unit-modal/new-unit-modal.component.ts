@@ -1,8 +1,9 @@
-import { Component, output, inject, signal } from '@angular/core';
+import { Component, output, inject, signal, DestroyRef } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { FleetApiService } from '../../../data-access/api/fleet.api';
 import { CrearAmbulanciaRequest } from '../../../data-access/dto/ambulancia.dto';
 import { ModalShellComponent } from '../../../shared/components/modal-shell/modal-shell.component';
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 @Component({
   selector: 'emx-new-unit-modal',
@@ -111,6 +112,7 @@ import { ModalShellComponent } from '../../../shared/components/modal-shell/moda
   `,
 })
 export class NewUnitModalComponent {
+    private destroyRef = inject(DestroyRef);
   created = output<void>();
   closed = output<void>();
 
@@ -152,15 +154,15 @@ export class NewUnitModalComponent {
       modelo: val.modelo || undefined,
       anio: val.anio ?? undefined,
     };
-    this.fleetApi.crearAmbulancia(req).subscribe({
-      next: () => {
-        this.saving.set(false);
-        this.created.emit();
-      },
-      error: () => {
-        this.saving.set(false);
-        this.errorMsg.set('Error al registrar la unidad. Verificá los datos e intentá de nuevo.');
-      },
-    });
+    this.fleetApi.crearAmbulancia(req).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: () => {
+              this.saving.set(false);
+              this.created.emit();
+            },
+            error: () => {
+              this.saving.set(false);
+              this.errorMsg.set('Error al registrar la unidad. Verificá los datos e intentá de nuevo.');
+            },
+          });
   }
 }

@@ -1,8 +1,9 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal, DestroyRef } from '@angular/core';
 import { catchError, of } from 'rxjs';
 import { HospitalApiService } from '../../data-access/api/hospital.api';
 import { HospitalDTO } from '../../data-access/dto/hospital.dto';
 import { HospitalModalComponent } from './hospital-modal.component';
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 // HospitalLocal agrega 'codigo' derivado del id ya que el backend no lo expone aún.
 interface HospitalLocal extends Omit<HospitalDTO, 'especialidades'> {
@@ -224,6 +225,7 @@ type StatusFilter = 'TODOS' | 'DISPONIBLE' | 'LIMITADO' | 'SATURADO';
   `,
 })
 export class HospitalsComponent implements OnInit {
+    private destroyRef = inject(DestroyRef);
   private hospitalApi = inject(HospitalApiService);
 
   readonly loading = signal(false);
@@ -286,7 +288,7 @@ export class HospitalsComponent implements OnInit {
       .pipe(catchError(() => {
         this.error.set('No se pudo conectar con el servidor');
         return of([]);
-      }))
+      }), takeUntilDestroyed(this.destroyRef))
       .subscribe((data) => {
         const mapped: HospitalLocal[] = data.map((h) => {
           const especialidades = h.especialidades 

@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, OnInit, DestroyRef } from '@angular/core';
 import { catchError, of } from 'rxjs';
 import { FleetApiService } from '../../data-access/api/fleet.api';
 import {
@@ -15,6 +15,7 @@ import { GlassCardComponent } from '../../shared/components/glass-card/glass-car
 import { LoadingStateComponent } from '../../shared/components/loading-state/loading-state.component';
 import { NewUnitModalComponent } from './new-unit-modal/new-unit-modal.component';
 import { UnitScheduleModalComponent } from './unit-schedule-modal/unit-schedule-modal.component';
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 type FleetTab = 'TODAS' | 'DISPONIBLE' | 'SIN_COBERTURA' | 'EN_SERVICIO' | 'MANTENIMIENTO';
 
@@ -380,6 +381,7 @@ type FleetTab = 'TODAS' | 'DISPONIBLE' | 'SIN_COBERTURA' | 'EN_SERVICIO' | 'MANT
   `,
 })
 export class FleetComponent implements OnInit {
+    private destroyRef = inject(DestroyRef);
   private fleetApi = inject(FleetApiService);
 
   readonly ambulancias = signal<UnidadMovilDTO[]>([]);
@@ -475,7 +477,7 @@ export class FleetComponent implements OnInit {
     this.loading.set(true);
     this.fleetApi
       .ambulancias()
-      .pipe(catchError(() => of([])))
+      .pipe(catchError(() => of([])), takeUntilDestroyed(this.destroyRef))
       .subscribe((data) => {
         this.ambulancias.set(data);
         this.loading.set(false);
@@ -502,14 +504,14 @@ export class FleetComponent implements OnInit {
 
     this.fleetApi
       .dashboard()
-      .pipe(catchError(() => of(null)))
+      .pipe(catchError(() => of(null)), takeUntilDestroyed(this.destroyRef))
       .subscribe((data) => {
         if (data) this.fleetDashboard.set(data);
       });
 
     this.fleetApi
       .metricas()
-      .pipe(catchError(() => of(null)))
+      .pipe(catchError(() => of(null)), takeUntilDestroyed(this.destroyRef))
       .subscribe((data) => this.metricas.set(data));
   }
 
@@ -524,11 +526,11 @@ export class FleetComponent implements OnInit {
     this.unitLogs.set([]);
     this.fleetApi
       .getGuardias(unit.id)
-      .pipe(catchError(() => of([])))
+      .pipe(catchError(() => of([])), takeUntilDestroyed(this.destroyRef))
       .subscribe((g) => this.unitGuardias.set(g));
     this.fleetApi
       .getLogsTurnos(unit.id)
-      .pipe(catchError(() => of([])))
+      .pipe(catchError(() => of([])), takeUntilDestroyed(this.destroyRef))
       .subscribe((logs) => {
         this.unitLogs.set(logs);
         this.detailLoading.set(false);

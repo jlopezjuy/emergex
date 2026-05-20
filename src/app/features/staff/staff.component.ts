@@ -1,9 +1,10 @@
-import { Component, signal, computed, HostListener, OnInit, inject } from '@angular/core';
+import { Component, signal, computed, HostListener, OnInit, inject, DestroyRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { StaffApiService, SubespecialidadCatalogItem, IProfesionalOnboardingRequest } from '../../data-access/api/staff.api';
 import { ProfesionalSaludDTO } from '../../data-access/dto/staff.dto';
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 // ─── Catalogs ─────────────────────────────────────────────────────────────────
 
@@ -1117,25 +1118,26 @@ function specById(catalog: CatalogItem[], id: string): CatalogItem | undefined {
   `],
 })
 export class StaffComponent implements OnInit {
+    private destroyRef = inject(DestroyRef);
   private staffApi = inject(StaffApiService);
   protected readonly Number = Number;
 
   ngOnInit(): void {
     forkJoin({
-      catalog: this.staffApi.getSubespecialidadesCatalog(),
-      staff:   this.staffApi.getProfesionales(),
-      roles:   this.staffApi.getAuthorities(),
-    }).subscribe(({ catalog, staff, roles }) => {
-      this.catalog.set(catalog.map(toCatalogItem));
-      this.staff.set(staff.map(this.mapToMember));
-      this.systemAuthorities.set(roles);
-    });
+            catalog: this.staffApi.getSubespecialidadesCatalog(),
+            staff:   this.staffApi.getProfesionales(),
+            roles:   this.staffApi.getAuthorities(),
+          }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(({ catalog, staff, roles }) => {
+            this.catalog.set(catalog.map(toCatalogItem));
+            this.staff.set(staff.map(this.mapToMember));
+            this.systemAuthorities.set(roles);
+          });
   }
 
   private loadStaff(): void {
-    this.staffApi.getProfesionales().subscribe((list: ProfesionalSaludDTO[]) => {
-      this.staff.set(list.map(this.mapToMember));
-    });
+    this.staffApi.getProfesionales().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((list: ProfesionalSaludDTO[]) => {
+            this.staff.set(list.map(this.mapToMember));
+          });
   }
 
   private mapToMember = (b: ProfesionalSaludDTO): StaffMember => {
@@ -1306,10 +1308,10 @@ export class StaffComponent implements OnInit {
     const member = this.staff().find(m => m.id === id);
     if (!member) return;
     const numId = Number(id);
-    this.staffApi.patch(numId, { id: numId, activo: !member.active }).subscribe({
-      next: () => this.loadStaff(),
-      error: () => {},
-    });
+    this.staffApi.patch(numId, { id: numId, activo: !member.active }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: () => this.loadStaff(),
+            error: () => {},
+          });
   }
 
   @HostListener('document:click')
@@ -1397,11 +1399,11 @@ export class StaffComponent implements OnInit {
     });
 
     if (m.linkedUser) {
-      this.staffApi.getAuthoritiesByProfesional(Number(m.id)).subscribe({
-        next: (auths) => {
-          this.patchForm({ authorities: auths });
-        }
-      });
+      this.staffApi.getAuthoritiesByProfesional(Number(m.id)).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+                next: (auths) => {
+                  this.patchForm({ authorities: auths });
+                }
+              });
     }
 
     this.specQuery = '';
@@ -1460,15 +1462,15 @@ export class StaffComponent implements OnInit {
 
     if (editing) {
       const numId = Number(editing.id);
-      this.staffApi.onboardingUpdate(numId, payload).subscribe({
-        next: () => { this.loadStaff(); this.closeForm(); this.saving.set(false); },
-        error: () => this.saving.set(false),
-      });
+      this.staffApi.onboardingUpdate(numId, payload).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+                next: () => { this.loadStaff(); this.closeForm(); this.saving.set(false); },
+                error: () => this.saving.set(false),
+              });
     } else {
-      this.staffApi.onboardingCreate(payload).subscribe({
-        next: () => { this.loadStaff(); this.closeForm(); this.saving.set(false); },
-        error: () => this.saving.set(false),
-      });
+      this.staffApi.onboardingCreate(payload).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+                next: () => { this.loadStaff(); this.closeForm(); this.saving.set(false); },
+                error: () => this.saving.set(false),
+              });
     }
   }
 }

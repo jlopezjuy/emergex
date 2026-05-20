@@ -1,7 +1,8 @@
-import { Component, input, inject, signal, computed, OnInit } from '@angular/core';
+import { Component, input, inject, signal, computed, OnInit, DestroyRef } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { InternacionApiService } from '../../../../data-access/api/internacion.api';
 import { InternacionDomiciliariaDTO, SignosVitalesDTO } from '../../../../data-access/dto/internacion.dto';
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 type VitalsKey = 'temperatura' | 'frecuenciaCardiaca' | 'presionSistolica' | 'presionDiastolica' | 'saturacionOxigeno' | 'frecuenciaRespiratoria';
 
@@ -96,6 +97,7 @@ const VITALS_META: { key: VitalsKey; label: string; unit: string; color: string;
   `,
 })
 export class SignosTabComponent implements OnInit {
+    private destroyRef = inject(DestroyRef);
   internacion = input.required<InternacionDomiciliariaDTO>();
   private api = inject(InternacionApiService);
 
@@ -147,12 +149,12 @@ export class SignosTabComponent implements OnInit {
 
   ngOnInit(): void {
     this.loading.set(true);
-    this.api.getSignosVitalesSerie(this.internacion().id).subscribe({
-      next: (data) => {
-        this.data.set((data ?? []).sort((a, b) => new Date(a.fechaHora).getTime() - new Date(b.fechaHora).getTime()));
-        this.loading.set(false);
-      },
-      error: () => this.loading.set(false),
-    });
+    this.api.getSignosVitalesSerie(this.internacion().id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: (data) => {
+              this.data.set((data ?? []).sort((a, b) => new Date(a.fechaHora).getTime() - new Date(b.fechaHora).getTime()));
+              this.loading.set(false);
+            },
+            error: () => this.loading.set(false),
+          });
   }
 }

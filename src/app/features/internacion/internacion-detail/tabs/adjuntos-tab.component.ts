@@ -1,7 +1,8 @@
-import { Component, input, inject, signal } from '@angular/core';
+import { Component, input, inject, signal, DestroyRef } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { InternacionApiService } from '../../../../data-access/api/internacion.api';
 import { InternacionDomiciliariaDTO } from '../../../../data-access/dto/internacion.dto';
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 @Component({
   selector: 'emx-adjuntos-tab',
@@ -81,6 +82,7 @@ import { InternacionDomiciliariaDTO } from '../../../../data-access/dto/internac
   `,
 })
 export class AdjuntosTabComponent {
+    private destroyRef = inject(DestroyRef);
   internacion = input.required<InternacionDomiciliariaDTO>();
   private api = inject(InternacionApiService);
   private fb = inject(FormBuilder);
@@ -101,31 +103,31 @@ export class AdjuntosTabComponent {
   vincularAdjunto(): void {
     if (this.adjuntoForm.invalid) return;
     const id = this.adjuntoForm.getRawValue().archivoId;
-    this.api.vincularAdjunto(this.internacion().id, id).subscribe({
-      next: () => {
-        this.adjuntos.update((l) => [...l, id]);
-        this.adjuntoForm.reset({ archivoId: 0 });
-        this.msg.set('Archivo vinculado'); this.msgError.set(false);
-      },
-      error: (err) => {
-        this.msg.set(err?.error?.detail ?? 'Error'); this.msgError.set(true);
-      },
-    });
+    this.api.vincularAdjunto(this.internacion().id, id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: () => {
+              this.adjuntos.update((l) => [...l, id]);
+              this.adjuntoForm.reset({ archivoId: 0 });
+              this.msg.set('Archivo vinculado'); this.msgError.set(false);
+            },
+            error: (err) => {
+              this.msg.set(err?.error?.detail ?? 'Error'); this.msgError.set(true);
+            },
+          });
   }
 
   vincularConsent(): void {
     if (this.consentForm.invalid) return;
     const id = this.consentForm.getRawValue().consentimientoId;
-    this.api.vincularConsentimiento(this.internacion().id, id).subscribe({
-      next: () => {
-        this.consentimientos.update((l) => [...l, id]);
-        this.consentForm.reset({ consentimientoId: 0 });
-        this.msg.set('Consentimiento vinculado'); this.msgError.set(false);
-      },
-      error: (err) => {
-        this.msg.set(err?.error?.detail ?? 'Error'); this.msgError.set(true);
-      },
-    });
+    this.api.vincularConsentimiento(this.internacion().id, id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: () => {
+              this.consentimientos.update((l) => [...l, id]);
+              this.consentForm.reset({ consentimientoId: 0 });
+              this.msg.set('Consentimiento vinculado'); this.msgError.set(false);
+            },
+            error: (err) => {
+              this.msg.set(err?.error?.detail ?? 'Error'); this.msgError.set(true);
+            },
+          });
   }
 
   removeAdjunto(id: number): void {

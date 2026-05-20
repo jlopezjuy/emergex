@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, OnInit, DestroyRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { EmergencyApiService } from '../../../data-access/api/emergency.api';
 import {
@@ -19,6 +19,7 @@ import { DispatchModalComponent } from '../../../shared/components/emergency/dis
 import { SparklineComponent } from '../../../shared/components/charts/sparkline/sparkline.component';
 import { OperationsMapComponent } from '../../../shared/components/map/operations-map/operations-map.component';
 import { UnidadMovilDTO } from '../../../data-access/dto/ambulancia.dto';
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 interface StatusStep {
   id: string;
@@ -988,6 +989,7 @@ const ALL_STEPS: StatusStep[] = [
   `],
 })
 export class EmergencyDetailComponent implements OnInit {
+    private destroyRef = inject(DestroyRef);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private emergencyApi = inject(EmergencyApiService);
@@ -1271,10 +1273,10 @@ export class EmergencyDetailComponent implements OnInit {
   }
 
   loadHospitales(): void {
-    this.emergencyApi.getHospitales().subscribe({
-      next: (data) => this.hospitales.set(data),
-      error: () => {} // non-critical
-    });
+    this.emergencyApi.getHospitales().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: (data) => this.hospitales.set(data),
+            error: () => {} // non-critical
+          });
   }
 
   load(): void {
@@ -1282,50 +1284,50 @@ export class EmergencyDetailComponent implements OnInit {
     this.loading.set(true);
     this.error.set(null);
 
-    this.emergencyApi.getDetalle(id).subscribe({
-      next: (data) => {
-        this.detalle.set(data as TicketDetalleDTO);
-        this.loadClinicalAtencion();
-        this.loadTicketGeo(id);
-        this.loadTracking(id);
-        this.loading.set(false);
-      },
-      error: () => {
-        this.error.set('Error al cargar el detalle del ticket');
-        this.loading.set(false);
-      },
-    });
+    this.emergencyApi.getDetalle(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: (data) => {
+              this.detalle.set(data as TicketDetalleDTO);
+              this.loadClinicalAtencion();
+              this.loadTicketGeo(id);
+              this.loadTracking(id);
+              this.loading.set(false);
+            },
+            error: () => {
+              this.error.set('Error al cargar el detalle del ticket');
+              this.loading.set(false);
+            },
+          });
 
-    this.emergencyApi.getTimeline(id).subscribe({
-      next: (data) => this.timeline.set(data),
-      error: () => this.timeline.set([]),
-    });
+    this.emergencyApi.getTimeline(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: (data) => this.timeline.set(data),
+            error: () => this.timeline.set([]),
+          });
   }
 
   private loadTicketGeo(id: number): void {
-    this.emergencyApi.getLatestGeo('TICKET', id).subscribe({
-      next: (geo) => {
-        this.detalle.update((current) => {
-          if (!current?.ticket) return current;
-          return {
-            ...current,
-            ticket: {
-              ...current.ticket,
-              latitud: geo.latitud,
-              longitud: geo.longitud,
+    this.emergencyApi.getLatestGeo('TICKET', id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: (geo) => {
+              this.detalle.update((current) => {
+                if (!current?.ticket) return current;
+                return {
+                  ...current,
+                  ticket: {
+                    ...current.ticket,
+                    latitud: geo.latitud,
+                    longitud: geo.longitud,
+                  },
+                };
+              });
             },
-          };
-        });
-      },
-      error: () => void 0,
-    });
+            error: () => void 0,
+          });
   }
 
   private loadTracking(id: number): void {
-    this.emergencyApi.getTracking(id).subscribe({
-      next: (tracking) => this.tracking.set(tracking),
-      error: () => this.tracking.set(null),
-    });
+    this.emergencyApi.getTracking(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: (tracking) => this.tracking.set(tracking),
+            error: () => this.tracking.set(null),
+          });
   }
 
   goBack(): void {
@@ -1342,20 +1344,20 @@ export class EmergencyDetailComponent implements OnInit {
   }
 
   loadClinicalAtencion(): void {
-    this.emergencyApi.getAtencionesPorTicket(this.ticketId).subscribe({
-      next: (items) => {
-        const first = items?.[0];
-        if (!first?.atencionId) {
-          this.clinicalAtencion.set(null);
-          return;
-        }
-        this.emergencyApi.getAtencionDetalle(first.atencionId).subscribe({
-          next: (detalle) => this.clinicalAtencion.set(detalle),
-          error: () => this.clinicalAtencion.set(null),
-        });
-      },
-      error: () => this.clinicalAtencion.set(null),
-    });
+    this.emergencyApi.getAtencionesPorTicket(this.ticketId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: (items) => {
+              const first = items?.[0];
+              if (!first?.atencionId) {
+                this.clinicalAtencion.set(null);
+                return;
+              }
+              this.emergencyApi.getAtencionDetalle(first.atencionId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+                            next: (detalle) => this.clinicalAtencion.set(detalle),
+                            error: () => this.clinicalAtencion.set(null),
+                          });
+            },
+            error: () => this.clinicalAtencion.set(null),
+          });
   }
 
   openClinicalModal(kind: 'SIGNOS' | 'PROCEDIMIENTO' | 'MEDICACION'): void {
@@ -1451,18 +1453,18 @@ Observación: ${this.clinicalObservacion().trim() || '—'}`,
         });
       }
 
-      this.emergencyApi.guardarAtencionCompleta(this.sanitizeClinicalPayload(updated)).subscribe({
-        next: (saved) => {
-          this.clinicalAtencion.set(saved);
-          this.savingClinical.set(false);
-          this.clinicalModal.set(null);
-          this.load();
-        },
-        error: (error) => {
-          this.savingClinical.set(false);
-          this.clinicalError.set(error?.error?.title ?? error?.error?.detail ?? 'No se pudo guardar la carga clínica');
-        },
-      });
+      this.emergencyApi.guardarAtencionCompleta(this.sanitizeClinicalPayload(updated)).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+                next: (saved) => {
+                  this.clinicalAtencion.set(saved);
+                  this.savingClinical.set(false);
+                  this.clinicalModal.set(null);
+                  this.load();
+                },
+                error: (error) => {
+                  this.savingClinical.set(false);
+                  this.clinicalError.set(error?.error?.title ?? error?.error?.detail ?? 'No se pudo guardar la carga clínica');
+                },
+              });
     }).catch((error) => {
       this.savingClinical.set(false);
       this.clinicalError.set(error?.message ?? 'No se pudo preparar la atención clínica');
@@ -1476,15 +1478,15 @@ Observación: ${this.clinicalObservacion().trim() || '—'}`,
     const profesionalId = this.resolveProfesionalIdParaAtencion();
 
     return new Promise((resolve, reject) => {
-      this.emergencyApi.iniciarAtencionDesdeTicket(this.ticketId, profesionalId).subscribe({
-        next: (created) => {
-          this.emergencyApi.getAtencionDetalle(created.atencionId).subscribe({
-            next: resolve,
-            error: reject,
-          });
-        },
-        error: reject,
-      });
+      this.emergencyApi.iniciarAtencionDesdeTicket(this.ticketId, profesionalId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+                next: (created) => {
+                  this.emergencyApi.getAtencionDetalle(created.atencionId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+                                  next: resolve,
+                                  error: reject,
+                                });
+                },
+                error: reject,
+              });
     });
   }
 
@@ -1578,38 +1580,38 @@ Observación: ${this.clinicalObservacion().trim() || '—'}`,
     if (!nota) return;
     this.notaError.set(null);
     this.notaOk.set(false);
-    this.emergencyApi.agregarNota(this.ticketId, nota).subscribe({
-      next: () => {
-        this.noteText.set('');
-        this.notaOk.set(true);
-        setTimeout(() => this.notaOk.set(false), 3000);
-        this.load();
-      },
-      error: () => {
-        this.notaError.set('No se pudo guardar la nota');
-      },
-    });
+    this.emergencyApi.agregarNota(this.ticketId, nota).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: () => {
+              this.noteText.set('');
+              this.notaOk.set(true);
+              setTimeout(() => this.notaOk.set(false), 3000);
+              this.load();
+            },
+            error: () => {
+              this.notaError.set('No se pudo guardar la nota');
+            },
+          });
   }
 
   marcarEnCamino(): void {
-    this.emergencyApi.enCamino(this.ticketId).subscribe({
-      next: () => this.load(),
-      error: () => this.error.set('Error al marcar en camino'),
-    });
+    this.emergencyApi.enCamino(this.ticketId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: () => this.load(),
+            error: () => this.error.set('Error al marcar en camino'),
+          });
   }
 
   marcarEnSitio(): void {
-    this.emergencyApi.enSitio(this.ticketId).subscribe({
-      next: () => this.load(),
-      error: () => this.error.set('Error al marcar en sitio'),
-    });
+    this.emergencyApi.enSitio(this.ticketId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: () => this.load(),
+            error: () => this.error.set('Error al marcar en sitio'),
+          });
   }
 
   iniciarTraslado(): void {
-    this.emergencyApi.iniciarTraslado(this.ticketId).subscribe({
-      next: () => this.load(),
-      error: () => this.error.set('Error al iniciar traslado'),
-    });
+    this.emergencyApi.iniciarTraslado(this.ticketId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: () => this.load(),
+            error: () => this.error.set('Error al iniciar traslado'),
+          });
   }
 
   finalizarTraslado(): void {
@@ -1650,27 +1652,27 @@ Observación: ${this.clinicalObservacion().trim() || '—'}`,
       firmaReceptor: this.entregaFirmaReceptor().trim() || undefined,
     };
 
-    this.emergencyApi.registrarEntregaHospitalaria(this.ticketId, dto).subscribe({
-      next: () => {
-        // Now finalize the transfer
-        this.emergencyApi.finalizarTraslado(this.ticketId).subscribe({
-          next: () => {
-            this.showEntregaModal.set(false);
-            this.entregaSaving.set(false);
-            this.load();
-          },
-          error: () => {
-            this.entregaSaving.set(false);
-            this.entregaError.set('Entrega registrada pero error al finalizar traslado');
-            this.load();
-          },
-        });
-      },
-      error: (err) => {
-        this.entregaSaving.set(false);
-        this.entregaError.set(err?.error?.detail ?? 'Error al registrar la entrega hospitalaria');
-      },
-    });
+    this.emergencyApi.registrarEntregaHospitalaria(this.ticketId, dto).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: () => {
+              // Now finalize the transfer
+              this.emergencyApi.finalizarTraslado(this.ticketId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+                            next: () => {
+                              this.showEntregaModal.set(false);
+                              this.entregaSaving.set(false);
+                              this.load();
+                            },
+                            error: () => {
+                              this.entregaSaving.set(false);
+                              this.entregaError.set('Entrega registrada pero error al finalizar traslado');
+                              this.load();
+                            },
+                          });
+            },
+            error: (err) => {
+              this.entregaSaving.set(false);
+              this.entregaError.set(err?.error?.detail ?? 'Error al registrar la entrega hospitalaria');
+            },
+          });
   }
 
   cerrar(): void {
@@ -1725,13 +1727,13 @@ Observación: ${this.clinicalObservacion().trim() || '—'}`,
         },
       },
     };
-    this.emergencyApi.cerrar(this.ticketId, req).subscribe({
-      next: () => {
-        this.showCloseDialog.set(false);
-        this.load();
-      },
-      error: () => this.error.set('Error al cerrar el ticket'),
-    });
+    this.emergencyApi.cerrar(this.ticketId, req).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: () => {
+              this.showCloseDialog.set(false);
+              this.load();
+            },
+            error: () => this.error.set('Error al cerrar el ticket'),
+          });
   }
 
   cancelar(): void {
@@ -1743,14 +1745,14 @@ Observación: ${this.clinicalObservacion().trim() || '—'}`,
     const motivo = this.cancelMotivo().trim();
     if (!motivo) return;
     const req: CancelarTicketRequest = { motivo };
-    this.emergencyApi.cancelar(this.ticketId, req).subscribe({
-      next: () => {
-        this.showCancelDialog.set(false);
-        this.cancelMotivo.set('');
-        this.load();
-      },
-      error: () => this.error.set('Error al cancelar el ticket'),
-    });
+    this.emergencyApi.cancelar(this.ticketId, req).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: () => {
+              this.showCancelDialog.set(false);
+              this.cancelMotivo.set('');
+              this.load();
+            },
+            error: () => this.error.set('Error al cancelar el ticket'),
+          });
   }
 
   timelineColor(estado: string): string {

@@ -1,4 +1,4 @@
-import { Component, signal, computed, inject, OnInit } from '@angular/core';
+import { Component, signal, computed, inject, OnInit, DestroyRef } from '@angular/core';
 import { catchError, of } from 'rxjs';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import type { BadgeVariant } from '../../shared/components/status-badge/status-badge.component';
@@ -6,6 +6,7 @@ import { EventsApiService } from '../../data-access/api/events.api';
 import type { FrontendEvento } from '../../data-access/api/events.api';
 import { FleetApiService } from '../../data-access/api/fleet.api';
 import { localDateYmd } from '../../shared/utils/date-local.util';
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -725,6 +726,7 @@ function initialForm(): NewEventForm {
   `,
 })
 export class EventsComponent implements OnInit {
+    private destroyRef = inject(DestroyRef);
   private eventsApi = inject(EventsApiService);
   private fleetApi = inject(FleetApiService);
 
@@ -881,7 +883,7 @@ export class EventsComponent implements OnInit {
   ngOnInit(): void {
     this.loadEvents();
     this.fleetApi.ambulancias().pipe(
-      catchError(() => of([])),
+      catchError(() => of([])), takeUntilDestroyed(this.destroyRef)
     ).subscribe(units => {
       this.ambulances.set(units.map(u => ({
         id:     u.identificador ?? String(u.id),
@@ -894,7 +896,7 @@ export class EventsComponent implements OnInit {
 
   private loadEvents(): void {
     this.eventsApi.getAll().pipe(
-      catchError(() => of([])),
+      catchError(() => of([])), takeUntilDestroyed(this.destroyRef)
     ).subscribe(data => this.events.set(data));
   }
 
@@ -917,12 +919,12 @@ export class EventsComponent implements OnInit {
       units:       [...f.units],
       status:      'scheduled',
     };
-    this.eventsApi.create(payload).subscribe(() => {
-      this.loadEvents();
-      this.newEventOpen.set(false);
-      this.form.set(initialForm());
-      this.formStep.set(0);
-    });
+    this.eventsApi.create(payload).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+            this.loadEvents();
+            this.newEventOpen.set(false);
+            this.form.set(initialForm());
+            this.formStep.set(0);
+          });
   }
 
   openNewEvent(): void {

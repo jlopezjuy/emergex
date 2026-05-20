@@ -1,10 +1,11 @@
-import { Component, inject, input, output, signal, OnInit } from '@angular/core';
+import { Component, inject, input, output, signal, OnInit, DestroyRef } from '@angular/core';
 import { TicketAsistenciaDTO } from '../../../../data-access/dto/ticket.dto';
 import { AsignarMovilRequestDTO, UnidadMovilDTO } from '../../../../data-access/dto/ambulancia.dto';
 import { FleetApiService } from '../../../../data-access/api/fleet.api';
 import { ModalShellComponent } from '../../modal-shell/modal-shell.component';
 import { LoadingStateComponent } from '../../loading-state/loading-state.component';
 import { EmptyStateComponent } from '../../empty-state/empty-state.component';
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 @Component({
   selector: 'emx-dispatch-modal',
@@ -58,6 +59,7 @@ import { EmptyStateComponent } from '../../empty-state/empty-state.component';
   `,
 })
 export class DispatchModalComponent implements OnInit {
+    private destroyRef = inject(DestroyRef);
   emergency = input.required<TicketAsistenciaDTO>();
 
   dispatched = output<void>();
@@ -72,16 +74,16 @@ export class DispatchModalComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadingUnits.set(true);
-    this.fleetApi.ambulanciasDisponibles().subscribe({
-      next: (data) => {
-        this.availableUnits.set(data);
-        this.loadingUnits.set(false);
-      },
-      error: () => {
-        this.availableUnits.set([]);
-        this.loadingUnits.set(false);
-      },
-    });
+    this.fleetApi.ambulanciasDisponibles().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: (data) => {
+              this.availableUnits.set(data);
+              this.loadingUnits.set(false);
+            },
+            error: () => {
+              this.availableUnits.set([]);
+              this.loadingUnits.set(false);
+            },
+          });
   }
 
   confirmDispatch(): void {
@@ -89,12 +91,12 @@ export class DispatchModalComponent implements OnInit {
     if (!unitId) return;
     this.dispatching.set(true);
     const req: AsignarMovilRequestDTO = { ambulanciaId: unitId, usarTripulacionActiva: true };
-    this.fleetApi.asignarMovil(this.emergency().id, req).subscribe({
-      next: () => {
-        this.dispatching.set(false);
-        this.dispatched.emit();
-      },
-      error: () => this.dispatching.set(false),
-    });
+    this.fleetApi.asignarMovil(this.emergency().id, req).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: () => {
+              this.dispatching.set(false);
+              this.dispatched.emit();
+            },
+            error: () => this.dispatching.set(false),
+          });
   }
 }

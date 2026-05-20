@@ -1,7 +1,8 @@
-import { Component, OnInit, inject, signal, computed, HostListener } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, HostListener, DestroyRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { PlansApiService } from '../../data-access/api/plans.api';
 import { PlanDTO, PlanCoverages } from '../../data-access/dto/plan.dto';
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
@@ -833,7 +834,7 @@ function emptyForm(): PlanForm {
   `],
 })
 export class PlansComponent implements OnInit {
-
+    private destroyRef = inject(DestroyRef);
   private api = inject(PlansApiService);
 
   readonly coverageMeta = COVERAGE_META;
@@ -925,7 +926,7 @@ export class PlansComponent implements OnInit {
 
   // ── Lifecycle ──
   ngOnInit(): void {
-    this.api.getAll().subscribe(data => this.plans.set(data));
+    this.api.getAll().pipe(takeUntilDestroyed(this.destroyRef)).subscribe(data => this.plans.set(data));
   }
 
   // ── Actions ──
@@ -1005,10 +1006,10 @@ export class PlansComponent implements OnInit {
     };
 
     const op = editing ? this.api.update(dto) : this.api.create(dto);
-    op.subscribe(() => {
-      this.api.getAll().subscribe(data => this.plans.set(data));
-      this.closeForm();
-    });
+    op.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+            this.api.getAll().pipe(takeUntilDestroyed(this.destroyRef)).subscribe(data => this.plans.set(data));
+            this.closeForm();
+          });
   }
 
   @HostListener('document:keydown.escape')

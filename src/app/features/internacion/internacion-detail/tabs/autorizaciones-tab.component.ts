@@ -1,4 +1,4 @@
-import { Component, input, inject, signal, OnInit } from '@angular/core';
+import { Component, input, inject, signal, OnInit, DestroyRef } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { DatePipe } from '@angular/common';
 import { InternacionApiService } from '../../../../data-access/api/internacion.api';
@@ -7,6 +7,7 @@ import {
   AutorizacionInternacionDTO,
   EstadoAutorizacion,
 } from '../../../../data-access/dto/internacion.dto';
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 @Component({
   selector: 'emx-autorizaciones-tab',
@@ -194,6 +195,7 @@ import {
   `,
 })
 export class AutorizacionesTabComponent implements OnInit {
+    private destroyRef = inject(DestroyRef);
   internacion = input.required<InternacionDomiciliariaDTO>();
   private api = inject(InternacionApiService);
   private fb = inject(FormBuilder);
@@ -231,9 +233,9 @@ export class AutorizacionesTabComponent implements OnInit {
   }
 
   private load(): void {
-    this.api.listarAutorizaciones(this.internacion().id).subscribe({
-      next: (data) => this.autorizaciones.set(data ?? []),
-    });
+    this.api.listarAutorizaciones(this.internacion().id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: (data) => this.autorizaciones.set(data ?? []),
+          });
   }
 
   solicitar(): void {
@@ -241,16 +243,16 @@ export class AutorizacionesTabComponent implements OnInit {
     this.submitting.set(true);
     const f = this.form.getRawValue();
     this.api.solicitarAutorizacion(this.internacion().id, {
-      obraSocial: { id: f.obraSocialId },
-      numeroAutorizacion: f.numeroAutorizacion || undefined,
-      fechaVigenciaDesde: f.fechaVigenciaDesde,
-      fechaVigenciaHasta: f.fechaVigenciaHasta,
-      observaciones: f.observaciones || undefined,
-      estado: 'SOLICITADA',
-    }).subscribe({
-      next: () => { this.submitting.set(false); this.showCreate.set(false); this.load(); },
-      error: (err) => { this.submitting.set(false); this.msg.set(err?.error?.detail ?? 'Error'); this.msgError.set(true); },
-    });
+            obraSocial: { id: f.obraSocialId },
+            numeroAutorizacion: f.numeroAutorizacion || undefined,
+            fechaVigenciaDesde: f.fechaVigenciaDesde,
+            fechaVigenciaHasta: f.fechaVigenciaHasta,
+            observaciones: f.observaciones || undefined,
+            estado: 'SOLICITADA',
+          }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: () => { this.submitting.set(false); this.showCreate.set(false); this.load(); },
+            error: (err) => { this.submitting.set(false); this.msg.set(err?.error?.detail ?? 'Error'); this.msgError.set(true); },
+          });
   }
 
   openAprobar(a: AutorizacionInternacionDTO): void {
@@ -273,25 +275,25 @@ export class AutorizacionesTabComponent implements OnInit {
 
   aprobar(id: number): void {
     if (this.aprobarForm.invalid) return;
-    this.api.aprobarAutorizacion(id, this.aprobarForm.getRawValue()).subscribe({
-      next: () => { this.actionTarget.set(null); this.load(); },
-      error: (err) => { this.msg.set(err?.error?.detail ?? 'Error'); this.msgError.set(true); },
-    });
+    this.api.aprobarAutorizacion(id, this.aprobarForm.getRawValue()).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: () => { this.actionTarget.set(null); this.load(); },
+            error: (err) => { this.msg.set(err?.error?.detail ?? 'Error'); this.msgError.set(true); },
+          });
   }
 
   rechazar(id: number): void {
     if (this.rechazarForm.invalid) return;
-    this.api.rechazarAutorizacion(id, this.rechazarForm.getRawValue()).subscribe({
-      next: () => { this.actionTarget.set(null); this.load(); },
-      error: (err) => { this.msg.set(err?.error?.detail ?? 'Error'); this.msgError.set(true); },
-    });
+    this.api.rechazarAutorizacion(id, this.rechazarForm.getRawValue()).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: () => { this.actionTarget.set(null); this.load(); },
+            error: (err) => { this.msg.set(err?.error?.detail ?? 'Error'); this.msgError.set(true); },
+          });
   }
 
   marcarVencida(id: number): void {
-    this.api.marcarVencidaAutorizacion(id).subscribe({
-      next: () => this.load(),
-      error: (err) => { this.msg.set(err?.error?.detail ?? 'Error'); this.msgError.set(true); },
-    });
+    this.api.marcarVencidaAutorizacion(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: () => this.load(),
+            error: (err) => { this.msg.set(err?.error?.detail ?? 'Error'); this.msgError.set(true); },
+          });
   }
 
   estadoColor(e: EstadoAutorizacion): string {

@@ -1,4 +1,4 @@
-import { Component, signal, computed, HostListener, inject, OnInit } from '@angular/core';
+import { Component, signal, computed, HostListener, inject, OnInit, DestroyRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { catchError, of } from 'rxjs';
@@ -9,6 +9,7 @@ import { PlansApiService } from '../../data-access/api/plans.api';
 import { AuthService } from '../../core/auth/auth.service';
 import { PacienteDTO } from '../../data-access/dto/patient.dto';
 import { PlanDTO } from '../../data-access/dto/plan.dto';
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -779,6 +780,7 @@ function sexoFromGender(g: 'M' | 'F' | 'X'): 'MASCULINO' | 'FEMENINO' | 'OTRO' {
   `],
 })
 export class PatientsComponent implements OnInit {
+    private destroyRef = inject(DestroyRef);
   private patientApi  = inject(PatientApiService);
   private plansApi    = inject(PlansApiService);
   private authService = inject(AuthService);
@@ -870,7 +872,7 @@ export class PatientsComponent implements OnInit {
     const editId = Number(this.route.snapshot.queryParams['edit']) || null;
     this.loading.set(true);
     this.patientApi.getAll().pipe(
-      catchError(() => of([] as PacienteDTO[])),
+      catchError(() => of([] as PacienteDTO[])), takeUntilDestroyed(this.destroyRef)
     ).subscribe(dtos => {
       const rows = dtos.map(p => this.mapDTO(p));
       this.patients.set(rows);
@@ -885,7 +887,7 @@ export class PatientsComponent implements OnInit {
   private loadPlans(): void {
     this.loadingPlans.set(true);
     this.plansApi.getAll().pipe(
-      catchError(() => of([] as PlanDTO[])),
+      catchError(() => of([] as PlanDTO[])), takeUntilDestroyed(this.destroyRef)
     ).subscribe(plans => {
       this.apiPlans.set(plans.filter(p => p.active));
       this.loadingPlans.set(false);
@@ -1018,7 +1020,7 @@ export class PatientsComponent implements OnInit {
         this.formError.set(err?.error?.detail ?? err?.error?.title ?? 'Error al guardar. Revisá los datos.');
         this.savingForm.set(false);
         return of(null);
-      }),
+      }), takeUntilDestroyed(this.destroyRef)
     ).subscribe(saved => {
       if (!saved) return;
       this.savingForm.set(false);
@@ -1032,7 +1034,7 @@ export class PatientsComponent implements OnInit {
             tipoCobertura: 'PLAN_PROPIO',
             planComercialId: planIdNum,
             vigenciaDesde: todayISO(),
-          }).pipe(catchError(() => of(null))).subscribe();
+          }).pipe(catchError(() => of(null)), takeUntilDestroyed(this.destroyRef)).subscribe();
         }
       }
 

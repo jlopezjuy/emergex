@@ -1,7 +1,8 @@
-import { Component, input, inject, signal, OnInit } from '@angular/core';
+import { Component, input, inject, signal, OnInit, DestroyRef } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { InternacionApiService } from '../../../../data-access/api/internacion.api';
 import { InternacionDomiciliariaDTO, InternacionTimelineItemDTO } from '../../../../data-access/dto/internacion.dto';
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 @Component({
   selector: 'emx-overview-tab',
@@ -137,6 +138,7 @@ import { InternacionDomiciliariaDTO, InternacionTimelineItemDTO } from '../../..
   `,
 })
 export class OverviewTabComponent implements OnInit {
+    private destroyRef = inject(DestroyRef);
   internacion = input.required<InternacionDomiciliariaDTO>();
   private api = inject(InternacionApiService);
 
@@ -150,24 +152,24 @@ export class OverviewTabComponent implements OnInit {
     const id = this.internacion().id;
     this.loading.set(true);
 
-    this.api.getTimeline(id).subscribe({
-      next: (data) => {
-        this.timeline.set(data ?? []);
-        this.loading.set(false);
-      },
-      error: () => this.loading.set(false),
-    });
+    this.api.getTimeline(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: (data) => {
+              this.timeline.set(data ?? []);
+              this.loading.set(false);
+            },
+            error: () => this.loading.set(false),
+          });
 
-    this.api.getContactosUtiles(id).subscribe({
-      next: (data) => {
-        this.contactos.set(data);
-        // Extract non-standard entries
-        const entries = Object.entries(data ?? {}).filter(
-          ([k]) => k !== 'Familiar Responsable' && k !== 'Teléfono Emergencia'
-        );
-        this.contactEntries.set(entries);
-      },
-    });
+    this.api.getContactosUtiles(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: (data) => {
+              this.contactos.set(data);
+              // Extract non-standard entries
+              const entries = Object.entries(data ?? {}).filter(
+                ([k]) => k !== 'Familiar Responsable' && k !== 'Teléfono Emergencia'
+              );
+              this.contactEntries.set(entries);
+            },
+          });
   }
 
   timelineColor(tipo: string): string {

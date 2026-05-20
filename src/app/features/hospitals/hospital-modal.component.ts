@@ -1,8 +1,9 @@
-import { Component, OnInit, input, output, inject, signal } from '@angular/core';
+import { Component, OnInit, input, output, inject, signal, DestroyRef } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { HospitalApiService } from '../../data-access/api/hospital.api';
 import { HospitalDTO } from '../../data-access/dto/hospital.dto';
 import { ModalShellComponent } from '../../shared/components/modal-shell/modal-shell.component';
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 @Component({
   selector: 'emx-hospital-modal',
@@ -275,6 +276,7 @@ import { ModalShellComponent } from '../../shared/components/modal-shell/modal-s
   `,
 })
 export class HospitalModalComponent implements OnInit {
+    private destroyRef = inject(DestroyRef);
   hospital = input<HospitalDTO | null>(null);
   
   saved = output<void>();
@@ -371,15 +373,15 @@ export class HospitalModalComponent implements OnInit {
       ? this.hospitalApi.actualizar(this.hospital()!.id, dto)
       : this.hospitalApi.crear(dto);
 
-    action$.subscribe({
-      next: () => {
-        this.saving.set(false);
-        this.saved.emit();
-      },
-      error: () => {
-        this.saving.set(false);
-        this.errorMsg.set('Ocurrió un error al procesar la solicitud. Verificá los datos.');
-      }
-    });
+    action$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: () => {
+              this.saving.set(false);
+              this.saved.emit();
+            },
+            error: () => {
+              this.saving.set(false);
+              this.errorMsg.set('Ocurrió un error al procesar la solicitud. Verificá los datos.');
+            }
+          });
   }
 }

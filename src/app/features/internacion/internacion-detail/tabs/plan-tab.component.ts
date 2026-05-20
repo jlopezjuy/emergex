@@ -1,4 +1,4 @@
-import { Component, input, inject, signal, OnInit } from '@angular/core';
+import { Component, input, inject, signal, OnInit, DestroyRef } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { DatePipe } from '@angular/common';
 import { InternacionApiService } from '../../../../data-access/api/internacion.api';
@@ -7,6 +7,7 @@ import {
   PlanCuidadoDTO,
   CambioPlanCuidadoDTO,
 } from '../../../../data-access/dto/internacion.dto';
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 @Component({
   selector: 'emx-plan-tab',
@@ -207,6 +208,7 @@ import {
   `,
 })
 export class PlanTabComponent implements OnInit {
+    private destroyRef = inject(DestroyRef);
   internacion = input.required<InternacionDomiciliariaDTO>();
   private api = inject(InternacionApiService);
   private fb = inject(FormBuilder);
@@ -238,10 +240,10 @@ export class PlanTabComponent implements OnInit {
   }
 
   private loadHistorial(): void {
-    this.api.getHistorialPlan(this.internacion().id).subscribe({
-      next: (data) => this.historial.set(data ?? []),
-      error: () => {},
-    });
+    this.api.getHistorialPlan(this.internacion().id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: (data) => this.historial.set(data ?? []),
+            error: () => {},
+          });
   }
 
   startEdit(): void {
@@ -279,16 +281,16 @@ export class PlanTabComponent implements OnInit {
       observacionFamilia: this.f.observacionFamilia.value || undefined,
     };
 
-    this.api.definirPlanCuidado(this.internacion().id, dto).subscribe({
-      next: () => {
-        this.submitting.set(false);
-        this.editing.set(false);
-        this.loadHistorial();
-      },
-      error: (err) => {
-        this.submitting.set(false);
-        this.error.set(err?.error?.detail ?? 'Error al guardar plan');
-      },
-    });
+    this.api.definirPlanCuidado(this.internacion().id, dto).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: () => {
+              this.submitting.set(false);
+              this.editing.set(false);
+              this.loadHistorial();
+            },
+            error: (err) => {
+              this.submitting.set(false);
+              this.error.set(err?.error?.detail ?? 'Error al guardar plan');
+            },
+          });
   }
 }

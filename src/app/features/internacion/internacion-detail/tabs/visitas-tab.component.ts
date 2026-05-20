@@ -1,4 +1,4 @@
-import { Component, input, inject, signal, computed } from '@angular/core';
+import { Component, input, inject, signal, computed, DestroyRef } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder } from '@angular/forms';
 import { DatePipe } from '@angular/common';
 import { InternacionApiService } from '../../../../data-access/api/internacion.api';
@@ -9,6 +9,7 @@ import {
   EstadoVisita,
   TipoVisita,
 } from '../../../../data-access/dto/internacion.dto';
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 @Component({
   selector: 'emx-visitas-tab',
@@ -159,6 +160,7 @@ import {
   `,
 })
 export class VisitasTabComponent {
+    private destroyRef = inject(DestroyRef);
   internacion = input.required<InternacionDomiciliariaDTO>();
   private api = inject(InternacionApiService);
   private fb = inject(FormBuilder);
@@ -190,40 +192,39 @@ export class VisitasTabComponent {
     this.generating.set(true);
     this.msg.set(null);
     this.api
-      .generarVisitas(this.internacion().id, this.desdeCtrl.value!, this.hastaCtrl.value!, this.tipoCtrl.value!)
-      .subscribe({
-        next: () => {
-          this.generating.set(false);
-          this.msg.set('Visitas generadas correctamente');
-          this.msgError.set(false);
-          this.loadVisitas();
-        },
-        error: (err) => {
-          this.generating.set(false);
-          this.msg.set(err?.error?.detail ?? 'Error al generar visitas');
-          this.msgError.set(true);
-        },
-      });
+            .generarVisitas(this.internacion().id, this.desdeCtrl.value!, this.hastaCtrl.value!, this.tipoCtrl.value!).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+              next: () => {
+                this.generating.set(false);
+                this.msg.set('Visitas generadas correctamente');
+                this.msgError.set(false);
+                this.loadVisitas();
+              },
+              error: (err) => {
+                this.generating.set(false);
+                this.msg.set(err?.error?.detail ?? 'Error al generar visitas');
+                this.msgError.set(true);
+              },
+            });
   }
 
   iniciar(visitaId: number): void {
-    this.api.iniciarVisita(visitaId).subscribe({
-      next: () => this.loadVisitas(),
-      error: (err) => {
-        this.msg.set(err?.error?.detail ?? 'Error al iniciar visita');
-        this.msgError.set(true);
-      },
-    });
+    this.api.iniciarVisita(visitaId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: () => this.loadVisitas(),
+            error: (err) => {
+              this.msg.set(err?.error?.detail ?? 'Error al iniciar visita');
+              this.msgError.set(true);
+            },
+          });
   }
 
   finalizar(visitaId: number): void {
-    this.api.finalizarVisita(visitaId, {}).subscribe({
-      next: () => this.loadVisitas(),
-      error: (err) => {
-        this.msg.set(err?.error?.detail ?? 'Error al finalizar visita');
-        this.msgError.set(true);
-      },
-    });
+    this.api.finalizarVisita(visitaId, {}).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: () => this.loadVisitas(),
+            error: (err) => {
+              this.msg.set(err?.error?.detail ?? 'Error al finalizar visita');
+              this.msgError.set(true);
+            },
+          });
   }
 
   openReprogramar(v: VisitaProgramadaDTO): void {
@@ -235,16 +236,16 @@ export class VisitasTabComponent {
   confirmReprogramar(): void {
     const v = this.reprogramando();
     if (!v?.id || !this.reproFechaCtrl.value) return;
-    this.api.reprogramarVisita(v.id, this.reproFechaCtrl.value + ':00.000Z', this.reproMotivoCtrl.value || 'Reprogramación').subscribe({
-      next: () => {
-        this.reprogramando.set(null);
-        this.loadVisitas();
-      },
-      error: (err) => {
-        this.msg.set(err?.error?.detail ?? 'Error al reprogramar');
-        this.msgError.set(true);
-      },
-    });
+    this.api.reprogramarVisita(v.id, this.reproFechaCtrl.value + ':00.000Z', this.reproMotivoCtrl.value || 'Reprogramación').pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: () => {
+              this.reprogramando.set(null);
+              this.loadVisitas();
+            },
+            error: (err) => {
+              this.msg.set(err?.error?.detail ?? 'Error al reprogramar');
+              this.msgError.set(true);
+            },
+          });
   }
 
   private loadVisitas(): void {

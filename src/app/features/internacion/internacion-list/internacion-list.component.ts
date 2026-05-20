@@ -1,10 +1,11 @@
-import { Component, inject, signal, computed, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, OnInit, DestroyRef } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { InternacionStore } from '../../../core/stores/internacion.store';
 import { InternacionApiService } from '../../../data-access/api/internacion.api';
 import { EstadoInternacion, AlertaInternacion, VisitaProgramadaDTO } from '../../../data-access/dto/internacion.dto';
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 @Component({
   selector: 'emx-internacion-list',
@@ -208,6 +209,7 @@ import { EstadoInternacion, AlertaInternacion, VisitaProgramadaDTO } from '../..
   `,
 })
 export class InternacionListComponent implements OnInit {
+    private destroyRef = inject(DestroyRef);
   store = inject(InternacionStore);
   private api = inject(InternacionApiService);
 
@@ -272,12 +274,12 @@ export class InternacionListComponent implements OnInit {
   }
 
   private loadKPIs(): void {
-    this.api.getVisitasPendientes().subscribe({
-      next: (data) => this.visitasPendientes.set(data?.length ?? 0),
-    });
-    this.api.getAlertasAbiertas().subscribe({
-      next: (data) => this.alertasAbiertas.set(data?.length ?? 0),
-    });
+    this.api.getVisitasPendientes().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: (data) => this.visitasPendientes.set(data?.length ?? 0),
+          });
+    this.api.getAlertasAbiertas().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: (data) => this.alertasAbiertas.set(data?.length ?? 0),
+          });
   }
 
   estadoLabel(estado: EstadoInternacion): string {

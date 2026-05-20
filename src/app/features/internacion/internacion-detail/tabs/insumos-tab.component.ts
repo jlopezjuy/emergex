@@ -1,8 +1,9 @@
-import { Component, input, inject, signal } from '@angular/core';
+import { Component, input, inject, signal, DestroyRef } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { DatePipe } from '@angular/common';
 import { InternacionApiService } from '../../../../data-access/api/internacion.api';
 import { InternacionDomiciliariaDTO, InsumoDomiciliarioDTO } from '../../../../data-access/dto/internacion.dto';
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 @Component({
   selector: 'emx-insumos-tab',
@@ -155,6 +156,7 @@ import { InternacionDomiciliariaDTO, InsumoDomiciliarioDTO } from '../../../../d
   `,
 })
 export class InsumosTabComponent {
+    private destroyRef = inject(DestroyRef);
   internacion = input.required<InternacionDomiciliariaDTO>();
   private api = inject(InternacionApiService);
   private fb = inject(FormBuilder);
@@ -183,24 +185,24 @@ export class InsumosTabComponent {
     this.submitting.set(true);
     const f = this.form.getRawValue();
     this.api.solicitarInsumo(this.internacion().id, {
-      productoId: f.productoId,
-      cantidadRequerida: f.cantidadRequerida,
-      lote: f.lote || undefined,
-      fechaVencimiento: f.fechaVencimiento || undefined,
-      estado: 'SOLICITADO',
-    }).subscribe({
-      next: (data) => {
-        this.submitting.set(false);
-        this.showForm.set(false);
-        this.form.reset({ productoId: 0, cantidadRequerida: 1, lote: '', fechaVencimiento: '' });
-        this.insumos.update((list) => [...list, data]);
-      },
-      error: (err) => {
-        this.submitting.set(false);
-        this.msg.set(err?.error?.detail ?? 'Error');
-        this.msgError.set(true);
-      },
-    });
+            productoId: f.productoId,
+            cantidadRequerida: f.cantidadRequerida,
+            lote: f.lote || undefined,
+            fechaVencimiento: f.fechaVencimiento || undefined,
+            estado: 'SOLICITADO',
+          }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: (data) => {
+              this.submitting.set(false);
+              this.showForm.set(false);
+              this.form.reset({ productoId: 0, cantidadRequerida: 1, lote: '', fechaVencimiento: '' });
+              this.insumos.update((list) => [...list, data]);
+            },
+            error: (err) => {
+              this.submitting.set(false);
+              this.msg.set(err?.error?.detail ?? 'Error');
+              this.msgError.set(true);
+            },
+          });
   }
 
   entregar(ins: InsumoDomiciliarioDTO): void {
@@ -230,16 +232,16 @@ export class InsumosTabComponent {
         ? this.api.consumirInsumo(ins.id!, cantidad)
         : this.api.devolverInsumo(ins.id!, cantidad, 'Devolución');
 
-    obs.subscribe({
-      next: (data) => {
-        this.actionTarget.set(null);
-        this.insumos.update((list) => list.map((i) => (i.id === data.id ? data : i)));
-      },
-      error: (err) => {
-        this.msg.set(err?.error?.detail ?? 'Error');
-        this.msgError.set(true);
-      },
-    });
+    obs.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: (data) => {
+              this.actionTarget.set(null);
+              this.insumos.update((list) => list.map((i) => (i.id === data.id ? data : i)));
+            },
+            error: (err) => {
+              this.msg.set(err?.error?.detail ?? 'Error');
+              this.msgError.set(true);
+            },
+          });
   }
 
   estadoColor(estado: string): string {

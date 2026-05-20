@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, OnInit, OnDestroy } from '@angular/core';
+import { Component, inject, signal, computed, OnInit, OnDestroy, DestroyRef } from '@angular/core';
 import { EmergencyStore } from '../../core/stores/emergency.store';
 import { FleetStore } from '../../core/stores/fleet.store';
 import { WebsocketService } from '../../core/websocket/websocket.service';
@@ -15,6 +15,7 @@ import { EmptyStateComponent } from '../../shared/components/empty-state/empty-s
 import { ModalShellComponent } from '../../shared/components/modal-shell/modal-shell.component';
 import { DispatchModalComponent } from '../../shared/components/emergency/dispatch-modal/dispatch-modal.component';
 import { FormsModule } from '@angular/forms';
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 type FeedTab = 'TODAS' | 'SIN_ASIGNAR' | 'CRITICAS';
 
@@ -253,6 +254,7 @@ type FeedTab = 'TODAS' | 'SIN_ASIGNAR' | 'CRITICAS';
   `],
 })
 export class OperationsComponent implements OnInit, OnDestroy {
+    private destroyRef = inject(DestroyRef);
   readonly emergencyStore = inject(EmergencyStore);
   readonly fleetStore = inject(FleetStore);
   private ws = inject(WebsocketService);
@@ -342,13 +344,13 @@ export class OperationsComponent implements OnInit, OnDestroy {
   }
 
   refreshDashboardAndFleet(): void {
-    this.fleetApi.ambulancias().subscribe({
-      next: (data) => this.fleetStore.setAmbulances(data),
-    });
+    this.fleetApi.ambulancias().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: (data) => this.fleetStore.setAmbulances(data),
+          });
 
-    this.dashboardApi.operativo().subscribe({
-      next: (data) => this.dashboard.set(data),
-    });
+    this.dashboardApi.operativo().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: (data) => this.dashboard.set(data),
+          });
   }
 
   onSelectAmbulance(id: number): void {

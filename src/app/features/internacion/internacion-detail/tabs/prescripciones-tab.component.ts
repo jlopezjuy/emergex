@@ -1,4 +1,4 @@
-import { Component, input, inject, signal, OnInit } from '@angular/core';
+import { Component, input, inject, signal, OnInit, DestroyRef } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { DatePipe } from '@angular/common';
 import { InternacionApiService } from '../../../../data-access/api/internacion.api';
@@ -7,6 +7,7 @@ import {
   PrescripcionContinuaDTO,
   AdministracionMedicamentoDTO,
 } from '../../../../data-access/dto/internacion.dto';
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 @Component({
   selector: 'emx-prescripciones-tab',
@@ -178,6 +179,7 @@ import {
   `,
 })
 export class PrescripcionesTabComponent implements OnInit {
+    private destroyRef = inject(DestroyRef);
   internacion = input.required<InternacionDomiciliariaDTO>();
   private api = inject(InternacionApiService);
   private fb = inject(FormBuilder);
@@ -208,9 +210,9 @@ export class PrescripcionesTabComponent implements OnInit {
   }
 
   private load(): void {
-    this.api.getPrescripciones(this.internacion().id).subscribe({
-      next: (data) => this.prescripciones.set(data ?? []),
-    });
+    this.api.getPrescripciones(this.internacion().id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: (data) => this.prescripciones.set(data ?? []),
+          });
   }
 
   create(): void {
@@ -218,52 +220,52 @@ export class PrescripcionesTabComponent implements OnInit {
     this.submitting.set(true);
     const f = this.createForm.getRawValue();
     this.api.crearPrescripcion(this.internacion().id, {
-      medicamento: { id: f.medicamentoId },
-      dosis: f.dosis,
-      via: f.via,
-      frecuencia: f.frecuencia,
-      indicaciones: f.indicaciones || undefined,
-      fechaInicio: new Date().toISOString(),
-      estado: 'ACTIVA',
-    }).subscribe({
-      next: () => {
-        this.submitting.set(false);
-        this.showCreate.set(false);
-        this.createForm.reset({ medicamentoId: 0, dosis: '', via: '', frecuencia: '', indicaciones: '' });
-        this.load();
-      },
-      error: (err) => {
-        this.submitting.set(false);
-        this.msg.set(err?.error?.detail ?? 'Error');
-        this.msgError.set(true);
-      },
-    });
+            medicamento: { id: f.medicamentoId },
+            dosis: f.dosis,
+            via: f.via,
+            frecuencia: f.frecuencia,
+            indicaciones: f.indicaciones || undefined,
+            fechaInicio: new Date().toISOString(),
+            estado: 'ACTIVA',
+          }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: () => {
+              this.submitting.set(false);
+              this.showCreate.set(false);
+              this.createForm.reset({ medicamentoId: 0, dosis: '', via: '', frecuencia: '', indicaciones: '' });
+              this.load();
+            },
+            error: (err) => {
+              this.submitting.set(false);
+              this.msg.set(err?.error?.detail ?? 'Error');
+              this.msgError.set(true);
+            },
+          });
   }
 
   suspender(id: number): void {
-    this.api.suspenderPrescripcion(id, 'Suspensión manual').subscribe({
-      next: () => this.load(),
-      error: (err) => {
-        this.msg.set(err?.error?.detail ?? 'Error al suspender');
-        this.msgError.set(true);
-      },
-    });
+    this.api.suspenderPrescripcion(id, 'Suspensión manual').pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: () => this.load(),
+            error: (err) => {
+              this.msg.set(err?.error?.detail ?? 'Error al suspender');
+              this.msgError.set(true);
+            },
+          });
   }
 
   administer(prescripcionId: number): void {
     const f = this.adminForm.getRawValue();
     this.api.registrarAdministracion(prescripcionId, {
-      fechaHora: f.fechaHora + ':00.000Z',
-      observacion: f.observacion || undefined,
-    }).subscribe({
-      next: () => {
-        this.showAdminister.set(null);
-        this.load();
-      },
-      error: (err) => {
-        this.msg.set(err?.error?.detail ?? 'Error');
-        this.msgError.set(true);
-      },
-    });
+            fechaHora: f.fechaHora + ':00.000Z',
+            observacion: f.observacion || undefined,
+          }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: () => {
+              this.showAdminister.set(null);
+              this.load();
+            },
+            error: (err) => {
+              this.msg.set(err?.error?.detail ?? 'Error');
+              this.msgError.set(true);
+            },
+          });
   }
 }

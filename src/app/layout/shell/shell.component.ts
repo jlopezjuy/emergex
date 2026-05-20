@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, HostListener, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, HostListener, OnInit, DestroyRef } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { SidebarComponent } from '../sidebar/sidebar.component';
 import { HeaderComponent } from '../header/header.component';
@@ -9,6 +9,7 @@ import { EmergencyStore } from '../../core/stores/emergency.store';
 import { FleetStore } from '../../core/stores/fleet.store';
 import { AuthService } from '../../core/auth/auth.service';
 import { AltaRapidaRequest, TicketAsistenciaDTO } from '../../data-access/dto/ticket.dto';
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 @Component({
   selector: 'emx-shell',
@@ -53,6 +54,7 @@ import { AltaRapidaRequest, TicketAsistenciaDTO } from '../../data-access/dto/ti
   `,
 })
 export class ShellComponent implements OnInit {
+    private destroyRef = inject(DestroyRef);
   readonly emergencyStore = inject(EmergencyStore);
   private readonly fleetStore = inject(FleetStore);
   private emergencyApi = inject(EmergencyApiService);
@@ -63,7 +65,7 @@ export class ShellComponent implements OnInit {
 
   ngOnInit(): void {
     if (!this.auth.currentAccount()) {
-      this.auth.fetchAccount().subscribe({ error: () => {} });
+      this.auth.fetchAccount().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ error: () => {} });
     }
   }
 
@@ -90,10 +92,10 @@ export class ShellComponent implements OnInit {
 
   onEmergencyCreated(req: AltaRapidaRequest): void {
     this.showCreateModal.set(false);
-    this.emergencyApi.altaRapida(req).subscribe({
-      next: (ticket) => this.emergencyStore.addOrUpdate(ticket),
-      error: () => console.error('Error al crear ticket'),
-    });
+    this.emergencyApi.altaRapida(req).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: (ticket) => this.emergencyStore.addOrUpdate(ticket),
+            error: () => console.error('Error al crear ticket'),
+          });
   }
 
   onInstitutionalSubmitted(ticket: TicketAsistenciaDTO): void {

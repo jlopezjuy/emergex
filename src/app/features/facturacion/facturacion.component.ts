@@ -1,4 +1,4 @@
-import { Component, signal, computed, HostListener, inject, OnInit } from '@angular/core';
+import { Component, signal, computed, HostListener, inject, OnInit, DestroyRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { catchError, of } from 'rxjs';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
@@ -10,6 +10,7 @@ import {
   EstadoFactura,
   MetodoPago,
 } from '../../data-access/api/facturacion.api';
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -489,6 +490,7 @@ function estadoColor(estado: string): string {
   `],
 })
 export class FacturacionComponent implements OnInit {
+    private destroyRef = inject(DestroyRef);
   private api = inject(FacturacionApiService);
 
   // ── Constants ──
@@ -556,7 +558,7 @@ export class FacturacionComponent implements OnInit {
   private loadFacturas(): void {
     this.loading.set(true);
     this.api.listarFacturas(null, 0, 200).pipe(
-      catchError(() => of([] as FacturaDTO[])),
+      catchError(() => of([] as FacturaDTO[])), takeUntilDestroyed(this.destroyRef)
     ).subscribe(list => {
       this.facturas.set(list);
       this.loading.set(false);
@@ -601,7 +603,7 @@ export class FacturacionComponent implements OnInit {
         this.generarError.set(err?.error?.detail ?? err?.error?.title ?? 'Error al generar facturas.');
         this.generando.set(false);
         return of(null);
-      }),
+      }), takeUntilDestroyed(this.destroyRef)
     ).subscribe(res => {
       this.generando.set(false);
       if (res) this.generarResult.set(res);
@@ -647,7 +649,7 @@ export class FacturacionComponent implements OnInit {
         this.payError.set(err?.error?.detail ?? err?.error?.title ?? 'Error al registrar el pago.');
         this.savingPay.set(false);
         return of(null);
-      }),
+      }), takeUntilDestroyed(this.destroyRef)
     ).subscribe(res => {
       if (!res) return;
       this.savingPay.set(false);

@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, OnInit, DestroyRef } from '@angular/core';
 import { catchError, of } from 'rxjs';
 import { DashboardApiService } from '../../data-access/api/dashboard.api';
 import { DashboardOperativoDTO } from '../../data-access/dto/dashboard.dto';
@@ -10,6 +10,7 @@ import { BarsChartComponent } from '../../shared/components/charts/bars-chart/ba
 import { KpiCardComponent } from '../../shared/components/kpi-card/kpi-card.component';
 import { LoadingStateComponent } from '../../shared/components/loading-state/loading-state.component';
 import { ErrorStateComponent } from '../../shared/components/error-state/error-state.component';
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 type Period = '7d' | '30d' | '90d';
 
@@ -265,6 +266,7 @@ const EMPTY_HOUR_VALUES: number[] = Array(24).fill(0);
   `,
 })
 export class AnalyticsComponent implements OnInit {
+    private destroyRef = inject(DestroyRef);
   private dashboardApi = inject(DashboardApiService);
 
   readonly loading = signal(false);
@@ -409,7 +411,7 @@ export class AnalyticsComponent implements OnInit {
     this.error.set(null);
     this.dashboardApi
       .operativo(this.selectedDate())
-      .pipe(catchError(() => of(null)))
+      .pipe(catchError(() => of(null)), takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (d) => {
           this.data.set(d);

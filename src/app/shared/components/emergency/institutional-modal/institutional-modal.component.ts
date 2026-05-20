@@ -1,6 +1,5 @@
 import {
-  Component, OnInit, OnDestroy, output, signal, computed, HostListener, inject,
-} from '@angular/core';
+  Component, OnInit, OnDestroy, output, signal, computed, HostListener, inject, DestroyRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { UpperCasePipe } from '@angular/common';
 import { StatusBadgeComponent } from '../../status-badge/status-badge.component';
@@ -9,6 +8,7 @@ import { MiembrosInstitucionApiService, MiembroInstitucionDTO } from '../../../.
 import { EmergencyApiService } from '../../../../data-access/api/emergency.api';
 import { InstitutionDTO } from '../../../../data-access/dto/institution.dto';
 import { CrearTicketRequest, TicketAsistenciaDTO } from '../../../../data-access/dto/ticket.dto';
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 // ─── Enum maps ────────────────────────────────────────────────────────────────
 
@@ -737,6 +737,7 @@ function parseApiError(err: any): string {
   `],
 })
 export class InstitutionalModalComponent implements OnInit, OnDestroy {
+    private destroyRef = inject(DestroyRef);
   readonly closed    = output<void>();
   readonly submitted = output<TicketAsistenciaDTO>();
 
@@ -782,14 +783,14 @@ export class InstitutionalModalComponent implements OnInit, OnDestroy {
   // ── Lifecycle ──
   ngOnInit(): void {
     this.isLoadingInstitutions.set(true);
-    this.instituciones.getAll().subscribe({
-      next: list => {
-        this._allInstitutions = list.filter(i => i.status === 'activa');
-        this.institutionResults.set(this._allInstitutions.slice(0, 8));
-        this.isLoadingInstitutions.set(false);
-      },
-      error: () => this.isLoadingInstitutions.set(false),
-    });
+    this.instituciones.getAll().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: list => {
+              this._allInstitutions = list.filter(i => i.status === 'activa');
+              this.institutionResults.set(this._allInstitutions.slice(0, 8));
+              this.isLoadingInstitutions.set(false);
+            },
+            error: () => this.isLoadingInstitutions.set(false),
+          });
   }
 
   ngOnDestroy(): void {
@@ -833,10 +834,10 @@ export class InstitutionalModalComponent implements OnInit, OnDestroy {
     if (!inst || query.length < 2) { this.memberResults.set([]); return; }
     this._memberTimer = setTimeout(() => {
       this.isLoadingMembers.set(true);
-      this.miembros.search(query, Number(inst.id)).subscribe({
-        next: list => { this.memberResults.set(list); this.isLoadingMembers.set(false); },
-        error: ()   => { this.memberResults.set([]); this.isLoadingMembers.set(false); },
-      });
+      this.miembros.search(query, Number(inst.id)).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+                next: list => { this.memberResults.set(list); this.isLoadingMembers.set(false); },
+                error: ()   => { this.memberResults.set([]); this.isLoadingMembers.set(false); },
+              });
     }, 300);
   }
 
@@ -936,16 +937,16 @@ export class InstitutionalModalComponent implements OnInit, OnDestroy {
     this.submitError.set(null);
     this.isSubmitting.set(true);
 
-    this.emergencyApi.crear(req).subscribe({
-      next: ticket => {
-        this.isSubmitting.set(false);
-        this.submitted.emit(ticket);
-        this.closed.emit();
-      },
-      error: err => {
-        this.isSubmitting.set(false);
-        this.submitError.set(parseApiError(err));
-      },
-    });
+    this.emergencyApi.crear(req).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: ticket => {
+              this.isSubmitting.set(false);
+              this.submitted.emit(ticket);
+              this.closed.emit();
+            },
+            error: err => {
+              this.isSubmitting.set(false);
+              this.submitError.set(parseApiError(err));
+            },
+          });
   }
 }

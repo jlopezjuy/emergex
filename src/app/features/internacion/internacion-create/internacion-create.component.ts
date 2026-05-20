@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed } from '@angular/core';
+import { Component, inject, signal, computed, DestroyRef } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { DatePipe } from '@angular/common';
@@ -7,6 +7,7 @@ import { InternacionApiService } from '../../../data-access/api/internacion.api'
 import { InternacionStore } from '../../../core/stores/internacion.store';
 import { TicketAsistenciaDTO } from '../../../data-access/dto/ticket.dto';
 import { IniciarInternacionDTO } from '../../../data-access/dto/internacion.dto';
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 @Component({
   selector: 'emx-internacion-create',
@@ -293,6 +294,7 @@ import { IniciarInternacionDTO } from '../../../data-access/dto/internacion.dto'
   `,
 })
 export class InternacionCreateComponent {
+    private destroyRef = inject(DestroyRef);
   private router = inject(Router);
   private fb = inject(FormBuilder);
   private emergencyApi = inject(EmergencyApiService);
@@ -337,16 +339,16 @@ export class InternacionCreateComponent {
 
   private loadTickets(): void {
     this.loadingTickets.set(true);
-    this.emergencyApi.getActivos().subscribe({
-      next: (data) => {
-        this.tickets.set(data ?? []);
-        this.loadingTickets.set(false);
-      },
-      error: () => {
-        this.loadingTickets.set(false);
-        this.error.set('Error al cargar tickets');
-      },
-    });
+    this.emergencyApi.getActivos().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: (data) => {
+              this.tickets.set(data ?? []);
+              this.loadingTickets.set(false);
+            },
+            error: () => {
+              this.loadingTickets.set(false);
+              this.error.set('Error al cargar tickets');
+            },
+          });
   }
 
   selectTicket(t: TicketAsistenciaDTO): void {
@@ -368,17 +370,17 @@ export class InternacionCreateComponent {
       observaciones: this.f.observaciones.value || undefined,
     };
 
-    this.internacionApi.iniciarDesdeTicket(dto).subscribe({
-      next: (internacion) => {
-        this.store.agregarALista(internacion);
-        this.router.navigate(['/internacion', internacion.id]);
-      },
-      error: (err) => {
-        this.submitting.set(false);
-        const msg = err?.error?.detail ?? err?.error?.message ?? err?.message ?? 'Error al crear la internación';
-        this.error.set(msg);
-      },
-    });
+    this.internacionApi.iniciarDesdeTicket(dto).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: (internacion) => {
+              this.store.agregarALista(internacion);
+              this.router.navigate(['/internacion', internacion.id]);
+            },
+            error: (err) => {
+              this.submitting.set(false);
+              const msg = err?.error?.detail ?? err?.error?.message ?? err?.message ?? 'Error al crear la internación';
+              this.error.set(msg);
+            },
+          });
   }
 
   urgenciaColor(prioridad?: string): string {

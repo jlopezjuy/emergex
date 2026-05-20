@@ -1,8 +1,9 @@
-import { Component, signal, computed, inject, OnInit } from '@angular/core';
+import { Component, signal, computed, inject, OnInit, DestroyRef } from '@angular/core';
 import { environment } from '../../../environments/environment';
 import { NgClass, NgFor, NgIf } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { catchError, of } from 'rxjs';
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 interface Channel {
   id: string;
@@ -342,6 +343,7 @@ function barOpacity(signalLevel: number, barIndex: number): number {
   `],
 })
 export class CommunicationsComponent implements OnInit {
+    private destroyRef = inject(DestroyRef);
   private http = inject(HttpClient);
 
   readonly channels = CHANNELS;
@@ -363,7 +365,7 @@ export class CommunicationsComponent implements OnInit {
 
   ngOnInit(): void {
     this.http.get<any[]>(`${environment.apiUrl}/api/v1/notificaciones/log`).pipe(
-      catchError(() => of([])),
+      catchError(() => of([])), takeUntilDestroyed(this.destroyRef)
     ).subscribe((items: any[]) => {
       const entries: LogEntry[] = (items ?? []).map((item, idx) => ({
         id:   item.id   ?? idx,

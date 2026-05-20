@@ -1,4 +1,4 @@
-import { Component, output, inject, HostListener, signal, computed, OnDestroy } from '@angular/core';
+import { Component, output, inject, HostListener, signal, computed, OnDestroy, DestroyRef } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { Subject, debounceTime, distinctUntilChanged, switchMap, catchError, of } from 'rxjs';
@@ -9,6 +9,7 @@ import { AltaRapidaRequest } from '../../../../data-access/dto/ticket.dto';
 import { environment } from '../../../../../environments/environment';
 import { GeocodeResult } from '../../../map/geocoder-provider';
 import { HttpGeocoderProvider } from '../../../map/providers/http-geocoder.provider';
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 type TipoAsistencia = AltaRapidaRequest['tipoAsistencia'];
 type NivelUrgencia  = AltaRapidaRequest['nivelUrgencia'];
@@ -323,6 +324,7 @@ const NIVELES_URGENCIA: { value: NivelUrgencia; label: string; sublabel: string;
   `,
 })
 export class EmergencyQuickCreateModalComponent implements OnDestroy {
+    private destroyRef = inject(DestroyRef);
   created = output<AltaRapidaRequest>();
   closed  = output<void>();
 
@@ -378,14 +380,14 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
           .get<PacienteResult[]>(`${environment.apiUrl}/api/pacientes/search`, { params: { query } })
           .pipe(catchError(() => of([])));
       }),
-      takeUntil(this.destroy$),
+      takeUntil(this.destroy$), takeUntilDestroyed(this.destroyRef)
     ).subscribe(results => {
       this.searchResults.set(results);
       this.searching.set(false);
     });
 
     this.f['pacienteBusqueda'].valueChanges
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntil(this.destroy$), takeUntilDestroyed(this.destroyRef))
       .subscribe(v => this.search$.next(v ?? ''));
 
     this.geocode$.pipe(
@@ -402,14 +404,14 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
         this.geocodeSearching.set(true);
         return this.geocoder.search(q).catch(() => []);
       }),
-      takeUntil(this.destroy$),
+      takeUntil(this.destroy$), takeUntilDestroyed(this.destroyRef)
     ).subscribe(results => {
       this.geocodeResults.set(results);
       this.geocodeSearching.set(false);
     });
 
     this.f['direccion'].valueChanges
-      .pipe(takeUntil(this.destroy$))
+      .pipe(takeUntil(this.destroy$), takeUntilDestroyed(this.destroyRef))
       .subscribe(v => this.geocode$.next(v ?? ''));
   }
 

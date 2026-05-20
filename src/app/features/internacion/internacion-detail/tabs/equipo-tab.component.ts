@@ -1,8 +1,9 @@
-import { Component, input, inject, signal } from '@angular/core';
+import { Component, input, inject, signal, DestroyRef } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { DatePipe } from '@angular/common';
 import { InternacionApiService } from '../../../../data-access/api/internacion.api';
 import { InternacionDomiciliariaDTO, EquipoTratanteDTO, DisciplinaSalud } from '../../../../data-access/dto/internacion.dto';
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 @Component({
   selector: 'emx-equipo-tab',
@@ -142,6 +143,7 @@ import { InternacionDomiciliariaDTO, EquipoTratanteDTO, DisciplinaSalud } from '
   `,
 })
 export class EquipoTabComponent {
+    private destroyRef = inject(DestroyRef);
   internacion = input.required<InternacionDomiciliariaDTO>();
   private api = inject(InternacionApiService);
   private fb = inject(FormBuilder);
@@ -163,17 +165,17 @@ export class EquipoTabComponent {
     this.assigning.set(true);
     this.error.set(null);
 
-    this.api.asignarEquipo(this.internacion().id, this.assignForm.getRawValue()).subscribe({
-      next: () => {
-        this.assigning.set(false);
-        this.showForm.set(false);
-        this.assignForm.reset({ profesionalId: 0, rol: '', disciplina: '', contactoEmergencia: '', disponibilidad24x7: false });
-      },
-      error: (err) => {
-        this.assigning.set(false);
-        this.error.set(err?.error?.detail ?? 'Error al asignar profesional');
-      },
-    });
+    this.api.asignarEquipo(this.internacion().id, this.assignForm.getRawValue()).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: () => {
+              this.assigning.set(false);
+              this.showForm.set(false);
+              this.assignForm.reset({ profesionalId: 0, rol: '', disciplina: '', contactoEmergencia: '', disponibilidad24x7: false });
+            },
+            error: (err) => {
+              this.assigning.set(false);
+              this.error.set(err?.error?.detail ?? 'Error al asignar profesional');
+            },
+          });
   }
 
   initials(apellido?: string, nombre?: string): string {
