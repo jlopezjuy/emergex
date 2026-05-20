@@ -360,6 +360,7 @@ export class OperationsMapComponent implements OnDestroy {
   private readonly themeService = inject(ThemeService);
   private mapEl = viewChild.required<ElementRef<HTMLDivElement>>('mapEl');
   private map: MapLibreMap | null = null;
+  private resizeObserver: ResizeObserver | null = null;
   private ambMarkers: Marker[] = [];
   private emgMarkers: Marker[] = [];
   private mapReady = false;
@@ -427,11 +428,30 @@ export class OperationsMapComponent implements OnDestroy {
         'bottom-right',
       );
 
-    this.map.on('move', () => this.syncViewportSignals());
+      this.map.on('move', () => this.syncViewportSignals());
 
-    this.map.on('load', () => this.setupMapLayers());
+      this.map.on('load', () => {
+        this.setupMapLayers();
+        this.map?.resize();
+        requestAnimationFrame(() => this.map?.resize());
+      });
+    });
+
+    this.setupResizeHandling();
+  }
+
+  private setupResizeHandling(): void {
+    const container = this.mapEl().nativeElement;
+    this.zone.runOutsideAngular(() => {
+      this.resizeObserver = new ResizeObserver(() => this.map?.resize());
+      this.resizeObserver.observe(container);
+      window.addEventListener('resize', this.handleWindowResize, { passive: true });
     });
   }
+
+  private readonly handleWindowResize = (): void => {
+    this.map?.resize();
+  };
 
   private syncViewportSignals(): void {
     if (!this.map) return;
@@ -622,6 +642,9 @@ export class OperationsMapComponent implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
+    window.removeEventListener('resize', this.handleWindowResize);
     this.ambMarkers.forEach((m) => m.remove());
     this.emgMarkers.forEach((m) => m.remove());
     this.map?.remove();

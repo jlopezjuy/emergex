@@ -52,6 +52,7 @@ interface StaffMember {
   photoUrl?: string | null;
   empresaId?: number;
   userId?: number | null;
+  userLogin?: string | null;
   createdAt?: string;
   especialidadPrincipalId?: number | null;
   authorities?: string[];
@@ -1139,19 +1140,22 @@ export class StaffComponent implements OnInit {
 
   private mapToMember = (b: ProfesionalSaludDTO): StaffMember => {
     const specialties: string[] = (b.subespecialidads ?? []).map(s => String(s.id));
-    const firstName = specialties[0]
-      ? this.catalog().find(c => c.id === specialties[0])?.name ?? ''
-      : '';
-    const prefix = firstName.startsWith('Enf') ? 'Enf.'
-      : firstName.startsWith('Lic') ? 'Lic.'
-      : firstName.startsWith('Téc') || firstName.startsWith('Tec') ? 'Tec.'
-      : firstName.startsWith('Op') ? 'Op.'
+
+    // Derivar prefijo del nombre real del profesional, no de la especialidad
+    const nombre = b.nombre ?? '';
+    const prefix = nombre.startsWith('Enf') ? 'Enf.'
+      : nombre.startsWith('Lic') ? 'Lic.'
+      : nombre.startsWith('Téc') || nombre.startsWith('Tec') ? 'Tec.'
+      : nombre.startsWith('Op') ? 'Op.'
       : 'Dr.';
 
+    // Resolver especialidad principal: intentar por nombre, fallback al primero
     const primarySpec = b.especialidad
       ? this.catalog().find(c => c.name.toLowerCase() === b.especialidad!.toLowerCase())
       : undefined;
-    const especialidadPrincipalId = primarySpec ? Number(primarySpec.id) : (specialties[0] ? Number(specialties[0]) : null);
+    const especialidadPrincipalId = primarySpec
+      ? Number(primarySpec.id)
+      : (specialties[0] ? Number(specialties[0]) : null);
 
     return {
       id:          String(b.id),
@@ -1175,6 +1179,7 @@ export class StaffComponent implements OnInit {
       avatar:      (b.nombre[0] ?? '') + (b.apellido[0] ?? ''),
       empresaId:   b.empresa?.id ?? 0,
       userId:      b.user?.id ?? null,
+      userLogin:   b.user?.login ?? null,
       createdAt:   b.createdAt,
       especialidadPrincipalId,
     };
@@ -1385,7 +1390,7 @@ export class StaffComponent implements OnInit {
       domiciliary:             m.domiciliary,
       emergency:               m.emergency,
       active:                  m.active,
-      username:                m.email ? m.email.split('@')[0] : '',
+      username:                m.userLogin ?? (m.email ? m.email.split('@')[0] : ''),
       passwordTemporal:        '',
       authorities:             ['ROLE_USER'],
       especialidadPrincipalId: m.especialidadPrincipalId ?? null,

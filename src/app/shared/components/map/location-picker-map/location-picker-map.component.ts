@@ -22,6 +22,7 @@ export class LocationPickerMapComponent implements OnDestroy {
   private zone = inject(NgZone);
   private mapEl = viewChild.required<ElementRef<HTMLDivElement>>('mapEl');
   private map: MapLibreMap | null = null;
+  private resizeObserver: ResizeObserver | null = null;
   private marker: Marker | null = null;
 
   constructor() {
@@ -50,9 +51,26 @@ export class LocationPickerMapComponent implements OnDestroy {
       });
       this.map.on('load', () => {
         if (this.lat() != null && this.lng() != null) this.setMarker(this.lng()!, this.lat()!, true);
+        this.map?.resize();
+        requestAnimationFrame(() => this.map?.resize());
       });
     });
+
+    this.setupResizeHandling();
   }
+
+  private setupResizeHandling(): void {
+    const container = this.mapEl().nativeElement;
+    this.zone.runOutsideAngular(() => {
+      this.resizeObserver = new ResizeObserver(() => this.map?.resize());
+      this.resizeObserver.observe(container);
+      window.addEventListener('resize', this.handleWindowResize, { passive: true });
+    });
+  }
+
+  private readonly handleWindowResize = (): void => {
+    this.map?.resize();
+  };
 
   private setMarker(lng: number, lat: number, fly: boolean): void {
     if (!this.map) return;
@@ -71,6 +89,9 @@ export class LocationPickerMapComponent implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
+    window.removeEventListener('resize', this.handleWindowResize);
     this.marker?.remove();
     this.map?.remove();
     this.map = null;
