@@ -1,7 +1,9 @@
-import { Component, OnInit, signal, computed, HostListener, inject } from '@angular/core';
+import { Component, OnInit, signal, computed, HostListener, inject, DestroyRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { InstitutionsApiService } from '../../data-access/api/institutions.api';
+import { environment } from '../../../environments/environment';
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -77,7 +79,7 @@ const COMMERCIAL_PLANS = [
   { id: 'salud-partner', name: 'Salud Partner',        color: 'var(--accent-red)',     monthlyBase: 120000 },
 ];
 
-const INSTITUTIONS_SEED: Institution[] = [
+const INSTITUTIONS_SEED: Institution[] = environment.production ? [] : [
   {
     id: 'INST-001', name: 'Colegio Santa Ana', razonSocial: 'Asociación Civil Educativa Santa Ana', cuit: '30-58741236-9',
     type: 'colegio', status: 'activa', plan: 'edu-premium',
@@ -1177,6 +1179,7 @@ const PAGE_SIZE = 10;
   `],
 })
 export class InstitutionsComponent implements OnInit {
+    private destroyRef = inject(DestroyRef);
   private readonly api = inject(InstitutionsApiService);
   // ── Constants exposed to template ──
   readonly institutionTypes = INSTITUTION_TYPES;
@@ -1199,32 +1202,32 @@ export class InstitutionsComponent implements OnInit {
   }
 
   private loadInstitutions(): void {
-    this.api.getAll().subscribe(data => {
-      const mapped: Institution[] = data.map(dto => ({
-        id:           dto.id,
-        name:         dto.name,
-        razonSocial:  dto.razonSocial ?? '',
-        cuit:         dto.cuit ?? '',
-        type:         dto.type,
-        status:       dto.status,
-        plan:         dto.plan,
-        email:        dto.email ?? '',
-        phone:        dto.phone ?? '',
-        adminContact: dto.adminContact ?? '',
-        opsContact:   dto.opsContact ?? '',
-        address:      dto.address ?? '',
-        city:         '',
-        lat:          dto.lat ?? 50,
-        lng:          dto.lng ?? 50,
-        members:      0,
-        sinceMonth:   '',
-        contract: {
-          code: '', plan: dto.plan, from: '', to: '',
-          status: 'active', monthlyPrice: 0, monthlyCap: 0, kpiMinutes: 0, conditions: '',
-        },
-      }));
-      this.institutions.set(mapped);
-    });
+    this.api.getAll().pipe(takeUntilDestroyed(this.destroyRef)).subscribe(data => {
+            const mapped: Institution[] = data.map(dto => ({
+              id:           dto.id,
+              name:         dto.name,
+              razonSocial:  dto.razonSocial ?? '',
+              cuit:         dto.cuit ?? '',
+              type:         dto.type,
+              status:       dto.status,
+              plan:         dto.plan,
+              email:        dto.email ?? '',
+              phone:        dto.phone ?? '',
+              adminContact: dto.adminContact ?? '',
+              opsContact:   dto.opsContact ?? '',
+              address:      dto.address ?? '',
+              city:         '',
+              lat:          dto.lat ?? 50,
+              lng:          dto.lng ?? 50,
+              members:      0,
+              sinceMonth:   '',
+              contract: {
+                code: '', plan: dto.plan, from: '', to: '',
+                status: 'active', monthlyPrice: 0, monthlyCap: 0, kpiMinutes: 0, conditions: '',
+              },
+            }));
+            this.institutions.set(mapped);
+          });
   }
 
   // ── State ──
@@ -1430,10 +1433,10 @@ export class InstitutionsComponent implements OnInit {
     };
 
     const op$ = editing ? this.api.update(dto) : this.api.create(dto);
-    op$.subscribe(() => {
-      this.closeForm();
-      this.loadInstitutions();
-    });
+    op$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+            this.closeForm();
+            this.loadInstitutions();
+          });
   }
 
   // ── Mini-map click ──

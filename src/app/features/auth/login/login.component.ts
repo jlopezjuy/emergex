@@ -1,7 +1,8 @@
-import { Component, inject, signal, OnDestroy } from '@angular/core';
+import { Component, inject, signal, OnDestroy, DestroyRef } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 @Component({
   selector: 'app-login',
@@ -346,6 +347,7 @@ import { AuthService } from '../../../core/auth/auth.service';
   `],
 })
 export class LoginComponent implements OnDestroy {
+    private destroyRef = inject(DestroyRef);
   private fb = inject(FormBuilder);
   private auth = inject(AuthService);
   private router = inject(Router);
@@ -353,6 +355,11 @@ export class LoginComponent implements OnDestroy {
   readonly loading = signal(false);
   readonly errorMsg = signal<string | null>(null);
   readonly clock = signal(this.fmtTime(new Date()));
+
+  private attempts = 0;
+  private lockedUntil = 0;
+  private readonly MAX_ATTEMPTS = 5;
+  private readonly LOCKOUT_MS = 30000;
 
   private clockInterval = setInterval(() => this.clock.set(this.fmtTime(new Date())), 1000);
 
@@ -372,6 +379,11 @@ export class LoginComponent implements OnDestroy {
 
 
   submit(): void {
+    if (this.lockedUntil && Date.now() < this.lockedUntil) {
+      this.errorMsg.set(`Esperá ${Math.ceil((this.lockedUntil - Date.now()) / 1000)}s.`);
+      return;
+    }
+
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
@@ -381,20 +393,26 @@ export class LoginComponent implements OnDestroy {
 
     const val = this.form.value;
     this.auth
-      .login({
-        username: val.username!,
-        password: val.password!,
-        rememberMe: false,
-      })
-      .subscribe({
-        next: () => {
-          this.loading.set(false);
-          this.router.navigate(['/dashboard']);
-        },
-        error: () => {
-          this.loading.set(false);
-          this.errorMsg.set('Credenciales inválidas. Verificá usuario y contraseña.');
-        },
-      });
+            .login({
+              username: val.username!,
+              password: val.password!,
+              rememberMe: false,
+            }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+              next: () => {
+                this.loading.set(false);
+                this.attempts = 0;
+                this.router.navigate(['/dashboard']);
+              },
+              error: () => {
+                this.loading.set(false);
+                this.attempts++;
+                if (this.attempts >= this.MAX_ATTEMPTS) {
+                  this.lockedUntil = Date.now() + this.LOCKOUT_MS;
+                  this.errorMsg.set(`Demasiados intentos. Esperá ${this.LOCKOUT_MS / 1000}s.`);
+                } else {
+                  this.errorMsg.set('Credenciales inválidas. Verificá usuario y contraseña.');
+                }
+              },
+            });
   }
 }

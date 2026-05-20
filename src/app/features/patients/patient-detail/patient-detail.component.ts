@@ -1,4 +1,5 @@
-import { Component, signal, computed, HostListener, inject, OnInit } from '@angular/core';
+import { Component, signal, computed, HostListener, inject, OnInit, Pipe, PipeTransform, DestroyRef } from '@angular/core';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { catchError, forkJoin, of, switchMap } from 'rxjs';
@@ -12,6 +13,7 @@ import {
 } from '../../../data-access/dto/patient.dto';
 import { PlanDTO } from '../../../data-access/dto/plan.dto';
 import { localDateYmd } from '../../../shared/utils/date-local.util';
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -90,12 +92,20 @@ function emptyDep(): NewDepForm {
   return { nombre: '', apellido: '', dni: '', birth: '', gender: 'M', parentesco: 'Hijo/a' };
 }
 
+@Pipe({ name: 'safeHtml', standalone: true })
+export class SafeHtmlPipe implements PipeTransform {
+  private sanitizer = inject(DomSanitizer);
+  transform(html: string): SafeHtml {
+    return this.sanitizer.bypassSecurityTrustHtml(html);
+  }
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 @Component({
   selector: 'app-patient-detail',
   standalone: true,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, SafeHtmlPipe],
   template: `
     <div class="screen">
 
@@ -204,7 +214,7 @@ function emptyDep(): NewDepForm {
         <div class="pd-tabs glass-strong">
           @for (t of tabs; track t.id) {
             <button class="pd-tab" [attr.data-active]="tab() === t.id" (click)="tab.set(t.id)">
-              <span [innerHTML]="t.icon"></span>
+              <span [innerHTML]="t.icon | safeHtml"></span>
               {{ t.label }}
               @if (t.id === 'facturas' && pendingFacturas().length > 0) {
                 <span class="tab-badge">{{ pendingFacturas().length }}</span>
@@ -863,6 +873,7 @@ function emptyDep(): NewDepForm {
   `],
 })
 export class PatientDetailComponent implements OnInit {
+    private destroyRef = inject(DestroyRef);
   private route         = inject(ActivatedRoute);
   private router        = inject(Router);
   private patientApi    = inject(PatientApiService);
@@ -956,20 +967,20 @@ export class PatientDetailComponent implements OnInit {
   private loadAll(id: number): void {
     this.loading.set(true);
     forkJoin({
-      patient:  this.patientApi.getById(id).pipe(catchError(() => of(null))),
-      ficha:    this.patientApi.getFicha(id).pipe(catchError(() => of(null))),
-      facturas: this.patientApi.getFacturasAfiliado(id).pipe(catchError(() => of([] as FacturaDTO[]))),
-    }).subscribe(({ patient, ficha, facturas }) => {
-      this.patient.set(patient);
-      this.ficha.set(ficha);
-      this.facturas.set(facturas ?? []);
-      this.loading.set(false);
-    });
+            patient:  this.patientApi.getById(id).pipe(catchError(() => of(null))),
+            ficha:    this.patientApi.getFicha(id).pipe(catchError(() => of(null))),
+            facturas: this.patientApi.getFacturasAfiliado(id).pipe(catchError(() => of([] as FacturaDTO[]))),
+          }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(({ patient, ficha, facturas }) => {
+            this.patient.set(patient);
+            this.ficha.set(ficha);
+            this.facturas.set(facturas ?? []);
+            this.loading.set(false);
+          });
   }
 
   private loadPlans(): void {
     this.loadingPlans.set(true);
-    this.plansApi.getAll().pipe(catchError(() => of([] as PlanDTO[]))).subscribe(p => {
+    this.plansApi.getAll().pipe(catchError(() => of([] as PlanDTO[])), takeUntilDestroyed(this.destroyRef)).subscribe(p => {
       this.plans.set(p.filter(x => x.active));
       this.loadingPlans.set(false);
     });
@@ -978,7 +989,7 @@ export class PatientDetailComponent implements OnInit {
   private reloadFacturas(): void {
     this.loadingFacturas.set(true);
     this.patientApi.getFacturasAfiliado(this.pacienteId()).pipe(
-      catchError(() => of([] as FacturaDTO[])),
+      catchError(() => of([] as FacturaDTO[])), takeUntilDestroyed(this.destroyRef)
     ).subscribe(f => { this.facturas.set(f); this.loadingFacturas.set(false); });
   }
 
@@ -1031,7 +1042,7 @@ export class PatientDetailComponent implements OnInit {
         this.planError.set(err?.error?.detail ?? err?.error?.title ?? 'Error al actualizar el plan.');
         this.savingPlan.set(false);
         return of(null);
-      }),
+      }), takeUntilDestroyed(this.destroyRef)
     ).subscribe(res => {
       if (!res) return;
       this.savingPlan.set(false);
@@ -1073,7 +1084,7 @@ export class PatientDetailComponent implements OnInit {
         this.payError.set(err?.error?.detail ?? err?.error?.title ?? 'Error al registrar el pago.');
         this.savingPay.set(false);
         return of(null);
-      }),
+      }), takeUntilDestroyed(this.destroyRef)
     ).subscribe(res => {
       if (!res) return;
       this.savingPay.set(false);
@@ -1124,7 +1135,7 @@ export class PatientDetailComponent implements OnInit {
         this.generarError.set(err?.error?.detail ?? err?.error?.title ?? 'Error al generar la factura.');
         this.savingGenerar.set(false);
         return of(null);
-      }),
+      }), takeUntilDestroyed(this.destroyRef)
     ).subscribe(res => {
       if (!res) return;
       this.savingGenerar.set(false);
@@ -1179,7 +1190,7 @@ export class PatientDetailComponent implements OnInit {
         this.addDepError.set(err?.error?.detail ?? err?.error?.title ?? 'Error al agregar el dependiente.');
         this.savingDep.set(false);
         return of(null);
-      }),
+      }), takeUntilDestroyed(this.destroyRef)
     ).subscribe(res => {
       if (!res) return;
       this.savingDep.set(false);
