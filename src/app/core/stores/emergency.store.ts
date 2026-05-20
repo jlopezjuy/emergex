@@ -93,10 +93,16 @@ export class EmergencyStore implements OnDestroy {
     });
   }
 
+  stopTicketTracking(): void {
+    this.ticketSub?.unsubscribe();
+    this.ticketSub = null;
+    this.asignacionSub?.unsubscribe();
+    this.asignacionSub = null;
+  }
+
   ngOnDestroy(): void {
     this.tickerSub?.unsubscribe();
-    this.ticketSub?.unsubscribe();
-    this.asignacionSub?.unsubscribe();
+    this.stopTicketTracking();
   }
 
   selectEmergency(id: number | null): void {

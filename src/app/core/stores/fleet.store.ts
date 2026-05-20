@@ -28,7 +28,12 @@ export class FleetStore implements OnDestroy {
     });
   }
 
-  ngOnDestroy(): void {
+  stopLocationTracking(): void {
     this.locationSub?.unsubscribe();
+    this.locationSub = null;
+  }
+
+  ngOnDestroy(): void {
+    this.stopLocationTracking();
   }
 }

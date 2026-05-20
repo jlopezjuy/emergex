@@ -344,6 +344,9 @@ export class OperationsComponent implements OnInit, OnDestroy {
     if (this.refreshInterval) {
       clearInterval(this.refreshInterval);
     }
+    this.fleetStore.stopLocationTracking();
+    this.emergencyStore.stopTicketTracking();
+    this.ws.disconnect();
   }
 
   refreshDashboardAndFleet(): void {
