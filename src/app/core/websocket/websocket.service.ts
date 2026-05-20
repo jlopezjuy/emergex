@@ -2,6 +2,7 @@ import { Injectable, signal } from '@angular/core';
 import { Client, StompSubscription } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { environment } from '../../../environments/environment';
+import { logError, logWarn } from '../utils/logger';
 
 @Injectable({ providedIn: 'root' })
 export class WebsocketService {
@@ -10,7 +11,10 @@ export class WebsocketService {
 
   connect(token: string, onConnected?: () => void): void {
     this.client = new Client({
-      webSocketFactory: () => new SockJS(`${environment.wsUrl}?access_token=${token}`) as WebSocket,
+      webSocketFactory: () => new SockJS(environment.wsUrl) as WebSocket,
+      connectHeaders: {
+        Authorization: `Bearer ${token}`,
+      },
       reconnectDelay: 5000,
       onConnect: () => {
         this.connected.set(true);
@@ -20,7 +24,7 @@ export class WebsocketService {
         this.connected.set(false);
       },
       onStompError: (frame) => {
-        console.error('STOMP error', frame);
+        logError('STOMP error', frame);
         this.connected.set(false);
       },
     });
@@ -36,7 +40,7 @@ export class WebsocketService {
 
   subscribe(topic: string, callback: (msg: unknown) => void): StompSubscription | null {
     if (!this.client?.connected) {
-      console.warn('WebSocket not connected. Cannot subscribe to', topic);
+      logWarn('WebSocket not connected. Cannot subscribe to', topic);
       return null;
     }
     return this.client.subscribe(topic, (message) => {
@@ -51,7 +55,7 @@ export class WebsocketService {
 
   publish(destination: string, body: unknown): void {
     if (!this.client?.connected) {
-      console.warn('WebSocket not connected. Cannot publish to', destination);
+      logWarn('WebSocket not connected. Cannot publish to', destination);
       return;
     }
     this.client.publish({

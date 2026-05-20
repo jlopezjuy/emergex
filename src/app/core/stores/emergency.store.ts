@@ -9,6 +9,7 @@ import {
   TicketEstadoChangedEvent,
   AsignacionEstadoChangedEvent,
 } from '../../data-access/dto/ticket.dto';
+import { logError } from '../utils/logger';
 
 const TERMINAL_STATES = new Set(['COMPLETADO', 'CERRADO', 'CANCELADO']);
 
@@ -46,7 +47,7 @@ export class EmergencyStore implements OnDestroy {
       error: (err) => {
         this.error.set('Error al cargar emergencias');
         this.loading.set(false);
-        console.error('[EmergencyStore]', err);
+        logError('[EmergencyStore]', err);
       },
     });
   }

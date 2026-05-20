@@ -72,12 +72,43 @@ function createAmbEl(unit: UnidadMovilDTO, onClick: () => void): HTMLElement {
     border:1.5px solid rgba(255,255,255,0.25);
     transition:transform 0.15s;
   `;
-  badge.innerHTML = `<svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="white" stroke-width="1.5" opacity="0.95">
-    <rect x="0.75" y="4.75" width="11.5" height="6.5" rx="1.25"/>
-    <path d="M3.5 4.75V3.5a3 3 0 016 0v1.25"/>
-    <line x1="6.5" y1="6.5" x2="6.5" y2="9.5"/>
-    <line x1="5" y1="8" x2="8" y2="8"/>
-  </svg>`;
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNS, 'svg');
+  svg.setAttribute('width', '13');
+  svg.setAttribute('height', '13');
+  svg.setAttribute('viewBox', '0 0 13 13');
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'white');
+  svg.setAttribute('stroke-width', '1.5');
+  svg.setAttribute('opacity', '0.95');
+
+  const rect = document.createElementNS(svgNS, 'rect');
+  rect.setAttribute('x', '0.75');
+  rect.setAttribute('y', '4.75');
+  rect.setAttribute('width', '11.5');
+  rect.setAttribute('height', '6.5');
+  rect.setAttribute('rx', '1.25');
+
+  const path = document.createElementNS(svgNS, 'path');
+  path.setAttribute('d', 'M3.5 4.75V3.5a3 3 0 016 0v1.25');
+
+  const line1 = document.createElementNS(svgNS, 'line');
+  line1.setAttribute('x1', '6.5');
+  line1.setAttribute('y1', '6.5');
+  line1.setAttribute('x2', '6.5');
+  line1.setAttribute('y2', '9.5');
+
+  const line2 = document.createElementNS(svgNS, 'line');
+  line2.setAttribute('x1', '5');
+  line2.setAttribute('y1', '8');
+  line2.setAttribute('x2', '8');
+  line2.setAttribute('y2', '8');
+
+  svg.appendChild(rect);
+  svg.appendChild(path);
+  svg.appendChild(line1);
+  svg.appendChild(line2);
+  badge.appendChild(svg);
 
   const lbl = document.createElement('div');
   lbl.style.cssText = `font-family:monospace;font-size:9px;font-weight:700;color:${color};margin-top:2px;white-space:nowrap;text-shadow:0 1px 4px rgba(0,0,0,0.9);`;
