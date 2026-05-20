@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/auth/auth.guard';
 import { noAuthGuard } from './core/auth/no-auth.guard';
+import { roleGuard } from './core/auth/role.guard';
 import { ShellComponent } from './layout/shell/shell.component';
 
 export const routes: Routes = [
@@ -46,6 +47,7 @@ export const routes: Routes = [
       },
       {
         path: 'staff',
+        canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_ADMINISTRADOR')],
         loadComponent: () =>
           import('./features/staff/staff.component').then((m) => m.StaffComponent),
       },
@@ -66,16 +68,19 @@ export const routes: Routes = [
       },
       {
         path: 'institutions',
+        canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_PROPIETARIO', 'ROLE_ADMINISTRADOR')],
         loadComponent: () =>
           import('./features/institutions/institutions.component').then((m) => m.InstitutionsComponent),
       },
       {
         path: 'plans',
+        canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_PROPIETARIO', 'ROLE_ADMINISTRADOR')],
         loadComponent: () =>
           import('./features/plans/plans.component').then((m) => m.PlansComponent),
       },
       {
         path: 'facturacion',
+        canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_ADMINISTRADOR')],
         loadComponent: () =>
           import('./features/facturacion/facturacion.component').then((m) => m.FacturacionComponent),
       },
@@ -109,6 +114,7 @@ export const routes: Routes = [
       },
       {
         path: 'settings',
+        canActivate: [roleGuard('ROLE_ADMIN')],
         loadComponent: () =>
           import('./features/settings/settings.component').then((m) => m.SettingsComponent),
       },

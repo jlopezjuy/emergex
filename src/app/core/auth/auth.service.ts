@@ -6,7 +6,7 @@ import { environment } from '../../../environments/environment';
 import { Account } from './models/account.model';
 import { LoginCredentials } from './models/login.model';
 
-const JWT_KEY = 'emergex_jwt';
+import { JWT_STORAGE_KEY } from './auth.constants';
 
 interface JwtResponse {
   id_token: string;
@@ -18,10 +18,20 @@ export class AuthService {
   private router = inject(Router);
 
   private _account = signal<Account | null>(null);
-  private _isAuthenticated = signal<boolean>(!!localStorage.getItem(JWT_KEY));
+  private _isAuthenticated = signal<boolean>(!!localStorage.getItem(JWT_STORAGE_KEY));
 
   readonly currentAccount = this._account.asReadonly();
   readonly isAuthenticated = this._isAuthenticated.asReadonly();
+
+  constructor() {
+    window.addEventListener('storage', (event) => {
+      if (event.key === JWT_STORAGE_KEY && !event.newValue) {
+        this._account.set(null);
+        this._isAuthenticated.set(false);
+        this.router.navigate(['/login']);
+      }
+    });
+  }
 
   login(credentials: LoginCredentials): Observable<Account> {
     return this.http
@@ -32,7 +42,7 @@ export class AuthService {
       })
       .pipe(
         tap((res) => {
-          localStorage.setItem(JWT_KEY, res.id_token);
+          localStorage.setItem(JWT_STORAGE_KEY, res.id_token);
           this._isAuthenticated.set(true);
         }),
         switchMap(() => this.fetchAccount()),
@@ -46,13 +56,25 @@ export class AuthService {
   }
 
   logout(): void {
-    localStorage.removeItem(JWT_KEY);
+    localStorage.removeItem(JWT_STORAGE_KEY);
     this._account.set(null);
     this._isAuthenticated.set(false);
     this.router.navigate(['/login']);
   }
 
   getToken(): string | null {
-    return localStorage.getItem(JWT_KEY);
+    return localStorage.getItem(JWT_STORAGE_KEY);
+  }
+
+  refreshToken(): Observable<{ id_token: string }> {
+    const token = this.getToken();
+    return this.http.post<{ id_token: string }>(
+      `${environment.apiUrl}/api/refresh`,
+      { token }
+    ).pipe(
+      tap(res => {
+        localStorage.setItem(JWT_STORAGE_KEY, res.id_token);
+      })
+    );
   }
 }
