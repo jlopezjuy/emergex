@@ -30,7 +30,13 @@ export class MapComponent implements OnInit {
   readonly emergencies = signal<TicketAsistenciaDTO[]>([]);
 
   ngOnInit(): void {
-    this.fleetApi.ambulancias().pipe(catchError(() => of([])), takeUntilDestroyed(this.destroyRef)).subscribe((d) => this.ambulancias.set(d));
-    this.emergencyApi.getActivos().pipe(catchError(() => of([])), takeUntilDestroyed(this.destroyRef)).subscribe((d) => this.emergencies.set(d));
+    this.fleetApi
+      .ambulancias()
+      .pipe(catchError(() => of(this.ambulancias())), takeUntilDestroyed(this.destroyRef))
+      .subscribe((d) => this.ambulancias.set(d));
+    this.emergencyApi
+      .getActivos()
+      .pipe(catchError(() => of(this.emergencies())), takeUntilDestroyed(this.destroyRef))
+      .subscribe((d) => this.emergencies.set(d));
   }
 }

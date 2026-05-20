@@ -16,6 +16,7 @@ import { ModalShellComponent } from '../../shared/components/modal-shell/modal-s
 import { DispatchModalComponent } from '../../shared/components/emergency/dispatch-modal/dispatch-modal.component';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
+import { catchError, of } from 'rxjs';
 
 type FeedTab = 'TODAS' | 'SIN_ASIGNAR' | 'CRITICAS';
 
@@ -255,6 +256,7 @@ type FeedTab = 'TODAS' | 'SIN_ASIGNAR' | 'CRITICAS';
 })
 export class OperationsComponent implements OnInit, OnDestroy {
     private destroyRef = inject(DestroyRef);
+  private readonly fleetCacheKey = 'emergex.operations.fleet.last-ok';
   readonly emergencyStore = inject(EmergencyStore);
   readonly fleetStore = inject(FleetStore);
   private ws = inject(WebsocketService);
@@ -318,6 +320,7 @@ export class OperationsComponent implements OnInit, OnDestroy {
   private refreshInterval: any;
 
   ngOnInit(): void {
+    this.hydrateFleetFromCache();
     this.emergencyStore.loadActivos();
     this.emergencyStore.startTicker();
 
@@ -344,13 +347,59 @@ export class OperationsComponent implements OnInit, OnDestroy {
   }
 
   refreshDashboardAndFleet(): void {
-    this.fleetApi.ambulancias().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-            next: (data) => this.fleetStore.setAmbulances(data),
-          });
+    this.fleetApi
+      .ambulancias()
+      .pipe(
+        catchError((error) => {
+          console.error('[Operations] fleet snapshot failed, keeping last known positions', error);
+          this.hydrateFleetFromCache();
+          return of(null);
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: (data) => {
+          if (!data) return;
+          this.fleetStore.setAmbulances(data);
+          this.persistFleetCache(data);
+        },
+      });
 
-    this.dashboardApi.operativo().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-            next: (data) => this.dashboard.set(data),
-          });
+    this.dashboardApi
+      .operativo()
+      .pipe(
+        catchError((error) => {
+          console.error('[Operations] dashboard snapshot failed, keeping last telemetry', error);
+          return of(null);
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: (data) => {
+          if (!data) return;
+          this.dashboard.set(data);
+        },
+      });
+  }
+
+  private persistFleetCache(data: unknown): void {
+    try {
+      localStorage.setItem(this.fleetCacheKey, JSON.stringify(data));
+    } catch {
+      // ignore storage quota / private mode
+    }
+  }
+
+  private hydrateFleetFromCache(): void {
+    if (this.fleetStore.ambulances().length > 0) return;
+    try {
+      const raw = localStorage.getItem(this.fleetCacheKey);
+      if (!raw) return;
+      const cached = JSON.parse(raw);
+      if (Array.isArray(cached)) this.fleetStore.setAmbulances(cached);
+    } catch {
+      // ignore malformed cache
+    }
   }
 
   onSelectAmbulance(id: number): void {

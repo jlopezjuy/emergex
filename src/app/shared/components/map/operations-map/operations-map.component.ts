@@ -12,8 +12,8 @@ import {
   signal,
   computed,
 } from '@angular/core';
-import { LngLatBounds, Map as MapLibreMap, Marker, NavigationControl, GeoJSONSource } from 'maplibre-gl';
-import type { FeatureCollection, LineString } from 'geojson';
+import { LngLatBounds, Map as MapLibreMap, NavigationControl, GeoJSONSource } from 'maplibre-gl';
+import type { FeatureCollection, LineString, Point } from 'geojson';
 import { UnidadMovilDTO } from '../../../../data-access/dto/ambulancia.dto';
 import { TicketAsistenciaDTO } from '../../../../data-access/dto/ticket.dto';
 import { ThemeService } from '../../../../core/theme/theme.service';
@@ -62,7 +62,7 @@ function createAmbEl(unit: UnidadMovilDTO, onClick: () => void): HTMLElement {
   const label = unit.identificador ?? (unit.id != null ? `U-${unit.id}` : 'AMB');
 
   const wrap = document.createElement('div');
-  wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;cursor:pointer;user-select:none;';
+  wrap.style.cssText = 'position:relative;width:34px;height:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;overflow:visible;';
 
   const badge = document.createElement('div');
   badge.style.cssText = `
@@ -111,7 +111,7 @@ function createAmbEl(unit: UnidadMovilDTO, onClick: () => void): HTMLElement {
   badge.appendChild(svg);
 
   const lbl = document.createElement('div');
-  lbl.style.cssText = `font-family:monospace;font-size:9px;font-weight:700;color:${color};margin-top:2px;white-space:nowrap;text-shadow:0 1px 4px rgba(0,0,0,0.9);`;
+  lbl.style.cssText = `position:absolute;top:24px;left:50%;transform:translateX(-50%);font-family:monospace;font-size:9px;font-weight:700;color:${color};white-space:nowrap;text-shadow:0 1px 4px rgba(0,0,0,0.9);pointer-events:none;`;
   lbl.textContent = label;
 
   wrap.appendChild(badge);
@@ -127,7 +127,7 @@ function createEmgEl(ticket: TicketAsistenciaDTO, onClick: () => void): HTMLElem
   const label = ticket.codigo ?? `E-${ticket.id}`;
 
   const wrap = document.createElement('div');
-  wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;cursor:pointer;user-select:none;';
+  wrap.style.cssText = 'position:relative;width:34px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;overflow:visible;';
 
   const pulse = document.createElement('div');
   pulse.style.cssText = 'position:relative;width:28px;height:28px;display:flex;align-items:center;justify-content:center;';
@@ -141,7 +141,7 @@ function createEmgEl(ticket: TicketAsistenciaDTO, onClick: () => void): HTMLElem
   dot.style.cssText = `position:relative;width:12px;height:12px;border-radius:50%;background:${color};border:2px solid rgba(255,255,255,0.45);box-shadow:0 0 12px ${color}99;z-index:1;`;
 
   const lbl = document.createElement('div');
-  lbl.style.cssText = `font-family:monospace;font-size:9px;font-weight:700;color:${color};margin-top:1px;white-space:nowrap;text-shadow:0 1px 4px rgba(0,0,0,0.9);`;
+  lbl.style.cssText = `position:absolute;top:28px;left:50%;transform:translateX(-50%);font-family:monospace;font-size:9px;font-weight:700;color:${color};white-space:nowrap;text-shadow:0 1px 4px rgba(0,0,0,0.9);pointer-events:none;`;
   lbl.textContent = label;
 
   pulse.appendChild(ring1);
@@ -332,9 +332,36 @@ const LEGEND = [
     :host:not(.is-dark) .route-info-value {
       color: #0369a1;
     }
+    .map-status {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      backdrop-filter: blur(10px);
+      z-index: 10;
+    }
+    :host.is-dark .map-status {
+      background: rgba(6, 16, 31, 0.88);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      color: rgba(148, 163, 184, 0.95);
+    }
+    :host:not(.is-dark) .map-status {
+      background: rgba(255, 255, 255, 0.94);
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      color: rgba(51, 65, 85, 0.9);
+    }
   `],
   template: `
     <div #mapEl class="map-root"></div>
+
+    @if (showDataStatus() && !hasGeodata()) {
+      <div class="map-status">Sin datos en tiempo real · mostrando mapa base</div>
+    }
 
     @if (activeRouteInfo()) {
       <div class="route-info-card">
@@ -370,6 +397,7 @@ export class OperationsMapComponent implements OnDestroy {
   autoFit = input(false);
   showLegend = input(true);
   showCoords = input(true);
+  showDataStatus = input(true);
 
   selectAmbulance = output<number>();
   selectEmergency = output<number>();
@@ -378,6 +406,7 @@ export class OperationsMapComponent implements OnDestroy {
   protected readonly zoom = signal('11.0');
   protected readonly centerLat = signal(SSJ[1].toFixed(4));
   protected readonly centerLng = signal(SSJ[0].toFixed(4));
+  protected readonly hasGeodata = signal(true);
   readonly activeRouteInfo = signal<{ distance: string; duration: string } | null>(null);
 
   private readonly zone = inject(NgZone);
@@ -385,12 +414,12 @@ export class OperationsMapComponent implements OnDestroy {
   private mapEl = viewChild.required<ElementRef<HTMLDivElement>>('mapEl');
   private map: MapLibreMap | null = null;
   private resizeObserver: ResizeObserver | null = null;
-  private ambMarkers: Marker[] = [];
-  private emgMarkers: Marker[] = [];
   private mapReady = false;
   private lastFitSignature = '';
   private lastFocusSignature = '';
   private readonly ROUTES_SOURCE = 'emx-routes';
+  private readonly AMB_SOURCE = 'emx-amb-points';
+  private readonly EMG_SOURCE = 'emx-emg-points';
 
   protected readonly isDark = computed(() => this.themeService.theme() === 'dark');
 
@@ -491,20 +520,119 @@ export class OperationsMapComponent implements OnDestroy {
   private setupMapLayers(): void {
     if (!this.map) return;
 
-    this.map.addSource(this.ROUTES_SOURCE, {
-      type: 'geojson',
-      data: { type: 'FeatureCollection', features: [] },
-    });
+    if (!this.map.getSource(this.AMB_SOURCE)) {
+      this.map.addSource(this.AMB_SOURCE, {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+      });
+      this.map.addLayer({
+        id: 'emx-amb-circles',
+        type: 'circle',
+        source: this.AMB_SOURCE,
+        paint: {
+          'circle-radius': 10,
+          'circle-color': ['get', 'color'],
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#ffffff',
+          'circle-opacity': 0.95,
+        },
+      });
+      this.map.addLayer({
+        id: 'emx-amb-labels',
+        type: 'symbol',
+        source: this.AMB_SOURCE,
+        layout: {
+          'text-field': ['get', 'label'],
+          'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'],
+          'text-size': 10,
+          'text-anchor': 'top',
+          'text-offset': [0, 1.2],
+          'text-allow-overlap': true,
+          'text-ignore-placement': true,
+        },
+        paint: {
+          'text-color': ['get', 'color'],
+          'text-halo-color': 'rgba(255,255,255,0.9)',
+          'text-halo-width': 0.6,
+        },
+      });
+    }
 
-    this.map.addLayer({
-      id: 'emx-routes-line',
-      type: 'line',
-      source: this.ROUTES_SOURCE,
-      paint: {
-        'line-color': '#22D3EE',
-        'line-width': 2.8,
-        'line-opacity': 0.75,
-      },
+    if (!this.map.getSource(this.EMG_SOURCE)) {
+      this.map.addSource(this.EMG_SOURCE, {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+      });
+      this.map.addLayer({
+        id: 'emx-emg-outer',
+        type: 'circle',
+        source: this.EMG_SOURCE,
+        paint: {
+          'circle-radius': 16,
+          'circle-color': ['get', 'color'],
+          'circle-opacity': 0.25,
+        },
+      });
+      this.map.addLayer({
+        id: 'emx-emg-inner',
+        type: 'circle',
+        source: this.EMG_SOURCE,
+        paint: {
+          'circle-radius': 6,
+          'circle-color': ['get', 'color'],
+          'circle-stroke-width': 2,
+          'circle-stroke-color': 'rgba(255,255,255,0.7)',
+        },
+      });
+      this.map.addLayer({
+        id: 'emx-emg-labels',
+        type: 'symbol',
+        source: this.EMG_SOURCE,
+        layout: {
+          'text-field': ['get', 'label'],
+          'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'],
+          'text-size': 10,
+          'text-anchor': 'top',
+          'text-offset': [0, 1.2],
+          'text-allow-overlap': true,
+          'text-ignore-placement': true,
+        },
+        paint: {
+          'text-color': ['get', 'color'],
+          'text-halo-color': 'rgba(255,255,255,0.9)',
+          'text-halo-width': 0.6,
+        },
+      });
+    }
+
+    if (!this.map.getSource(this.ROUTES_SOURCE)) {
+      this.map.addSource(this.ROUTES_SOURCE, {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+      });
+    }
+    if (!this.map.getLayer('emx-routes-line')) {
+      this.map.addLayer({
+        id: 'emx-routes-line',
+        type: 'line',
+        source: this.ROUTES_SOURCE,
+        paint: {
+          'line-color': '#22D3EE',
+          'line-width': 2.8,
+          'line-opacity': 0.75,
+        },
+      });
+    }
+
+    this.map.on('click', 'emx-amb-circles', (ev) => {
+      const feature = ev.features?.[0];
+      const id = feature?.properties?.['id'];
+      if (id != null) this.zone.run(() => this.selectAmbulance.emit(Number(id)));
+    });
+    this.map.on('click', 'emx-emg-inner', (ev) => {
+      const feature = ev.features?.[0];
+      const id = feature?.properties?.['id'];
+      if (id != null) this.zone.run(() => this.selectEmergency.emit(Number(id)));
     });
 
     this.mapReady = true;
@@ -516,36 +644,63 @@ export class OperationsMapComponent implements OnDestroy {
 
   private updateMarkers(ambs: UnidadMovilDTO[], emgs: TicketAsistenciaDTO[]): void {
     if (!this.map) return;
-
-    this.ambMarkers.forEach((m) => m.remove());
-    this.ambMarkers = ambs.flatMap((unit) => {
-      const lngLat = unitLngLat(unit);
-      if (!lngLat) return [];
-      const el = createAmbEl(unit, () => {
-        if (unit.id != null) this.zone.run(() => this.selectAmbulance.emit(unit.id!));
+    const ambFeatures = ambs
+      .flatMap((unit) => {
+        const lngLat = unitLngLat(unit);
+        if (!lngLat || unit.id == null) return [];
+        return [{
+          type: 'Feature' as const,
+          properties: {
+            id: unit.id,
+            label: unit.identificador ?? `U-${unit.id}`,
+            color: ambColor(unit.estado),
+          },
+          geometry: {
+            type: 'Point' as const,
+            coordinates: lngLat,
+          },
+        }];
       });
-      return [new Marker({ element: el, anchor: 'bottom' }).setLngLat(lngLat).addTo(this.map!)];
+    const emgFeatures = emgs
+      .flatMap((ticket) => {
+        const lngLat = ticketLngLat(ticket);
+        if (!lngLat || ticket.id == null) return [];
+        return [{
+          type: 'Feature' as const,
+          properties: {
+            id: ticket.id,
+            label: ticket.codigo ?? `E-${ticket.id}`,
+            color: emgColor(ticket.prioridad),
+          },
+          geometry: {
+            type: 'Point' as const,
+            coordinates: lngLat,
+          },
+        }];
+      });
+
+    (this.map.getSource(this.AMB_SOURCE) as GeoJSONSource | undefined)?.setData({
+      type: 'FeatureCollection',
+      features: ambFeatures as FeatureCollection<Point>['features'],
     });
-
-    this.emgMarkers.forEach((m) => m.remove());
-    this.emgMarkers = emgs.flatMap((ticket) => {
-      const lngLat = ticketLngLat(ticket);
-      if (!lngLat) return [];
-      const el = createEmgEl(ticket, () => {
-        if (ticket.id != null) this.zone.run(() => this.selectEmergency.emit(ticket.id!));
-      });
-      return [new Marker({ element: el, anchor: 'bottom' }).setLngLat(lngLat).addTo(this.map!)];
+    (this.map.getSource(this.EMG_SOURCE) as GeoJSONSource | undefined)?.setData({
+      type: 'FeatureCollection',
+      features: emgFeatures as FeatureCollection<Point>['features'],
     });
     this.fitToVisibleData(ambs, emgs);
   }
 
   private fitToVisibleData(ambs: UnidadMovilDTO[], emgs: TicketAsistenciaDTO[]): void {
-    if (!this.map || !this.autoFit()) return;
     const coords: [number, number][] = [
       ...ambs.filter((a) => a.longitud != null && a.latitud != null).map((a) => [a.longitud!, a.latitud!] as [number, number]),
       ...emgs.filter((e) => e.longitud != null && e.latitud != null).map((e) => [e.longitud!, e.latitud!] as [number, number]),
     ];
-    if (coords.length === 0) return;
+    this.hasGeodata.set(coords.length > 0);
+    if (!this.map || !this.autoFit()) return;
+    if (coords.length === 0) {
+      this.lastFitSignature = '';
+      return;
+    }
     const signature = coords
       .map(([lng, lat]) => `${lng.toFixed(5)},${lat.toFixed(5)}`)
       .sort()
@@ -672,8 +827,6 @@ export class OperationsMapComponent implements OnDestroy {
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
     window.removeEventListener('resize', this.handleWindowResize);
-    this.ambMarkers.forEach((m) => m.remove());
-    this.emgMarkers.forEach((m) => m.remove());
     this.map?.remove();
     this.map = null;
   }
