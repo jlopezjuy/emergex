@@ -18,21 +18,14 @@ import { UnidadMovilDTO } from '../../../../data-access/dto/ambulancia.dto';
 import { TicketAsistenciaDTO } from '../../../../data-access/dto/ticket.dto';
 import { ThemeService } from '../../../../core/theme/theme.service';
 
-// ─── San Salvador de Jujuy mock coordinates ───────────────────────────────────
+// ─── San Salvador de Jujuy default center ─────────────────────────────────────
 
 const SSJ: [number, number] = [-65.2995, -24.1858];
 
-function mockLngLat(id: number | undefined, spread: number): [number, number] {
-  const n = id ?? 0;
-  const lng = SSJ[0] + (((n * 17 + 7) % 100) / 100 - 0.5) * spread;
-  const lat = SSJ[1] + (((n * 31 + 13) % 100) / 100 - 0.5) * spread * 0.7;
-  return [lng, lat];
-}
-
-function unitLngLat(unit: UnidadMovilDTO): [number, number] {
+function unitLngLat(unit: UnidadMovilDTO): [number, number] | null {
   return unit.longitud != null && unit.latitud != null
     ? [unit.longitud, unit.latitud]
-    : mockLngLat(unit.id, 0.12);
+    : null;
 }
 
 function ticketLngLat(ticket: TicketAsistenciaDTO): [number, number] | null {
@@ -494,12 +487,13 @@ export class OperationsMapComponent implements OnDestroy {
     if (!this.map) return;
 
     this.ambMarkers.forEach((m) => m.remove());
-    this.ambMarkers = ambs.map((unit) => {
-      const [lng, lat] = unitLngLat(unit);
+    this.ambMarkers = ambs.flatMap((unit) => {
+      const lngLat = unitLngLat(unit);
+      if (!lngLat) return [];
       const el = createAmbEl(unit, () => {
         if (unit.id != null) this.zone.run(() => this.selectAmbulance.emit(unit.id!));
       });
-      return new Marker({ element: el, anchor: 'bottom' }).setLngLat([lng, lat]).addTo(this.map!);
+      return [new Marker({ element: el, anchor: 'bottom' }).setLngLat(lngLat).addTo(this.map!)];
     });
 
     this.emgMarkers.forEach((m) => m.remove());
@@ -588,7 +582,9 @@ export class OperationsMapComponent implements OnDestroy {
         if (!ticket) return [];
         const ticketPosition = ticketLngLat(ticket);
         if (!ticketPosition) return [];
-        return [{ unit: a, ticket, start: unitLngLat(a), end: ticketPosition }];
+        const unitPosition = unitLngLat(a);
+        if (!unitPosition) return [];
+        return [{ unit: a, ticket, start: unitPosition, end: ticketPosition }];
       });
 
     if (activeRoutePairs.length === 0) {

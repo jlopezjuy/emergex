@@ -15,10 +15,6 @@ import { EmptyStateComponent } from '../../shared/components/empty-state/empty-s
 import { ModalShellComponent } from '../../shared/components/modal-shell/modal-shell.component';
 import { DispatchModalComponent } from '../../shared/components/emergency/dispatch-modal/dispatch-modal.component';
 import { FormsModule } from '@angular/forms';
-import { TrackingApiService } from '../../data-access/api/tracking.api';
-import { UnidadMovilDTO } from '../../data-access/dto/ambulancia.dto';
-import { forkJoin, of } from 'rxjs';
-import { catchError, map } from 'rxjs/operators';
 
 type FeedTab = 'TODAS' | 'SIN_ASIGNAR' | 'CRITICAS';
 
@@ -263,7 +259,6 @@ export class OperationsComponent implements OnInit, OnDestroy {
   private auth = inject(AuthService);
   private fleetApi = inject(FleetApiService);
   private dashboardApi = inject(DashboardApiService);
-  private trackingApi = inject(TrackingApiService);
 
   readonly dashboard = signal<DashboardOperativoDTO | null>(null);
   readonly selectedAmbulanceId = signal<number | null>(null);
@@ -348,34 +343,11 @@ export class OperationsComponent implements OnInit, OnDestroy {
 
   refreshDashboardAndFleet(): void {
     this.fleetApi.ambulancias().subscribe({
-      next: (data) => this.hydrateAmbulanceLocations(data),
+      next: (data) => this.fleetStore.setAmbulances(data),
     });
 
     this.dashboardApi.operativo().subscribe({
       next: (data) => this.dashboard.set(data),
-    });
-  }
-
-  private hydrateAmbulanceLocations(units: UnidadMovilDTO[]): void {
-    if (units.length === 0) {
-      this.fleetStore.setAmbulances(units);
-      return;
-    }
-
-    const requests = units.map((unit) =>
-      this.trackingApi.getUbicacion(unit.id).pipe(
-        map((pos) => ({
-          ...unit,
-          latitud: Number(pos.latitud),
-          longitud: Number(pos.longitud),
-        })),
-        catchError(() => of(unit)),
-      ),
-    );
-
-    forkJoin(requests).subscribe({
-      next: (enriched) => this.fleetStore.setAmbulances(enriched),
-      error: () => this.fleetStore.setAmbulances(units),
     });
   }
 

@@ -38,6 +38,8 @@ export class FleetApiService {
       tripulacion:         (raw.tripulacionActual ?? []).map((m: any) => m.profesionalNombre).join(', '),
       eta:                 raw.objetivoEta ?? null,
       patente:             raw.patente,
+      latitud:             raw.latitud != null ? Number(raw.latitud) : undefined,
+      longitud:            raw.longitud != null ? Number(raw.longitud) : undefined,
       // inventario real
       oxigenoPct:          raw.oxigenoPct,
       adrenalinaPct:       raw.adrenalinaPct,
