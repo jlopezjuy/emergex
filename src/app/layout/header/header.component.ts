@@ -10,33 +10,33 @@ import { AuthService } from '../../core/auth/auth.service';
   imports: [NgIf],
   template: `
     <header
-      class="flex items-center justify-between px-4 h-14 border-b flex-shrink-0 relative"
+      class="flex items-center justify-between px-3 py-2 border-b flex-shrink-0 relative min-h-14"
       style="background: var(--bg-elevated); border-color: var(--border-glass);"
     >
       <!-- Left: Title + breadcrumb -->
-      <div class="flex items-center gap-3">
-        <div class="flex flex-col">
+      <div class="flex items-center gap-2 min-w-0">
+        <div class="flex flex-col min-w-0">
           <span class="font-semibold text-sm leading-tight" style="color: var(--text-primary);">
-            Centro de Operaciones
+            <span class="truncate block">Centro de Operaciones</span>
           </span>
-          <span class="text-xs" style="color: var(--text-muted);">Emergex · Dashboard operativo</span>
+          <span class="text-xs truncate" style="color: var(--text-muted);">Emergex · Dashboard operativo</span>
         </div>
       </div>
 
       <!-- Center: Tenant switcher -->
-      <div class="flex items-center">
+      <div class="items-center tenant-chip-wrap hide-below-2xl">
         <button
           type="button"
-          class="flex items-center gap-2 px-3 py-1.5 rounded-btn text-xs transition-colors"
+          class="flex items-center gap-2 px-3 py-1.5 rounded-btn text-xs transition-colors min-w-0"
           style="background: var(--surface-inset); border: 1px solid var(--border-glass); color: var(--text-secondary);"
         >
           <span
             class="font-mono font-bold text-xs rounded px-1"
             style="background: var(--accent-blue); color: white;"
           >EX</span>
-          <div class="flex flex-col items-start leading-tight">
-            <span class="font-semibold" style="color: var(--text-primary);">{{ tenantName() }}</span>
-            <span style="color: var(--text-muted);">{{ tenantSede() }}</span>
+          <div class="flex flex-col items-start leading-tight min-w-0">
+            <span class="font-semibold truncate max-w-[110px]" style="color: var(--text-primary);">{{ tenantName() }}</span>
+            <span class="truncate max-w-[110px]" style="color: var(--text-muted);">{{ tenantSede() }}</span>
           </div>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted);">
             <path d="m6 9 6 6 6-6"/>
@@ -45,9 +45,9 @@ import { AuthService } from '../../core/auth/auth.service';
       </div>
 
       <!-- Right: Stats + clock + actions -->
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2 ml-auto flex-wrap justify-end min-w-0">
         <!-- Sys stats -->
-        <div class="flex items-center gap-4 text-xs font-mono">
+        <div class="flex items-center gap-3 text-xs font-mono hide-below-xl">
           <div class="flex items-center gap-1.5">
             <span class="dot" style="background: var(--accent-cyan);"></span>
             <span style="color: var(--text-secondary);">Activas</span>
@@ -66,10 +66,10 @@ import { AuthService } from '../../core/auth/auth.service';
         </div>
 
         <!-- Separator -->
-        <div class="h-5 border-l" style="border-color: var(--border-glass);"></div>
+        <div class="h-5 border-l hide-below-xl" style="border-color: var(--border-glass);"></div>
 
         <!-- Clock + date -->
-        <div class="flex flex-col items-end leading-tight">
+        <div class="flex flex-col items-end leading-tight hide-below-lg">
           <span
             class="font-mono text-xs font-semibold"
             style="color: var(--accent-cyan); text-shadow: 0 0 12px rgba(34,211,238,0.5);"
@@ -86,7 +86,7 @@ import { AuthService } from '../../core/auth/auth.service';
         <!-- Institucional -->
         <button
           type="button"
-          class="btn btn--ghost btn--sm"
+          class="btn btn--ghost btn--sm hide-below-2xl"
           (click)="createInstitutional.emit()"
           style="border-color: rgba(59,130,246,0.35); color: var(--accent-blue);"
         >
@@ -105,7 +105,8 @@ import { AuthService } from '../../core/auth/auth.service';
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M6 1v10M1 6h10"/>
           </svg>
-          Nueva Emergencia
+          <span class="hide-below-md">Nueva Emergencia</span>
+          <span class="show-below-md">Emergencia</span>
           <span
             class="font-mono text-xs ml-1 px-1 rounded"
             style="background: rgba(255,255,255,0.15); opacity: 0.8;"
@@ -138,7 +139,7 @@ import { AuthService } from '../../core/auth/auth.service';
               class="w-6 h-6 rounded-full flex items-center justify-center font-mono text-xs font-bold"
               style="background: var(--accent-blue); color: white;"
             >{{ userInitials() }}</div>
-            <span class="text-xs font-medium" style="color: var(--text-secondary);">{{ userName() }}</span>
+            <span class="text-xs font-medium hide-below-xl" style="color: var(--text-secondary);">{{ userName() }}</span>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-muted);">
               <path d="m6 9 6 6 6-6"/>
             </svg>
@@ -181,6 +182,23 @@ import { AuthService } from '../../core/auth/auth.service';
     </header>
   `,
   styles: [`
+    .tenant-chip-wrap { display: flex; }
+    .show-below-md { display: none; }
+
+    @media (max-width: 1600px) {
+      .hide-below-2xl { display: none !important; }
+    }
+    @media (max-width: 1360px) {
+      .hide-below-xl { display: none !important; }
+    }
+    @media (max-width: 1180px) {
+      .hide-below-lg { display: none !important; }
+    }
+    @media (max-width: 980px) {
+      .hide-below-md { display: none !important; }
+      .show-below-md { display: inline !important; }
+    }
+
     .user-menu {
       position: absolute;
       top: calc(100% + 8px);

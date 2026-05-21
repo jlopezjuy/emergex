@@ -1,13 +1,13 @@
 import { Component, inject, signal, OnDestroy, DestroyRef } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, RouterLink],
   template: `
     <div class="login">
 
@@ -82,7 +82,7 @@ import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
             <div class="qc-field">
               <label class="eyebrow" style="display:flex;justify-content:space-between;align-items:center">
                 <span>Contraseña</span>
-                <a class="login__link" href="#" (click)="$event.preventDefault()">¿Olvidaste tu contraseña?</a>
+                <a class="login__link" routerLink="/forgot-password">¿Olvidaste tu contraseña?</a>
               </label>
               <input
                 class="qc-input"

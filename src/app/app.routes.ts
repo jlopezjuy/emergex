@@ -24,6 +24,22 @@ export const routes: Routes = [
       import('./features/auth/login/login.component').then((m) => m.LoginComponent),
   },
   {
+    path: 'forgot-password',
+    canActivate: [noAuthGuard],
+    loadComponent: () =>
+      import('./features/auth/forgot-password/forgot-password.component').then(
+        (m) => m.ForgotPasswordComponent,
+      ),
+  },
+  {
+    path: 'reset-password',
+    canActivate: [noAuthGuard],
+    loadComponent: () =>
+      import('./features/auth/reset-password/reset-password.component').then(
+        (m) => m.ResetPasswordComponent,
+      ),
+  },
+  {
     path: '',
     component: ShellComponent,
     canActivate: [authGuard],
@@ -115,6 +131,13 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/analytics/analytics.component').then(
             (m) => m.AnalyticsComponent,
+          ),
+      },
+      {
+        path: 'asistencias/historial',
+        loadComponent: () =>
+          import('./features/asistencias-historial/asistencias-historial.component').then(
+            (m) => m.AsistenciasHistorialComponent,
           ),
       },
       {
