@@ -59,17 +59,27 @@ const ASSIGNABLE_AUTHORITIES = [
 
       <!-- ── LEFT: Empresas ── -->
       <aside class="panel panel-left">
-        <div class="panel-header">
-          <h2 class="panel-title">Empresas</h2>
+        <div class="screen-head flex-shrink-0" style="padding: 12px 14px; border-bottom: 1px solid var(--border-hairline);">
+          <div class="screen-head__title">
+            <div class="screen-head__icon" style="width: 28px; height: 28px; border-radius: 6px; color: var(--accent-cyan);">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+            </div>
+            <div>
+              <h2 style="font-size: 13px; font-weight: 600; color: var(--text-primary); letter-spacing: -0.01em; margin: 0;">Empresas</h2>
+            </div>
+          </div>
         </div>
 
-        <div class="px-3 pb-2">
+        <div class="px-3 py-2" style="border-bottom: 1px solid var(--border-hairline);">
           <input
-            class="search-input"
+            class="qc-input"
             type="search"
             placeholder="Buscar empresa…"
             [(ngModel)]="empresaSearchInput"
             (ngModelChange)="onEmpresaSearchChange($event)"
+            style="height: 32px; font-size: 12px;"
           />
         </div>
 
@@ -91,7 +101,15 @@ const ASSIGNABLE_AUTHORITIES = [
               >
                 <span class="empresa-nombre">{{ e.nombre }}</span>
                 <span class="empresa-cuit">{{ e.cuit }}</span>
-                <span class="badge" [attr.data-estado]="e.estado">{{ e.estado }}</span>
+                <span
+                  class="badge mt-1"
+                  [class.badge--stable]="e.estado === 'ACTIVA'"
+                  [class.badge--urgent]="e.estado === 'SUSPENDIDA'"
+                  [class.badge--critical]="e.estado === 'INACTIVA'"
+                  style="font-size: 9px; padding: 1px 6px;"
+                >
+                  {{ e.estado }}
+                </span>
               </li>
             }
           </ul>
@@ -110,26 +128,42 @@ const ASSIGNABLE_AUTHORITIES = [
       <section class="panel panel-right">
         @if (!selectedEmpresa()) {
           <div class="no-selection">
-            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.2">
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.2" style="color: var(--text-muted);">
               <rect x="6" y="10" width="36" height="28" rx="3"/>
               <path d="M16 10V6M32 10V6M6 22h36"/>
             </svg>
-            <p>Seleccioná una empresa para ver sus usuarios</p>
+            <p style="color: var(--text-secondary);">Seleccioná una empresa para ver sus usuarios</p>
           </div>
         } @else {
-          <div class="panel-header">
-            <div>
-              <h2 class="panel-title">{{ selectedEmpresa()!.nombre }}</h2>
-              <p class="panel-subtitle">{{ selectedEmpresa()!.cuit }} · {{ selectedEmpresa()!.ciudad }}</p>
+          <div class="screen-head flex-shrink-0" style="padding: 14px 18px; border-bottom: 1px solid var(--border-hairline);">
+            <div class="screen-head__title">
+              <div class="screen-head__icon" style="color: var(--accent-blue);">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+              </div>
+              <div>
+                <h2 style="font-size: 16px; font-weight: 600; color: var(--text-primary); margin: 0;">{{ selectedEmpresa()!.nombre }}</h2>
+                <p class="eyebrow" style="color: var(--text-secondary); margin-top: 2px; font-size: 10px;">
+                  {{ selectedEmpresa()!.cuit }} · {{ selectedEmpresa()!.ciudad }}
+                </p>
+              </div>
             </div>
-            <button class="btn-primary" (click)="openCreateUser()">+ Nuevo usuario</button>
+            <div class="screen-head__actions">
+              <button class="btn btn--primary btn--sm" (click)="openCreateUser()">
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                Nuevo usuario
+              </button>
+            </div>
           </div>
 
-          <div class="px-4 pb-3">
+          <div class="px-4 py-3" style="border-bottom: 1px solid var(--border-hairline);">
             <input
-              class="search-input"
+              class="qc-input"
               type="search"
-              placeholder="Buscar usuario…"
+              placeholder="Buscar usuario por login, nombre o email…"
               [(ngModel)]="userSearchInput"
               (ngModelChange)="onUserSearchChange($event)"
             />
@@ -144,8 +178,8 @@ const ASSIGNABLE_AUTHORITIES = [
           } @else if (users().length === 0) {
             <emx-empty-state message="Sin usuarios en esta empresa" />
           } @else {
-            <div class="table-wrap">
-              <table class="users-table">
+            <div class="data-table-wrap">
+              <table class="data-table">
                 <thead>
                   <tr>
                     <th>Login</th>
@@ -153,31 +187,69 @@ const ASSIGNABLE_AUTHORITIES = [
                     <th>Email</th>
                     <th>Rol empresa</th>
                     <th>Estado</th>
-                    <th></th>
+                    <th style="text-align: right;">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
                   @for (item of users(); track item.id) {
                     <tr>
-                      <td class="cell-login">{{ item.user.login }}</td>
-                      <td>{{ item.user.firstName }} {{ item.user.lastName }}</td>
-                      <td class="cell-email">{{ item.user.email }}</td>
+                      <td class="cell-login" style="font-family: var(--font-mono); color: var(--accent-cyan); font-weight: 500;">
+                        {{ item.user.login }}
+                      </td>
+                      <td style="font-weight: 500;">{{ item.user.firstName }} {{ item.user.lastName }}</td>
+                      <td style="color: var(--text-secondary);">{{ item.user.email }}</td>
                       <td>
-                        <span class="badge badge-rol">{{ item.rol }}</span>
+                        <span class="badge badge--info">{{ item.rol }}</span>
                       </td>
                       <td>
-                        <span class="badge" [attr.data-estado]="item.user.activated ? 'ACTIVA' : 'SUSPENDIDA'">
+                        <span
+                          class="badge"
+                          [class.badge--stable]="item.user.activated"
+                          [class.badge--critical]="!item.user.activated"
+                        >
                           {{ item.user.activated ? 'Activo' : 'Inactivo' }}
                         </span>
                       </td>
-                      <td class="cell-actions">
-                        <button class="action-btn" title="Editar" (click)="openEditUser(item)">✏️</button>
-                        <button class="action-btn" title="Cambiar contraseña" (click)="openChangePassword(item)">🔑</button>
-                        <button
-                          class="action-btn"
-                          [title]="item.user.activated ? 'Desactivar' : 'Activar'"
-                          (click)="toggleActive(item)"
-                        >{{ item.user.activated ? '🚫' : '✅' }}</button>
+                      <td style="text-align: right; white-space: nowrap;">
+                        <button class="action-icon" title="Editar" (click)="openEditUser(item)" style="margin-right: 6px;">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 20h9"/>
+                            <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+                          </svg>
+                        </button>
+                        <button class="action-icon" title="Cambiar contraseña" (click)="openChangePassword(item)" style="margin-right: 6px;">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="m21 2-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4"/>
+                          </svg>
+                        </button>
+                        @if (item.user.activated) {
+                          <button
+                            class="action-icon"
+                            data-variant="danger"
+                            title="Desactivar"
+                            (click)="toggleActive(item)"
+                          >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                              <circle cx="9" cy="7" r="4"/>
+                              <line x1="17" y1="8" x2="22" y2="13"/>
+                              <line x1="22" y1="8" x2="17" y2="13"/>
+                            </svg>
+                          </button>
+                        } @else {
+                          <button
+                            class="action-icon"
+                            data-variant="success"
+                            title="Activar"
+                            (click)="toggleActive(item)"
+                          >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                              <circle cx="9" cy="7" r="4"/>
+                              <polyline points="16 11 18 13 22 9"/>
+                            </svg>
+                          </button>
+                        }
                       </td>
                     </tr>
                   }
@@ -200,49 +272,55 @@ const ASSIGNABLE_AUTHORITIES = [
     <!-- ── MODAL: Crear usuario ── -->
     @if (showCreateUser()) {
       <emx-modal-shell title="Nuevo usuario" (closed)="showCreateUser.set(false)">
-        <form (ngSubmit)="submitCreateUser()">
+        <form (ngSubmit)="submitCreateUser()" #createFormRef="ngForm" class="flex flex-col gap-4">
           <div class="form-grid">
-            <label class="field">
-              <span>Login *</span>
-              <input type="text" [(ngModel)]="createForm.login" name="login" required autocomplete="off" />
-            </label>
-            <label class="field">
-              <span>Email *</span>
-              <input type="email" [(ngModel)]="createForm.email" name="email" required />
-            </label>
-            <label class="field">
-              <span>Nombre</span>
-              <input type="text" [(ngModel)]="createForm.firstName" name="firstName" />
-            </label>
-            <label class="field">
-              <span>Apellido</span>
-              <input type="text" [(ngModel)]="createForm.lastName" name="lastName" />
-            </label>
-            <label class="field">
-              <span>Contraseña *</span>
-              <input type="password" [(ngModel)]="createForm.password" name="password" required minlength="4" autocomplete="new-password" />
-            </label>
-            <label class="field">
-              <span>Rol en empresa *</span>
-              <select [(ngModel)]="createForm.rolCentro" name="rolCentro" required>
+            <div class="flex flex-col gap-1">
+              <label class="modal-label">Login *</label>
+              <input type="text" [(ngModel)]="createForm.login" name="login" required autocomplete="off" class="qc-input" placeholder="Nombre de usuario" />
+            </div>
+            
+            <div class="flex flex-col gap-1">
+              <label class="modal-label">Email *</label>
+              <input type="email" [(ngModel)]="createForm.email" name="email" required class="qc-input" placeholder="usuario@empresa.com" />
+            </div>
+            
+            <div class="flex flex-col gap-1">
+              <label class="modal-label">Nombre</label>
+              <input type="text" [(ngModel)]="createForm.firstName" name="firstName" class="qc-input" placeholder="Nombre" />
+            </div>
+            
+            <div class="flex flex-col gap-1">
+              <label class="modal-label">Apellido</label>
+              <input type="text" [(ngModel)]="createForm.lastName" name="lastName" class="qc-input" placeholder="Apellido" />
+            </div>
+            
+            <div class="flex flex-col gap-1">
+              <label class="modal-label">Contraseña *</label>
+              <input type="password" [(ngModel)]="createForm.password" name="password" required minlength="4" autocomplete="new-password" class="qc-input" placeholder="Min. 4 caracteres" />
+            </div>
+            
+            <div class="flex flex-col gap-1">
+              <label class="modal-label">Rol en empresa *</label>
+              <select [(ngModel)]="createForm.rolCentro" name="rolCentro" required class="qc-input">
                 @for (r of ALL_ROLES; track r) {
                   <option [value]="r">{{ r }}</option>
                 }
               </select>
-            </label>
+            </div>
           </div>
 
-          <div class="field mt-3">
-            <span>Authorities</span>
-            <div class="checkbox-group">
+          <div class="flex flex-col gap-1.5 mt-2">
+            <label class="modal-label">Permisos en la plataforma (Authorities)</label>
+            <div class="authorities-grid">
               @for (auth of ASSIGNABLE_AUTHORITIES; track auth) {
-                <label class="checkbox-item">
+                <label class="authority-label">
                   <input
                     type="checkbox"
+                    class="authority-checkbox"
                     [checked]="createForm.authorities.includes(auth)"
                     (change)="toggleAuthority(createForm.authorities, auth, $event)"
                   />
-                  {{ auth }}
+                  <span>{{ auth.replace('ROLE_', '') }}</span>
                 </label>
               }
             </div>
@@ -250,8 +328,8 @@ const ASSIGNABLE_AUTHORITIES = [
         </form>
 
         <div footer class="flex gap-2">
-          <button class="btn-ghost" (click)="showCreateUser.set(false)">Cancelar</button>
-          <button class="btn-primary" [disabled]="saving()" (click)="submitCreateUser()">
+          <button class="btn btn--ghost btn--sm" (click)="showCreateUser.set(false)">Cancelar</button>
+          <button class="btn btn--primary btn--sm" [disabled]="saving() || createFormRef.invalid" (click)="submitCreateUser()">
             {{ saving() ? 'Guardando…' : 'Crear usuario' }}
           </button>
         </div>
@@ -261,41 +339,54 @@ const ASSIGNABLE_AUTHORITIES = [
     <!-- ── MODAL: Editar usuario ── -->
     @if (showEditUser()) {
       <emx-modal-shell title="Editar usuario" (closed)="showEditUser.set(null)">
-        <form>
+        <form #editFormRef="ngForm" class="flex flex-col gap-4">
           <div class="form-grid">
-            <label class="field">
-              <span>Login</span>
-              <input type="text" [value]="showEditUser()!.user.login" disabled />
-            </label>
-            <label class="field">
-              <span>Email *</span>
-              <input type="email" [(ngModel)]="editForm.email" name="email" required />
-            </label>
-            <label class="field">
-              <span>Nombre</span>
-              <input type="text" [(ngModel)]="editForm.firstName" name="firstName" />
-            </label>
-            <label class="field">
-              <span>Apellido</span>
-              <input type="text" [(ngModel)]="editForm.lastName" name="lastName" />
-            </label>
-            <label class="field field--inline">
-              <input type="checkbox" [(ngModel)]="editForm.activated" name="activated" />
-              <span>Usuario activo</span>
-            </label>
+            <div class="flex flex-col gap-1">
+              <label class="modal-label">Login (Deshabilitado)</label>
+              <input type="text" [value]="showEditUser()!.user.login" disabled class="qc-input" style="opacity: 0.5; cursor: not-allowed;" />
+            </div>
+            
+            <div class="flex flex-col gap-1">
+              <label class="modal-label">Email *</label>
+              <input type="email" [(ngModel)]="editForm.email" name="email" required class="qc-input" placeholder="usuario@empresa.com" />
+            </div>
+            
+            <div class="flex flex-col gap-1">
+              <label class="modal-label">Nombre</label>
+              <input type="text" [(ngModel)]="editForm.firstName" name="firstName" class="qc-input" placeholder="Nombre" />
+            </div>
+            
+            <div class="flex flex-col gap-1">
+              <label class="modal-label">Apellido</label>
+              <input type="text" [(ngModel)]="editForm.lastName" name="lastName" class="qc-input" placeholder="Apellido" />
+            </div>
+
+            <div class="col-span-2 py-1 mt-1">
+              <label class="authority-label">
+                <input
+                  type="checkbox"
+                  [(ngModel)]="editForm.activated"
+                  name="activated"
+                  id="editActivatedCheckbox"
+                  class="authority-checkbox"
+                />
+                <span>Usuario activo (Habilitado para ingresar a la plataforma)</span>
+              </label>
+            </div>
           </div>
 
-          <div class="field mt-3">
-            <span>Authorities</span>
-            <div class="checkbox-group">
+          <div class="flex flex-col gap-1.5 mt-2">
+            <label class="modal-label">Permisos en la plataforma (Authorities)</label>
+            <div class="authorities-grid">
               @for (auth of ASSIGNABLE_AUTHORITIES; track auth) {
-                <label class="checkbox-item">
+                <label class="authority-label">
                   <input
                     type="checkbox"
+                    class="authority-checkbox"
                     [checked]="editForm.authorities.includes(auth)"
                     (change)="toggleAuthority(editForm.authorities, auth, $event)"
                   />
-                  {{ auth }}
+                  <span>{{ auth.replace('ROLE_', '') }}</span>
                 </label>
               }
             </div>
@@ -303,8 +394,8 @@ const ASSIGNABLE_AUTHORITIES = [
         </form>
 
         <div footer class="flex gap-2">
-          <button class="btn-ghost" (click)="showEditUser.set(null)">Cancelar</button>
-          <button class="btn-primary" [disabled]="saving()" (click)="submitEditUser()">
+          <button class="btn btn--ghost btn--sm" (click)="showEditUser.set(null)">Cancelar</button>
+          <button class="btn btn--primary btn--sm" [disabled]="saving() || editFormRef.invalid" (click)="submitEditUser()">
             {{ saving() ? 'Guardando…' : 'Guardar cambios' }}
           </button>
         </div>
@@ -318,8 +409,8 @@ const ASSIGNABLE_AUTHORITIES = [
         (closed)="showChangePassword.set(null)"
       >
         <div class="form-grid">
-          <label class="field">
-            <span>Nueva contraseña *</span>
+          <div class="flex flex-col gap-1">
+            <label class="modal-label">Nueva contraseña *</label>
             <input
               type="password"
               [ngModel]="pwForm().newPassword"
@@ -327,26 +418,34 @@ const ASSIGNABLE_AUTHORITIES = [
               name="newPassword"
               minlength="4"
               autocomplete="new-password"
+              class="qc-input"
+              placeholder="Min. 4 caracteres"
             />
-          </label>
-          <label class="field">
-            <span>Confirmar contraseña *</span>
+          </div>
+          <div class="flex flex-col gap-1">
+            <label class="modal-label">Confirmar contraseña *</label>
             <input
               type="password"
               [ngModel]="pwForm().confirmPassword"
               (ngModelChange)="pwForm.update(f => ({ ...f, confirmPassword: $event }))"
               name="confirmPassword"
               autocomplete="new-password"
+              class="qc-input"
+              placeholder="Confirmar contraseña"
             />
-          </label>
+          </div>
         </div>
         @if (pwMismatch()) {
-          <p class="field-error">Las contraseñas no coinciden.</p>
+          <p class="text-xs mt-2" style="color: var(--accent-red); font-weight: 500;">Las contraseñas no coinciden.</p>
         }
 
         <div footer class="flex gap-2">
-          <button class="btn-ghost" (click)="showChangePassword.set(null)">Cancelar</button>
-          <button class="btn-primary" [disabled]="saving() || pwMismatch()" (click)="submitChangePassword()">
+          <button class="btn btn--ghost btn--sm" (click)="showChangePassword.set(null)">Cancelar</button>
+          <button
+            class="btn btn--primary btn--sm"
+            [disabled]="saving() || pwMismatch() || !pwForm().newPassword"
+            (click)="submitChangePassword()"
+          >
             {{ saving() ? 'Guardando…' : 'Cambiar contraseña' }}
           </button>
         </div>
@@ -359,6 +458,7 @@ const ASSIGNABLE_AUTHORITIES = [
       height: 100%;
       min-height: 0;
       overflow: hidden;
+      background-color: var(--bg-deep);
     }
 
     /* ── Panels ── */
@@ -367,68 +467,53 @@ const ASSIGNABLE_AUTHORITIES = [
       flex-direction: column;
       min-height: 0;
       overflow: hidden;
+    }
+    .panel-left  {
+      width: 280px;
+      flex-shrink: 0;
+      background: var(--bg-elevated);
       border-right: 1px solid var(--border-glass);
     }
-    .panel-left  { width: 280px; flex-shrink: 0; background: var(--bg-elevated); }
-    .panel-right { flex: 1; background: var(--bg-base); }
-
-    .panel-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 16px;
-      border-bottom: 1px solid var(--border-glass);
-      flex-shrink: 0;
+    .panel-right {
+      flex: 1;
+      background: transparent;
     }
-    .panel-title    { font-size: 13px; font-weight: 600; color: var(--text-primary); }
-    .panel-subtitle { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
-
-    /* ── Search ── */
-    .search-input {
-      width: 100%;
-      padding: 7px 10px;
-      border-radius: 8px;
-      border: 1px solid var(--border-glass);
-      background: var(--surface-glass);
-      color: var(--text-primary);
-      font-size: 12px;
-      outline: none;
-    }
-    .search-input:focus { border-color: var(--accent-blue); }
 
     /* ── Empresa list ── */
-    .empresa-list { list-style: none; padding: 4px 8px; overflow-y: auto; flex: 1; }
+    .empresa-list {
+      list-style: none;
+      padding: 8px;
+      overflow-y: auto;
+      flex: 1;
+    }
     .empresa-item {
       display: flex;
       flex-direction: column;
-      gap: 2px;
-      padding: 10px 10px;
+      gap: 3px;
+      padding: 10px 12px;
       border-radius: 8px;
       cursor: pointer;
-      border: 1px solid transparent;
+      border-left: 2px solid transparent;
+      transition: all 0.15s ease;
+      margin-bottom: 4px;
     }
-    .empresa-item:hover { background: var(--surface-glass); }
+    .empresa-item:hover {
+      background: rgba(255, 255, 255, 0.03);
+    }
     .empresa-item--active {
-      background: rgba(59,130,246,.1);
-      border-color: rgba(59,130,246,.3);
+      background: rgba(59, 130, 246, 0.08);
+      border-left-color: var(--accent-blue);
     }
-    .empresa-nombre { font-size: 12px; font-weight: 600; color: var(--text-primary); }
-    .empresa-cuit   { font-size: 11px; color: var(--text-muted); }
-
-    /* ── Badges ── */
-    .badge {
-      display: inline-block;
-      padding: 2px 7px;
-      border-radius: 99px;
-      font-size: 10px;
+    .empresa-nombre {
+      font-size: 12.5px;
       font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: .4px;
+      color: var(--text-primary);
     }
-    .badge[data-estado='ACTIVA']    { background: rgba(16,185,129,.15); color: #10b981; }
-    .badge[data-estado='SUSPENDIDA']{ background: rgba(245,158,11,.15);  color: #f59e0b; }
-    .badge[data-estado='INACTIVA']  { background: rgba(239,68,68,.15);   color: #ef4444; }
-    .badge-rol { background: rgba(99,102,241,.12); color: #818cf8; font-size: 11px; }
+    .empresa-cuit {
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+    }
 
     /* ── No selection ── */
     .no-selection {
@@ -438,47 +523,15 @@ const ASSIGNABLE_AUTHORITIES = [
       align-items: center;
       justify-content: center;
       gap: 12px;
-      color: var(--text-muted);
-      font-size: 13px;
+      color: var(--text-secondary);
+      font-size: 13.5px;
     }
 
-    /* ── Table ── */
-    .table-wrap { overflow-x: auto; flex: 1; }
-    .users-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    .users-table th {
-      text-align: left;
-      padding: 8px 12px;
-      font-size: 10px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: .5px;
-      color: var(--text-muted);
-      border-bottom: 1px solid var(--border-glass);
-      position: sticky; top: 0;
-      background: var(--bg-base);
+    /* ── Table cell details ── */
+    .cell-login {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
     }
-    .users-table td {
-      padding: 10px 12px;
-      border-bottom: 1px solid var(--border-glass);
-      color: var(--text-primary);
-      vertical-align: middle;
-    }
-    .users-table tr:hover td { background: var(--surface-glass); }
-    .cell-login { font-family: monospace; font-size: 11px; }
-    .cell-email { color: var(--text-muted); }
-    .cell-actions { white-space: nowrap; text-align: right; }
-
-    /* ── Action buttons ── */
-    .action-btn {
-      background: transparent;
-      border: none;
-      cursor: pointer;
-      padding: 4px 6px;
-      border-radius: 6px;
-      font-size: 14px;
-      line-height: 1;
-    }
-    .action-btn:hover { background: var(--surface-glass); }
 
     /* ── Pagination ── */
     .pagination {
@@ -487,85 +540,152 @@ const ASSIGNABLE_AUTHORITIES = [
       justify-content: center;
       gap: 12px;
       padding: 10px;
-      border-top: 1px solid var(--border-glass);
+      border-top: 1px solid var(--border-hairline);
       flex-shrink: 0;
     }
     .page-btn {
-      width: 28px; height: 28px;
+      width: 28px;
+      height: 28px;
       border-radius: 6px;
       border: 1px solid var(--border-glass);
       background: var(--surface-glass);
       color: var(--text-primary);
       cursor: pointer;
       font-size: 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
     }
-    .page-btn:disabled { opacity: .35; cursor: default; }
-    .page-info { font-size: 11px; color: var(--text-muted); }
+    .page-btn:hover:not(:disabled) {
+      border-color: var(--border-strong);
+      background: rgba(255, 255, 255, 0.06);
+    }
+    .page-btn:disabled {
+      opacity: .35;
+      cursor: not-allowed;
+    }
+    .page-info {
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+    }
 
-    /* ── Buttons ── */
-    .btn-primary {
-      padding: 7px 14px;
-      border-radius: 8px;
-      border: none;
-      background: var(--accent-blue);
-      color: #fff;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    .btn-primary:disabled { opacity: .5; cursor: default; }
-    .btn-ghost {
-      padding: 7px 14px;
-      border-radius: 8px;
-      border: 1px solid var(--border-glass);
-      background: transparent;
-      color: var(--text-primary);
-      font-size: 12px;
-      cursor: pointer;
-    }
+    /* ── Link button ── */
     .link-btn {
-      background: none; border: none; cursor: pointer;
-      color: var(--accent-blue); font-size: 12px; text-decoration: underline;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--accent-blue);
+      font-size: 12px;
+      text-decoration: underline;
     }
 
-    /* ── Forms ── */
+    /* ── Forms Grid ── */
     .form-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 14px;
-    }
-    .field { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--text-muted); }
-    .field input, .field select {
-      padding: 7px 10px;
-      border-radius: 8px;
-      border: 1px solid var(--border-glass);
-      background: var(--surface-glass);
-      color: var(--text-primary);
-      font-size: 12px;
-      outline: none;
-    }
-    .field input:focus, .field select:focus { border-color: var(--accent-blue); }
-    .field--inline { flex-direction: row; align-items: center; gap: 8px; }
-    .field-error { font-size: 11px; color: #ef4444; margin-top: 4px; }
-
-    .checkbox-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
-    .checkbox-item {
-      display: flex; align-items: center; gap: 5px;
-      font-size: 11px; color: var(--text-secondary);
-      cursor: pointer;
+      gap: 16px;
     }
 
     .error-inline {
       padding: 12px 16px;
       font-size: 12px;
-      color: var(--text-muted);
+      color: var(--text-secondary);
     }
 
-    /* ── Responsive: mobile stack ── */
+    /* ── Labels & Checkboxes (Refined emergency style) ── */
+    .modal-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      display: block;
+    }
+    .authorities-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 16px;
+      margin-top: 4px;
+    }
+    .authority-label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--text-primary);
+      font-size: 13px;
+      font-weight: 500;
+      transition: color 0.15s ease;
+      cursor: pointer;
+      user-select: none;
+    }
+    .authority-label:hover {
+      color: var(--text-strong);
+    }
+    .authority-checkbox {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      background: var(--bg-deep) !important;
+      border: 1px solid var(--border-glass) !important;
+      cursor: pointer;
+      accent-color: var(--accent-blue);
+      outline: none;
+      transition: all 0.15s ease;
+    }
+    .authority-checkbox:hover {
+      border-color: var(--accent-blue) !important;
+    }
+
+    /* ── Light Theme Overrides ── */
+    :host-context([data-theme="light"]) .qc-input {
+      background: #f8fafc !important;
+      border-color: rgba(148, 163, 184, 0.35) !important;
+      color: #0f172a !important;
+    }
+    :host-context([data-theme="light"]) .qc-input:focus {
+      background: #ffffff !important;
+      border-color: var(--accent-blue) !important;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+    }
+    :host-context([data-theme="light"]) .qc-input::placeholder {
+      color: #94a3b8 !important;
+    }
+    :host-context([data-theme="light"]) .empresa-item:hover {
+      background: rgba(15, 23, 42, 0.03);
+    }
+    :host-context([data-theme="light"]) .data-table thead th {
+      background: var(--surface-inset) !important;
+      color: var(--text-secondary) !important;
+    }
+    :host-context([data-theme="light"]) .authority-checkbox {
+      background: #ffffff !important;
+      border-color: rgba(148, 163, 184, 0.45) !important;
+    }
+    :host-context([data-theme="light"]) .authority-label {
+      color: #334155;
+    }
+    :host-context([data-theme="light"]) .authority-label:hover {
+      color: #0f172a;
+    }
+    :host-context([data-theme="light"]) .page-btn:hover:not(:disabled) {
+      background: rgba(15, 23, 42, 0.04) !important;
+    }
+
+    /* ── Responsive ── */
     @media (max-width: 767px) {
       .admin-layout { flex-direction: column; overflow: auto; }
-      .panel-left  { width: 100%; border-right: none; border-bottom: 1px solid var(--border-glass); max-height: 40vh; overflow-y: auto; }
-      .panel-right { min-height: 60vh; }
+      .panel-left  {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--border-glass);
+        max-height: 45vh;
+        overflow-y: auto;
+      }
+      .panel-right { min-height: 55vh; }
       .form-grid   { grid-template-columns: 1fr; }
     }
   `],

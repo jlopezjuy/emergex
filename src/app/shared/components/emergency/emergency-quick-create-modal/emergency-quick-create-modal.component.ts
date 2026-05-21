@@ -77,115 +77,6 @@ const NIVELES_URGENCIA: { value: NivelUrgencia; label: string; sublabel: string;
           }
         </div>
 
-        <!-- Nivel de urgencia -->
-        <div class="flex flex-col gap-2">
-          <label class="eyebrow">Nivel de urgencia *</label>
-          <div class="flex gap-2">
-            @for (opt of nivelesUrgencia; track opt.value) {
-              <button
-                type="button"
-                class="flex-1 flex flex-col items-center gap-0.5 px-3 py-3 rounded-btn border transition-all"
-                [style.border-color]="f['nivelUrgencia'].value === opt.value ? opt.color : 'var(--border-glass)'"
-                [style.background]="f['nivelUrgencia'].value === opt.value ? opt.bg : 'transparent'"
-                (click)="f['nivelUrgencia'].setValue(opt.value)"
-              >
-                <span class="w-2.5 h-2.5 rounded-full" [style.background]="opt.color"></span>
-                <span class="text-xs font-bold mt-1" [style.color]="opt.color">{{ opt.label }}</span>
-                <span class="text-xs text-center leading-tight" style="color: var(--text-muted);">{{ opt.sublabel }}</span>
-              </button>
-            }
-          </div>
-          @if (f['nivelUrgencia'].invalid && f['nivelUrgencia'].touched) {
-            <span class="text-xs" style="color: var(--accent-red);">Seleccioná un nivel</span>
-          }
-        </div>
-
-        <!-- Descripción / síntomas -->
-        <div class="flex flex-col gap-1.5">
-          <label class="eyebrow">Descripción / síntomas *</label>
-          <textarea
-            formControlName="descripcionSintomas"
-            rows="2"
-            placeholder="Describí los síntomas o motivo de la llamada..."
-            class="rounded-btn px-3 py-2 text-sm w-full resize-none"
-            style="background: var(--surface-glass); border: 1px solid var(--border-strong); color: var(--text-primary);"
-          ></textarea>
-          @if (f['descripcionSintomas'].invalid && f['descripcionSintomas'].touched) {
-            <span class="text-xs" style="color: var(--accent-red);">Campo requerido</span>
-          }
-        </div>
-
-        <!-- Dirección (oculta para ORIENTACION_TELEFONICA) -->
-        @if (f['tipoAsistencia'].value !== 'ORIENTACION_TELEFONICA') {
-          <div class="flex flex-col gap-1.5">
-            <label class="eyebrow">Dirección *</label>
-            <input
-              type="text"
-              formControlName="direccion"
-              placeholder="Av. Independencia 842, Centro"
-              class="rounded-btn px-3 py-2 text-sm w-full"
-              style="background: var(--surface-glass); border: 1px solid var(--border-strong); color: var(--text-primary);"
-            />
-            @if (f['direccion'].invalid && f['direccion'].touched) {
-              <span class="text-xs" style="color: var(--accent-red);">Campo requerido</span>
-            }
-            @if (geocodeSearching()) {
-              <span class="text-xs" style="color: var(--text-muted);">Buscando ubicación...</span>
-            }
-            @if (geocodeResults().length > 0) {
-              <div class="flex flex-col rounded-btn overflow-hidden" style="border:1px solid rgba(148,163,184,.35); background:#fff;">
-                @for (result of geocodeResults(); track result.address) {
-                  <button
-                    type="button"
-                    class="text-left px-3 py-2 text-xs"
-                    style="color:#0f172a; border-bottom:1px solid rgba(148,163,184,.18);"
-                    (click)="selectGeocode(result)"
-                  >
-                    <span class="font-medium">{{ result.label }}</span>
-                    <span class="block mt-0.5" style="color:#64748b;">{{ result.lat.toFixed(5) }}, {{ result.lng.toFixed(5) }}</span>
-                  </button>
-                }
-              </div>
-            }
-            <div class="rounded-btn overflow-hidden" style="border:1px solid rgba(148,163,184,.35); background:#f8fafc;">
-              <emx-location-picker-map
-                [lat]="selectedLocation()?.lat ?? null"
-                [lng]="selectedLocation()?.lng ?? null"
-                (pointChanged)="setManualLocation($event)"
-              />
-            </div>
-            @if (selectedLocation()) {
-              <span class="text-xs" style="color: var(--accent-emerald);">
-                Ubicación confirmada · {{ selectedLocation()!.lat.toFixed(5) }}, {{ selectedLocation()!.lng.toFixed(5) }}
-              </span>
-            } @else {
-              <span class="text-xs" style="color: var(--accent-amber);">Sin ubicación confirmada. Podés registrar igual, pero el mapa no tendrá punto exacto.</span>
-            }
-          </div>
-
-          <div class="flex flex-col gap-1.5">
-            <label class="eyebrow">Nota de dirección</label>
-            <input
-              type="text"
-              formControlName="notaDireccion"
-              placeholder="Piso, depto, referencia..."
-              class="rounded-btn px-3 py-2 text-sm w-full"
-              style="background: var(--surface-glass); border: 1px solid var(--border-strong); color: var(--text-primary);"
-            />
-          </div>
-
-          <div class="flex flex-col gap-1.5">
-            <label class="eyebrow">Teléfono de contacto</label>
-            <input
-              type="tel"
-              formControlName="telefonoContacto"
-              placeholder="Ej: 0388-15912345"
-              class="rounded-btn px-3 py-2 text-sm w-full"
-              style="background: var(--surface-glass); border: 1px solid var(--border-strong); color: var(--text-primary);"
-            />
-          </div>
-        }
-
         <!-- Paciente -->
         <div class="flex flex-col gap-2">
           <label class="eyebrow">Paciente</label>
@@ -291,6 +182,115 @@ const NIVELES_URGENCIA: { value: NivelUrgencia; label: string; sublabel: string;
                 style="background: var(--surface-glass); border: 1px solid var(--border-strong); color: var(--text-primary);"
               />
             </div>
+          }
+        </div>
+
+        <!-- Dirección (oculta para ORIENTACION_TELEFONICA) -->
+        @if (f['tipoAsistencia'].value !== 'ORIENTACION_TELEFONICA') {
+          <div class="flex flex-col gap-1.5">
+            <label class="eyebrow">Dirección *</label>
+            <input
+              type="text"
+              formControlName="direccion"
+              placeholder="Av. Independencia 842, Centro"
+              class="rounded-btn px-3 py-2 text-sm w-full"
+              style="background: var(--surface-glass); border: 1px solid var(--border-strong); color: var(--text-primary);"
+            />
+            @if (f['direccion'].invalid && f['direccion'].touched) {
+              <span class="text-xs" style="color: var(--accent-red);">Campo requerido</span>
+            }
+            @if (geocodeSearching()) {
+              <span class="text-xs" style="color: var(--text-muted);">Buscando ubicación...</span>
+            }
+            @if (geocodeResults().length > 0) {
+              <div class="flex flex-col rounded-btn overflow-hidden" style="border:1px solid rgba(148,163,184,.35); background:#fff;">
+                @for (result of geocodeResults(); track result.address) {
+                  <button
+                    type="button"
+                    class="text-left px-3 py-2 text-xs"
+                    style="color:#0f172a; border-bottom:1px solid rgba(148,163,184,.18);"
+                    (click)="selectGeocode(result)"
+                  >
+                    <span class="font-medium">{{ result.label }}</span>
+                    <span class="block mt-0.5" style="color:#64748b;">{{ result.lat.toFixed(5) }}, {{ result.lng.toFixed(5) }}</span>
+                  </button>
+                }
+              </div>
+            }
+            <div class="rounded-btn overflow-hidden" style="border:1px solid rgba(148,163,184,.35); background:#f8fafc;">
+              <emx-location-picker-map
+                [lat]="selectedLocation()?.lat ?? null"
+                [lng]="selectedLocation()?.lng ?? null"
+                (pointChanged)="setManualLocation($event)"
+              />
+            </div>
+            @if (selectedLocation()) {
+              <span class="text-xs" style="color: var(--accent-emerald);">
+                Ubicación confirmada · {{ selectedLocation()!.lat.toFixed(5) }}, {{ selectedLocation()!.lng.toFixed(5) }}
+              </span>
+            } @else {
+              <span class="text-xs" style="color: var(--accent-amber);">Sin ubicación confirmada. Podés registrar igual, pero el mapa no tendrá punto exacto.</span>
+            }
+          </div>
+
+          <div class="flex flex-col gap-1.5">
+            <label class="eyebrow">Nota de dirección</label>
+            <input
+              type="text"
+              formControlName="notaDireccion"
+              placeholder="Piso, depto, referencia..."
+              class="rounded-btn px-3 py-2 text-sm w-full"
+              style="background: var(--surface-glass); border: 1px solid var(--border-strong); color: var(--text-primary);"
+            />
+          </div>
+
+          <div class="flex flex-col gap-1.5">
+            <label class="eyebrow">Teléfono de contacto</label>
+            <input
+              type="tel"
+              formControlName="telefonoContacto"
+              placeholder="Ej: 0388-15912345"
+              class="rounded-btn px-3 py-2 text-sm w-full"
+              style="background: var(--surface-glass); border: 1px solid var(--border-strong); color: var(--text-primary);"
+            />
+          </div>
+        }
+
+        <!-- Nivel de urgencia -->
+        <div class="flex flex-col gap-2">
+          <label class="eyebrow">Nivel de urgencia *</label>
+          <div class="flex gap-2">
+            @for (opt of nivelesUrgencia; track opt.value) {
+              <button
+                type="button"
+                class="flex-1 flex flex-col items-center gap-0.5 px-3 py-3 rounded-btn border transition-all"
+                [style.border-color]="f['nivelUrgencia'].value === opt.value ? opt.color : 'var(--border-glass)'"
+                [style.background]="f['nivelUrgencia'].value === opt.value ? opt.bg : 'transparent'"
+                (click)="f['nivelUrgencia'].setValue(opt.value)"
+              >
+                <span class="w-2.5 h-2.5 rounded-full" [style.background]="opt.color"></span>
+                <span class="text-xs font-bold mt-1" [style.color]="opt.color">{{ opt.label }}</span>
+                <span class="text-xs text-center leading-tight" style="color: var(--text-muted);">{{ opt.sublabel }}</span>
+              </button>
+            }
+          </div>
+          @if (f['nivelUrgencia'].invalid && f['nivelUrgencia'].touched) {
+            <span class="text-xs" style="color: var(--accent-red);">Seleccioná un nivel</span>
+          }
+        </div>
+
+        <!-- Descripción / síntomas -->
+        <div class="flex flex-col gap-1.5">
+          <label class="eyebrow">Descripción / síntomas *</label>
+          <textarea
+            formControlName="descripcionSintomas"
+            rows="2"
+            placeholder="Describí los síntomas o motivo de la llamada..."
+            class="rounded-btn px-3 py-2 text-sm w-full resize-none"
+            style="background: var(--surface-glass); border: 1px solid var(--border-strong); color: var(--text-primary);"
+          ></textarea>
+          @if (f['descripcionSintomas'].invalid && f['descripcionSintomas'].touched) {
+            <span class="text-xs" style="color: var(--accent-red);">Campo requerido</span>
           }
         </div>
 
