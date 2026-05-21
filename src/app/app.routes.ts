@@ -1,8 +1,10 @@
-import { Routes } from '@angular/router';
+import { inject } from '@angular/core';
+import { Routes, Router } from '@angular/router';
 import { authGuard } from './core/auth/auth.guard';
 import { noAuthGuard } from './core/auth/no-auth.guard';
 import { roleGuard } from './core/auth/role.guard';
 import { ShellComponent } from './layout/shell/shell.component';
+import { SessionStore } from './core/stores/session.store';
 
 export const routes: Routes = [
   {
@@ -147,7 +149,13 @@ export const routes: Routes = [
       },
       {
         path: 'admin/global',
-        canActivate: [roleGuard('ROLE_ADMIN')],
+        canActivate: [
+          () => {
+            const session = inject(SessionStore);
+            const router = inject(Router);
+            return session.isGlobalAdmin() ? true : router.createUrlTree(['/access-denied']);
+          },
+        ],
         loadComponent: () =>
           import('./features/admin/global/admin-global.component').then(
             (m) => m.AdminGlobalComponent,
