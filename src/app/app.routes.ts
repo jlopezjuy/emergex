@@ -146,6 +146,14 @@ export const routes: Routes = [
           import('./features/settings/settings.component').then((m) => m.SettingsComponent),
       },
       {
+        path: 'admin/global',
+        canActivate: [roleGuard('ROLE_ADMIN')],
+        loadComponent: () =>
+          import('./features/admin/global/admin-global.component').then(
+            (m) => m.AdminGlobalComponent,
+          ),
+      },
+      {
         path: 'dashboard/emergency/:id',
         loadComponent: () =>
           import('./features/operations/emergency-detail/emergency-detail.component').then(

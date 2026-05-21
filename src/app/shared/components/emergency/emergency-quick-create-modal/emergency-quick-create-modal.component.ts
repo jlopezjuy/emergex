@@ -10,6 +10,9 @@ import { environment } from '../../../../../environments/environment';
 import { GeocodeResult } from '../../../map/geocoder-provider';
 import { HttpGeocoderProvider } from '../../../map/providers/http-geocoder.provider';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
+import { EmergencyApiService } from '../../../../data-access/api/emergency.api';
+import { EmergencyStore } from '../../../../core/stores/emergency.store';
+import { EmergencyModalService } from '../emergency-modal.service';
 
 type TipoAsistencia = AltaRapidaRequest['tipoAsistencia'];
 type NivelUrgencia  = AltaRapidaRequest['nivelUrgencia'];
@@ -45,7 +48,7 @@ const NIVELES_URGENCIA: { value: NivelUrgencia; label: string; sublabel: string;
   standalone: true,
   imports: [ReactiveFormsModule, ModalShellComponent, LocationPickerMapComponent],
   template: `
-    <emx-modal-shell title="Nueva Emergencia" (closed)="closed.emit()">
+    <emx-modal-shell title="Nueva Emergencia" (closed)="close()">
       <form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-5">
 
         <!-- Tipo de asistencia -->
@@ -312,25 +315,36 @@ const NIVELES_URGENCIA: { value: NivelUrgencia; label: string; sublabel: string;
           <span class="font-mono px-1 rounded ml-2" style="background: var(--surface-glass); border: 1px solid var(--border-glass);">Enter</span>
           registrar
         </span>
-        <button type="button" class="btn btn--ghost btn--sm" (click)="closed.emit()">Cancelar</button>
+        <button type="button" class="btn btn--ghost btn--sm" (click)="close()">Cancelar</button>
         <button
           type="button"
           class="btn btn--primary btn--sm"
-          [disabled]="form.invalid"
+          [disabled]="form.invalid || submitting()"
           (click)="submit()"
-        >Registrar y despachar</button>
+        >
+          @if (submitting()) {
+            <span>Guardando...</span>
+          } @else {
+            <span>Registrar y despachar</span>
+          }
+        </button>
       </div>
     </emx-modal-shell>
   `,
 })
 export class EmergencyQuickCreateModalComponent implements OnDestroy {
-    private destroyRef = inject(DestroyRef);
+  private destroyRef = inject(DestroyRef);
   created = output<AltaRapidaRequest>();
   closed  = output<void>();
 
-  private fb       = inject(FormBuilder);
-  private http     = inject(HttpClient);
-  private geocoder = inject(HttpGeocoderProvider);
+  private fb             = inject(FormBuilder);
+  private http           = inject(HttpClient);
+  private geocoder       = inject(HttpGeocoderProvider);
+  private emergencyApi   = inject(EmergencyApiService);
+  private emergencyStore = inject(EmergencyStore);
+  private modalService   = inject(EmergencyModalService);
+
+  readonly submitting = signal(false);
 
   readonly tiposAsistencia = TIPOS_ASISTENCIA;
   readonly nivelesUrgencia = NIVELES_URGENCIA;
@@ -466,11 +480,18 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
     this.submit();
   }
 
+  close(): void {
+    this.modalService.close();
+    this.closed.emit();
+  }
+
   submit(): void {
-    if (this.form.invalid) {
+    if (this.form.invalid || this.submitting()) {
       this.form.markAllAsTouched();
       return;
     }
+    this.submitting.set(true);
+
     const val  = this.form.value;
     const tipo = val.tipoAsistencia as TipoAsistencia;
 
@@ -499,6 +520,19 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
 
     if (val.observacion) req.observacion = val.observacion;
 
-    this.created.emit(req);
+    this.emergencyApi.altaRapida(req)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (ticket) => {
+          this.emergencyStore.addOrUpdate(ticket);
+          this.created.emit(req);
+          this.submitting.set(false);
+          this.close();
+        },
+        error: (err) => {
+          console.error('[EmergencyQuickCreateModal] error creating quick ticket:', err);
+          this.submitting.set(false);
+        }
+      });
   }
 }

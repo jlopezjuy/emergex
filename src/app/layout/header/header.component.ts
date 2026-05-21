@@ -3,6 +3,7 @@ import { NgIf } from '@angular/common';
 import { Router } from '@angular/router';
 import { NotificationStore } from '../../core/stores/notification.store';
 import { AuthService } from '../../core/auth/auth.service';
+import { EmergencyModalService } from '../../shared/components/emergency/emergency-modal.service';
 
 @Component({
   selector: 'emx-header',
@@ -100,7 +101,7 @@ import { AuthService } from '../../core/auth/auth.service';
         <button
           type="button"
           class="btn btn--primary btn--sm"
-          (click)="createEmergency.emit()"
+          (click)="emergencyModalService.open()"
         >
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M6 1v10M1 6h10"/>
@@ -242,9 +243,9 @@ export class HeaderComponent implements OnInit, OnDestroy {
   criticalCount = input(0);
   availableCount = input(0);
 
-  createEmergency = output<void>();
   createInstitutional = output<void>();
 
+  readonly emergencyModalService = inject(EmergencyModalService);
   readonly notifications = inject(NotificationStore);
   private auth = inject(AuthService);
   private router = inject(Router);

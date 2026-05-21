@@ -27,6 +27,9 @@ export class SessionStore {
       this.authorities().includes(ROLES.PROPIETARIO),
   );
 
+  /** Admin de plataforma (ROLE_ADMIN puro). Acceso a pantalla de gestión global. */
+  readonly isGlobalAdmin = computed(() => this.authorities().includes(ROLES.ADMIN));
+
   readonly isDespachante = computed(() =>
     this.authorities().includes(ROLES.DESPACHANTE),
   );

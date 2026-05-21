@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { FleetStore } from '../../core/stores/fleet.store';
+import { SessionStore } from '../../core/stores/session.store';
 import { ThemeService } from '../../core/theme/theme.service';
 
 type NavItem = {
@@ -9,6 +10,7 @@ type NavItem = {
   title: string;
   icon: string;
   alert?: 'fleet';
+  adminOnly?: boolean;
 };
 
 @Component({
@@ -58,7 +60,7 @@ type NavItem = {
       </div>
 
       <div class="flex-1 overflow-y-auto px-2 py-2 space-y-1">
-        @for (item of mainItems; track item.path) {
+        @for (item of visibleItems(); track item.path) {
           <a
             [routerLink]="item.path"
             routerLinkActive="nav-active"
@@ -172,12 +174,17 @@ type NavItem = {
 export class SidebarComponent {
   readonly theme = inject(ThemeService);
   private readonly fleet = inject(FleetStore);
+  private readonly session = inject(SessionStore);
 
   readonly expanded = signal(false);
   readonly fleetAlert = computed(() =>
     this.fleet.ambulances().some(
       a => a.estado === 'MANTENIMIENTO' || (a.bateria != null && a.bateria < 20),
     ),
+  );
+
+  readonly visibleItems = computed(() =>
+    this.mainItems.filter(item => !item.adminOnly || this.session.isGlobalAdmin()),
   );
 
   readonly mainItems: NavItem[] = [
@@ -195,5 +202,6 @@ export class SidebarComponent {
     { path: '/communications', label: 'Comunicaciones', title: 'Comunicaciones', icon: '📡' },
     { path: '/internacion', label: 'Internación', title: 'Internación domiciliaria', icon: '🛏️' },
     { path: '/analytics', label: 'Analítica', title: 'Analítica', icon: '📊' },
+    { path: '/admin/global', label: 'Admin global', title: 'Administración global', icon: '🏢', adminOnly: true },
   ];
 }
