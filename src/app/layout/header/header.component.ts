@@ -154,13 +154,13 @@ import { AuthService } from '../../core/auth/auth.service';
                 <div style="font-size:13px; font-weight:600; color: var(--text-primary);">{{ userName() }}</div>
                 <div class="mono micro" style="color: var(--text-muted); margin-top:2px;">{{ userEmail() }}</div>
               </div>
-              <button class="user-menu__item" (click)="menuOpen.set(false)">
+              <button class="user-menu__item" (click)="openProfile()">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-secondary);">
                   <circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/>
                 </svg>
                 Mi perfil
               </button>
-              <button class="user-menu__item" (click)="menuOpen.set(false)">
+              <button class="user-menu__item" (click)="openPreferences()">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-secondary);">
                   <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>
                 </svg>
@@ -290,7 +290,19 @@ export class HeaderComponent implements OnInit, OnDestroy {
   logout(): void {
     this.menuOpen.set(false);
     this.auth.logout();
-    this.router.navigate(['/login']);
+    this.router.navigateByUrl('/login').catch(() => {
+      window.location.href = '/login';
+    });
+  }
+
+  openProfile(): void {
+    this.menuOpen.set(false);
+    this.router.navigate(['/profile']);
+  }
+
+  openPreferences(): void {
+    this.menuOpen.set(false);
+    this.router.navigate(['/settings'], { queryParams: { section: 'preferences' } });
   }
 
   private removeDocListener(): void {

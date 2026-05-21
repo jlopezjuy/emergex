@@ -50,9 +50,47 @@ export class AuthService {
   }
 
   fetchAccount(): Observable<Account> {
-    return this.http.get<Account>(`${environment.apiUrl}/api/account`).pipe(
+    return this.http.get<Account>(`${environment.apiUrl}/api/account/me`).pipe(
       tap((account) => this._account.set(account)),
     );
+  }
+
+  updateAccount(payload: {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    langKey?: string;
+    imageUrl?: string;
+  }): Observable<Account> {
+    const current = this._account();
+    return this.http
+      .post<void>(`${environment.apiUrl}/api/account`, {
+        id: current?.id,
+        login: current?.login,
+        email: payload.email ?? current?.email,
+        firstName: payload.firstName ?? current?.firstName,
+        lastName: payload.lastName ?? current?.lastName,
+        langKey: payload.langKey ?? current?.langKey ?? 'es',
+        imageUrl: payload.imageUrl ?? current?.imageUrl,
+      })
+      .pipe(switchMap(() => this.fetchAccount()));
+  }
+
+  updateCurrentProfessional(payload: {
+    nombre?: string;
+    apellido?: string;
+    telefono?: string;
+    email?: string;
+    foto?: string;
+    tipoMatricula?: string;
+    matriculaJurisdiccion?: string;
+    fechaVencimientoHabilitacion?: string;
+    atencionDomiciliaria?: boolean;
+    atencionEmergencia?: boolean;
+  }): Observable<Account> {
+    return this.http
+      .patch<Account>(`${environment.apiUrl}/api/account/me/profesional`, payload)
+      .pipe(tap((account) => this._account.set(account)));
   }
 
   logout(): void {

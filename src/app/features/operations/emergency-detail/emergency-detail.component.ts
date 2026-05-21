@@ -742,12 +742,30 @@ const ALL_STEPS: StatusStep[] = [
           <div>
             <h3 class="clinical-field-label mb-2">Signos vitales</h3>
             <div class="grid grid-cols-3 gap-2">
-              <input class="clinical-input" placeholder="TA ej: 120/80" [value]="svTa()" (input)="svTa.set($any($event.target).value)" />
-              <input class="clinical-input" type="number" placeholder="FC" [value]="svFc()" (input)="svFc.set($any($event.target).value)" />
-              <input class="clinical-input" type="number" placeholder="FR" [value]="svFr()" (input)="svFr.set($any($event.target).value)" />
-              <input class="clinical-input" type="number" placeholder="SpO₂" [value]="svSatO2()" (input)="svSatO2.set($any($event.target).value)" />
-              <input class="clinical-input" type="number" placeholder="Temp" [value]="svTemp()" (input)="svTemp.set($any($event.target).value)" />
-              <input class="clinical-input" type="number" placeholder="Glucemia" [value]="svGlucemia()" (input)="svGlucemia.set($any($event.target).value)" />
+              <label class="clinical-mini-field">
+                <span class="clinical-mini-label">TA (mmHg)</span>
+                <input class="clinical-input" placeholder="120/80" [value]="svTa()" (input)="svTa.set($any($event.target).value)" />
+              </label>
+              <label class="clinical-mini-field">
+                <span class="clinical-mini-label">FC (bpm)</span>
+                <input class="clinical-input" type="number" placeholder="Ej: 80" [value]="svFc()" (input)="svFc.set($any($event.target).value)" />
+              </label>
+              <label class="clinical-mini-field">
+                <span class="clinical-mini-label">FR (rpm)</span>
+                <input class="clinical-input" type="number" placeholder="Ej: 18" [value]="svFr()" (input)="svFr.set($any($event.target).value)" />
+              </label>
+              <label class="clinical-mini-field">
+                <span class="clinical-mini-label">SpO₂ (%)</span>
+                <input class="clinical-input" type="number" placeholder="Ej: 98" [value]="svSatO2()" (input)="svSatO2.set($any($event.target).value)" />
+              </label>
+              <label class="clinical-mini-field">
+                <span class="clinical-mini-label">Temp (°C)</span>
+                <input class="clinical-input" type="number" placeholder="Ej: 36.5" [value]="svTemp()" (input)="svTemp.set($any($event.target).value)" />
+              </label>
+              <label class="clinical-mini-field">
+                <span class="clinical-mini-label">Glucemia (mg/dL)</span>
+                <input class="clinical-input" type="number" placeholder="Ej: 110" [value]="svGlucemia()" (input)="svGlucemia.set($any($event.target).value)" />
+              </label>
               <div class="col-span-3 mt-1" style="border-top: 1px solid rgba(148,163,184,0.2); padding-top: 0.75rem;">
                 <p class="clinical-field-label mb-2">Glasgow (opcional)</p>
                 <div class="grid grid-cols-4 gap-2">
@@ -979,6 +997,20 @@ const ALL_STEPS: StatusStep[] = [
     .clinical-input:focus {
       border-color: #3b82f6;
       box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.16);
+    }
+    .clinical-mini-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+    .clinical-mini-label {
+      font-family: monospace;
+      font-size: 0.64rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #64748b;
+      font-weight: 700;
+      padding-left: 0.1rem;
     }
     .cancel-modal-card {
       box-shadow: 0 24px 70px rgba(127, 29, 29, 0.22), 0 12px 40px rgba(15, 23, 42, 0.25);

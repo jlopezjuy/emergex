@@ -41,6 +41,11 @@ export const routes: Routes = [
           import('./features/map/map.component').then((m) => m.MapComponent),
       },
       {
+        path: 'profile',
+        loadComponent: () =>
+          import('./features/profile/profile.component').then((m) => m.ProfileComponent),
+      },
+      {
         path: 'fleet',
         loadComponent: () =>
           import('./features/fleet/fleet.component').then((m) => m.FleetComponent),
@@ -114,7 +119,6 @@ export const routes: Routes = [
       },
       {
         path: 'settings',
-        canActivate: [roleGuard('ROLE_ADMIN')],
         loadComponent: () =>
           import('./features/settings/settings.component').then((m) => m.SettingsComponent),
       },

@@ -46,7 +46,7 @@ import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
         <div style="display:flex;align-items:center;gap:14px">
           <div class="login__status">
             <span class="dot-live"></span>
-            <span class="mono micro" style="color:var(--accent-emerald)">Sistema operativo</span>
+            <span class="mono micro" style="color:var(--text-secondary)">Sistema operativo</span>
           </div>
           <div class="login__clock mono">{{ clock() }}</div>
         </div>
@@ -183,7 +183,7 @@ import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
       justify-content: space-between;
       padding: 16px 28px;
       border-bottom: 1px solid var(--border-hairline);
-      background: rgba(2, 6, 23, 0.4);
+      background: color-mix(in srgb, var(--bg-elevated) 88%, transparent);
       backdrop-filter: blur(8px);
     }
     .login__brand {
@@ -276,7 +276,7 @@ import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
       border-radius: var(--r-btn);
       background: rgba(239,68,68,0.1);
       border: 1px solid rgba(239,68,68,0.3);
-      color: #FCA5A5;
+      color: var(--accent-red);
       font-size: 12.5px;
       margin-bottom: 12px;
     }
@@ -324,8 +324,29 @@ import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
       justify-content: space-between;
       padding: 12px 28px;
       border-top: 1px solid var(--border-hairline);
-      background: rgba(2, 6, 23, 0.4);
+      background: color-mix(in srgb, var(--bg-elevated) 88%, transparent);
       backdrop-filter: blur(8px);
+    }
+
+    .login .qc-input {
+      background: var(--surface-inset);
+      border: 1px solid var(--border-strong);
+      color: var(--text-primary);
+    }
+    .login .qc-input::placeholder {
+      color: var(--text-muted);
+    }
+    .login .qc-input:focus {
+      border-color: var(--accent-blue);
+      background: var(--bg-elevated);
+    }
+
+    [data-theme="light"] .login__card {
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+    }
+
+    [data-theme="light"] .login__bg {
+      opacity: 0.7;
     }
 
     /* ── btn--danger override ── */
