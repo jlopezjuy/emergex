@@ -1,0 +1,439 @@
+<emx-feedback-toasts />
+
+<div class="admin-layout">
+
+  <!-- ── LEFT: Empresas ── -->
+  <aside class="panel panel-left">
+    <div class="screen-head flex-shrink-0" style="padding: 12px 14px; border-bottom: 1px solid var(--border-hairline);">
+      <div class="screen-head__title">
+        <div class="screen-head__icon" style="width: 28px; height: 28px; border-radius: 6px; color: var(--accent-cyan);">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+          </svg>
+        </div>
+        <div>
+          <h2 style="font-size: 13px; font-weight: 600; color: var(--text-primary); letter-spacing: -0.01em; margin: 0;">Empresas</h2>
+        </div>
+      </div>
+    </div>
+
+    <div class="px-3 py-2" style="border-bottom: 1px solid var(--border-hairline);">
+      <input
+        class="qc-input"
+        type="search"
+        placeholder="Buscar empresa…"
+        [(ngModel)]="empresaSearchInput"
+        (ngModelChange)="onEmpresaSearchChange($event)"
+        style="height: 32px; font-size: 12px;"
+      />
+    </div>
+
+    @if (loadingEmpresas()) {
+      <emx-loading-state />
+    } @else if (errorEmpresas()) {
+      <div class="error-inline">
+        Error al cargar. <button class="link-btn" (click)="loadEmpresas()">Reintentar</button>
+      </div>
+    } @else if (empresas().length === 0) {
+      <emx-empty-state message="Sin empresas" />
+    } @else {
+      <ul class="empresa-list">
+        @for (e of empresas(); track e.id) {
+          <li
+            class="empresa-item"
+            [class.empresa-item--active]="selectedEmpresa()?.id === e.id"
+            (click)="selectEmpresa(e)"
+          >
+            <span class="empresa-nombre">{{ e.nombre }}</span>
+            <span class="empresa-cuit">{{ e.cuit }}</span>
+            <span
+              class="badge mt-1"
+              [class.badge--stable]="e.estado === 'ACTIVA'"
+              [class.badge--urgent]="e.estado === 'SUSPENDIDA'"
+              [class.badge--critical]="e.estado === 'INACTIVA'"
+              style="font-size: 9px; padding: 1px 6px;"
+            >
+              {{ e.estado }}
+            </span>
+          </li>
+        }
+      </ul>
+
+      @if (totalEmpresas() > PAGE_SIZE) {
+        <div class="pagination">
+          <button class="panel-page-btn" [disabled]="empresaPage() === 0" (click)="prevEmpresaPage()">‹</button>
+          <span class="page-info">{{ empresaPage() + 1 }} / {{ totalEmpresaPages() }}</span>
+          <button class="panel-page-btn" [disabled]="empresaPage() + 1 >= totalEmpresaPages()" (click)="nextEmpresaPage()">›</button>
+        </div>
+      }
+    }
+  </aside>
+
+  <!-- ── RIGHT: Usuarios de la empresa ── -->
+  <section class="panel panel-right">
+    @if (!selectedEmpresa()) {
+      <div class="no-selection">
+        <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.2" style="color: var(--text-muted);">
+          <rect x="6" y="10" width="36" height="28" rx="3"/>
+          <path d="M16 10V6M32 10V6M6 22h36"/>
+        </svg>
+        <p style="color: var(--text-secondary);">Seleccioná una empresa para ver sus usuarios</p>
+      </div>
+    } @else {
+      <!-- Cabecera de Empresa Seleccionada -->
+      <div class="screen-head flex-shrink-0" style="padding: 14px 18px; border-bottom: 1px solid var(--border-hairline);">
+        <div class="screen-head__title">
+          <div class="screen-head__icon" style="color: var(--accent-blue);">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+          </div>
+          <div>
+            <h2 style="font-size: 16px; font-weight: 600; color: var(--text-primary); margin: 0;">{{ selectedEmpresa()!.nombre }}</h2>
+            <p class="eyebrow" style="color: var(--text-secondary); margin-top: 2px; font-size: 10px;">
+              {{ selectedEmpresa()!.cuit }} · {{ selectedEmpresa()!.ciudad }}
+            </p>
+          </div>
+        </div>
+        <div class="screen-head__actions">
+          <button class="btn btn--primary btn--sm" (click)="openCreateUser()">
+            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            Nuevo usuario
+          </button>
+        </div>
+      </div>
+
+      <!-- Card de la Tabla (igual a Personal Operativo) -->
+      <div class="glass-strong pt-card ml-4 mr-4">
+        <!-- Toolbar -->
+        <div class="pt-toolbar">
+          <div class="pt-search">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-linecap="round"><circle cx="6" cy="6" r="4"/><path d="M9.5 9.5l3 3"/></svg>
+            <input
+              class="pt-search__input"
+              type="search"
+              placeholder="Buscar usuario por login, nombre o email…"
+              [(ngModel)]="userSearchInput"
+              (ngModelChange)="onUserSearchChange($event)"
+            />
+          </div>
+
+          <div class="pt-filters">
+            <span class="eyebrow" style="white-space:nowrap">Estado:</span>
+            <button
+              class="filter-chip"
+              [attr.data-on]="selectedEstadoFilter() === 'TODOS'"
+              (click)="selectedEstadoFilter.set('TODOS')"
+            >Todos</button>
+            <button
+              class="filter-chip"
+              [attr.data-on]="selectedEstadoFilter() === 'ACTIVOS'"
+              (click)="selectedEstadoFilter.set('ACTIVOS')"
+            >Activos</button>
+            <button
+              class="filter-chip"
+              [attr.data-on]="selectedEstadoFilter() === 'INACTIVOS'"
+              (click)="selectedEstadoFilter.set('INACTIVOS')"
+            >Inactivos</button>
+          </div>
+        </div>
+
+        @if (loadingUsers()) {
+          <emx-loading-state />
+        } @else if (errorUsers()) {
+          <div class="error-inline">
+            Error al cargar. <button class="link-btn" (click)="loadUsers()">Reintentar</button>
+          </div>
+        } @else if (filteredUsers().length === 0) {
+          <emx-empty-state message="Sin usuarios para mostrar con los filtros aplicados" />
+        } @else {
+          <!-- Tabla de Datos -->
+          <div class="data-table-wrap scroll-y ml">
+            <table class="data-table" style="width:100%;min-width:820px">
+              <thead>
+                <tr>
+                  <th>Usuario</th>
+                  <th>Email</th>
+                  <th>Rol Empresa</th>
+                  <th>Estado</th>
+                  <th style="width:40px"></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of filteredUsers(); track item.id) {
+                  <tr (click)="openEditUser(item)" style="cursor:pointer">
+                    <!-- Columna Principal: Usuario con Avatar -->
+                    <td>
+                      <div style="display:flex;align-items:center;gap:10px">
+                        <div class="staff-avatar">
+                          {{ getAvatarInitials(item.user.firstName, item.user.lastName) }}
+                        </div>
+                        <div>
+                          <div style="font-size:13px;font-weight:500">{{ item.user.firstName }} {{ item.user.lastName }}</div>
+                          <div class="mono micro" style="color:var(--text-muted)">{{ item.user.login }}</div>
+                        </div>
+                      </div>
+                    </td>
+                    
+                    <!-- Email -->
+                    <td>{{ item.user.email }}</td>
+                    
+                    <!-- Rol en Empresa con Chips Estilo Personal Operativo -->
+                    <td>
+                      <span class="spec-chip"
+                        [style.background]="getRolColor(item.rol).bg"
+                        [style.color]="getRolColor(item.rol).fg"
+                        [style.border-color]="getRolColor(item.rol).border"
+                      >
+                        {{ item.rol }}
+                      </span>
+                    </td>
+                    
+                    <!-- Estado -->
+                    <td>
+                      @if (item.user.activated) {
+                        <emx-status-badge variant="stable">Activo</emx-status-badge>
+                      } @else {
+                        <span class="badge-inactive">Inactivo</span>
+                      }
+                    </td>
+                    
+                    <!-- Acciones con Dropdown Contextual row-menu y user-menu__item -->
+                    <td (click)="$event.stopPropagation()" style="position:relative">
+                      <button class="action-icon" style="width:28px;height:28px" title="Acciones"
+                        (click)="toggleDropdown(item.id, $event)">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                      </button>
+                      
+                      @if (activeDropdownId() === item.id) {
+                        <div class="row-menu" (click)="$event.stopPropagation()">
+                          <button class="user-menu__item" (click)="openEditUser(item); activeDropdownId.set(null)">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                            Editar
+                          </button>
+                          
+                          <button class="user-menu__item" (click)="openChangePassword(item); activeDropdownId.set(null)">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 2-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+                            Cambiar contraseña
+                          </button>
+                          
+                          <div style="height:1px;background:var(--border-hairline);margin:4px 0"></div>
+                          
+                          @if (item.user.activated) {
+                            <button class="user-menu__item user-menu__item--danger" (click)="toggleActive(item); activeDropdownId.set(null)">
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                              Desactivar
+                            </button>
+                          } @else {
+                            <button class="user-menu__item user-menu__item--danger" (click)="toggleActive(item); activeDropdownId.set(null)">
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                              Activar
+                            </button>
+                          }
+                        </div>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Paginación -->
+          <div class="pt-pagination">
+            <div class="mono micro" style="color:var(--text-muted)">
+              Mostrando <strong style="color:var(--text-primary)">{{ filteredUsers().length }}</strong> de
+              <strong style="color:var(--text-primary)">{{ totalUsers() }}</strong> usuarios
+            </div>
+            @if (totalUsers() > PAGE_SIZE) {
+              <div style="display:flex;align-items:center;gap:4px">
+                <button
+                  class="btn btn--ghost btn--sm"
+                  [disabled]="userPage() === 0"
+                  [style.opacity]="userPage() === 0 ? '0.4' : '1'"
+                  (click)="prevUserPage()"
+                >‹ Anterior</button>
+                
+                @for (i of userPageRange(); track i) {
+                  <button
+                    class="page-btn"
+                    [attr.data-active]="userPage() === i"
+                    (click)="goToUserPage(i)"
+                  >{{ i + 1 }}</button>
+                }
+                
+                <button
+                  class="btn btn--ghost btn--sm"
+                  [disabled]="userPage() + 1 >= totalUserPages()"
+                  [style.opacity]="userPage() + 1 >= totalUserPages() ? '0.4' : '1'"
+                  (click)="nextUserPage()"
+                >Siguiente ›</button>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    }
+  </section>
+</div>
+
+<!-- ── MODAL: Crear usuario ── -->
+@if (showCreateUser()) {
+  <emx-modal-shell title="Nuevo usuario" (closed)="showCreateUser.set(false)">
+    <form (ngSubmit)="submitCreateUser()" #createFormRef="ngForm" class="flex flex-col gap-4">
+      <div class="form-grid">
+        <div class="flex flex-col gap-1">
+          <label class="modal-label">Login *</label>
+          <input type="text" [(ngModel)]="createForm.login" name="login" required autocomplete="off" class="qc-input" placeholder="Nombre de usuario" />
+        </div>
+        
+        <div class="flex flex-col gap-1">
+          <label class="modal-label">Email *</label>
+          <input type="email" [(ngModel)]="createForm.email" name="email" required class="qc-input" placeholder="usuario@empresa.com" />
+        </div>
+        
+        <div class="flex flex-col gap-1">
+          <label class="modal-label">Nombre</label>
+          <input type="text" [(ngModel)]="createForm.firstName" name="firstName" class="qc-input" placeholder="Nombre" />
+        </div>
+        
+        <div class="flex flex-col gap-1">
+          <label class="modal-label">Apellido</label>
+          <input type="text" [(ngModel)]="createForm.lastName" name="lastName" class="qc-input" placeholder="Apellido" />
+        </div>
+        
+        <div class="flex flex-col gap-1">
+          <label class="modal-label">Contraseña *</label>
+          <input type="password" [(ngModel)]="createForm.password" name="password" required minlength="4" autocomplete="new-password" class="qc-input" placeholder="Min. 4 caracteres" />
+        </div>
+        
+        <div class="flex flex-col gap-1">
+          <label class="modal-label">Rol en empresa *</label>
+          <select [(ngModel)]="createForm.rolCentro" name="rolCentro" required class="qc-input">
+            @for (r of ALL_ROLES; track r) {
+              <option [value]="r">{{ r }}</option>
+            }
+          </select>
+        </div>
+      </div>
+    </form>
+
+    <div footer class="flex gap-2">
+      <button class="btn btn--ghost btn--sm" (click)="showCreateUser.set(false)">Cancelar</button>
+      <button class="btn btn--primary btn--sm" [disabled]="saving() || createFormRef.invalid" (click)="submitCreateUser()">
+        {{ saving() ? 'Guardando…' : 'Crear usuario' }}
+      </button>
+    </div>
+  </emx-modal-shell>
+}
+
+<!-- ── MODAL: Editar usuario ── -->
+@if (showEditUser()) {
+  <emx-modal-shell title="Editar usuario" (closed)="showEditUser.set(null)">
+    <form #editFormRef="ngForm" class="flex flex-col gap-4">
+      <div class="form-grid">
+        <div class="flex flex-col gap-1">
+          <label class="modal-label">Login (Deshabilitado)</label>
+          <input type="text" [value]="showEditUser()!.user.login" disabled class="qc-input" style="opacity: 0.5; cursor: not-allowed;" />
+        </div>
+        
+        <div class="flex flex-col gap-1">
+          <label class="modal-label">Email *</label>
+          <input type="email" [(ngModel)]="editForm.email" name="email" required class="qc-input" placeholder="usuario@empresa.com" />
+        </div>
+        
+        <div class="flex flex-col gap-1">
+          <label class="modal-label">Nombre</label>
+          <input type="text" [(ngModel)]="editForm.firstName" name="firstName" class="qc-input" placeholder="Nombre" />
+        </div>
+        
+        <div class="flex flex-col gap-1">
+          <label class="modal-label">Apellido</label>
+          <input type="text" [(ngModel)]="editForm.lastName" name="lastName" class="qc-input" placeholder="Apellido" />
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="modal-label">Rol en empresa *</label>
+          <select [(ngModel)]="editForm.rol" name="rol" required class="qc-input">
+            @for (r of ALL_ROLES; track r) {
+              <option [value]="r">{{ r }}</option>
+            }
+          </select>
+        </div>
+
+
+        <div class="col-span-2 py-1 mt-1">
+          <label class="authority-label">
+            <input
+              type="checkbox"
+              [(ngModel)]="editForm.activated"
+              name="activated"
+              id="editActivatedCheckbox"
+              class="authority-checkbox"
+            />
+            <span>Usuario activo (Habilitado para ingresar a la plataforma)</span>
+          </label>
+        </div>
+      </div>
+    </form>
+
+    <div footer class="flex gap-2">
+      <button class="btn btn--ghost btn--sm" (click)="showEditUser.set(null)">Cancelar</button>
+      <button class="btn btn--primary btn--sm" [disabled]="saving() || editFormRef.invalid" (click)="submitEditUser()">
+        {{ saving() ? 'Guardando…' : 'Guardar cambios' }}
+      </button>
+    </div>
+  </emx-modal-shell>
+}
+
+<!-- ── MODAL: Cambiar contraseña ── -->
+@if (showChangePassword()) {
+  <emx-modal-shell
+    [title]="'Cambiar contraseña — ' + showChangePassword()!.user.login"
+    (closed)="showChangePassword.set(null)"
+  >
+    <div class="form-grid">
+      <div class="flex flex-col gap-1">
+        <label class="modal-label">Nueva contraseña *</label>
+        <input
+          type="password"
+          [ngModel]="pwForm().newPassword"
+          (ngModelChange)="pwForm.update(f => ({ ...f, newPassword: $event }))"
+          name="newPassword"
+          minlength="4"
+          autocomplete="new-password"
+          class="qc-input"
+          placeholder="Min. 4 caracteres"
+        />
+      </div>
+      <div class="flex flex-col gap-1">
+        <label class="modal-label">Confirmar contraseña *</label>
+        <input
+          type="password"
+          [ngModel]="pwForm().confirmPassword"
+          (ngModelChange)="pwForm.update(f => ({ ...f, confirmPassword: $event }))"
+          name="confirmPassword"
+          autocomplete="new-password"
+          class="qc-input"
+          placeholder="Confirmar contraseña"
+        />
+      </div>
+    </div>
+    @if (pwMismatch()) {
+      <p class="text-xs mt-2" style="color: var(--accent-red); font-weight: 500;">Las contraseñas no coinciden.</p>
+    }
+
+    <div footer class="flex gap-2">
+      <button class="btn btn--ghost btn--sm" (click)="showChangePassword.set(null)">Cancelar</button>
+      <button
+        class="btn btn--primary btn--sm"
+        [disabled]="saving() || pwMismatch() || !pwForm().newPassword"
+        (click)="submitChangePassword()"
+      >
+        {{ saving() ? 'Guardando…' : 'Cambiar contraseña' }}
+      </button>
+    </div>
+  </emx-modal-shell>
+}

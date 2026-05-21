@@ -1003,17 +1003,21 @@
     height: 36px;
     padding: 0 10px;
     border-radius: var(--r-btn);
-    background: rgba(2, 6, 23, 0.5);
+    background: var(--surface-inset);
     border: 1px solid var(--border-glass);
     color: var(--text-primary);
     font-family: var(--font-sans);
     font-size: 13px;
     outline: none;
-    transition: border-color 0.15s;
+    transition: border-color 0.15s, background-color 0.15s;
   }
-  .qc-input:focus { border-color: var(--accent-blue); background: rgba(2, 6, 23, 0.7); }
+  .qc-input:focus { border-color: var(--accent-blue); background: var(--bg-elevated); }
   .qc-input::placeholder { color: var(--text-dim); }
   select.qc-input { cursor: pointer; }
+  .qc-input option {
+    background-color: var(--bg-elevated);
+    color: var(--text-primary);
+  }
 
   /* =====================================================
      NAVIGATION — sidebar active state

@@ -44,7 +44,12 @@ export class AdminUserApiService {
     return this.http.put<AdminUserDTO>(`${this.adminBase}/users/${login}`, dto);
   }
 
+  updateUserInEmpresa(empresaId: number, login: string, item: UsuarioEmpresaItem): Observable<UsuarioEmpresaItem> {
+    return this.http.put<UsuarioEmpresaItem>(`${this.adminBase}/empresas/${empresaId}/users/${login}`, item);
+  }
+
   setPassword(login: string, newPassword: string): Observable<void> {
     return this.http.post<void>(`${this.adminBase}/users/${login}/password`, { newPassword });
   }
 }
+
