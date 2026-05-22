@@ -19,6 +19,7 @@ import {
   IniciarAtencionDesdeTicketResponse,
   HospitalDTO,
   EntregaHospitalariaDTO,
+  TelemedicinaSalaResponseDTO,
 } from '../dto/ticket.dto';
 
 const URGENCIA_MAP: Record<string, TicketAsistenciaDTO['prioridad']> = {
@@ -60,6 +61,10 @@ export class EmergencyApiService {
         : raw.esperaMinutos != null ? raw.esperaMinutos * 60 : undefined,
       latitud:            undefined,
       longitud:           undefined,
+      tipoAsistencia:     raw.tipoAsistencia,
+      canal:              raw.canal,
+      empresaHabilitaTelemedicina: raw.empresa?.habilitaTelemedicina,
+      empresaUrlTelemedicina: raw.empresa?.urlTelemedicina,
     };
   }
 
@@ -248,6 +253,13 @@ export class EmergencyApiService {
       `${this.base}/${ticketId}/entrega-hospitalaria`
     ).pipe(
       catchError(() => of(null))
+    );
+  }
+
+  iniciarTelemedicina(ticketId: number): Observable<TelemedicinaSalaResponseDTO> {
+    return this.http.post<TelemedicinaSalaResponseDTO>(
+      `${environment.apiUrl}/api/operador-emergencias/tickets/${ticketId}/iniciar-telemedicina`,
+      {}
     );
   }
 }

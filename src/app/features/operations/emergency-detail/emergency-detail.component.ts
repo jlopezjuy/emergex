@@ -1,6 +1,7 @@
 import { Component, inject, signal, computed, OnInit, DestroyRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { EmergencyApiService } from '../../../data-access/api/emergency.api';
+import { DateUtils } from '../../../core/utils/date.utils';
 import {
   TicketDetalleDTO,
   LogEstadoTicketDTO,
@@ -10,6 +11,7 @@ import {
   AtencionFullDTO,
   HospitalDTO,
   EntregaHospitalariaDTO,
+  TelemedicinaSalaResponseDTO,
 } from '../../../data-access/dto/ticket.dto';
 import { LoadingStateComponent } from '../../../shared/components/loading-state/loading-state.component';
 import { ErrorStateComponent } from '../../../shared/components/error-state/error-state.component';
@@ -77,6 +79,31 @@ const ALL_STEPS: StatusStep[] = [
         </div>
 
         <div class="flex gap-2">
+          @if (canStartTelemedicine()) {
+            @if (!telemedicinaSala()) {
+              <button type="button" class="btn btn--primary btn--sm flex items-center gap-1.5" 
+                      style="background: linear-gradient(135deg, var(--accent-blue), #1d4ed8); border-color: transparent;"
+                      [disabled]="iniciandoTelemedicina()" 
+                      (click)="iniciarTeleconsulta()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M23 7l-7 5 7 5V7z"/>
+                  <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                </svg>
+                {{ iniciandoTelemedicina() ? 'Generando sala...' : 'Iniciar Teleconsulta' }}
+              </button>
+            } @else {
+              <button type="button" class="btn btn--primary btn--sm flex items-center gap-1.5" 
+                      style="background: linear-gradient(135deg, var(--accent-emerald), #047857); border-color: transparent;"
+                      (click)="abrirSalaTelemedicina()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                  <polyline points="15 3 21 3 21 9"/>
+                  <line x1="10" y1="14" x2="21" y2="3"/>
+                </svg>
+                Unirse a Videollamada
+              </button>
+            }
+          }
           @if (canDispatch()) {
             <button type="button" class="btn btn--primary btn--sm" (click)="openDispatch()">Despachar</button>
           }
@@ -455,6 +482,78 @@ const ALL_STEPS: StatusStep[] = [
                   </div>
                 }
               </emx-glass-card>
+
+              <!-- Widget de Telemedicina -->
+              @if (canStartTelemedicine() || telemedicinaSala()) {
+                <emx-glass-card>
+                  <div class="flex items-center justify-between mb-2">
+                    <h2 class="section-label" style="margin:0;">Teleconsulta Médica</h2>
+                    @if (telemedicinaSala()) {
+                      <span class="badge text-xs px-2 py-0.5" style="background: rgba(16,185,129,0.15); color: var(--accent-emerald);">
+                        Activa
+                      </span>
+                    } @else {
+                      <span class="badge text-xs px-2 py-0.5" style="background: rgba(100,116,139,0.15); color: var(--text-muted);">
+                        Disponible
+                      </span>
+                    }
+                  </div>
+
+                  @if (!telemedicinaSala()) {
+                    <div class="flex flex-col gap-2">
+                      <p class="text-xs" style="color: var(--text-muted);">
+                        Este incidente califica para asistencia virtual. Generá una sala encriptada para conectar al paciente con el equipo médico.
+                      </p>
+                      <button type="button" class="btn btn--primary btn--sm flex items-center justify-center gap-1.5 w-full mt-1" 
+                              style="background: linear-gradient(135deg, var(--accent-blue), #1d4ed8); border-color: transparent;"
+                              [disabled]="iniciandoTelemedicina()" 
+                              (click)="iniciarTeleconsulta()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M23 7l-7 5 7 5V7z"/>
+                          <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                        </svg>
+                        {{ iniciandoTelemedicina() ? 'Generando sala...' : 'Iniciar Teleconsulta' }}
+                      </button>
+                      @if (telemedicinaError()) {
+                        <p class="text-xs mt-1" style="color: var(--accent-red);">{{ telemedicinaError() }}</p>
+                      }
+                    </div>
+                  } @else {
+                    <div class="flex flex-col gap-3">
+                      <div class="rounded-lg p-2.5 text-xs" style="background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.22); color: var(--text-secondary);">
+                        <p class="font-semibold text-emerald-400" style="color: var(--accent-emerald);">Sala corporativa segura</p>
+                        <p class="mt-0.5" style="font-size: 11px;">El paciente y el médico móvil pueden ingresar de manera nativa.</p>
+                      </div>
+
+                      <dl class="flex flex-col gap-1.5 text-xs">
+                        <div class="flex justify-between items-center">
+                          <dt style="color: var(--text-muted);">Expiración</dt>
+                          <dd class="font-mono text-xs" style="color: var(--text-primary);">
+                            {{ formatTime(telemedicinaSala()?.expiresAt) }} hs
+                          </dd>
+                        </div>
+                        <div class="flex justify-between items-center">
+                          <dt style="color: var(--text-muted);">Cifrado</dt>
+                          <dd class="font-mono text-xs" style="color: var(--accent-cyan);">
+                            SHA-256 Validado
+                          </dd>
+                        </div>
+                      </dl>
+
+                      <button type="button" class="btn btn--primary btn--sm flex items-center justify-center gap-1.5 w-full mt-1" 
+                              style="background: linear-gradient(135deg, var(--accent-emerald), #047857); border-color: transparent;"
+                              (click)="abrirSalaTelemedicina()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                          <polyline points="15 3 21 3 21 9"/>
+                          <line x1="10" y1="14" x2="21" y2="3"/>
+                        </svg>
+                        Unirse a Videollamada
+                      </button>
+                    </div>
+                  }
+                </emx-glass-card>
+              }
 
               <!-- 10. Transport Card -->
               <emx-glass-card>
@@ -1063,6 +1162,11 @@ export class EmergencyDetailComponent implements OnInit {
   readonly svTemp = signal('');
   readonly svGlucemia = signal('');
 
+  // ── Telemedicina signals ──────────────────────────────────────
+  readonly telemedicinaSala = signal<TelemedicinaSalaResponseDTO | null>(null);
+  readonly iniciandoTelemedicina = signal(false);
+  readonly telemedicinaError = signal<string | null>(null);
+
   // Glasgow / AVPU (both in signos modal and close dialog)
   readonly glasgowOcular = signal('');
   readonly glasgowVerbal = signal('');
@@ -1257,6 +1361,16 @@ export class EmergencyDetailComponent implements OnInit {
     return 'badge badge--stable';
   });
 
+  // ── Telemedicina canStart computed guard ─────────────────────
+  readonly canStartTelemedicine = computed(() => {
+    const t = this.ticket();
+    if (!t) return false;
+    const esTipoTelemedicina = t.tipoAsistencia === 'ORIENTACION_TELEFONICA' || t.canal === 'VIDEOLLAMADA';
+    const habilitadoEmpresa = t.empresaHabilitaTelemedicina !== false;
+    const estadoAbierto = t.estado !== 'CERRADO' && t.estado !== 'COMPLETADO' && t.estado !== 'CANCELADO';
+    return estadoAbierto && (esTipoTelemedicina || habilitadoEmpresa);
+  });
+
   // ── Sparklines ────────────────────────────────────────────────
   readonly sparkFC = computed((): number[] =>
     this.signos().map((s) => s.frecuenciaCardiaca ?? 0).filter((v) => v > 0)
@@ -1362,6 +1476,32 @@ export class EmergencyDetailComponent implements OnInit {
           });
   }
 
+  iniciarTeleconsulta(): void {
+    this.iniciandoTelemedicina.set(true);
+    this.telemedicinaError.set(null);
+    this.emergencyApi.iniciarTelemedicina(this.ticketId).pipe(
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe({
+      next: (sala) => {
+        this.telemedicinaSala.set(sala);
+        this.iniciandoTelemedicina.set(false);
+      },
+      error: (err) => {
+        this.iniciandoTelemedicina.set(false);
+        this.telemedicinaError.set(
+          err?.error?.detail ?? err?.error?.title ?? 'Error al iniciar la sala de telemedicina'
+        );
+      }
+    });
+  }
+
+  abrirSalaTelemedicina(): void {
+    const sala = this.telemedicinaSala();
+    if (sala?.urlSala) {
+      window.open(sala.urlSala, '_blank');
+    }
+  }
+
   goBack(): void {
     this.router.navigate(['/dashboard']);
   }
@@ -1435,7 +1575,7 @@ export class EmergencyDetailComponent implements OnInit {
         signos: [...(atencion.signos ?? [])],
       };
 
-      const now = new Date().toISOString();
+      const now = DateUtils.now().toISO()!;
       if (this.clinicalModal() === 'SIGNOS') {
         const parsedTa = this.parseTa(this.svTa());
         const signo = {
@@ -1676,7 +1816,7 @@ Observación: ${this.clinicalObservacion().trim() || '—'}`,
       receptorMatricula: this.entregaReceptorMatricula().trim() || undefined,
       servicioReceptor: this.entregaServicioReceptor().trim() || undefined,
       hospitalId: this.entregaHospitalId() ?? undefined,
-      horaEntrega: new Date().toISOString(),
+      horaEntrega: DateUtils.now().toISO()!,
       condicionEntregaGlasgow: this.toNumber(this.entregaGlasgow()) ?? undefined,
       condicionEntregaPa: this.entregaPa().trim() || undefined,
       condicionEntregaFc: this.toNumber(this.entregaFc()) ?? undefined,
@@ -1819,16 +1959,11 @@ Observación: ${this.clinicalObservacion().trim() || '—'}`,
 
   formatDate(iso?: string): string {
     if (!iso) return '—';
-    return new Date(iso).toLocaleString('es-AR', {
-      day: '2-digit',
-      month: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    return DateUtils.format(iso, 'dd/MM HH:mm');
   }
 
   formatTime(iso?: string): string {
     if (!iso) return '—';
-    return new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+    return DateUtils.format(iso, 'HH:mm');
   }
 }

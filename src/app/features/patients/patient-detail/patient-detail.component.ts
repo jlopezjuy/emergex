@@ -13,6 +13,7 @@ import {
 } from '../../../data-access/dto/patient.dto';
 import { PlanDTO } from '../../../data-access/dto/plan.dto';
 import { localDateYmd } from '../../../shared/utils/date-local.util';
+import { DateUtils } from '../../../core/utils/date.utils';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -61,12 +62,12 @@ function fmtDate(s?: string): string {
 
 function fmtPeriodo(desde?: string, hasta?: string): string {
   if (!desde) return '—';
-  const d = new Date(desde + 'T00:00:00');
-  const h = new Date(hasta + 'T00:00:00');
-  if (d.getMonth() === 0 && d.getDate() === 1 && h?.getMonth() === 11 && h?.getDate() === 31) {
-    return `Anual ${d.getFullYear()}`;
+  const d = DateUtils.fromISO(desde);
+  const h = hasta ? DateUtils.fromISO(hasta) : null;
+  if (d.month === 1 && d.day === 1 && h?.month === 12 && h?.day === 31) {
+    return `Anual ${d.year}`;
   }
-  return `${MESES[d.getMonth()]} ${d.getFullYear()}`;
+  return `${MESES[d.month - 1]} ${d.year}`;
 }
 
 function todayISO(): string {
@@ -924,8 +925,8 @@ export class PatientDetailComponent implements OnInit {
   // ── Generar modal ──
   readonly showGenerarModal = signal(false);
   readonly generarTipo     = signal<'MENSUAL' | 'ANUAL'>('MENSUAL');
-  generarMes  = new Date().getMonth() + 1;
-  generarAnio = new Date().getFullYear();
+  generarMes  = DateUtils.now().month;
+  generarAnio = DateUtils.now().year;
   readonly savingGenerar = signal(false);
   readonly generarError  = signal<string | null>(null);
   readonly generarResult = signal<GenerarResponseDTO | null>(null);
@@ -1106,8 +1107,8 @@ export class PatientDetailComponent implements OnInit {
   // ── Generar ──
   abrirGenerarModal(): void {
     this.generarTipo.set('MENSUAL');
-    this.generarMes  = new Date().getMonth() + 1;
-    this.generarAnio = new Date().getFullYear();
+    this.generarMes  = DateUtils.now().month;
+    this.generarAnio = DateUtils.now().year;
     this.generarError.set(null);
     this.generarResult.set(null);
     this.showGenerarModal.set(true);

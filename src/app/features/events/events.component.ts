@@ -5,7 +5,8 @@ import type { BadgeVariant } from '../../shared/components/status-badge/status-b
 import { EventsApiService } from '../../data-access/api/events.api';
 import type { FrontendEvento } from '../../data-access/api/events.api';
 import { FleetApiService } from '../../data-access/api/fleet.api';
-import { localDateYmd } from '../../shared/utils/date-local.util';
+import { DateUtils } from '../../core/utils/date.utils';
+import { DateTime } from 'luxon';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -97,18 +98,7 @@ const AMBULANCES: AmbUnit[] = [
   { id: 'U-33', crew: 'Ávila · Cruz',      type: 'ALS', status: 'enroute'      },
 ];
 
-// ─── Calendar helper ──────────────────────────────────────────────────────────
-
-function buildCalendarCells(year: number, month: number): (number | null)[] {
-  const first = new Date(year, month, 1);
-  const startDay = (first.getDay() + 6) % 7; // Monday-first
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const cells: (number | null)[] = [];
-  for (let i = 0; i < startDay; i++) cells.push(null);
-  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
-  while (cells.length % 7 !== 0) cells.push(null);
-  return cells;
-}
+// ─── Constants and helpers ───────────────────────────────────────────────────
 
 function initialForm(): NewEventForm {
   return {
@@ -744,9 +734,9 @@ export class EventsComponent implements OnInit {
   readonly statusFilter = signal<string>('all');
   readonly typeFilter = signal<string>('all');
 
-  // Calendar
-  readonly calYear = signal(2026);
-  readonly calMonth = signal(4); // 0-indexed: 4 = May
+  // Calendar state
+  readonly calMonth = signal<DateTime>(DateUtils.now().startOf('month'));
+  readonly calYear = computed(() => this.calMonth().year);
 
   // New event form
   readonly form = signal<NewEventForm>(initialForm());
@@ -777,7 +767,7 @@ export class EventsComponent implements OnInit {
   // ── Computed ───────────────────────────────────────────────────────────────
   readonly headerKpis = computed(() => {
     const all = this.events();
-    const today = localDateYmd();
+    const today = DateUtils.todayYmd();
     const thisMonth = today.slice(0, 7);
     const hoy   = all.filter(e => e.dateFrom === today).length;
     const mes   = all.filter(e => e.dateFrom.startsWith(thisMonth)).length;
@@ -808,26 +798,37 @@ export class EventsComponent implements OnInit {
   readonly groupedEvents = computed(() => {
     const map = new Map<string, { label: string; events: EventItem[] }>();
     for (const ev of this.filteredEvents()) {
-      const d = new Date(ev.dateFrom + 'T00:00:00');
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const d = DateUtils.fromISO(ev.dateFrom);
+      const key = d.toFormat('yyyy-MM');
       if (!map.has(key)) {
-        map.set(key, { label: `${EV_MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`, events: [] });
+        map.set(key, { label: `${EV_MONTH_NAMES[d.month - 1]} ${d.year}`, events: [] });
       }
       map.get(key)!.events.push(ev);
     }
     return Array.from(map.entries()).map(([key, val]) => ({ key, ...val }));
   });
 
-  readonly calCells = computed(() => buildCalendarCells(this.calYear(), this.calMonth()));
+  readonly calCells = computed((): (number | null)[] => {
+    const m = this.calMonth();
+    const first = m.startOf('month');
+    const startDay = first.weekday - 1; // Lunes = 0 en indexación de 0 a 6
+    const daysInMonth = m.daysInMonth ?? 30;
+    const cells: (number | null)[] = [];
+    for (let i = 0; i < startDay; i++) cells.push(null);
+    for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+    while (cells.length % 7 !== 0) cells.push(null);
+    return cells;
+  });
 
   readonly calEventsByDate = computed(() => {
     const m = new Map<string, EventItem[]>();
-    const yr = this.calYear();
-    const mo = this.calMonth();
+    const cm = this.calMonth();
+    const yr = cm.year;
+    const mo = cm.month;
     for (const ev of this.events()) {
-      const d = new Date(ev.dateFrom + 'T00:00:00');
-      if (d.getFullYear() === yr && d.getMonth() === mo) {
-        const key = String(d.getDate());
+      const d = DateUtils.fromISO(ev.dateFrom);
+      if (d.year === yr && d.month === mo) {
+        const key = String(d.day);
         if (!m.has(key)) m.set(key, []);
         m.get(key)!.push(ev);
       }
@@ -836,11 +837,12 @@ export class EventsComponent implements OnInit {
   });
 
   readonly calMonthEventCount = computed(() => {
-    const yr = this.calYear();
-    const mo = this.calMonth();
+    const cm = this.calMonth();
+    const yr = cm.year;
+    const mo = cm.month;
     return this.events().filter(e => {
-      const d = new Date(e.dateFrom + 'T00:00:00');
-      return d.getFullYear() === yr && d.getMonth() === mo;
+      const d = DateUtils.fromISO(e.dateFrom);
+      return d.year === yr && d.month === mo;
     }).length;
   });
 
@@ -863,13 +865,13 @@ export class EventsComponent implements OnInit {
   readonly duration = computed(() => {
     const f = this.form();
     if (!f.dateFrom || !f.timeFrom || !f.dateTo || !f.timeTo) return '';
-    const from = new Date(`${f.dateFrom}T${f.timeFrom}`);
-    const to   = new Date(`${f.dateTo}T${f.timeTo}`);
-    if (isNaN(from.getTime()) || isNaN(to.getTime())) return '';
-    const diffMs = to.getTime() - from.getTime();
-    if (diffMs <= 0) return '';
-    const hrs  = Math.floor(diffMs / 3600000);
-    const mins = Math.floor((diffMs % 3600000) / 60000);
+    const from = DateUtils.fromISO(`${f.dateFrom}T${f.timeFrom}`);
+    const to   = DateUtils.fromISO(`${f.dateTo}T${f.timeTo}`);
+    if (!from.isValid || !to.isValid) return '';
+    const diff = to.diff(from, ['hours', 'minutes']);
+    const hrs = Math.floor(diff.hours);
+    const mins = Math.floor(diff.minutes);
+    if (hrs < 0 || (hrs === 0 && mins <= 0)) return '';
     return mins > 0 ? `${hrs}h ${mins}min` : `${hrs}h`;
   });
 
@@ -964,32 +966,21 @@ export class EventsComponent implements OnInit {
   }
 
   prevMonth(): void {
-    if (this.calMonth() === 0) {
-      this.calMonth.set(11);
-      this.calYear.update(y => y - 1);
-    } else {
-      this.calMonth.update(m => m - 1);
-    }
+    this.calMonth.update(m => m.minus({ months: 1 }));
   }
 
   nextMonth(): void {
-    if (this.calMonth() === 11) {
-      this.calMonth.set(0);
-      this.calYear.update(y => y + 1);
-    } else {
-      this.calMonth.update(m => m + 1);
-    }
+    this.calMonth.update(m => m.plus({ months: 1 }));
   }
 
   goToday(): void {
-    const n = new Date();
-    this.calYear.set(n.getFullYear());
-    this.calMonth.set(n.getMonth());
+    this.calMonth.set(DateUtils.now().startOf('month'));
   }
 
   isToday(day: number): boolean {
-    const n = new Date();
-    return n.getFullYear() === this.calYear() && n.getMonth() === this.calMonth() && n.getDate() === day;
+    const today = DateUtils.now();
+    const current = this.calMonth();
+    return today.year === current.year && today.month === current.month && today.day === day;
   }
 
   calEventsForDay(day: number): EventItem[] {
@@ -997,17 +988,17 @@ export class EventsComponent implements OnInit {
   }
 
   dayOfWeek(dateStr: string): string {
-    const d = new Date(dateStr + 'T00:00:00');
-    return DOW_SHORT[(d.getDay() + 6) % 7];
+    const d = DateUtils.fromISO(dateStr);
+    return DOW_SHORT[d.weekday - 1];
   }
 
-  monthName(month: number): string {
-    return EV_MONTH_NAMES[month] ?? '';
+  monthName(dt: DateTime): string {
+    return EV_MONTH_NAMES[dt.month - 1] ?? '';
   }
 
   fmtDateLong(s: string): string {
-    const d = new Date(s + 'T00:00:00');
-    return `${d.getDate()} ${EV_MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}`;
+    const d = DateUtils.fromISO(s);
+    return `${d.day} ${EV_MONTH_NAMES[d.month - 1]} ${d.year}`;
   }
 
   typeColor(type: string): string {

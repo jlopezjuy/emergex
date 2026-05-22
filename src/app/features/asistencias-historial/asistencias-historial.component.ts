@@ -4,6 +4,7 @@ import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AsistenciaHistorialApiService } from '../../data-access/api/asistencia-historial.api';
 import { AsistenciaDashboardHistorialResponse } from '../../data-access/dto/asistencia-historial.dto';
+import { DateUtils } from '../../core/utils/date.utils';
 
 @Component({
   selector: 'app-asistencias-historial',
@@ -282,12 +283,10 @@ export class AsistenciasHistorialComponent {
   }
 
   private defaultFrom(): string {
-    const d = new Date();
-    d.setDate(d.getDate() - 29);
-    return d.toISOString().slice(0, 10);
+    return DateUtils.now().minus({ days: 29 }).toFormat('yyyy-MM-dd');
   }
 
   private defaultTo(): string {
-    return new Date().toISOString().slice(0, 10);
+    return DateUtils.todayYmd();
   }
 }

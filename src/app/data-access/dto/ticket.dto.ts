@@ -21,6 +21,12 @@ export interface TicketAsistenciaDTO {
   horaInicioTraslado?: string;
   horaFinTraslado?: string;
   horaCierre?: string;
+
+  // Telemedicina
+  tipoAsistencia?: string;
+  canal?: string;
+  empresaHabilitaTelemedicina?: boolean;
+  empresaUrlTelemedicina?: string;
 }
 
 export interface AltaRapidaRequest {
@@ -250,4 +256,10 @@ export interface EntregaHospitalariaDTO {
   condicionEntregaSatO2?: number;
   firmaReceptor?: string;
   archivoAdjuntoActa?: string;
+}
+
+export interface TelemedicinaSalaResponseDTO {
+  urlSala: string;
+  expiresAt: string;
+  consentimientoRequerido: boolean;
 }

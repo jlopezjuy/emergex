@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { InstitutionsApiService } from '../../data-access/api/institutions.api';
 import { environment } from '../../../environments/environment';
+import { DateUtils } from '../../core/utils/date.utils';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
@@ -185,15 +186,17 @@ function emptyForm(): InstitutionForm {
 }
 
 function diffDays(from: string, to: string): number {
-  const a = new Date(from).getTime();
-  const b = new Date(to).getTime();
-  return Math.max(0, Math.round((b - a) / 86_400_000));
+  if (!from || !to) return 0;
+  const a = DateUtils.fromISO(from);
+  const b = DateUtils.fromISO(to);
+  return Math.max(0, Math.round(b.diff(a, 'days').days));
 }
 
 function diffMonths(from: string, to: string): number {
-  const a = new Date(from);
-  const b = new Date(to);
-  return Math.max(0, (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth()));
+  if (!from || !to) return 0;
+  const a = DateUtils.fromISO(from);
+  const b = DateUtils.fromISO(to);
+  return Math.max(0, Math.floor(b.diff(a, 'months').months));
 }
 
 const PAGE_SIZE = 10;

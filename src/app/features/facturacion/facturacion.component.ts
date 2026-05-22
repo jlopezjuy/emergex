@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { catchError, of } from 'rxjs';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { localDateYmd } from '../../shared/utils/date-local.util';
+import { DateUtils } from '../../core/utils/date.utils';
 import {
   FacturacionApiService,
   FacturaDTO,
@@ -51,9 +52,9 @@ function fmtDate(s?: string): string {
 
 function fmtPeriodo(desde?: string, hasta?: string, tipoPeriodo?: string): string {
   if (!desde) return '—';
-  const d = new Date(desde + 'T00:00:00');
-  if (tipoPeriodo === 'ANUAL') return `Anual ${d.getFullYear()}`;
-  return `${MESES[d.getMonth()]} ${d.getFullYear()}`;
+  const d = DateUtils.fromISO(desde);
+  if (tipoPeriodo === 'ANUAL') return `Anual ${d.year}`;
+  return `${MESES[d.month - 1]} ${d.year}`;
 }
 
 function todayISO(): string {
@@ -508,8 +509,8 @@ export class FacturacionComponent implements OnInit {
   // ── Generar modal ──
   readonly showGenerarModal = signal(false);
   readonly genTipoPeriodo   = signal<'MENSUAL' | 'ANUAL'>('MENSUAL');
-  genMes  = new Date().getMonth() + 1;
-  genAnio = new Date().getFullYear();
+  genMes  = DateUtils.now().month;
+  genAnio = DateUtils.now().year;
   readonly generando      = signal(false);
   readonly generarResult  = signal<GenerarResponseDTO | null>(null);
   readonly generarError   = signal<string | null>(null);

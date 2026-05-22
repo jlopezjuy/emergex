@@ -1,4 +1,6 @@
 import { Injectable, signal, computed } from '@angular/core';
+import { DateTime } from 'luxon';
+import { DateUtils } from '../utils/date.utils';
 
 export interface NotificationItem {
   id: string;
@@ -6,7 +8,7 @@ export interface NotificationItem {
   message: string;
   type: 'info' | 'warning' | 'error' | 'success';
   read: boolean;
-  timestamp: Date;
+  timestamp: DateTime;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -24,7 +26,7 @@ export class NotificationStore {
       ...item,
       id: crypto.randomUUID(),
       read: false,
-      timestamp: new Date(),
+      timestamp: DateUtils.now(),
     };
     this.notifications.update((list) => [notification, ...list].slice(0, 50));
   }

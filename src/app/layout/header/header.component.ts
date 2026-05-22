@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { NotificationStore } from '../../core/stores/notification.store';
 import { AuthService } from '../../core/auth/auth.service';
 import { EmergencyModalService } from '../../shared/components/emergency/emergency-modal.service';
+import { DateUtils } from '../../core/utils/date.utils';
 
 @Component({
   selector: 'emx-header',
@@ -332,10 +333,10 @@ export class HeaderComponent implements OnInit, OnDestroy {
   }
 
   private updateClock(): void {
-    const now = new Date();
-    this.clock.set(now.toLocaleTimeString('es-AR', { hour12: false }));
+    const now = DateUtils.now();
+    this.clock.set(DateUtils.format(now, 'HH:mm:ss'));
     this.clockDate.set(
-      now.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' }),
+      DateUtils.format(now, "dd 'de' LLL, yyyy")
     );
   }
 }

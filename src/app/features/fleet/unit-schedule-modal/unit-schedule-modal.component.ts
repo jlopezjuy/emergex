@@ -5,6 +5,8 @@ import { UnidadMovilDTO, GuardiaDTO, TripulacionGuardiaDTO, LogTurnoDTO, Profesi
 import { LoadingStateComponent } from '../../../shared/components/loading-state/loading-state.component';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
 import { StaffApiService } from '../../../data-access/api/staff.api';
+import { DateUtils } from '../../../core/utils/date.utils';
+import { DateTime } from 'luxon';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 type TabId = 'tripulacion' | 'turnos' | 'calendario';
@@ -241,13 +243,13 @@ export class UnitScheduleModalComponent implements OnInit {
 
   readonly loadingLogs = signal(false);
   readonly logsTurnos = signal<LogTurnoDTO[]>([]);
-  readonly calMonth = signal(new Date());
+  readonly calMonth = signal<DateTime>(DateUtils.now().startOf('month'));
 
   readonly calCells = computed((): (number | null)[] => {
     const m = this.calMonth();
-    const first = new Date(m.getFullYear(), m.getMonth(), 1);
-    const startDay = (first.getDay() + 6) % 7;
-    const daysInMonth = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate();
+    const first = m.startOf('month');
+    const startDay = first.weekday - 1; // Lunes = 0 en indexación de 0 a 6
+    const daysInMonth = m.daysInMonth ?? 30;
     const cells: (number | null)[] = [];
     for (let i = 0; i < startDay; i++) cells.push(null);
     for (let d = 1; d <= daysInMonth; d++) cells.push(d);
@@ -258,7 +260,7 @@ export class UnitScheduleModalComponent implements OnInit {
   readonly calMonthLabel = computed(() => {
     const m = this.calMonth();
     const names = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-    return `${names[m.getMonth()]} ${m.getFullYear()}`;
+    return `${names[m.month - 1]} ${m.year}`;
   });
 
   ngOnInit(): void {
@@ -499,11 +501,7 @@ export class UnitScheduleModalComponent implements OnInit {
   }
 
   todayIsoDate(): string {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    return DateUtils.todayYmd();
   }
 
   private normalizeDateOnly(value?: string): string | undefined {
@@ -512,13 +510,11 @@ export class UnitScheduleModalComponent implements OnInit {
   }
 
   prevMonth(): void {
-    const m = this.calMonth();
-    this.calMonth.set(new Date(m.getFullYear(), m.getMonth() - 1, 1));
+    this.calMonth.update((m) => m.minus({ months: 1 }));
   }
 
   nextMonth(): void {
-    const m = this.calMonth();
-    this.calMonth.set(new Date(m.getFullYear(), m.getMonth() + 1, 1));
+    this.calMonth.update((m) => m.plus({ months: 1 }));
   }
 
   cellShiftKind(dayOfWeek: number): 'MAT' | 'NOC' {
@@ -533,9 +529,9 @@ export class UnitScheduleModalComponent implements OnInit {
 
   isToday(day: number | null): boolean {
     if (!day) return false;
-    const today = new Date();
+    const today = DateUtils.now();
     const m = this.calMonth();
-    return day === today.getDate() && m.getMonth() === today.getMonth() && m.getFullYear() === today.getFullYear();
+    return day === today.day && m.month === today.month && m.year === today.year;
   }
 
   dayOfWeekForCell(cellIndex: number): number {

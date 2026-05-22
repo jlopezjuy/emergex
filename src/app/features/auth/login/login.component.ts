@@ -3,6 +3,7 @@ import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
+import { DateUtils } from '../../../core/utils/date.utils';
 
 @Component({
   selector: 'app-login',
@@ -375,14 +376,14 @@ export class LoginComponent implements OnDestroy {
 
   readonly loading = signal(false);
   readonly errorMsg = signal<string | null>(null);
-  readonly clock = signal(this.fmtTime(new Date()));
+  readonly clock = signal(DateUtils.format(DateUtils.now(), 'HH:mm:ss'));
 
   private attempts = 0;
   private lockedUntil = 0;
   private readonly MAX_ATTEMPTS = 5;
   private readonly LOCKOUT_MS = 30000;
 
-  private clockInterval = setInterval(() => this.clock.set(this.fmtTime(new Date())), 1000);
+  private clockInterval = setInterval(() => this.clock.set(DateUtils.format(DateUtils.now(), 'HH:mm:ss')), 1000);
 
   form = this.fb.group({
     username: ['', Validators.required],
@@ -391,11 +392,6 @@ export class LoginComponent implements OnDestroy {
 
   ngOnDestroy(): void {
     clearInterval(this.clockInterval);
-  }
-
-  private fmtTime(d: Date): string {
-    const p = (n: number) => String(n).padStart(2, '0');
-    return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
   }
 
 

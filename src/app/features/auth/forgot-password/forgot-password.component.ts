@@ -3,6 +3,7 @@ import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthApiService } from '../../../data-access/api/auth.api';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
+import { DateUtils } from '../../../core/utils/date.utils';
 
 @Component({
   selector: 'app-forgot-password',
@@ -346,9 +347,9 @@ export class ForgotPasswordComponent implements OnDestroy {
   readonly loading = signal(false);
   readonly errorMsg = signal<string | null>(null);
   readonly successMsg = signal<string | null>(null);
-  readonly clock = signal(this.fmtTime(new Date()));
+  readonly clock = signal(DateUtils.format(DateUtils.now(), 'HH:mm:ss'));
 
-  private clockInterval = setInterval(() => this.clock.set(this.fmtTime(new Date())), 1000);
+  private clockInterval = setInterval(() => this.clock.set(DateUtils.format(DateUtils.now(), 'HH:mm:ss')), 1000);
 
   form = this.fb.group({
     email: ['', [Validators.required, Validators.email]],
@@ -356,11 +357,6 @@ export class ForgotPasswordComponent implements OnDestroy {
 
   ngOnDestroy(): void {
     clearInterval(this.clockInterval);
-  }
-
-  private fmtTime(d: Date): string {
-    const p = (n: number) => String(n).padStart(2, '0');
-    return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
   }
 
   submit(): void {

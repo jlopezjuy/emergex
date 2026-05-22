@@ -1,5 +1,7 @@
 import { Injectable, computed, signal } from '@angular/core';
 import { HttpErrorResponse, HttpHeaders } from '@angular/common/http';
+import { DateTime } from 'luxon';
+import { DateUtils } from '../utils/date.utils';
 
 export type FeedbackType = 'info' | 'success' | 'warning' | 'error';
 
@@ -8,7 +10,7 @@ export interface FeedbackToast {
   type: FeedbackType;
   title: string;
   message: string;
-  createdAt: Date;
+  createdAt: DateTime;
   ttlMs: number;
 }
 
@@ -29,7 +31,7 @@ export class UserFeedbackService {
       type: input.type ?? 'info',
       title: input.title,
       message: input.message,
-      createdAt: new Date(),
+      createdAt: DateUtils.now(),
       ttlMs: input.ttlMs ?? this.defaultTtl(input.type ?? 'info'),
     };
 

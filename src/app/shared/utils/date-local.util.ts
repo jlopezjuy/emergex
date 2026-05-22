@@ -1,12 +1,13 @@
-export function localDateYmd(date: Date = new Date()): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+import { DateUtils } from '../../core/utils/date.utils';
+
+export function localDateYmd(date?: Date): string {
+  if (date) {
+    return DateUtils.fromJSDate(date).toFormat('yyyy-MM-dd');
+  }
+  return DateUtils.todayYmd();
 }
 
-export function addDaysLocalYmd(days: number, from: Date = new Date()): string {
-  const d = new Date(from);
-  d.setDate(d.getDate() + days);
-  return localDateYmd(d);
+export function addDaysLocalYmd(days: number, from?: Date): string {
+  const dt = from ? DateUtils.fromJSDate(from) : DateUtils.now();
+  return dt.plus({ days }).toFormat('yyyy-MM-dd');
 }
