@@ -37,4 +37,20 @@ export class EmpresaApiService {
   getById(id: number): Observable<EmpresaDTO> {
     return this.http.get<EmpresaDTO>(`${this.base}/${id}`);
   }
+
+  create(empresa: EmpresaDTO): Observable<EmpresaDTO> {
+    return this.http.post<EmpresaDTO>(this.base, empresa);
+  }
+
+  update(id: number, empresa: EmpresaDTO): Observable<EmpresaDTO> {
+    return this.http.put<EmpresaDTO>(`${this.base}/${id}`, empresa);
+  }
+
+  partialUpdate(id: number, empresa: Partial<EmpresaDTO>): Observable<EmpresaDTO> {
+    return this.http.patch<EmpresaDTO>(`${this.base}/${id}`, empresa);
+  }
+
+  delete(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${id}`);
+  }
 }

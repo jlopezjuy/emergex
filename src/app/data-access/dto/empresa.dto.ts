@@ -1,5 +1,34 @@
 export type EstadoEmpresa = 'ACTIVA' | 'SUSPENDIDA' | 'INACTIVA';
-export type PlanSuscripcionSaas = 'BASICO' | 'ESTANDAR' | 'PREMIUM';
+export type PlanSuscripcionSaas = 'TRIAL' | 'BASICO' | 'PROFESIONAL' | 'EMPRESARIAL';
+
+export const ALL_PLANES: PlanSuscripcionSaas[] = ['TRIAL', 'BASICO', 'PROFESIONAL', 'EMPRESARIAL'];
+
+export const ALL_PROVINCIAS = [
+  'SALTA',
+  'JUJUY',
+  'TUCUMAN',
+  'SANTIAGO_DEL_ESTERO',
+  'CATAMARCA',
+  'FORMOSA',
+  'CHACO',
+  'CORRIENTES',
+  'MISIONES',
+  'BUENOS_AIRES',
+  'CAPITAL_FEDERAL',
+  'CORDOBA',
+  'SANTA_FE',
+  'MENDOZA',
+  'ENTRE_RIOS',
+  'LA_PAMPA',
+  'SAN_LUIS',
+  'SAN_JUAN',
+  'LA_RIOJA',
+  'NEUQUEN',
+  'RIO_NEGRO',
+  'CHUBUT',
+  'SANTA_CRUZ',
+  'TIERRA_DEL_FUEGO'
+] as const;
 
 export interface EmpresaDTO {
   id: number;

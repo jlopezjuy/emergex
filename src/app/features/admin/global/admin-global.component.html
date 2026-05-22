@@ -4,7 +4,7 @@
 
   <!-- ── LEFT: Empresas ── -->
   <aside class="panel panel-left">
-    <div class="screen-head flex-shrink-0" style="padding: 12px 14px; border-bottom: 1px solid var(--border-hairline);">
+    <div class="screen-head flex-shrink-0" style="padding: 12px 14px; border-bottom: 1px solid var(--border-hairline); display: flex; justify-content: space-between; align-items: center;">
       <div class="screen-head__title">
         <div class="screen-head__icon" style="width: 28px; height: 28px; border-radius: 6px; color: var(--accent-cyan);">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -15,6 +15,11 @@
           <h2 style="font-size: 13px; font-weight: 600; color: var(--text-primary); letter-spacing: -0.01em; margin: 0;">Empresas</h2>
         </div>
       </div>
+      <button class="btn btn--icon" (click)="openCreateEmpresa()" title="Nueva empresa" style="width: 24px; height: 24px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 6px; border: 1px solid var(--border-hairline); background: transparent; color: var(--text-secondary); cursor: pointer;">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+        </svg>
+      </button>
     </div>
 
     <div class="px-3 py-2" style="border-bottom: 1px solid var(--border-hairline);">
@@ -95,7 +100,39 @@
             </p>
           </div>
         </div>
-        <div class="screen-head__actions">
+        <div class="screen-head__actions" style="display: flex; gap: 8px; align-items: center;">
+          <!-- Acciones de la Empresa -->
+          <div style="display: flex; gap: 6px; border-right: 1px solid var(--border-hairline); padding-right: 12px; margin-right: 4px;">
+            <button class="btn btn--secondary btn--sm" (click)="openEditEmpresa(selectedEmpresa()!)" title="Editar datos de empresa">
+              <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125" />
+              </svg>
+              Editar
+            </button>
+
+            @if (selectedEmpresa()!.estado === 'ACTIVA') {
+              <button class="btn btn--secondary btn--sm" (click)="changeEmpresaEstado(selectedEmpresa()!, 'SUSPENDIDA')" title="Suspender empresa" style="color: var(--accent-orange); border-color: rgba(245, 158, 11, 0.3);">
+                Suspender
+              </button>
+            } @else {
+              <button class="btn btn--secondary btn--sm" (click)="changeEmpresaEstado(selectedEmpresa()!, 'ACTIVA')" title="Activar empresa" style="color: var(--accent-emerald); border-color: rgba(16, 185, 129, 0.3);">
+                Activar
+              </button>
+            }
+
+            @if (selectedEmpresa()!.estado !== 'INACTIVA') {
+              <button class="btn btn--secondary btn--sm" (click)="changeEmpresaEstado(selectedEmpresa()!, 'INACTIVA')" title="Marcar como inactiva" style="color: var(--text-muted);">
+                Inactivar
+              </button>
+            }
+
+            <button class="btn btn--secondary btn--sm" (click)="openDeleteEmpresa(selectedEmpresa()!)" title="Eliminar empresa permanentemente" style="color: var(--accent-red); border-color: rgba(239, 68, 68, 0.3); padding: 0 8px; display: flex; align-items: center; justify-content: center;">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+              </svg>
+            </button>
+          </div>
+
           <button class="btn btn--primary btn--sm" (click)="openCreateUser()">
             <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -437,3 +474,241 @@
     </div>
   </emx-modal-shell>
 }
+
+<!-- ── MODAL: Crear Empresa ── -->
+@if (showCreateEmpresa()) {
+  <emx-modal-shell title="Nueva empresa" (closed)="showCreateEmpresa.set(false)">
+    <form #createEmpresaFormRef="ngForm" class="flex flex-col gap-4">
+      <div class="form-grid">
+        <div class="flex flex-col gap-1 col-span-2">
+          <label class="modal-label">Nombre de Fantasía *</label>
+          <input type="text" [(ngModel)]="createEmpresaForm.nombre" name="nombre" required class="qc-input" placeholder="Nombre comercial de la empresa" autocomplete="off" />
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="modal-label">CUIT *</label>
+          <input type="text" [(ngModel)]="createEmpresaForm.cuit" name="cuit" required pattern="^\d{2}-\d{8}-\d{1}$|^\d{11}$" class="qc-input" placeholder="30-12345678-9 o 30123456789" autocomplete="off" />
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="modal-label">Razón Social</label>
+          <input type="text" [(ngModel)]="createEmpresaForm.razonSocial" name="razonSocial" class="qc-input" placeholder="Razón social legal" autocomplete="off" />
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="modal-label">Condición IVA</label>
+          <select [(ngModel)]="createEmpresaForm.condicionIva" name="condicionIva" class="qc-input">
+            <option value="Responsable Inscripto">Responsable Inscripto</option>
+            <option value="Monotributista">Monotributista</option>
+            <option value="Exento">Exento</option>
+            <option value="Consumidor Final">Consumidor Final</option>
+          </select>
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="modal-label">Plan de Suscripción *</label>
+          <select [(ngModel)]="createEmpresaForm.planSuscripcion" name="planSuscripcion" required class="qc-input">
+            @for (plan of ALL_PLANES; track plan) {
+              <option [value]="plan">{{ plan }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="modal-label">Email de Contacto *</label>
+          <input type="email" [(ngModel)]="createEmpresaForm.email" name="email" required email class="qc-input" placeholder="contacto@empresa.com" autocomplete="off" />
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="modal-label">Teléfono *</label>
+          <input type="text" [(ngModel)]="createEmpresaForm.telefono" name="telefono" required class="qc-input" placeholder="Ej. +54 9 11 1234-5678" autocomplete="off" />
+        </div>
+
+        <div class="flex flex-col gap-1 col-span-2">
+          <label class="modal-label">Dirección *</label>
+          <input type="text" [(ngModel)]="createEmpresaForm.direccion" name="direccion" required class="qc-input" placeholder="Calle, Número, Piso, Dpto" autocomplete="off" />
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="modal-label">Ciudad *</label>
+          <input type="text" [(ngModel)]="createEmpresaForm.ciudad" name="ciudad" required class="qc-input" placeholder="Ciudad" autocomplete="off" />
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="modal-label">Provincia *</label>
+          <select [(ngModel)]="createEmpresaForm.provincia" name="provincia" required class="qc-input">
+            @for (p of ALL_PROVINCIAS; track p) {
+              <option [value]="p">{{ p.replace('_', ' ') }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="modal-label">Punto de Venta</label>
+          <input type="number" [(ngModel)]="createEmpresaForm.puntoDeVenta" name="puntoDeVenta" min="1" class="qc-input" placeholder="Punto de venta facturación" />
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="modal-label">Estado de Cuenta *</label>
+          <select [(ngModel)]="createEmpresaForm.estado" name="estado" required class="qc-input">
+            <option value="ACTIVA">ACTIVA</option>
+            <option value="SUSPENDIDA">SUSPENDIDA</option>
+            <option value="INACTIVA">INACTIVA</option>
+          </select>
+        </div>
+      </div>
+    </form>
+
+    <div footer class="flex gap-2">
+      <button class="btn btn--ghost btn--sm" (click)="showCreateEmpresa.set(false)">Cancelar</button>
+      <button class="btn btn--primary btn--sm" [disabled]="saving() || createEmpresaFormRef.invalid" (click)="submitCreateEmpresa()">
+        {{ saving() ? 'Guardando…' : 'Crear empresa' }}
+      </button>
+    </div>
+  </emx-modal-shell>
+}
+
+<!-- ── MODAL: Editar Empresa ── -->
+@if (showEditEmpresa()) {
+  <emx-modal-shell title="Editar empresa" (closed)="showEditEmpresa.set(null)">
+    <form #editEmpresaFormRef="ngForm" class="flex flex-col gap-4">
+      <div class="form-grid">
+        <div class="flex flex-col gap-1 col-span-2">
+          <label class="modal-label">Nombre de Fantasía *</label>
+          <input type="text" [(ngModel)]="editEmpresaForm.nombre" name="nombre" required class="qc-input" placeholder="Nombre comercial de la empresa" autocomplete="off" />
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="modal-label">CUIT *</label>
+          <input type="text" [(ngModel)]="editEmpresaForm.cuit" name="cuit" required pattern="^\d{2}-\d{8}-\d{1}$|^\d{11}$" class="qc-input" placeholder="30-12345678-9 o 30123456789" autocomplete="off" />
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="modal-label">Razón Social</label>
+          <input type="text" [(ngModel)]="editEmpresaForm.razonSocial" name="razonSocial" class="qc-input" placeholder="Razón social legal" autocomplete="off" />
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="modal-label">Condición IVA</label>
+          <select [(ngModel)]="editEmpresaForm.condicionIva" name="condicionIva" class="qc-input">
+            <option value="Responsable Inscripto">Responsable Inscripto</option>
+            <option value="Monotributista">Monotributista</option>
+            <option value="Exento">Exento</option>
+            <option value="Consumidor Final">Consumidor Final</option>
+          </select>
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="modal-label">Plan de Suscripción *</label>
+          <select [(ngModel)]="editEmpresaForm.planSuscripcion" name="planSuscripcion" required class="qc-input">
+            @for (plan of ALL_PLANES; track plan) {
+              <option [value]="plan">{{ plan }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="modal-label">Email de Contacto *</label>
+          <input type="email" [(ngModel)]="editEmpresaForm.email" name="email" required email class="qc-input" placeholder="contacto@empresa.com" autocomplete="off" />
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="modal-label">Teléfono *</label>
+          <input type="text" [(ngModel)]="editEmpresaForm.telefono" name="telefono" required class="qc-input" placeholder="Ej. +54 9 11 1234-5678" autocomplete="off" />
+        </div>
+
+        <div class="flex flex-col gap-1 col-span-2">
+          <label class="modal-label">Dirección *</label>
+          <input type="text" [(ngModel)]="editEmpresaForm.direccion" name="direccion" required class="qc-input" placeholder="Calle, Número, Piso, Dpto" autocomplete="off" />
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="modal-label">Ciudad *</label>
+          <input type="text" [(ngModel)]="editEmpresaForm.ciudad" name="ciudad" required class="qc-input" placeholder="Ciudad" autocomplete="off" />
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="modal-label">Provincia *</label>
+          <select [(ngModel)]="editEmpresaForm.provincia" name="provincia" required class="qc-input">
+            @for (p of ALL_PROVINCIAS; track p) {
+              <option [value]="p">{{ p.replace('_', ' ') }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="modal-label">Punto de Venta</label>
+          <input type="number" [(ngModel)]="editEmpresaForm.puntoDeVenta" name="puntoDeVenta" min="1" class="qc-input" placeholder="Punto de venta facturación" />
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="modal-label">Estado de Cuenta *</label>
+          <select [(ngModel)]="editEmpresaForm.estado" name="estado" required class="qc-input">
+            <option value="ACTIVA">ACTIVA</option>
+            <option value="SUSPENDIDA">SUSPENDIDA</option>
+            <option value="INACTIVA">INACTIVA</option>
+          </select>
+        </div>
+      </div>
+    </form>
+
+    <div footer class="flex gap-2">
+      <button class="btn btn--ghost btn--sm" (click)="showEditEmpresa.set(null)">Cancelar</button>
+      <button class="btn btn--primary btn--sm" [disabled]="saving() || editEmpresaFormRef.invalid" (click)="submitEditEmpresa()">
+        {{ saving() ? 'Guardando…' : 'Guardar cambios' }}
+      </button>
+    </div>
+  </emx-modal-shell>
+}
+
+<!-- ── MODAL: Eliminar Empresa (Destructivo de Alta Seguridad) ── -->
+@if (showDeleteEmpresa()) {
+  <emx-modal-shell [title]="'Eliminar empresa — ' + showDeleteEmpresa()!.nombre" (closed)="showDeleteEmpresa.set(null)">
+    <div class="flex flex-col gap-4">
+      <div class="warning-box" style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 8px; padding: 12px 16px; display: flex; gap: 12px;">
+        <div style="color: var(--accent-red); margin-top: 2px; flex-shrink: 0;">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width: 20px; height: 20px;">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        </div>
+        <div>
+          <h4 style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin: 0 0 4px 0;">¡ATENCIÓN! Acción irreversible y destructiva</h4>
+          <p style="font-size: 11.5px; color: var(--text-secondary); margin: 0; line-height: 1.5;">
+            Estás a punto de eliminar físicamente la empresa <strong>{{ showDeleteEmpresa()!.nombre }}</strong> y TODOS sus usuarios asociados. Esta acción no se puede deshacer y puede fallar en el servidor si existen registros clínicos, turnos o facturas vinculadas.
+          </p>
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <label class="modal-label" style="color: var(--text-primary); text-transform: none; font-size: 12px; letter-spacing: normal;">
+          Para confirmar, escribí el nombre exacto de la empresa (<strong>{{ showDeleteEmpresa()!.nombre }}</strong>):
+        </label>
+        <input
+          type="text"
+          [(ngModel)]="deleteConfirmNombre"
+          name="deleteConfirmNombre"
+          class="qc-input"
+          style="border-color: rgba(239, 68, 68, 0.4);"
+          placeholder="Escribí el nombre de la empresa aquí…"
+          autocomplete="off"
+        />
+      </div>
+    </div>
+
+    <div footer class="flex gap-2">
+      <button class="btn btn--ghost btn--sm" (click)="showDeleteEmpresa.set(null)">Cancelar</button>
+      <button
+        class="btn btn--sm"
+        [disabled]="saving() || deleteConfirmNombre !== showDeleteEmpresa()!.nombre"
+        [style.background]="deleteConfirmNombre === showDeleteEmpresa()!.nombre ? 'var(--accent-red)' : 'rgba(239, 68, 68, 0.2)'"
+        [style.border-color]="deleteConfirmNombre === showDeleteEmpresa()!.nombre ? 'var(--accent-red)' : 'rgba(239, 68, 68, 0.1)'"
+        [style.color]="deleteConfirmNombre === showDeleteEmpresa()!.nombre ? '#fff' : 'var(--text-muted)'"
+        [style.cursor]="deleteConfirmNombre === showDeleteEmpresa()!.nombre ? 'pointer' : 'not-allowed'"
+        (click)="submitDeleteEmpresa()"
+      >
+        {{ saving() ? 'Eliminando…' : 'Eliminar físicamente' }}
+      </button>
+    </div>
+  </emx-modal-shell>
+}
+

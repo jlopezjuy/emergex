@@ -16,7 +16,13 @@ import {
   RolCentro,
   UsuarioEmpresaItem,
 } from '../../../data-access/dto/admin-user.dto';
-import { EmpresaDTO } from '../../../data-access/dto/empresa.dto';
+import {
+  EmpresaDTO,
+  EstadoEmpresa,
+  PlanSuscripcionSaas,
+  ALL_PLANES,
+  ALL_PROVINCIAS,
+} from '../../../data-access/dto/empresa.dto';
 import { ModalShellComponent } from '../../../shared/components/modal-shell/modal-shell.component';
 import { LoadingStateComponent } from '../../../shared/components/loading-state/loading-state.component';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
@@ -106,6 +112,17 @@ export class AdminGlobalComponent implements OnInit {
   readonly errorEmpresas = signal(false);
   readonly totalEmpresaPages = computed(() => Math.max(1, Math.ceil(this.totalEmpresas() / PAGE_SIZE)));
 
+  // ── Modals y formularios de Empresas ──
+  readonly showCreateEmpresa = signal(false);
+  readonly showEditEmpresa = signal<EmpresaDTO | null>(null);
+  readonly showDeleteEmpresa = signal<EmpresaDTO | null>(null);
+  readonly ALL_PLANES = ALL_PLANES;
+  readonly ALL_PROVINCIAS = ALL_PROVINCIAS;
+
+  createEmpresaForm = this.blankEmpresaForm();
+  editEmpresaForm = this.blankEmpresaForm();
+  deleteConfirmNombre = '';
+
   empresaSearchInput = '';
   private empresaSearchTerm = signal('');
 
@@ -152,6 +169,150 @@ export class AdminGlobalComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadEmpresas();
+  }
+
+  // ── Empresa CRUD actions ──
+
+  openCreateEmpresa(): void {
+    this.createEmpresaForm = this.blankEmpresaForm();
+    this.showCreateEmpresa.set(true);
+  }
+
+  submitCreateEmpresa(): void {
+    this.saving.set(true);
+    const payload: EmpresaDTO = {
+      ...this.createEmpresaForm,
+      id: null as any, // El ID se genera en backend
+      cuit: this.createEmpresaForm.cuit.trim()
+    };
+
+    this.empresaApi.create(payload).subscribe({
+      next: (res) => {
+        this.saving.set(false);
+        this.showCreateEmpresa.set(false);
+        this.empresas.update(list => [res, ...list]);
+        this.totalEmpresas.update(t => t + 1);
+        this.feedback.push({ type: 'success', title: 'Empresa creada', message: res.nombre });
+        this.selectEmpresa(res);
+      },
+      error: (err) => {
+        this.saving.set(false);
+        this.feedback.fromHttpError(err);
+      }
+    });
+  }
+
+  openEditEmpresa(empresa: EmpresaDTO): void {
+    this.editEmpresaForm = {
+      nombre: empresa.nombre || '',
+      cuit: empresa.cuit || '',
+      razonSocial: empresa.razonSocial || '',
+      condicionIva: empresa.condicionIva || 'Responsable Inscripto',
+      direccion: empresa.direccion || '',
+      ciudad: empresa.ciudad || '',
+      provincia: empresa.provincia || 'CAPITAL_FEDERAL',
+      telefono: empresa.telefono || '',
+      email: empresa.email || '',
+      estado: empresa.estado || 'ACTIVA',
+      planSuscripcion: empresa.planSuscripcion || 'TRIAL',
+      puntoDeVenta: empresa.puntoDeVenta ?? 1,
+      zonaHoraria: empresa.zonaHoraria || 'America/Argentina/Buenos_Aires',
+    };
+    this.showEditEmpresa.set(empresa);
+  }
+
+  submitEditEmpresa(): void {
+    const original = this.showEditEmpresa();
+    if (!original) return;
+    this.saving.set(true);
+
+    const payload: EmpresaDTO = {
+      ...original,
+      ...this.editEmpresaForm,
+      cuit: this.editEmpresaForm.cuit.trim()
+    };
+
+    this.empresaApi.update(original.id, payload).subscribe({
+      next: (res) => {
+        this.saving.set(false);
+        this.showEditEmpresa.set(null);
+        this.empresas.update(list => list.map(e => e.id === original.id ? res : e));
+        
+        // Si la empresa editada es la seleccionada actualmente, actualizar su info de cabecera
+        const current = this.selectedEmpresa();
+        if (current && current.id === original.id) {
+          this.selectedEmpresa.set(res);
+        }
+
+        this.feedback.push({ type: 'success', title: 'Empresa actualizada', message: res.nombre });
+      },
+      error: (err) => {
+        this.saving.set(false);
+        this.feedback.fromHttpError(err);
+      }
+    });
+  }
+
+  changeEmpresaEstado(empresa: EmpresaDTO, nuevoEstado: EstadoEmpresa): void {
+    this.empresaApi.partialUpdate(empresa.id, { estado: nuevoEstado }).subscribe({
+      next: (res) => {
+        this.empresas.update(list => list.map(e => e.id === empresa.id ? { ...e, estado: nuevoEstado } : e));
+        
+        const current = this.selectedEmpresa();
+        if (current && current.id === empresa.id) {
+          this.selectedEmpresa.set({ ...current, estado: nuevoEstado });
+        }
+
+        this.feedback.push({
+          type: 'success',
+          title: 'Estado de empresa actualizado',
+          message: `${empresa.nombre} ahora está ${nuevoEstado}`
+        });
+      },
+      error: (err) => this.feedback.fromHttpError(err)
+    });
+  }
+
+  openDeleteEmpresa(empresa: EmpresaDTO): void {
+    this.deleteConfirmNombre = '';
+    this.showDeleteEmpresa.set(empresa);
+  }
+
+  submitDeleteEmpresa(): void {
+    const target = this.showDeleteEmpresa();
+    if (!target) return;
+    if (this.deleteConfirmNombre !== target.nombre) {
+      this.feedback.push({
+        type: 'error',
+        title: 'Error de confirmación',
+        message: 'El nombre ingresado no coincide con el nombre de la empresa.'
+      });
+      return;
+    }
+
+    this.saving.set(true);
+    this.empresaApi.delete(target.id).subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.showDeleteEmpresa.set(null);
+        this.empresas.update(list => list.filter(e => e.id !== target.id));
+        this.totalEmpresas.update(t => Math.max(0, t - 1));
+
+        // Si la empresa eliminada es la seleccionada, deseleccionarla
+        const current = this.selectedEmpresa();
+        if (current && current.id === target.id) {
+          this.selectedEmpresa.set(null);
+          this.users.set([]);
+          this.totalUsers.set(0);
+        }
+
+        this.feedback.push({ type: 'success', title: 'Empresa eliminada', message: target.nombre });
+      },
+      error: (err) => {
+        this.saving.set(false);
+        this.feedback.fromHttpError(err);
+      }
+    });
   }
 
   // ── Empresa actions ──
@@ -409,6 +570,24 @@ export class AdminGlobalComponent implements OnInit {
 
   private blankEditForm() {
     return { email: '', firstName: '', lastName: '', activated: true, rol: 'OPERADOR' as RolCentro };
+  }
+
+  private blankEmpresaForm() {
+    return {
+      nombre: '',
+      cuit: '',
+      razonSocial: '',
+      condicionIva: 'Responsable Inscripto',
+      direccion: '',
+      ciudad: '',
+      provincia: 'CAPITAL_FEDERAL',
+      telefono: '',
+      email: '',
+      estado: 'ACTIVA' as EstadoEmpresa,
+      planSuscripcion: 'TRIAL' as PlanSuscripcionSaas,
+      puntoDeVenta: 1,
+      zonaHoraria: 'America/Argentina/Buenos_Aires',
+    };
   }
 
 }
