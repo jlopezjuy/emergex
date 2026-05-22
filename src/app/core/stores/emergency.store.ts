@@ -133,6 +133,7 @@ export class EmergencyStore implements OnDestroy {
 
   private withLatestGeo(ticket: TicketAsistenciaDTO): Observable<TicketAsistenciaDTO> {
     if (ticket.latitud != null && ticket.longitud != null) return of(ticket);
+    if (!ticket.id || isNaN(ticket.id) || ticket.id <= 0) return of(ticket);
     return this.api.getLatestGeo('TICKET', ticket.id).pipe(
       map((geo) => ({ ...ticket, latitud: geo.latitud, longitud: geo.longitud })),
       catchError(() => of(ticket)),

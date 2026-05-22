@@ -1451,6 +1451,7 @@ export class EmergencyDetailComponent implements OnInit {
   }
 
   private loadTicketGeo(id: number): void {
+    if (!id || isNaN(id) || id <= 0) return;
     this.emergencyApi.getLatestGeo('TICKET', id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
             next: (geo) => {
               this.detalle.update((current) => {

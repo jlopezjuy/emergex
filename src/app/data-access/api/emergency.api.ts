@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of } from 'rxjs';
+import { Observable, of, throwError } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import {
@@ -135,6 +135,9 @@ export class EmergencyApiService {
   }
 
   getLatestGeo(targetType: 'TICKET' | 'AMBULANCIA', targetId: number): Observable<{ latitud: number; longitud: number; timestamp?: string }> {
+    if (!targetId || isNaN(targetId) || targetId <= 0) {
+      return throwError(() => new Error(`targetId inválido para geo posiciones: ${targetId}`));
+    }
     return this.http.get<any>(`${environment.apiUrl}/api/v1/geo/posiciones/${targetType}/${targetId}/latest`).pipe(
       map((geo) => ({
         latitud: Number(geo.latitud),
