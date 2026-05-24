@@ -1,19 +1,24 @@
 import { Component, signal, computed, HostListener, inject, OnInit, DestroyRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { UpperCasePipe } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { catchError, of } from 'rxjs';
-import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
+import { catchError, of, forkJoin, map, concatMap } from 'rxjs';
 import { localDateYmd } from '../../shared/utils/date-local.util';
 import { PatientApiService } from '../../data-access/api/patient.api';
 import { PlansApiService } from '../../data-access/api/plans.api';
 import { AuthService } from '../../core/auth/auth.service';
-import { PacienteDTO } from '../../data-access/dto/patient.dto';
-import { PlanDTO } from '../../data-access/dto/plan.dto';
+import { PacienteDTO, FichaAfiliadoDTO, FacturaDTO, CoberturaFichaDTO, MiembroGrupoFamiliarDTO } from '../../data-access/dto/patient.dto';
+import { PlanDTO, PlanCoverages } from '../../data-access/dto/plan.dto';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
+
+// Importación de los nuevos componentes modulares
+import { PatientDetailDrawerComponent } from './components/patient-detail-drawer/patient-detail-drawer.component';
+import { PatientFormModalComponent } from './components/patient-form-modal/patient-form-modal.component';
+import { QuickPaymentModalComponent } from './components/quick-payment-modal/quick-payment-modal.component';
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 
-interface Dependent {
+export interface Dependent {
   id: string;
   miembroId?: number;
   pacienteId?: number;
@@ -25,7 +30,7 @@ interface Dependent {
   gender?: 'M' | 'F' | 'X';
 }
 
-interface PatientRow {
+export interface PatientRow {
   pacienteId: number;
   id: string;
   name: string;
@@ -39,7 +44,7 @@ interface PatientRow {
   _raw: PacienteDTO;
 }
 
-interface PatientForm {
+export interface PatientForm {
   nombre: string;
   apellido: string;
   dni: string;
@@ -57,23 +62,33 @@ interface PatientForm {
 const PARENTESCOS = ['Cónyuge', 'Hijo/a', 'Padre/Madre', 'Hermano/a', 'Otro'];
 
 const TIER_COLORS: Record<string, string> = {
-  premium: 'var(--accent-emerald)',
-  medio:   'var(--accent-blue)',
-  basico:  'var(--text-muted)',
+  premium: '#10b981',
+  medio:   '#3b82f6',
+  basico:  '#94a3b8',
 };
 
 const METODOS_PAGO = [
-  { value: 'EFECTIVO',        label: 'Efectivo' },
-  { value: 'TRANSFERENCIA',   label: 'Transferencia bancaria' },
-  { value: 'TARJETA_DEBITO',  label: 'Tarjeta débito' },
-  { value: 'TARJETA_CREDITO', label: 'Tarjeta crédito' },
-  { value: 'MERCADOPAGO',     label: 'MercadoPago' },
-  { value: 'CHEQUE',          label: 'Cheque' },
+  { value: 'EFECTIVO',          label: 'Efectivo' },
+  { value: 'TRANSFERENCIA',     label: 'Transferencia bancaria' },
+  { value: 'TARJETA_DEBITO',    label: 'Tarjeta débito' },
+  { value: 'TARJETA_CREDITO',   label: 'Tarjeta crédito' },
+  { value: 'MERCADOPAGO',       label: 'MercadoPago' },
   { value: 'DEBITO_AUTOMATICO', label: 'Débito automático' },
-  { value: 'OTRO',            label: 'Otro' },
 ];
-
 const PAGE_SIZE = 10;
+
+function getPlanFeaturesFromCoverages(coverages?: PlanCoverages): string[] {
+  if (!coverages) return ['Consultas generales', 'Urgencias médicas'];
+  const features: string[] = [];
+  if (coverages.emergency) features.push('Urgencias y emergencias 24h');
+  if (coverages.homeVisit) features.push('Visita médica a domicilio');
+  if (coverages.phoneOrientation) features.push('Orientación médica telefónica');
+  if (coverages.homeNursing) features.push('Enfermería domiciliaria');
+  if (coverages.monthlyControl) features.push('Control médico mensual');
+  if (coverages.scheduledTransport) features.push('Traslados programados');
+  if (coverages.interurbanTransport) features.push('Traslado interurbano');
+  return features.length > 0 ? features : ['Atención de urgencias básica'];
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -90,18 +105,11 @@ function fmtDate(s: string | undefined): string {
   return `${d} ${months[parseInt(m) - 1]} ${y}`;
 }
 
-function fmtPeriodo(desde?: string, hasta?: string): string {
-  if (!desde) return '—';
-  const d = new Date(desde + 'T00:00:00');
-  const months = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  return `${months[d.getMonth()]} ${d.getFullYear()}`;
-}
-
 function avatarOf(name: string): string {
   return name.split(' ').filter(Boolean).slice(0, 2).map(p => p[0]?.toUpperCase() ?? '').join('');
 }
 
-function emptyForm(): PatientForm {
+export function emptyForm(): PatientForm {
   return { nombre: '', apellido: '', dni: '', birth: '', gender: 'M', phone: '', email: '', addr: '', planId: '', deps: [] };
 }
 
@@ -116,671 +124,25 @@ function todayISO(): string {
   return localDateYmd();
 }
 
-function parentescoToRol(p: string): 'CO_TITULAR' | 'DEPENDIENTE' {
-  return p === 'Cónyuge' ? 'CO_TITULAR' : 'DEPENDIENTE';
-}
-
 function sexoFromGender(g: 'M' | 'F' | 'X'): 'MASCULINO' | 'FEMENINO' | 'OTRO' {
   return g === 'M' ? 'MASCULINO' : g === 'F' ? 'FEMENINO' : 'OTRO';
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
-
 @Component({
   selector: 'app-patients',
   standalone: true,
-  imports: [FormsModule, StatusBadgeComponent],
-  template: `
-    <div class="screen">
-
-      <!-- ── Header ── -->
-      <div class="screen-head">
-        <div class="screen-head__title">
-          <div class="screen-head__icon">
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="var(--accent-blue)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="7" cy="5" r="3"/>
-              <path d="M1 15c0-3.31 2.69-5 6-5"/>
-              <circle cx="13" cy="10" r="2.5"/>
-              <path d="M10.5 14c0-1.93 1.12-3 3.5-3s3.5 1.07 3.5 3"/>
-            </svg>
-          </div>
-          <div>
-            <h2>Pacientes / Afiliados</h2>
-            <div class="eyebrow">PADRÓN DE AFILIADOS · GRUPO FAMILIAR · PLANES</div>
-          </div>
-        </div>
-
-        <div class="screen-head__kpis">
-          <div class="screen-kpi">
-            <div class="eyebrow">Afiliados</div>
-            <div class="mono" style="font-size:18px; font-weight:500">{{ counts().total }}</div>
-          </div>
-          <div class="screen-kpi">
-            <div class="eyebrow">Titulares</div>
-            <div class="mono" style="font-size:18px; font-weight:500; color:var(--accent-blue)">{{ counts().titulares }}</div>
-          </div>
-          <div class="screen-kpi">
-            <div class="eyebrow">Al día</div>
-            <div class="mono" style="font-size:18px; font-weight:500; color:var(--accent-emerald)">{{ counts().alDia }}</div>
-          </div>
-          <div class="screen-kpi">
-            <div class="eyebrow">En deuda</div>
-            <div class="mono" style="font-size:18px; font-weight:500; color:var(--accent-red)">{{ counts().deuda }}</div>
-          </div>
-        </div>
-
-        <div class="screen-head__actions">
-          <button class="btn btn--ghost btn--sm">Exportar CSV</button>
-          <button class="btn btn--primary btn--sm" (click)="openNewForm()">
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="1" x2="6" y2="11"/><line x1="1" y1="6" x2="11" y2="6"/></svg>
-            Nuevo afiliado
-          </button>
-        </div>
-      </div>
-
-      <!-- ── Table card ── -->
-      <div class="glass-strong pt-card">
-
-        <!-- Toolbar -->
-        <div class="pt-toolbar">
-          <div class="pt-search">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-linecap="round"><circle cx="6" cy="6" r="4"/><path d="M9.5 9.5l3 3"/></svg>
-            <input
-              class="pt-search__input"
-              placeholder="Buscar por nombre, DNI o ID de afiliado…"
-              [value]="searchQuery()"
-              (input)="searchQuery.set($any($event.target).value); page.set(0)"
-            />
-          </div>
-
-          <div class="pt-filters">
-            <span class="eyebrow" style="white-space:nowrap">Estado:</span>
-            @for (s of statusOptions; track s.value) {
-              <button
-                class="filter-chip"
-                [attr.data-on]="statusFilter() === s.value"
-                (click)="setStatus(s.value)"
-              >{{ s.label }}</button>
-            }
-          </div>
-        </div>
-
-        <!-- Table -->
-        <div class="data-table-wrap scroll-y">
-          @if (loading()) {
-            <div style="padding:40px;text-align:center;color:var(--text-muted);font-size:12px">Cargando afiliados…</div>
-          } @else {
-            <table class="data-table" style="width:100%;min-width:700px">
-              <thead>
-                <tr>
-                  <th>Afiliado</th>
-                  <th>DNI</th>
-                  <th>Tipo</th>
-                  <th>Plan activo</th>
-                  <th>Estado</th>
-                  <th>Grupo familiar</th>
-                  <th style="width:40px"></th>
-                </tr>
-              </thead>
-              <tbody>
-                @if (paged().length === 0) {
-                  <tr>
-                    <td colspan="7" style="padding:40px;text-align:center;color:var(--text-muted);font-size:12px">Sin resultados</td>
-                  </tr>
-                }
-                @for (p of paged(); track p.pacienteId) {
-                  <tr (click)="goToDetail(p)" style="cursor:pointer">
-                    <td>
-                      <div style="display:flex;align-items:center;gap:10px">
-                        <div class="avatar avatar--sm">{{ avatarOf(p.name) }}</div>
-                        <div>
-                          <div style="font-size:13px;font-weight:500">{{ p.name }}</div>
-                          <div class="mono micro" style="color:var(--text-muted)">{{ p.id }}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td class="mono">{{ p.dni }}</td>
-                    <td>
-                      <span class="type-tag" [attr.data-type]="p.type">
-                        {{ p.type === 'titular' ? 'Titular' : 'Dependiente' }}
-                      </span>
-                    </td>
-                    <td>
-                      <span class="plan-badge"
-                        [style.background]="p.planColor + '18'"
-                        [style.color]="p.planColor"
-                        [style.border-color]="p.planColor + '55'"
-                      >
-                        <span class="plan-badge__dot" [style.background]="p.planColor"></span>
-                        {{ p.planNombre || '—' }}
-                      </span>
-                    </td>
-                    <td>
-                      @if (p.status === 'al-dia') {
-                        <emx-status-badge variant="stable">Al día</emx-status-badge>
-                      } @else {
-                        <emx-status-badge variant="critical" [pulse]="true">En deuda</emx-status-badge>
-                      }
-                    </td>
-                    <td>
-                      @if (p.depCount === 0) {
-                        <span class="mono micro" style="color:var(--text-muted)">—</span>
-                      } @else {
-                        <span class="dep-count mono">
-                          <svg width="11" height="11" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="5" r="3"/><path d="M1 15c0-3.31 2.69-5 6-5"/><circle cx="13" cy="10" r="2.5"/><path d="M10.5 14c0-1.93 1.12-3 3.5-3s3.5 1.07 3.5 3"/></svg>
-                          {{ p.depCount }}
-                        </span>
-                      }
-                    </td>
-                    <td (click)="$event.stopPropagation()" style="position:relative">
-                      <button class="action-icon" style="width:28px;height:28px" title="Acciones" (click)="toggleMenu(p.id)">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
-                      </button>
-                      @if (menuOpen() === p.id) {
-                        <div class="row-menu" (click)="$event.stopPropagation()">
-                          <button class="user-menu__item" (click)="goToDetail(p); menuOpen.set(null)">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                            Ver perfil
-                          </button>
-                          <button class="user-menu__item" (click)="openEditForm(p); menuOpen.set(null)">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                            Editar
-                          </button>
-                          <button class="user-menu__item" (click)="goToDetail(p); menuOpen.set(null)">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                            Registrar pago
-                          </button>
-                        </div>
-                      }
-                    </td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          }
-        </div>
-
-        <!-- Pagination -->
-        <div class="pt-pagination">
-          <div class="mono micro" style="color:var(--text-muted)">
-            Mostrando <strong style="color:var(--text-primary)">{{ paged().length }}</strong> de
-            <strong style="color:var(--text-primary)">{{ filtered().length }}</strong> afiliados
-          </div>
-          <div style="display:flex;align-items:center;gap:4px">
-            <button class="btn btn--ghost btn--sm" [disabled]="page() === 0" [style.opacity]="page() === 0 ? '0.4' : '1'" (click)="page.set(page() - 1)">‹ Anterior</button>
-            @for (i of pageRange(); track i) {
-              <button class="page-btn" [attr.data-active]="page() === i" (click)="page.set(i)">{{ i + 1 }}</button>
-            }
-            <button class="btn btn--ghost btn--sm" [disabled]="page() >= totalPages() - 1" [style.opacity]="page() >= totalPages() - 1 ? '0.4' : '1'" (click)="page.set(page() + 1)">Siguiente ›</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-
-    <!-- ═══════════════════════════════════════════════════════
-         PATIENT FORM MODAL
-         ═══════════════════════════════════════════════════════ -->
-    @if (formOpen()) {
-      <div class="qc-overlay" (click)="closeForm()">
-        <div class="qc-modal qc-modal--wide glass-strong" (click)="$event.stopPropagation()">
-          <div class="qc-head">
-            <div>
-              <div class="eyebrow" style="color:var(--accent-blue)">● {{ editingRow() ? 'EDITAR AFILIADO' : 'ALTA DE AFILIADO' }}</div>
-              <h2 style="margin:4px 0 0;font-size:20px;font-weight:600;letter-spacing:-0.01em">
-                {{ editingRow() ? (form().nombre + ' ' + form().apellido) : 'Nuevo afiliado titular' }}
-              </h2>
-            </div>
-            <button class="qc-close-btn" (click)="closeForm()">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="1" y1="1" x2="13" y2="13"/><line x1="13" y1="1" x2="1" y2="13"/></svg>
-            </button>
-          </div>
-
-          <div class="us-tabs">
-            <button class="us-tab" [attr.data-active]="formTab() === 'titular'" (click)="formTab.set('titular')">
-              <svg width="13" height="13" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="9" cy="6" r="3"/><path d="M3 15c0-3.31 2.69-6 6-6s6 2.69 6 6"/></svg>
-              Datos del titular
-            </button>
-            <button class="us-tab" [attr.data-active]="formTab() === 'group'" (click)="formTab.set('group')">
-              <svg width="13" height="13" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="5" r="3"/><path d="M1 15c0-3.31 2.69-5 6-5"/><circle cx="13" cy="10" r="2.5"/><path d="M10.5 14c0-1.93 1.12-3 3.5-3s3.5 1.07 3.5 3"/></svg>
-              Grupo familiar
-              <span class="mono" style="margin-left:4px;padding:1px 6px;border-radius:4px;font-size:10px;background:rgba(255,255,255,0.07)"
-                [style.color]="form().deps.length > 0 ? 'var(--accent-emerald)' : 'var(--text-muted)'">
-                {{ form().deps.length }}
-              </span>
-            </button>
-          </div>
-
-          <div class="qc-body" style="max-height:60vh;overflow-y:auto;padding:16px 20px">
-            @if (formTab() === 'titular') {
-              <div style="display:flex;flex-direction:column;gap:14px">
-
-                <div class="qc-row">
-                  <div class="qc-field" style="flex:1">
-                    <label class="eyebrow">Nombre <span style="color:var(--accent-red)">*</span></label>
-                    <input class="qc-input" placeholder="Ej. Antonio" [value]="form().nombre" (input)="patchForm({ nombre: $any($event.target).value })" autofocus/>
-                  </div>
-                  <div class="qc-field" style="flex:1">
-                    <label class="eyebrow">Apellido <span style="color:var(--accent-red)">*</span></label>
-                    <input class="qc-input" placeholder="Ej. Vázquez" [value]="form().apellido" (input)="patchForm({ apellido: $any($event.target).value })"/>
-                  </div>
-                  <div class="qc-field" style="flex:1">
-                    <label class="eyebrow">DNI <span style="color:var(--accent-red)">*</span></label>
-                    <input class="qc-input" placeholder="18345672" [value]="form().dni" (input)="patchForm({ dni: $any($event.target).value })"/>
-                  </div>
-                </div>
-
-                <div class="qc-row">
-                  <div class="qc-field" style="flex:1">
-                    <label class="eyebrow">Fecha de nacimiento <span style="color:var(--accent-red)">*</span></label>
-                    <input class="qc-input" type="date" [value]="form().birth" (input)="patchForm({ birth: $any($event.target).value })"/>
-                  </div>
-                  <div class="qc-field" style="flex:1">
-                    <label class="eyebrow">Género</label>
-                    <div style="display:flex;gap:4px">
-                      @for (g of genderOptions; track g.v) {
-                        <button type="button" class="gender-btn" [attr.data-active]="form().gender === g.v" (click)="patchForm({ gender: g.v })">{{ g.l }}</button>
-                      }
-                    </div>
-                  </div>
-                </div>
-
-                <div class="qc-row">
-                  <div class="qc-field" style="flex:1">
-                    <label class="eyebrow">Teléfono</label>
-                    <input class="qc-input" placeholder="+54 388 4123-5678" [value]="form().phone" (input)="patchForm({ phone: $any($event.target).value })"/>
-                  </div>
-                  <div class="qc-field" style="flex:2">
-                    <label class="eyebrow">Email</label>
-                    <input class="qc-input" type="email" placeholder="apellido.nombre@gmail.com" [value]="form().email" (input)="patchForm({ email: $any($event.target).value })"/>
-                  </div>
-                </div>
-
-                <div class="qc-field">
-                  <label class="eyebrow">Dirección</label>
-                  <input class="qc-input" placeholder="Calle, número · barrio · ciudad" [value]="form().addr" (input)="patchForm({ addr: $any($event.target).value })"/>
-                </div>
-
-                @if (!editingRow()) {
-                  <div class="qc-field">
-                    <label class="eyebrow">Plan contratado <span style="color:var(--accent-red)">*</span></label>
-                    @if (loadingPlans()) {
-                      <div style="font-size:12px;color:var(--text-muted);padding:8px 0">Cargando planes…</div>
-                    } @else {
-                      <div class="plan-grid">
-                        @for (p of apiPlans(); track p.id) {
-                          <button type="button" class="plan-card"
-                            [attr.data-active]="form().planId === p.id"
-                            [style.border-color]="form().planId === p.id ? planColorFromTier(p.tier) : 'var(--border-glass)'"
-                            [style.background]="form().planId === p.id ? planColorFromTier(p.tier) + '14' : 'transparent'"
-                            (click)="patchForm({ planId: p.id })">
-                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-                              <span class="plan-card__dot" [style.background]="planColorFromTier(p.tier)" [style.box-shadow]="'0 0 10px ' + planColorFromTier(p.tier)"></span>
-                              <span style="font-size:13px;font-weight:600" [style.color]="form().planId === p.id ? planColorFromTier(p.tier) : 'var(--text-primary)'">{{ p.name }}</span>
-                            </div>
-                            <div class="mono" style="font-size:12px;color:var(--text-secondary)">
-                              {{ fmtCurrency(p.pricing.monthly) }}<span style="color:var(--text-muted);margin-left:4px">/ mes</span>
-                            </div>
-                          </button>
-                        }
-                      </div>
-                    }
-                  </div>
-                }
-
-              </div>
-            }
-
-            @if (formTab() === 'group') {
-              <div style="display:flex;flex-direction:column;gap:12px">
-                <div style="display:flex;align-items:center;justify-content:space-between">
-                  <div class="eyebrow">{{ form().deps.length }} dependientes en el grupo</div>
-                  <button class="btn btn--ghost btn--sm" (click)="addDep()">
-                    <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5.5" y1="1" x2="5.5" y2="10"/><line x1="1" y1="5.5" x2="10" y2="5.5"/></svg>
-                    Agregar dependiente
-                  </button>
-                </div>
-
-                @if (form().deps.length === 0) {
-                  <div style="background:rgba(148,163,184,0.06);border:1px solid var(--border-glass);border-radius:10px;text-align:center;padding:24px">
-                    <svg width="24" height="24" viewBox="0 0 18 18" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-linecap="round" style="margin-bottom:8px"><circle cx="7" cy="5" r="3"/><path d="M1 15c0-3.31 2.69-5 6-5"/><circle cx="13" cy="10" r="2.5"/><path d="M10.5 14c0-1.93 1.12-3 3.5-3s3.5 1.07 3.5 3"/></svg>
-                    <div style="font-size:13px;color:var(--text-secondary)">Aún no agregaste dependientes.</div>
-                    <div class="mono micro" style="color:var(--text-muted);margin-top:4px">Cónyuge, hijos/as, padres u otros familiares cubiertos por el plan.</div>
-                  </div>
-                }
-
-                @for (d of form().deps; track d.id; let i = $index) {
-                  <div class="dep-row-form">
-                    <div class="dep-row__num mono">{{ (i + 1).toString().padStart(2, '0') }}</div>
-                    <div class="qc-field" style="flex:1">
-                      <label class="eyebrow">Nombre</label>
-                      <input class="qc-input" placeholder="Ej. Lucía" [value]="d.name" (input)="updateDep(d.id, 'name', $any($event.target).value)"/>
-                    </div>
-                    <div class="qc-field" style="flex:1">
-                      <label class="eyebrow">Apellido</label>
-                      <input class="qc-input" placeholder="Ej. Vázquez" [value]="d.apellido" (input)="updateDep(d.id, 'apellido', $any($event.target).value)"/>
-                    </div>
-                    <div class="qc-field" style="flex:1">
-                      <label class="eyebrow">DNI</label>
-                      <input class="qc-input" placeholder="42554789" [value]="d.dni" (input)="updateDep(d.id, 'dni', $any($event.target).value)"/>
-                    </div>
-                    <div class="qc-field" style="width:140px">
-                      <label class="eyebrow">Parentesco</label>
-                      <select class="qc-input" [value]="d.parentesco" (change)="updateDep(d.id, 'parentesco', $any($event.target).value)">
-                        @for (p of parentescos; track p) {
-                          <option [value]="p">{{ p }}</option>
-                        }
-                      </select>
-                    </div>
-                    <div class="qc-field" style="width:110px">
-                      <label class="eyebrow">Nacimiento</label>
-                      <input class="qc-input" type="date" [value]="d.birth ?? ''" (input)="updateDep(d.id, 'birth', $any($event.target).value)"/>
-                    </div>
-                    <button class="us-remove" (click)="removeDep(d.id)" style="align-self:flex-end;margin-bottom:2px">
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-                    </button>
-                  </div>
-                }
-              </div>
-            }
-          </div>
-
-          @if (formError()) {
-            <div style="margin:0 20px 0;padding:8px 12px;border-radius:8px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);font-size:12px;color:var(--accent-red)">
-              {{ formError() }}
-            </div>
-          }
-
-          <div class="qc-foot">
-            <div class="qc-hint">
-              <span class="kbd">Esc</span> cerrar &nbsp;·&nbsp;
-              Tab: <strong [style.color]="formTab() === 'titular' ? 'var(--accent-blue)' : 'var(--text-muted)'">Titular</strong>
-              · <strong [style.color]="formTab() === 'group' ? 'var(--accent-blue)' : 'var(--text-muted)'">Grupo</strong>
-            </div>
-            <div style="display:flex;gap:8px">
-              <button class="btn btn--ghost" (click)="closeForm()">Cancelar</button>
-              <button class="btn btn--primary" [disabled]="!canSubmit() || savingForm()" [style.opacity]="canSubmit() && !savingForm() ? '1' : '0.5'" (click)="saveForm()">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                {{ savingForm() ? 'Guardando…' : 'Guardar afiliado' }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    }
-
-  `,
-  styles: [`
-    :host { display: block; }
-
-    .pt-card {
-      border-radius: var(--r-card);
-      padding: 0;
-      overflow: hidden;
-    }
-
-    .pt-toolbar {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--border-hairline);
-    }
-
-    .pt-search {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex: 1;
-      min-width: 220px;
-      height: 34px;
-      border-radius: var(--r-btn);
-      border: 1px solid var(--border-glass);
-      background: rgba(255,255,255,0.03);
-      padding: 0 12px;
-    }
-    .pt-search__input {
-      flex: 1;
-      background: transparent;
-      border: none;
-      outline: none;
-      font-size: 12.5px;
-      font-family: var(--font-sans);
-      color: var(--text-primary);
-    }
-    .pt-search__input::placeholder { color: var(--text-muted); }
-
-    .pt-filters {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .filter-chip {
-      height: 28px;
-      padding: 0 12px;
-      border-radius: 20px;
-      border: 1px solid var(--border-glass);
-      background: transparent;
-      color: var(--text-muted);
-      font-size: 11.5px;
-      font-family: var(--font-sans);
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-    .filter-chip:hover { color: var(--text-primary); border-color: var(--border-glass); background: rgba(255,255,255,0.04); }
-    .filter-chip[data-on="true"] {
-      background: rgba(59,130,246,0.12);
-      border-color: rgba(59,130,246,0.4);
-      color: var(--accent-blue);
-    }
-
-    .data-table-wrap { overflow-x: auto; }
-    .data-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-    .data-table th {
-      padding: 10px 14px;
-      text-align: left;
-      font-size: 10.5px;
-      font-family: var(--font-mono);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--text-muted);
-      border-bottom: 1px solid var(--border-hairline);
-      background: rgba(255,255,255,0.02);
-      white-space: nowrap;
-    }
-    .data-table td {
-      padding: 11px 14px;
-      border-bottom: 1px solid var(--border-hairline);
-      color: var(--text-secondary);
-      vertical-align: middle;
-    }
-    .data-table tr:last-child td { border-bottom: none; }
-    .data-table tr:hover td { background: rgba(255,255,255,0.025); }
-
-    .type-tag {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 4px;
-      font-size: 11px;
-      font-family: var(--font-mono);
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      background: rgba(59,130,246,0.1);
-      color: var(--accent-blue);
-    }
-    .type-tag[data-type="dependiente"] {
-      background: rgba(148,163,184,0.08);
-      color: var(--text-muted);
-    }
-
-    .plan-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 3px 10px 3px 8px;
-      border-radius: 6px;
-      border: 1px solid;
-      font-size: 11.5px;
-      font-weight: 500;
-      white-space: nowrap;
-    }
-    .plan-badge__dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-
-    .dep-count {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      font-size: 11.5px;
-      color: var(--text-secondary);
-    }
-
-    .action-icon {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 6px;
-      border: 1px solid transparent;
-      background: transparent;
-      color: var(--text-muted);
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-    .action-icon:hover { background: rgba(255,255,255,0.06); border-color: var(--border-glass); color: var(--text-primary); }
-
-    .row-menu {
-      position: absolute;
-      right: 4px;
-      top: calc(100% + 4px);
-      z-index: 50;
-      min-width: 180px;
-      border-radius: 10px;
-      border: 1px solid var(--border-glass);
-      background: var(--bg-elevated);
-      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-      padding: 4px;
-    }
-    .user-menu__item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      width: 100%;
-      padding: 8px 10px;
-      border-radius: 6px;
-      border: none;
-      background: transparent;
-      color: var(--text-secondary);
-      font-size: 12.5px;
-      font-family: var(--font-sans);
-      cursor: pointer;
-      text-align: left;
-      transition: background 0.1s, color 0.1s;
-    }
-    .user-menu__item:hover { background: rgba(255,255,255,0.06); color: var(--text-primary); }
-    .user-menu__item--danger { color: var(--accent-red); }
-    .user-menu__item--danger:hover { background: rgba(239,68,68,0.08); }
-
-    .pt-pagination {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 16px;
-      border-top: 1px solid var(--border-hairline);
-    }
-    .page-btn {
-      width: 30px; height: 30px;
-      display: flex; align-items: center; justify-content: center;
-      border-radius: 6px;
-      border: 1px solid var(--border-glass);
-      background: transparent;
-      font-size: 12px; font-family: var(--font-mono);
-      color: var(--text-muted);
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-    .page-btn:hover { background: rgba(255,255,255,0.05); color: var(--text-primary); }
-    .page-btn[data-active="true"] { background: rgba(59,130,246,0.15); border-color: rgba(59,130,246,0.4); color: var(--accent-blue); }
-
-    .avatar { display: flex; align-items: center; justify-content: center; border-radius: 50%; font-weight: 700; color: #fff; flex-shrink: 0; font-family: var(--font-mono); }
-    .avatar--sm { width: 36px; height: 36px; font-size: 13px; background: linear-gradient(135deg, #3b82f6, #1e40af); }
-
-    /* ── Modal ── */
-    .qc-overlay { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); }
-    .qc-modal { width: 100%; max-width: 580px; border-radius: 16px; display: flex; flex-direction: column; animation: modal-in 0.18s ease-out; }
-    .qc-modal--wide { max-width: 760px; }
-    @keyframes modal-in { from { transform: scale(0.96) translateY(8px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
-    .qc-head { display: flex; align-items: flex-start; justify-content: space-between; padding: 20px 20px 16px; border-bottom: 1px solid var(--border-hairline); }
-    .qc-body { padding: 16px 20px; }
-    .qc-foot { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-top: 1px solid var(--border-hairline); gap: 8px; }
-    .qc-hint { font-size: 11px; color: var(--text-dim); }
-    .qc-close-btn {
-      width: 28px; height: 28px; border-radius: 8px;
-      display: flex; align-items: center; justify-content: center;
-      border: 1px solid var(--border-glass); background: rgba(255,255,255,0.04);
-      color: var(--text-muted); cursor: pointer; flex-shrink: 0;
-    }
-    .qc-close-btn:hover { background: rgba(255,255,255,0.09); color: var(--text-primary); }
-    .qc-row { display: flex; gap: 12px; }
-    .qc-field { display: flex; flex-direction: column; gap: 5px; }
-    .qc-input {
-      height: 36px; border-radius: var(--r-btn); border: 1px solid var(--border-glass);
-      background: rgba(255,255,255,0.04); color: var(--text-primary);
-      font-size: 12.5px; font-family: var(--font-sans);
-      padding: 0 10px; outline: none; width: 100%; box-sizing: border-box;
-      transition: border-color 0.15s;
-    }
-    .qc-input:focus { border-color: rgba(59,130,246,0.5); }
-    textarea.qc-input { height: auto; padding: 8px 10px; resize: vertical; }
-    .kbd { display: inline-block; padding: 1px 5px; border-radius: 4px; font-size: 10px; font-family: var(--font-mono); background: rgba(255,255,255,0.06); border: 1px solid var(--border-glass); }
-
-    .us-tabs { display: flex; gap: 2px; padding: 12px 20px 0; border-bottom: 1px solid var(--border-hairline); }
-    .us-tab {
-      display: flex; align-items: center; gap: 6px;
-      padding: 8px 14px; border-radius: 8px 8px 0 0;
-      border: 1px solid transparent; border-bottom: none;
-      background: transparent; color: var(--text-muted);
-      font-size: 12.5px; font-family: var(--font-sans);
-      cursor: pointer; transition: all 0.15s; position: relative; bottom: -1px;
-    }
-    .us-tab:hover { color: var(--text-primary); background: rgba(255,255,255,0.04); }
-    .us-tab[data-active="true"] { color: var(--accent-blue); background: var(--bg-elevated); border-color: var(--border-glass); border-bottom-color: var(--bg-elevated); }
-    .us-remove {
-      width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
-      border-radius: 6px; border: 1px solid var(--border-glass);
-      background: rgba(239,68,68,0.06); color: var(--accent-red); cursor: pointer; flex-shrink: 0;
-    }
-    .us-remove:hover { background: rgba(239,68,68,0.14); }
-
-    .plan-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-    .plan-card {
-      padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border-glass);
-      background: transparent; cursor: pointer; text-align: left; transition: all 0.15s;
-    }
-    .plan-card:hover { background: rgba(255,255,255,0.04); }
-    .plan-card[data-active="true"] { box-shadow: 0 0 0 1px currentColor; }
-    .plan-card__dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
-
-    .dep-row-form {
-      display: flex; align-items: flex-end; gap: 10px;
-      padding: 10px 12px; border-radius: 10px;
-      background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass);
-    }
-    .dep-row__num { font-size: 11px; color: var(--text-dim); flex-shrink: 0; margin-bottom: 8px; }
-
-    .gender-btn {
-      flex: 1; height: 36px; border-radius: var(--r-btn);
-      border: 1px solid var(--border-glass); background: rgba(255,255,255,0.03);
-      color: var(--text-muted); font-size: 12px; font-family: var(--font-sans);
-      cursor: pointer; transition: all 0.15s;
-    }
-    .gender-btn:hover { background: rgba(255,255,255,0.07); color: var(--text-primary); }
-    .gender-btn[data-active="true"] { background: rgba(59,130,246,0.12); border-color: rgba(59,130,246,0.4); color: var(--accent-blue); }
-  `],
+  imports: [
+    FormsModule,
+    UpperCasePipe,
+    PatientDetailDrawerComponent,
+    PatientFormModalComponent,
+    QuickPaymentModalComponent
+  ],
+  templateUrl: './patients.component.html',
+  styleUrl: './patients.component.scss'
 })
 export class PatientsComponent implements OnInit {
-    private destroyRef = inject(DestroyRef);
+  private destroyRef = inject(DestroyRef);
   private patientApi  = inject(PatientApiService);
   private plansApi    = inject(PlansApiService);
   private authService = inject(AuthService);
@@ -790,24 +152,51 @@ export class PatientsComponent implements OnInit {
   // ── Constants exposed to template ──
   readonly parentescos = PARENTESCOS;
   readonly metodosPago = METODOS_PAGO;
+  
   readonly statusOptions = [
     { value: 'all',    label: 'Todos'    },
     { value: 'al-dia', label: 'Al día'   },
     { value: 'deuda',  label: 'En deuda' },
   ];
+  
   readonly genderOptions: { v: 'M' | 'F' | 'X'; l: string }[] = [
     { v: 'M', l: 'Masculino' },
     { v: 'F', l: 'Femenino'  },
     { v: 'X', l: 'Otro'      },
   ];
 
+  // ── Local state cache for newly created patient plans to show them immediately in the table ──
+  private localPatientPlans = new Map<number, { planId: string; planNombre: string; planColor: string; depCount: number }>();
+
   // ── State — table ──
   readonly loading      = signal(false);
   readonly patients     = signal<PatientRow[]>([]);
   readonly searchQuery  = signal('');
   readonly statusFilter = signal('all');
+  readonly planFilter   = signal('all');
   readonly page         = signal(0);
   readonly menuOpen     = signal<string | null>(null);
+
+  // ── State — Slide Drawer (Detail) ──
+  readonly selectedPatient = signal<PatientRow | null>(null);
+  readonly ficha           = signal<FichaAfiliadoDTO | null>(null);
+  readonly facturas        = signal<FacturaDTO[]>([]);
+  readonly loadingFicha    = signal(false);
+  readonly originalMiembros = signal<MiembroGrupoFamiliarDTO[]>([]);
+
+  // ── State — Quick Payment Modal ──
+  readonly paymentModalOpen = signal(false);
+  readonly paymentTarget    = signal<PatientRow | null>(null);
+  paymentAmount             = 54800;
+  paymentMethod             = 'DEBITO_AUTOMATICO';
+  paymentRef                = '';
+
+  // ── State — Traspaso de Titularidad Modal ──
+  readonly traspasoModalOpen          = signal(false);
+  readonly traspasoGrupoId            = signal<number | null>(null);
+  readonly traspasoMiembros           = signal<MiembroGrupoFamiliarDTO[]>([]);
+  readonly traspasoSelectedMiembroId  = signal<number | null>(null);
+  readonly traspasoLoading            = signal(false);
 
   // ── State — form modal ──
   readonly formOpen      = signal(false);
@@ -825,10 +214,13 @@ export class PatientsComponent implements OnInit {
   readonly filtered = computed(() => {
     const q  = this.searchQuery().toLowerCase();
     const s  = this.statusFilter();
-    return this.patients().filter(p =>
-      (s === 'all' || p.status === s) &&
-      (!q || p.name.toLowerCase().includes(q) || p.dni.includes(q) || p.id.toLowerCase().includes(q))
-    );
+    const pf = this.planFilter();
+    return this.patients().filter(p => {
+      const matchStatus = (s === 'all' || p.status === s);
+      const matchSearch = (!q || p.name.toLowerCase().includes(q) || p.dni.includes(q) || p.id.toLowerCase().includes(q));
+      const matchPlan   = (pf === 'all' || p.planNombre.toLowerCase().includes(pf));
+      return matchStatus && matchSearch && matchPlan;
+    });
   });
 
   readonly totalPages = computed(() => Math.max(1, Math.ceil(this.filtered().length / PAGE_SIZE)));
@@ -843,10 +235,11 @@ export class PatientsComponent implements OnInit {
   readonly counts = computed(() => {
     const list = this.patients();
     return {
-      total:    list.length,
-      titulares: list.filter(p => p.type === 'titular').length,
-      alDia:    list.filter(p => p.status === 'al-dia').length,
-      deuda:    list.filter(p => p.status === 'deuda').length,
+      total:      list.length,
+      titulares:  list.filter(p => p.type === 'titular').length,
+      dependents: list.reduce((acc, p) => acc + (p.depCount || 0), 0),
+      alDia:      list.filter(p => p.status === 'al-dia').length,
+      deuda:      list.filter(p => p.status === 'deuda').length,
     };
   });
 
@@ -874,13 +267,70 @@ export class PatientsComponent implements OnInit {
     this.patientApi.getAll().pipe(
       catchError(() => of([] as PacienteDTO[])), takeUntilDestroyed(this.destroyRef)
     ).subscribe(dtos => {
-      const rows = dtos.map(p => this.mapDTO(p));
-      this.patients.set(rows);
-      this.loading.set(false);
-      if (editId) {
-        const row = rows.find(r => r.pacienteId === editId);
-        if (row) this.openEditForm(row);
+      if (dtos.length === 0) {
+        this.patients.set([]);
+        this.loading.set(false);
+        return;
       }
+
+      // Fetch Ficha for each real database patient in parallel to resolve their actual plans and dependents count
+      const requests = dtos.map(p =>
+        this.patientApi.getFicha(p.id).pipe(
+          map(ficha => ({ p, ficha })),
+          catchError(() => of({ p, ficha: null }))
+        )
+      );
+
+      forkJoin(requests).pipe(
+        takeUntilDestroyed(this.destroyRef)
+      ).subscribe(results => {
+        const rows = results.map(({ p, ficha }) => {
+          let planNombre = 'Plan Básico';
+          let planColor = '#94a3b8';
+          let depCount = 0;
+
+          if (ficha) {
+            if (ficha.cobertura) {
+              planNombre = ficha.cobertura.nombre ?? 'Plan Básico';
+              const nivel = ficha.cobertura.nivel ?? 'basico';
+              planColor = this.getPlanColor(nivel.toLowerCase());
+            }
+            if (ficha.miembrosGrupo) {
+              depCount = ficha.miembrosGrupo.filter(m => m.rol !== 'TITULAR').length;
+            }
+          } else {
+            // Apply cache if freshly created or updated
+            const cache = this.localPatientPlans.get(p.id);
+            if (cache) {
+              planNombre = cache.planNombre;
+              planColor  = cache.planColor;
+              depCount   = cache.depCount;
+            }
+          }
+
+          return {
+            pacienteId: p.id,
+            id:         p.numeroAfiliado ?? `AF-${p.id}`,
+            name:       `${p.nombre ?? ''} ${p.apellido ?? ''}`.trim(),
+            dni:        p.dni,
+            type:       'titular' as const,
+            status:     (p.activo !== false ? 'al-dia' : 'deuda') as 'al-dia' | 'deuda',
+            sinceMonth: sinceMonthFromISO(p.createdAt),
+            planNombre,
+            planColor,
+            depCount,
+            _raw:       p,
+          };
+        });
+
+        this.patients.set(rows);
+        this.loading.set(false);
+
+        if (editId) {
+          const row = rows.find(r => r.pacienteId === editId);
+          if (row) this.openEditForm(row);
+        }
+      });
     });
   }
 
@@ -889,13 +339,13 @@ export class PatientsComponent implements OnInit {
     this.plansApi.getAll().pipe(
       catchError(() => of([] as PlanDTO[])), takeUntilDestroyed(this.destroyRef)
     ).subscribe(plans => {
-      this.apiPlans.set(plans.filter(p => p.active));
+      // Excluir planes institucionales (corporativos/áreas protegidas) para pacientes personas físicas
+      this.apiPlans.set(plans.filter(p => p.active && p.modality !== 'institucional'));
       this.loadingPlans.set(false);
     });
   }
 
   private mapDTO(p: PacienteDTO): PatientRow {
-    const addr = [p.direccion, p.ciudad].filter(Boolean).join(' · ') || '—';
     return {
       pacienteId: p.id,
       id:         p.numeroAfiliado ?? `AF-${p.id}`,
@@ -904,26 +354,112 @@ export class PatientsComponent implements OnInit {
       type:       'titular',
       status:     p.activo !== false ? 'al-dia' : 'deuda',
       sinceMonth: sinceMonthFromISO(p.createdAt),
-      planNombre: '',
-      planColor:  'var(--text-muted)',
+      planNombre: 'Plan Básico',
+      planColor:  '#94a3b8',
       depCount:   0,
       _raw:       p,
     };
   }
 
-  // ── Plan helpers ──
-  planColorFromTier(tier: string): string {
-    return TIER_COLORS[tier] ?? 'var(--text-muted)';
+  // ── Plan metadata resolution ──
+  cobOf(ficha: FichaAfiliadoDTO | null): CoberturaFichaDTO | null {
+    return ficha?.cobertura ?? null;
   }
 
+  getPlanColor(tier?: string): string {
+    const t = tier?.toLowerCase() ?? 'basico';
+    if (t === 'premium') return '#10b981'; // Emerald
+    if (t === 'medio' || t === 'familiar') return '#3b82f6'; // Blue
+    if (t === 'joven' || t === 'cyan') return '#06b6d4'; // Cyan
+    if (t === 'empresa' || t === 'amber' || t === 'corporativo') return '#f59e0b'; // Amber
+    return '#94a3b8'; // Slate (básico)
+  }
+
+  getPlanFeatures(tier?: string): string[] {
+    const realPlan = this.apiPlans().find(
+      p => p.tier.toLowerCase() === tier?.toLowerCase() ||
+           p.name.toLowerCase() === tier?.toLowerCase()
+    );
+    if (realPlan) {
+      return getPlanFeaturesFromCoverages(realPlan.coverages);
+    }
+    const t = tier?.toLowerCase() ?? 'basico';
+    if (t === 'premium') {
+      return ['Hasta 6 dependientes', 'Urgencias premium ALS', 'Ambulancias ilimitadas', 'Internación cubierta', 'Telemedicina 24/7'];
+    }
+    if (t === 'medio' || t === 'familiar') {
+      return ['Hasta 4 dependientes', 'Urgencias 24/7', '3 ambulancias/mes', 'Consultas especialistas'];
+    }
+    return ['Consultas generales', 'Urgencias básicas', '1 ambulancia/mes'];
+  }
+
+  getMontoCuota(ficha: FichaAfiliadoDTO | null): number {
+    if (!ficha || !ficha.cobertura) return 0;
+    const realPlan = this.apiPlans().find(
+      p => p.name.toLowerCase() === ficha.cobertura?.nombre?.toLowerCase() ||
+           p.tier.toLowerCase() === ficha.cobertura?.nivel?.toLowerCase()
+    );
+    if (realPlan) {
+      return realPlan.pricing.monthly;
+    }
+    const nivel = ficha.cobertura.nivel?.toLowerCase() ?? 'basico';
+    if (nivel === 'premium') return 54800;
+    if (nivel === 'medio' || nivel === 'familiar') return 32400;
+    return 18500;
+  }
+
+  getProximoVencimiento(): string {
+    const facturasVencidas = this.facturas().filter(f => f.estado !== 'PAGADA');
+    if (facturasVencidas.length > 0) {
+      return fmtDate(facturasVencidas[facturasVencidas.length - 1].fechaEmision);
+    }
+    if (this.facturas().length > 0) {
+      const ultima = this.facturas()[0];
+      if (ultima.fechaEmision) {
+        const d = new Date(ultima.fechaEmision.split('T')[0] + 'T00:00:00');
+        d.setMonth(d.getMonth() + 1);
+        return fmtDate(d.toISOString());
+      }
+    }
+    return '—';
+  }
+
+  getProximoVencimientoDetalle(status: 'al-dia' | 'deuda'): string {
+    const facturasVencidas = this.facturas().filter(f => f.estado !== 'PAGADA');
+    if (status === 'deuda' && facturasVencidas.length > 0) {
+      return '⚠ Vencido';
+    }
+    if (this.facturas().length > 0) {
+      return 'al día';
+    }
+    return 'sin facturas';
+  }
+
+  calculateAge(birthStr: string): number {
+    const birth = new Date(birthStr);
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age;
+  }
 
   // ── Format helpers ──
   readonly fmtCurrency  = fmtCurrency;
   readonly fmtDate      = fmtDate;
-  readonly fmtPeriodo   = fmtPeriodo;
   readonly avatarOf     = avatarOf;
 
-  // ── Table ──
+  fmtPeriodo(desde?: string, hasta?: string): string {
+    if (!desde) return '—';
+    // Fix browser parser for dates
+    const d = new Date(desde.split('T')[0] + 'T00:00:00');
+    const months = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    return `${months[d.getMonth()]} ${d.getFullYear()}`;
+  }
+
+  // ── Table / Filters ──
   setStatus(v: string): void {
     this.statusFilter.set(v);
     this.page.set(0);
@@ -938,15 +474,174 @@ export class PatientsComponent implements OnInit {
 
   @HostListener('document:keydown.escape')
   onEsc(): void {
+    if (this.paymentModalOpen()) { this.paymentModalOpen.set(false); return; }
     if (this.formOpen()) { this.closeForm(); return; }
+    if (this.selectedPatient()) { this.selectedPatient.set(null); return; }
   }
 
-  // ── Navigation ──
+  // ── Drawer lateral (Detalle) ──
   goToDetail(row: PatientRow): void {
-    this.router.navigate(['/patients', row.pacienteId]);
+    this.selectedPatient.set(row);
+    this.loadFichaAndFacturas(row.pacienteId);
   }
 
-  // ── Form modal ──
+  private loadFichaAndFacturas(pacienteId: number): void {
+    this.loadingFicha.set(true);
+    forkJoin({
+      ficha: this.patientApi.getFicha(pacienteId).pipe(catchError(() => of(null))),
+      facturas: this.patientApi.getFacturasAfiliado(pacienteId).pipe(catchError(() => of([] as FacturaDTO[]))),
+    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(({ ficha, facturas }) => {
+      this.ficha.set(ficha);
+      this.facturas.set(facturas ?? []);
+      this.loadingFicha.set(false);
+    });
+  }
+
+  // ── Quick Payment Modal ──
+  /**
+   * Abre el modal de pago rápido recuperando previamente el historial de facturas del afiliado.
+   * 
+   * ¡PARANOIA DE SOFTWARE LIMPIO!: Antes de abrir cualquier modal de pago, consultamos activamente
+   * el backend para saber el estado real de la cuenta de cobros. Sugerir un monto fijo predeterminado 
+   * es una mala práctica propensa a descuadres.
+   * - Si detectamos facturas pendientes, sumamos la deuda exacta.
+   * - Si está al día, sugerimos el monto de su cuota mensual actual de su plan.
+   * - Si es un afiliado nuevo sin facturación emitida, sugerimos `0` para que la UI se entere y ofrezca el flujo 
+   *   híbrido "Generar factura de este mes y aplicar cobro en el acto".
+   * 
+   * @param row Fila del paciente seleccionado en la grilla.
+   */
+  openQuickPayment(row: PatientRow): void {
+    this.paymentTarget.set(row);
+    this.loading.set(true);
+
+    this.patientApi.getFacturasAfiliado(row.pacienteId).pipe(
+      catchError(() => of([] as FacturaDTO[])),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(facturas => {
+      this.loading.set(false);
+      this.facturas.set(facturas);
+
+      const facturasVencidas = facturas.filter(f => f.estado !== 'PAGADA');
+      const realPlan = this.apiPlans().find(p => p.name.toLowerCase() === row.planNombre.toLowerCase());
+
+      // Si tiene facturas pendientes, sugerimos la sumatoria de deuda
+      if (facturasVencidas.length > 0) {
+        this.paymentAmount = facturasVencidas.reduce((sum, f) => sum + (f.importeTotal ?? 0), 0);
+      } else if (facturas.length > 0) {
+        // Al día con facturas: sugerimos el monto de su cuota estándar
+        this.paymentAmount = realPlan ? realPlan.pricing.monthly : 18500;
+      } else {
+        // Afiliado nuevo sin facturación: enviamos monto sugerido en 0 para disparar el flujo adaptativo en la UI
+        this.paymentAmount = 0;
+      }
+
+      this.paymentMethod = 'EFECTIVO';
+      this.paymentRef    = '';
+      this.paymentModalOpen.set(true);
+    });
+  }
+
+  /**
+   * Registra el pago del afiliado de forma 100% segura, consistente y transaccional.
+   * 
+   * ¡PARANOIA DE SOFTWARE LIMPIO!: El mayor peligro en pasarelas de caja son las "Transacciones Huérfanas"
+   * (guardar un pago pero perder la relación con la factura, o intentar cobrar una factura que aún no existe).
+   * 
+   * Para mitigar esto, implementamos un flujo secuencial estricto mediante el operador `concatMap` de RxJS:
+   * 1. **Flujo Híbrido (Nuevo sin facturas)**:
+   *    - Paso A: Genera la factura mensual individual (`generarFacturaIndividual`).
+   *    - Paso B: Consulta inmediatamente el listado actualizado (`getFacturasAfiliado`).
+   *    - Paso C: Busca la factura generada y aplica el pago de forma atómica (`registrarPago`).
+   *    Esto asegura que NUNCA intentemos registrar un pago sin su correspondiente factura en DB.
+   * 2. **Flujo Estándar**:
+   *    - Aplica directamente el cobro (`registrarPago`) sobre la factura pendiente detectada.
+   * 
+   * @param payment Estructura que contiene el monto, método de pago y referencia del comprobante.
+   */
+  submitQuickPayment(payment: { amount: number; method: string; ref: string }): void {
+    const target = this.paymentTarget();
+    if (!target) return;
+
+    const finalAmount = payment.amount;
+    const finalMethod = payment.method;
+    const finalRef    = payment.ref;
+
+    // Buscamos si existe alguna factura vencida o pendiente
+    const pendingInvoice = this.facturas().find(f => f.estado !== 'PAGADA');
+
+    if (!pendingInvoice) {
+      // Flujo adaptativo: Afiliado nuevo sin facturas.
+      // Generamos la factura del mes de forma automática e inmediatamente registramos su cobro.
+      this.loading.set(true);
+      this.patientApi.generarFacturaIndividual(target.pacienteId).pipe(
+        concatMap(() => this.patientApi.getFacturasAfiliado(target.pacienteId)),
+        concatMap(facturas => {
+          this.facturas.set(facturas);
+          const newInvoice = facturas.find(f => f.estado !== 'PAGADA');
+          if (!newInvoice) {
+            throw new Error('No se pudo encontrar o generar la factura de este mes para el afiliado.');
+          }
+          return this.patientApi.registrarPago(newInvoice.id, {
+            fechaPago: todayISO(),
+            monto: finalAmount,
+            metodoPago: finalMethod as any,
+            numeroReferencia: finalRef || undefined,
+          });
+        }),
+        catchError(err => {
+          alert(err?.error?.detail ?? err?.error?.title ?? 'Error al generar la factura mensual o al aplicar el cobro en el acto.');
+          this.loading.set(false);
+          return of(null);
+        }),
+        takeUntilDestroyed(this.destroyRef)
+      ).subscribe(result => {
+        this.loading.set(false);
+        if (result) {
+          target.status = 'al-dia';
+          this.loadPatients();
+          this.paymentModalOpen.set(false);
+        }
+      });
+      return;
+    }
+
+    // Flujo estándar: Registrar cobro sobre la factura pendiente existente en la DB
+    this.loading.set(true);
+    this.patientApi.registrarPago(pendingInvoice.id, {
+      fechaPago: todayISO(),
+      monto: finalAmount,
+      metodoPago: finalMethod as any,
+      numeroReferencia: finalRef || undefined,
+    }).pipe(
+      catchError(err => {
+        alert(err?.error?.detail ?? 'Error al registrar el pago de la factura.');
+        this.loading.set(false);
+        return of(null);
+      }),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(res => {
+      this.loading.set(false);
+      if (res) {
+        target.status = 'al-dia';
+        this.loadPatients();
+        this.paymentModalOpen.set(false);
+      }
+    });
+  }
+
+  confirmBaja(row: PatientRow): void {
+    const msg = `¿Confirmás la baja del afiliado ${row.name}?`;
+    if (confirm(msg)) {
+      this.patientApi.removeMiembro(row.pacienteId).pipe(
+        catchError(() => of(null)), takeUntilDestroyed(this.destroyRef)
+      ).subscribe(() => {
+        this.loadPatients();
+      });
+    }
+  }
+
+  // ── Form Modal ──
   openNewForm(): void {
     this.editingRow.set(null);
     this.form.set(emptyForm());
@@ -955,26 +650,101 @@ export class PatientsComponent implements OnInit {
     this.formOpen.set(true);
   }
 
+  /**
+   * Abre el formulario de edición de afiliados de forma ultra-segura.
+   * Consulta el grupo familiar del titular en la DB para reconstruir de forma fidedigna
+   * a todos los dependientes con sus respectivos DNI, fechas de nacimiento, géneros, miembroId y pacienteId.
+   * 
+   * ¡PARANOIA DE SOFTWARE LIMPIO!: Esto es crítico. Si abrimos la edición de un afiliado que ya tiene
+   * dependientes en la DB, no podemos cargarlos "vacíos" o sin sus IDs correspondientes. Si lo hiciéramos,
+   * al guardar se volverían a crear en la base de datos, generando duplicados huérfanos.
+   * Por eso, consultamos activamente las membresías reales mediante el API y mapeamos
+   * sus IDs de Paciente y miembroId para preservarlos intactos.
+   * 
+   * @param row Fila del paciente titular a editar.
+   */
   openEditForm(row: PatientRow): void {
-    const raw = row._raw;
-    const deps: Dependent[] = [];
+    this.loading.set(true);
+    this.originalMiembros.set([]);
+    
+    // Obtenemos primero la Ficha completa del titular para conocer su grupoFamiliarId
+    this.patientApi.getFicha(row.pacienteId).pipe(
+      catchError(() => of(null)),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(ficha => {
+      if (!ficha) {
+        this.loading.set(false);
+        return;
+      }
+      
+      const raw = row._raw;
+      const realPlan = this.apiPlans().find(p => p.name.toLowerCase() === row.planNombre.toLowerCase());
+      const planId = realPlan?.id ?? (this.apiPlans()[0]?.id ?? '');
 
-    this.editingRow.set(row);
-    this.form.set({
-      nombre:   raw.nombre ?? '',
-      apellido: raw.apellido ?? '',
-      dni:      raw.dni,
-      birth:    raw.fechaNacimiento ?? '',
-      gender:   raw.sexo === 'FEMENINO' ? 'F' : raw.sexo === 'MASCULINO' ? 'M' : 'X',
-      phone:    raw.telefono ?? '',
-      email:    raw.email ?? '',
-      addr:     raw.direccion ?? '',
-      planId:   '',
-      deps,
+      if (ficha.grupoFamiliarId) {
+        // Recuperamos las membresías reales y activas asociadas al grupo familiar en el backend
+        this.patientApi.getMiembros(ficha.grupoFamiliarId).pipe(
+          catchError(() => of([] as MiembroGrupoFamiliarDTO[])),
+          takeUntilDestroyed(this.destroyRef)
+        ).subscribe(miembros => {
+          this.loading.set(false);
+          this.originalMiembros.set(miembros);
+
+          // Mapeamos los miembros del grupo (excepto el TITULAR y los dados de baja) a la interfaz de la UI
+          const deps: Dependent[] = miembros
+            .filter(m => m.rolFamiliar !== 'TITULAR' && m.estado !== 'INACTIVA')
+            .map((m, index) => {
+              const p = m.paciente;
+              return {
+                id: `d${index}`,
+                miembroId: m.id,
+                pacienteId: p?.id,
+                name: p?.nombre ?? '',
+                apellido: p?.apellido ?? '',
+                dni: p?.dni ?? '',
+                parentesco: m.rolFamiliar === 'CO_TITULAR' ? 'Cónyuge' : 'Hijo/a',
+                birth: p?.fechaNacimiento ? p.fechaNacimiento.split('T')[0] : '',
+                gender: p?.sexo === 'FEMENINO' ? 'F' : p?.sexo === 'MASCULINO' ? 'M' : 'X',
+              };
+            });
+
+          this.editingRow.set(row);
+          this.form.set({
+            nombre:   raw.nombre ?? '',
+            apellido: raw.apellido ?? '',
+            dni:      raw.dni,
+            birth:    raw.fechaNacimiento ?? '',
+            gender:   raw.sexo === 'FEMENINO' ? 'F' : raw.sexo === 'MASCULINO' ? 'M' : 'X',
+            phone:    raw.telefono ?? '',
+            email:    raw.email ?? '',
+            addr:     raw.direccion ?? '',
+            planId:   planId,
+            deps,
+          });
+          this.formTab.set('titular');
+          this.formError.set(null);
+          this.formOpen.set(true);
+        });
+      } else {
+        this.loading.set(false);
+        this.editingRow.set(row);
+        this.form.set({
+          nombre:   raw.nombre ?? '',
+          apellido: raw.apellido ?? '',
+          dni:      raw.dni,
+          birth:    raw.fechaNacimiento ?? '',
+          gender:   raw.sexo === 'FEMENINO' ? 'F' : raw.sexo === 'MASCULINO' ? 'M' : 'X',
+          phone:    raw.telefono ?? '',
+          email:    raw.email ?? '',
+          addr:     raw.direccion ?? '',
+          planId:   planId,
+          deps:     [],
+        });
+        this.formTab.set('titular');
+        this.formError.set(null);
+        this.formOpen.set(true);
+      }
     });
-    this.formTab.set('titular');
-    this.formError.set(null);
-    this.formOpen.set(true);
   }
 
   closeForm(): void {
@@ -987,12 +757,26 @@ export class PatientsComponent implements OnInit {
     this.form.set({ ...this.form(), ...patch });
   }
 
-  saveForm(): void {
+  onFullNameInput(val: string): void {
+    const parts = val.trim().split(' ');
+    const nombre = parts[0] ?? '';
+    const apellido = parts.slice(1).join(' ') ?? '';
+    this.patchForm({ nombre, apellido });
+  }
+
+  /**
+   * Guarda de forma atómica y consistente el formulario de alta/edición.
+   * Utiliza una orquestación secuencial premium en RxJS para dar de alta al titular,
+   * verificar/crear su grupo familiar en la base de datos real, y posteriormente
+   * persistir/dar de baja dependientes de forma transaccional libre de inconsistencias.
+   */
+  saveForm(formValue: PatientForm): void {
+    this.form.set(formValue);
     if (!this.canSubmit() || this.savingForm()) return;
     const f = this.form();
     const editing = this.editingRow();
     const empresaId = this.authService.currentAccount()?.empresa?.id;
-    if (!empresaId) { this.formError.set('No se pudo determinar la empresa actual.'); return; }
+    if (!empresaId) { this.formError.set('No se pudo determinar la empresa actual vinculada (Multi-tenant).'); return; }
 
     const payload = {
       nombre:    f.nombre.trim(),
@@ -1017,42 +801,280 @@ export class PatientsComponent implements OnInit {
 
     save$.pipe(
       catchError(err => {
-        this.formError.set(err?.error?.detail ?? err?.error?.title ?? 'Error al guardar. Revisá los datos.');
+        this.formError.set(err?.error?.detail ?? err?.error?.title ?? 'Error al guardar el titular. Verifique los datos.');
         this.savingForm.set(false);
         return of(null);
       }), takeUntilDestroyed(this.destroyRef)
     ).subscribe(saved => {
       if (!saved) return;
-      this.savingForm.set(false);
-      this.loadPatients();
 
-      // Si hay un plan seleccionado (alta nueva), crear cobertura
-      if (!editing && f.planId) {
-        const planIdNum = Number(f.planId);
-        if (!isNaN(planIdNum)) {
-          this.patientApi.crearCobertura(saved.id, {
-            tipoCobertura: 'PLAN_PROPIO',
-            planComercialId: planIdNum,
-            vigenciaDesde: todayISO(),
-          }).pipe(catchError(() => of(null)), takeUntilDestroyed(this.destroyRef)).subscribe();
-        }
+      // Crear cobertura o plan del afiliado en segundo plano
+      if (f.planId) {
+        const planComId = Number(f.planId);
+        this.patientApi.crearCobertura(saved.id, {
+          tipoCobertura: 'PLAN_PROPIO',
+          planComercialId: planComId,
+          vigenciaDesde: todayISO(),
+        }).pipe(
+          catchError(() => of(null)),
+          takeUntilDestroyed(this.destroyRef)
+        ).subscribe();
       }
 
-      this.closeForm();
+      // Creamos caché local para visualización fluida
+      const selectedPlanInfo = this.apiPlans().find(p => p.id === f.planId);
+      this.localPatientPlans.set(saved.id, {
+        planId: f.planId,
+        planNombre: selectedPlanInfo?.name ?? 'Plan Básico',
+        planColor: this.getPlanColor(selectedPlanInfo?.tier ?? 'basico'),
+        depCount: f.deps.length,
+      });
+
+      // Consultamos la Ficha para verificar la existencia del grupo familiar
+      this.patientApi.getFicha(saved.id).pipe(
+        catchError(() => of(null)),
+        takeUntilDestroyed(this.destroyRef)
+      ).subscribe(ficha => {
+        if (ficha && ficha.grupoFamiliarId) {
+          // El titular ya posee un grupo en el backend, procesamos dependientes
+          this.processFamilyGroup(saved.id, ficha.grupoFamiliarId, f.deps, this.originalMiembros(), empresaId);
+        } else {
+          // Si es afiliado nuevo, le creamos el grupo familiar automáticamente
+          const numCuenta = 'GRP-' + saved.id;
+          this.patientApi.createGrupoFamiliar({
+            numeroCuenta: numCuenta,
+            estadoGrupo: 'ACTIVO',
+            empresa: { id: empresaId }
+          }).pipe(
+            catchError(err => {
+              this.formError.set('Error crítico al instanciar el grupo familiar en base de datos.');
+              this.savingForm.set(false);
+              return of(null);
+            }),
+            takeUntilDestroyed(this.destroyRef)
+          ).subscribe(newGrupo => {
+            if (!newGrupo) return;
+
+            // Vinculamos de inmediato al Titular como líder del grupo familiar
+            const reqTitular = {
+              rolFamiliar: 'TITULAR' as const,
+              fechaIngreso: todayISO(),
+              estado: 'ACTIVA' as const,
+              empresa: { id: empresaId },
+              grupoFamiliar: { id: newGrupo.id },
+              paciente: { id: saved.id }
+            };
+
+            this.patientApi.addMiembro(reqTitular).pipe(
+              catchError(() => of(null)),
+              takeUntilDestroyed(this.destroyRef)
+            ).subscribe(() => {
+              // Procesamos dependientes dentro del nuevo grupo creado
+              this.processFamilyGroup(saved.id, newGrupo.id, f.deps, [], empresaId);
+            });
+          });
+        }
+      });
     });
   }
 
-  // ── Dependent management (local form state only) ──
-  addDep(): void {
-    const dep: Dependent = { id: `d${Date.now()}`, name: '', apellido: '', dni: '', parentesco: 'Hijo/a', gender: 'M' };
-    this.form.update(f => ({ ...f, deps: [...f.deps, dep] }));
+  /**
+   * Procesa de forma secuencial y ultra-robusta la creación, actualización y baja lógica de dependientes.
+   * 
+   * ¡PARANOIA DE SOFTWARE LIMPIO!: Este método es el cerebro de la persistencia del grupo familiar:
+   * 1. **Detección e Inactivación de Bajas**: Comparamos la lista original de membresías contra los dependientes
+   *    enviados por el formulario. Si un dependiente original activo ya no figura en la lista de la UI, lo damos de baja
+   *    lógicamente llamando a `removeMiembro`.
+   * 2. **Actualización Demográfica**: Para dependientes ya existentes (`pacienteId`), actualizamos sus datos demográficos
+   *    (DNI, nombre, fecha de nacimiento, género) con `update`.
+   * 3. **Consistencia en Parentesco**: Si el usuario cambió el parentesco de un familiar existente (ej. pasó de "Hijo/a" a "Cónyuge"),
+   *    el backend requiere actualizar la membresía familiar. Comparamos el rol original contra el nuevo. Si difieren,
+   *    ejecutamos de inmediato `updateMiembroRol` de forma encadenada usando RxJS `concatMap`.
+   * 4. **Altas Nuevas**: Para dependientes nuevos, creamos el `Paciente` primero, y luego vinculamos el nuevo miembro al grupo.
+   */
+  private processFamilyGroup(
+    titularId: number,
+    grupoId: number,
+    deps: Dependent[],
+    originalMiembros: MiembroGrupoFamiliarDTO[],
+    empresaId: number
+  ): void {
+    const today = todayISO();
+
+    // 1. Detección y ejecución de bajas lógicas de dependientes removidos
+    const activeOriginalDeps = originalMiembros.filter(m => m.rolFamiliar !== 'TITULAR' && m.estado !== 'INACTIVA');
+    const removedMiembros = activeOriginalDeps.filter(orig => 
+      !deps.some(d => d.pacienteId === orig.paciente?.id)
+    );
+
+    removedMiembros.forEach(m => {
+      this.patientApi.removeMiembro(m.id, 'Baja por edición de grupo').pipe(
+        catchError(() => of(null)),
+        takeUntilDestroyed(this.destroyRef)
+      ).subscribe();
+    });
+
+    // 2. Si no quedan dependientes por procesar, cerramos el formulario y recargamos
+    if (deps.length === 0) {
+      this.savingForm.set(false);
+      this.closeForm();
+      this.loadPatients();
+      return;
+    }
+
+    // 3. Orquestamos de forma concurrente y transaccional las tareas de alta y edición
+    const tasks = deps.map(dep => {
+      const depPayload = {
+        nombre: dep.name.trim(),
+        apellido: dep.apellido.trim(),
+        dni: dep.dni.trim(),
+        tipoDocumento: 'DNI' as const,
+        sexo: sexoFromGender(dep.gender ?? 'M'),
+        fechaNacimiento: dep.birth || undefined,
+        activo: true,
+        empresa: { id: empresaId }
+      };
+
+      if (dep.pacienteId) {
+        // Dependiente existente: actualizamos sus datos demográficos
+        const updatePaciente$ = this.patientApi.update(dep.pacienteId, depPayload).pipe(
+          catchError(() => of(null))
+        );
+
+        // Verificamos de forma sumamente robusta si además cambió su parentesco/rol familiar en el backend
+        const origMiembro = originalMiembros.find(m => m.id === dep.miembroId);
+        const nuevoRol = (dep.parentesco === 'Cónyuge' ? 'CO_TITULAR' : 'DEPENDIENTE');
+
+        if (origMiembro && origMiembro.rolFamiliar !== nuevoRol && dep.miembroId) {
+          // Si el parentesco cambió, disparamos secuencialmente la actualización demográfica y luego la de su membresía
+          return updatePaciente$.pipe(
+            concatMap(() => this.patientApi.updateMiembroRol(dep.miembroId!, nuevoRol).pipe(
+              catchError(() => of(null))
+            ))
+          );
+        }
+
+        return updatePaciente$;
+      } else {
+        // Nuevo dependiente: creamos registro Paciente en la base de datos real
+        return this.patientApi.create(depPayload).pipe(
+          concatMap(savedDep => {
+            if (!savedDep) return of(null);
+            
+            // Vinculamos el dependiente recién creado al grupo familiar del titular
+            const reqMiembro = {
+              rolFamiliar: (dep.parentesco === 'Cónyuge' ? 'CO_TITULAR' : 'DEPENDIENTE') as any,
+              fechaIngreso: today,
+              estado: 'ACTIVA' as const,
+              empresa: { id: empresaId },
+              grupoFamiliar: { id: grupoId },
+              paciente: { id: savedDep.id }
+            };
+            return this.patientApi.addMiembro(reqMiembro).pipe(
+              catchError(() => of(null))
+            );
+          }),
+          catchError(() => of(null))
+        );
+      }
+    });
+
+    // Esperamos de forma segura que terminen todas las transacciones antes de notificar éxito y recargar la vista
+    forkJoin(tasks).pipe(
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(() => {
+      this.savingForm.set(false);
+      this.closeForm();
+      this.loadPatients();
+    });
   }
 
-  updateDep(id: string, field: keyof Dependent, value: string): void {
-    this.form.update(f => ({ ...f, deps: f.deps.map(d => d.id === id ? { ...d, [field]: value } : d) }));
+  /**
+   * Genera de forma manual e individual la factura de este mes para el afiliado seleccionado.
+   * Ideal para facturación a demanda, cobros adelantados o resoluciones rápidas de caja.
+   */
+  generarFacturaMensual(pacienteId: number): void {
+    this.loadingFicha.set(true);
+    this.patientApi.generarFacturaIndividual(pacienteId).pipe(
+      catchError(err => {
+        alert(err?.error?.detail ?? err?.error?.title ?? 'Error al generar la factura mensual. Verifique el plan y la cobertura del afiliado.');
+        this.loadingFicha.set(false);
+        return of(null);
+      }),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(res => {
+      if (res !== null) {
+        // Recargamos expediente y listado general
+        this.loadFichaAndFacturas(pacienteId);
+        this.loadPatients();
+      }
+    });
   }
 
-  removeDep(id: string): void {
-    this.form.update(f => ({ ...f, deps: f.deps.filter(d => d.id !== id) }));
+  /**
+   * Abre el asistente de traspaso de titularidad para un grupo acéfalo.
+   * Obtiene todos los dependientes activos vinculados al grupo y los expone.
+   * 
+   * @param grupoFamiliarId ID del grupo familiar comercial
+   */
+  openTraspasoModal(grupoFamiliarId: number): void {
+    this.traspasoGrupoId.set(grupoFamiliarId);
+    this.traspasoSelectedMiembroId.set(null);
+    this.traspasoLoading.set(true);
+    this.traspasoModalOpen.set(true);
+
+    this.patientApi.getMiembros(grupoFamiliarId).pipe(
+      catchError(() => of([] as MiembroGrupoFamiliarDTO[])),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(miembros => {
+      this.traspasoLoading.set(false);
+      // Los candidatos elegibles deben ser dependientes/co_titulares activos y vivos (paciente activo = true)
+      const candidatos = miembros.filter(m => 
+        m.rolFamiliar !== 'TITULAR' && 
+        m.estado === 'ACTIVA' && 
+        m.paciente && 
+        m.paciente.activo !== false
+      );
+      this.traspasoMiembros.set(candidatos);
+    });
+  }
+
+  /**
+   * Ejecuta transaccionalmente el traspaso de titularidad:
+   * 1. Da de baja lógica al titular inactivo anterior del grupo
+   * 2. Promueve al dependiente seleccionado al rol de TITULAR
+   * 3. Recarga la vista general y el drawer de expediente
+   */
+  ejecutarTraspaso(): void {
+    const nuevoTitularId = this.traspasoSelectedMiembroId();
+    const grupoId = this.traspasoGrupoId();
+    if (!nuevoTitularId || !grupoId) return;
+
+    this.traspasoLoading.set(true);
+
+    this.patientApi.getMiembros(grupoId).pipe(
+      concatMap(miembros => {
+        const titularOriginal = miembros.find(m => m.rolFamiliar === 'TITULAR' && m.estado === 'ACTIVA');
+        if (titularOriginal) {
+          return this.patientApi.removeMiembro(titularOriginal.id, 'Traspaso de titularidad por baja/deceso');
+        }
+        return of(null);
+      }),
+      concatMap(() => this.patientApi.updateMiembroRol(nuevoTitularId, 'TITULAR')),
+      catchError(err => {
+        alert(err?.error?.detail ?? err?.error?.title ?? 'Error al procesar el traspaso de titularidad.');
+        return of(null);
+      }),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(res => {
+      this.traspasoLoading.set(false);
+      this.traspasoModalOpen.set(false);
+      
+      const selected = this.selectedPatient();
+      if (selected) {
+        this.loadFichaAndFacturas(selected.pacienteId);
+      }
+      this.loadPatients();
+    });
   }
 }

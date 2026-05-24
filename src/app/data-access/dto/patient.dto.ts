@@ -54,6 +54,7 @@ export interface FichaAfiliadoDTO {
   grupoFamiliarId?: number;
   numeroCuentaGrupo?: string;
   estadoGrupo?: string;
+  saldoFavor?: number;
   cobertura?: CoberturaFichaDTO;
   atencionesMes?: number;
   miembrosGrupo?: MiembroFichaDTO[];
@@ -83,6 +84,18 @@ export interface AlertaFichaDTO {
 }
 
 // ─── Grupo familiar ──────────────────────────────────────────────────────────
+
+export interface MiembroGrupoFamiliarDTO {
+  id: number;
+  rolFamiliar: 'TITULAR' | 'CO_TITULAR' | 'DEPENDIENTE';
+  fechaIngreso: string;
+  fechaSalida?: string;
+  estado: 'ACTIVA' | 'INACTIVA' | 'TRANSFERIDA';
+  motivoCambio?: string;
+  empresa?: { id: number; nombre?: string };
+  grupoFamiliar?: { id: number; numeroCuenta?: string };
+  paciente?: PacienteDTO;
+}
 
 export interface AddMiembroRequest {
   rolFamiliar: 'TITULAR' | 'CO_TITULAR' | 'DEPENDIENTE';

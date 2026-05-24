@@ -6,6 +6,7 @@ import { environment } from '../../../environments/environment';
 import { Account } from './models/account.model';
 import { LoginCredentials } from './models/login.model';
 
+import { getSecureToken, saveSecureToken, removeSecureToken } from './auth.storage';
 import { JWT_STORAGE_KEY } from './auth.constants';
 
 interface JwtResponse {
@@ -18,7 +19,7 @@ export class AuthService {
   private router = inject(Router);
 
   private _account = signal<Account | null>(null);
-  private _isAuthenticated = signal<boolean>(!!localStorage.getItem(JWT_STORAGE_KEY));
+  private _isAuthenticated = signal<boolean>(!!getSecureToken());
 
   readonly currentAccount = this._account.asReadonly();
   readonly isAuthenticated = this._isAuthenticated.asReadonly();
@@ -42,7 +43,7 @@ export class AuthService {
       })
       .pipe(
         tap((res) => {
-          localStorage.setItem(JWT_STORAGE_KEY, res.id_token);
+          saveSecureToken(res.id_token);
           this._isAuthenticated.set(true);
         }),
         switchMap(() => this.fetchAccount()),
@@ -94,14 +95,14 @@ export class AuthService {
   }
 
   logout(): void {
-    localStorage.removeItem(JWT_STORAGE_KEY);
+    removeSecureToken();
     this._account.set(null);
     this._isAuthenticated.set(false);
     this.router.navigate(['/login']);
   }
 
   getToken(): string | null {
-    return localStorage.getItem(JWT_STORAGE_KEY);
+    return getSecureToken();
   }
 
   refreshToken(): Observable<{ id_token: string }> {
@@ -111,7 +112,7 @@ export class AuthService {
       { token }
     ).pipe(
       tap(res => {
-        localStorage.setItem(JWT_STORAGE_KEY, res.id_token);
+        saveSecureToken(res.id_token);
       })
     );
   }

@@ -1,0 +1,29 @@
+:host {
+  display: block;
+}
+
+/* Custom scrollbar */
+.scrollbar-thin {
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 99px;
+    &:hover {
+      background: #94a3b8;
+    }
+  }
+}
+
+.eyebrow {
+  font-size: 9px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #94a3b8;
+  letter-spacing: 0.14em;
+}

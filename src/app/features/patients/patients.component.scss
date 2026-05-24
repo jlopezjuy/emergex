@@ -1,0 +1,25 @@
+:host {
+  display: block;
+}
+
+.screen {
+  background: #f8fafc;
+  min-height: calc(100vh - 56px);
+}
+
+/* Custom scrollbar */
+.scrollbar-thin {
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 99px;
+    &:hover {
+      background: #94a3b8;
+    }
+  }
+}

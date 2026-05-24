@@ -3,6 +3,7 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
 import { FleetStore } from '../../core/stores/fleet.store';
 import { SessionStore } from '../../core/stores/session.store';
 import { ThemeService } from '../../core/theme/theme.service';
+import { SafeHtmlPipe } from '../../shared/pipes/safe-html.pipe';
 
 type NavItem = {
   path: string;
@@ -16,7 +17,7 @@ type NavItem = {
 @Component({
   selector: 'emx-sidebar',
   standalone: true,
-  imports: [RouterLink, RouterLinkActive],
+  imports: [RouterLink, RouterLinkActive, SafeHtmlPipe],
   template: `
     <aside
       class="h-screen border-r flex-shrink-0 transition-all duration-200 flex flex-col"
@@ -67,7 +68,7 @@ type NavItem = {
             class="nav-item"
             [title]="item.title"
           >
-            <span class="icon" [innerHTML]="item.icon"></span>
+            <span class="icon" [innerHTML]="item.icon | safeHtml"></span>
             @if (expanded()) {
               <span class="label">{{ item.label }}</span>
             }
@@ -189,6 +190,7 @@ export class SidebarComponent {
 
   readonly mainItems: NavItem[] = [
     { path: '/dashboard', label: 'Operaciones', title: 'Operaciones', icon: '🏠' },
+    { path: '/turnos', label: 'Turnos', title: 'Consola de turnos', icon: '📅' },
     { path: '/map', label: 'Mapa', title: 'Mapa', icon: '🗺️' },
     { path: '/asistencias/historial', label: 'Historial', title: 'Historial asistencias', icon: '🕓' },
     { path: '/fleet', label: 'Flota', title: 'Flota', icon: '🚑', alert: 'fleet' },

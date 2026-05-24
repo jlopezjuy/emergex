@@ -54,6 +54,11 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'turnos',
+        loadComponent: () =>
+          import('./features/turnos/turnos.component').then((m) => m.TurnosComponent),
+      },
+      {
         path: 'map',
         loadComponent: () =>
           import('./features/map/map.component').then((m) => m.MapComponent),
@@ -83,11 +88,6 @@ export const routes: Routes = [
         path: 'patients',
         loadComponent: () =>
           import('./features/patients/patients.component').then((m) => m.PatientsComponent),
-      },
-      {
-        path: 'patients/:id',
-        loadComponent: () =>
-          import('./features/patients/patient-detail/patient-detail.component').then((m) => m.PatientDetailComponent),
       },
       {
         path: 'institutions',
@@ -144,6 +144,7 @@ export const routes: Routes = [
       },
       {
         path: 'settings',
+        canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_ADMINISTRADOR', 'ROLE_PROPIETARIO')],
         loadComponent: () =>
           import('./features/settings/settings.component').then((m) => m.SettingsComponent),
       },

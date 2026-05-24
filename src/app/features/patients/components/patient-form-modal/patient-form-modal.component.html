@@ -1,0 +1,181 @@
+<div class="qc-overlay" (click)="onClose()">
+  <div class="qc-modal qc-modal--wide glass-strong" (click)="$event.stopPropagation()">
+    <div class="qc-head border-slate-200 bg-slate-50/50">
+      <div>
+        <div class="eyebrow" style="color:var(--accent-blue)">● {{ editingRow() ? 'EDITAR AFILIADO' : 'ALTA DE AFILIADO' }}</div>
+        <h2 style="margin:4px 0 0;font-size:20px;font-weight:600;letter-spacing:-0.01em">
+          {{ editingRow() ? (form().nombre + ' ' + form().apellido) : 'Nuevo afiliado titular' }}
+        </h2>
+      </div>
+      <button class="qc-close-btn border-slate-200" (click)="onClose()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <div class="us-tabs border-slate-200">
+      <button class="us-tab" [attr.data-active]="formTab() === 'titular'" (click)="formTab.set('titular')">
+        <svg width="13" height="13" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="9" cy="6" r="3"/><path d="M3 15c0-3.31 2.69-6 6-6s6 2.69 6 6"/></svg>
+        Datos del titular
+      </button>
+      <button class="us-tab" [attr.data-active]="formTab() === 'group'" (click)="formTab.set('group')">
+        <svg width="13" height="13" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="7" cy="5" r="3"/><path d="M1 15c0-3.31 2.69-5 6-5"/><circle cx="13" cy="10" r="2.5"/><path d="M10.5 14c0-1.93 1.12-3 3.5-3s3.5 1.07 3.5 3"/></svg>
+        Grupo familiar
+        <span class="mono ml-1 px-1.5 py-0.5 rounded-md text-[10px] bg-slate-100 border border-slate-200 font-bold"
+          [style.color]="form().deps.length > 0 ? '#10b981' : '#94a3b8'">
+          {{ form().deps.length }}
+        </span>
+      </button>
+    </div>
+
+    <div class="qc-body" style="max-height:58vh;overflow-y:auto;padding:20px">
+      @if (formTab() === 'titular') {
+        <div style="display:flex;flex-direction:column;gap:14px">
+
+          <div class="qc-row">
+            <div class="qc-field" style="flex:2">
+              <label class="eyebrow">Nombre y apellido <span style="color:var(--accent-red)">*</span></label>
+              <input class="qc-input" placeholder="Ej. Antonio Vázquez Cárdenas" 
+                [value]="form().nombre + (form().apellido ? ' ' + form().apellido : '')" 
+                (input)="onFullNameInput($any($event.target).value)" autofocus/>
+            </div>
+            <div class="qc-field" style="flex:1">
+              <label class="eyebrow">DNI <span style="color:var(--accent-red)">*</span></label>
+              <input class="qc-input" placeholder="18.345.672" [value]="form().dni" (input)="patchForm({ dni: $any($event.target).value })"/>
+            </div>
+          </div>
+
+          <div class="qc-row">
+            <div class="qc-field" style="flex:1">
+              <label class="eyebrow">Fecha de nacimiento <span style="color:var(--accent-red)">*</span></label>
+              <input class="qc-input" type="date" [value]="form().birth" (input)="patchForm({ birth: $any($event.target).value })"/>
+            </div>
+            <div class="qc-field" style="flex:1">
+              <label class="eyebrow">Género</label>
+              <div style="display:flex;gap:4px" class="bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                @for (g of genderOptions; track g.v) {
+                  <button type="button" class="gender-btn" [attr.data-active]="form().gender === g.v" (click)="patchForm({ gender: g.v })">
+                    {{ g.l }}
+                  </button>
+                }
+              </div>
+            </div>
+          </div>
+
+          <div class="qc-row">
+            <div class="qc-field" style="flex:1">
+              <label class="eyebrow">Teléfono</label>
+              <input class="qc-input" placeholder="+54 388 4123-5678" [value]="form().phone" (input)="patchForm({ phone: $any($event.target).value })"/>
+            </div>
+            <div class="qc-field" style="flex:2">
+              <label class="eyebrow">Email</label>
+              <input class="qc-input" type="email" placeholder="apellido.nombre@gmail.com" [value]="form().email" (input)="patchForm({ email: $any($event.target).value })"/>
+            </div>
+          </div>
+
+          <div class="qc-field">
+            <label class="eyebrow">Dirección</label>
+            <div class="relative w-full">
+              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              </div>
+              <input class="qc-input pl-9" placeholder="Av. 19 de Abril 247 · Centro" [value]="form().addr" (input)="patchForm({ addr: $any($event.target).value })"/>
+            </div>
+          </div>
+
+          <div class="qc-field">
+            <label class="eyebrow">Plan contratado <span style="color:var(--accent-red)">*</span></label>
+            <div class="plan-grid">
+              @for (p of plans(); track p.id) {
+                <button type="button" class="plan-card hover:bg-slate-50/70"
+                  [attr.data-active]="form().planId === p.id"
+                  [style.border-color]="form().planId === p.id ? getPlanColor(p.tier) : '#e2e8f0'"
+                  [style.background]="form().planId === p.id ? getPlanColor(p.tier) + '0e' : 'transparent'"
+                  (click)="patchForm({ planId: p.id })">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                    <span class="plan-card__dot" [style.background]="getPlanColor(p.tier)" [style.box-shadow]="'0 0 10px ' + getPlanColor(p.tier)"></span>
+                    <span style="font-size:13px;font-weight:600" [style.color]="form().planId === p.id ? getPlanColor(p.tier) : '#1e293b'">{{ p.name }}</span>
+                  </div>
+                  <div class="mono" style="font-size:12px;color:#475569">
+                    {{ fmtCurrency(p.pricing.monthly) }}<span style="color:#94a3b8;margin-left:4px">/ mes</span>
+                  </div>
+                </button>
+              }
+            </div>
+          </div>
+
+        </div>
+      }
+
+      @if (formTab() === 'group') {
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div class="eyebrow">{{ form().deps.length }} dependientes en el grupo</div>
+            <button type="button" class="px-3 py-1.5 border border-slate-200 text-xs font-semibold text-slate-600 bg-white hover:bg-slate-50 rounded-xl shadow-xs transition flex items-center gap-1.5" (click)="addDep()">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Agregar dependiente
+            </button>
+          </div>
+
+          @if (form().deps.length === 0) {
+            <div class="flex flex-col items-center justify-center p-8 bg-slate-50 border border-slate-200 border-dashed rounded-2xl text-center">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mb-2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+              <div style="font-size:13px;color:#475569;font-weight:600">Aún no agregaste dependientes.</div>
+              <div class="mono micro" style="color:#94a3b8;margin-top:4px">Cónyuge, hijos/as, padres u otros familiares cubiertos por el plan.</div>
+            </div>
+          }
+
+          @for (d of form().deps; track d.id; let i = $index) {
+            <div class="dep-row-form border-slate-200 bg-slate-50/40">
+              <div class="dep-row__num mono text-slate-400 font-bold">{{ (i + 1).toString().padStart(2, '0') }}</div>
+              <div class="qc-field" style="flex:2">
+                <label class="eyebrow">Nombre y apellido</label>
+                <input class="qc-input" placeholder="Ej. Lucía Vázquez" [value]="d.name + (d.apellido ? ' ' + d.apellido : '')" (input)="onFullNameDepInput(d.id, $any($event.target).value)"/>
+              </div>
+              <div class="qc-field" style="flex:1">
+                <label class="eyebrow">DNI</label>
+                <input class="qc-input" placeholder="42.554.789" [value]="d.dni" (input)="updateDep(d.id, 'dni', $any($event.target).value)"/>
+              </div>
+              <div class="qc-field" style="width:140px">
+                <label class="eyebrow">Parentesco</label>
+                <select class="qc-input" [value]="d.parentesco" (change)="updateDep(d.id, 'parentesco', $any($event.target).value)">
+                  @for (p of parentescos; track p) {
+                    <option [value]="p">{{ p }}</option>
+                  }
+                </select>
+              </div>
+              <button type="button" class="us-remove border-red-200" (click)="removeDep(d.id)" style="align-self:flex-end;margin-bottom:2px">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+              </button>
+            </div>
+          }
+        </div>
+      }
+    </div>
+
+    @if (formError()) {
+      <div style="margin:0 20px 10px;padding:8px 12px;border-radius:8px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);font-size:12px;color:var(--accent-red)">
+        {{ formError() }}
+      </div>
+    }
+
+    <div class="qc-foot border-slate-200 bg-slate-50/50">
+      <div class="qc-hint text-slate-400">
+        <span class="kbd">Esc</span> cerrar &nbsp;·&nbsp;
+        Tab: <strong [style.color]="formTab() === 'titular' ? '#3b82f6' : '#94a3b8'">Titular</strong>
+        · <strong [style.color]="formTab() === 'group' ? '#3b82f6' : '#94a3b8'">Grupo</strong>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button type="button" class="px-4 py-2 border border-slate-200 text-xs font-semibold text-slate-600 bg-white hover:bg-slate-100 rounded-xl shadow-xs transition" (click)="onClose()">Cancelar</button>
+        <button type="button" class="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:hover:bg-blue-600 rounded-xl shadow-xs transition flex items-center gap-1.5" [disabled]="!canSubmit() || savingForm()" (click)="onSave()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          {{ savingForm() ? 'Guardando…' : 'Guardar afiliado' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

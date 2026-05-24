@@ -1,0 +1,381 @@
+<div class="screen max-w-full p-4 flex flex-col gap-4">
+
+  <!-- ── Header de KPIs simétricos ── -->
+  <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <div class="w-12 h-12 bg-white border border-slate-200 rounded-xl flex items-center justify-center shadow-sm">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+      </div>
+      <div>
+        <h2 class="text-2xl font-bold tracking-tight text-slate-800">Pacientes / Afiliados</h2>
+        <div class="text-xs font-mono tracking-wider text-slate-400 mt-0.5">PADRÓN DE AFILIADOS · GRUPO FAMILIAR · PLANES</div>
+      </div>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+      <!-- KPIs -->
+      <div class="grid grid-cols-4 gap-3 flex-1 lg:flex-initial">
+        <div class="bg-white border border-slate-200 rounded-xl p-3 min-w-[90px] flex flex-col justify-between shadow-sm">
+          <span class="text-[9px] font-mono font-bold tracking-widest text-slate-400 uppercase">Afiliados</span>
+          <span class="text-xl font-bold font-mono text-slate-800 leading-none mt-1">{{ counts().total + counts().dependents }}</span>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-xl p-3 min-w-[90px] flex flex-col justify-between shadow-sm">
+          <span class="text-[9px] font-mono font-bold tracking-widest text-slate-400 uppercase">Titulares</span>
+          <span class="text-xl font-bold font-mono text-blue-600 leading-none mt-1">{{ counts().titulares }}</span>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-xl p-3 min-w-[90px] flex flex-col justify-between shadow-sm">
+          <span class="text-[9px] font-mono font-bold tracking-widest text-slate-400 uppercase">Al Día</span>
+          <span class="text-xl font-bold font-mono text-emerald-600 leading-none mt-1">{{ counts().alDia }}</span>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-xl p-3 min-w-[90px] flex flex-col justify-between shadow-sm">
+          <span class="text-[9px] font-mono font-bold tracking-widest text-slate-400 uppercase">En Deuda</span>
+          <span class="text-xl font-bold font-mono text-red-500 leading-none mt-1">{{ counts().deuda }}</span>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="flex items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0">
+        <button class="flex-1 sm:flex-initial px-4 py-2 text-xs font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition rounded-xl shadow-sm">
+          Exportar CSV
+        </button>
+        <button class="flex-1 sm:flex-initial px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 transition rounded-xl shadow-sm flex items-center justify-center gap-1.5" (click)="openNewForm()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Nuevo afiliado
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Main Grid Layout ── -->
+  <div class="w-full bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex flex-col">
+    <!-- Toolbar -->
+    <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-4 border-b border-slate-100 bg-slate-50/50">
+      <div class="relative w-full md:max-w-md">
+        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <svg class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
+        <input
+          class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs bg-white text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition"
+          placeholder="Buscar por nombre, DNI o ID de afiliado…"
+          [value]="searchQuery()"
+          (input)="searchQuery.set($any($event.target).value); page.set(0)"
+        />
+      </div>
+
+      <div class="flex flex-wrap items-center gap-4 w-full md:w-auto">
+        <div class="flex items-center gap-1.5">
+          <span class="text-[10px] font-mono font-bold tracking-wider text-slate-400 uppercase">Estado:</span>
+          <div class="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+            @for (s of statusOptions; track s.value) {
+              <button
+                class="px-3 py-1 text-[11px] font-semibold rounded-md transition"
+                [class.bg-white]="statusFilter() === s.value"
+                [class.text-blue-600]="statusFilter() === s.value"
+                [class.shadow-sm]="statusFilter() === s.value"
+                [class.text-slate-500]="statusFilter() !== s.value"
+                [class.hover:text-slate-700]="statusFilter() !== s.value"
+                (click)="setStatus(s.value)"
+              >{{ s.label | uppercase }}</button>
+            }
+          </div>
+        </div>
+
+        <div class="flex items-center gap-1.5 w-full sm:w-auto">
+          <span class="text-[10px] font-mono font-bold tracking-wider text-slate-400 uppercase">Plan:</span>
+          <select 
+            class="w-full sm:w-44 px-3 py-1.5 border border-slate-200 rounded-lg text-xs bg-white text-slate-600 outline-none focus:ring-1 focus:ring-blue-500 transition"
+            [value]="planFilter()"
+            (change)="planFilter.set($any($event.target).value); page.set(0)"
+          >
+            <option value="all">Todos los planes</option>
+            @for (p of apiPlans(); track p.id) {
+              <option [value]="p.name">{{ p.name }}</option>
+            }
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Table View -->
+    <div class="overflow-x-auto min-h-[300px]">
+      @if (loading()) {
+        <div class="flex flex-col items-center justify-center py-20 text-slate-400 text-xs font-mono">
+          <svg class="animate-spin h-5 w-5 text-blue-500 mb-2" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          Cargando afiliados…
+        </div>
+      } @else {
+        <table class="w-full text-slate-600 text-xs border-collapse">
+          <thead>
+            <tr class="bg-slate-50/65 border-b border-slate-100">
+              <th class="text-left font-mono text-[9px] font-bold text-slate-400 tracking-widest uppercase p-4">Afiliado</th>
+              <th class="text-left font-mono text-[9px] font-bold text-slate-400 tracking-widest uppercase p-4">DNI</th>
+              <th class="text-left font-mono text-[9px] font-bold text-slate-400 tracking-widest uppercase p-4">Tipo</th>
+              <th class="text-left font-mono text-[9px] font-bold text-slate-400 tracking-widest uppercase p-4">Plan Activo</th>
+              <th class="text-left font-mono text-[9px] font-bold text-slate-400 tracking-widest uppercase p-4">Estado</th>
+              <th class="text-left font-mono text-[9px] font-bold text-slate-400 tracking-widest uppercase p-4">Grupo Familiar</th>
+              <th class="w-12 p-4"></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            @if (paged().length === 0) {
+              <tr>
+                <td colspan="7" class="py-16 text-center text-slate-400 font-mono">Sin resultados en el padrón</td>
+              </tr>
+            }
+            @for (p of paged(); track p.pacienteId) {
+              <tr (click)="goToDetail(p)" class="hover:bg-slate-50/40 cursor-pointer transition">
+                <td class="p-4">
+                  <div class="flex items-center gap-3">
+                    <!-- Avatar -->
+                    <div class="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold font-mono tracking-tighter"
+                         [style.background]="'linear-gradient(135deg, ' + p.planColor + ', #1e293b)'">
+                      {{ avatarOf(p.name) }}
+                    </div>
+                    <div>
+                      <div class="font-semibold text-slate-800 text-[13px]">{{ p.name }}</div>
+                      <div class="text-[10px] font-mono text-slate-400 mt-0.5 leading-none">{{ p.id }}</div>
+                    </div>
+                  </div>
+                </td>
+                <td class="p-4 font-mono text-slate-600">{{ p.dni }}</td>
+                <td class="p-4">
+                  <span class="inline-block px-2.5 py-0.5 rounded-md text-[10px] font-mono font-bold tracking-wider uppercase border"
+                        [class.bg-blue-50]="p.type === 'titular'"
+                        [class.text-blue-600]="p.type === 'titular'"
+                        [class.border-blue-100]="p.type === 'titular'"
+                        [class.bg-slate-50]="p.type !== 'titular'"
+                        [class.text-slate-400]="p.type !== 'titular'"
+                        [class.border-slate-100]="p.type !== 'titular'">
+                    {{ p.type === 'titular' ? 'Titular' : 'Dependiente' }}
+                  </span>
+                </td>
+                <td class="p-4">
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11.5px] font-medium leading-none"
+                        [style.background-color]="p.planColor + '10'"
+                        [style.color]="p.planColor"
+                        [style.border-color]="p.planColor + '40'">
+                    <span class="w-1.5 h-1.5 rounded-full" [style.background-color]="p.planColor"></span>
+                    {{ p.planNombre }}
+                  </span>
+                </td>
+                <td class="p-4">
+                  @if (p.status === 'al-dia') {
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-600 border border-emerald-100">
+                      <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                      Al día
+                    </span>
+                  } @else {
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-red-50 text-red-600 border border-red-100 relative overflow-visible">
+                      <!-- Micro pulsing bullet -->
+                      <span class="relative flex h-1.5 w-1.5">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500"></span>
+                      </span>
+                      En deuda
+                    </span>
+                  }
+                </td>
+                <td class="p-4">
+                  @if (p.depCount === 0) {
+                    <span class="text-slate-300 font-mono font-light text-[11px]">—</span>
+                  } @else {
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cyan-50 border border-cyan-100 text-[11px] font-bold font-mono text-cyan-600">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                      {{ p.depCount }}
+                    </span>
+                  }
+                </td>
+                <td class="p-4" (click)="$event.stopPropagation()" style="position:relative">
+                  <button class="w-7 h-7 flex items-center justify-center rounded-lg border border-transparent hover:border-slate-200 hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition" (click)="toggleMenu(p.id)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                  </button>
+
+                  <!-- Dropdown flotante premium -->
+                  @if (menuOpen() === p.id) {
+                    <div class="absolute right-4 top-[85%] z-50 min-w-[180px] bg-white border border-slate-200 rounded-xl shadow-xl p-1 flex flex-col gap-0.5 animate-in fade-in slide-in-from-top-2 duration-100">
+                      <button class="flex items-center gap-2 w-full px-3 py-2 text-left text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-800 rounded-lg transition" (click)="goToDetail(p); menuOpen.set(null)">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        Ver detalle
+                      </button>
+                      <button class="flex items-center gap-2 w-full px-3 py-2 text-left text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-800 rounded-lg transition" (click)="openEditForm(p); menuOpen.set(null)">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        Editar
+                      </button>
+                      <button class="flex items-center gap-2 w-full px-3 py-2 text-left text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-800 rounded-lg transition" (click)="openQuickPayment(p); menuOpen.set(null)">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                        Registrar pago
+                      </button>
+                      <button class="flex items-center gap-2 w-full px-3 py-2 text-left text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-800 rounded-lg transition" (click)="menuOpen.set(null)">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        Descargar carnet
+                      </button>
+                      <div class="h-[1px] bg-slate-100 my-1"></div>
+                      <button class="flex items-center gap-2 w-full px-3 py-2 text-left text-xs font-semibold text-red-500 hover:bg-red-50 hover:text-red-600 rounded-lg transition" (click)="confirmBaja(p); menuOpen.set(null)">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                        Dar de baja
+                      </button>
+                    </div>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+
+    <!-- Pagination -->
+    <div class="flex items-center justify-between p-4 border-t border-slate-100 bg-slate-50/20 text-slate-500 text-xs">
+      <div class="font-mono text-slate-400">
+        Mostrando <strong class="text-slate-700 font-bold">{{ paged().length }}</strong> de
+        <strong class="text-slate-700 font-bold">{{ filtered().length }}</strong> afiliados
+      </div>
+      <div class="flex items-center gap-1.5 font-semibold">
+        <button class="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 disabled:opacity-40 disabled:hover:bg-transparent transition" [disabled]="page() === 0" (click)="page.set(page() - 1)">‹ Anterior</button>
+        @for (i of pageRange(); track i) {
+          <button class="w-8 h-8 rounded-lg flex items-center justify-center border font-mono font-medium text-xs transition"
+            [class.bg-blue-50]="page() === i"
+            [class.border-blue-300]="page() === i"
+            [class.text-blue-600]="page() === i"
+            [class.border-slate-200]="page() !== i"
+            [class.text-slate-500]="page() !== i"
+            [class.hover:bg-slate-50]="page() !== i"
+            (click)="page.set(i)">{{ i + 1 }}</button>
+        }
+        <button class="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 disabled:opacity-40 disabled:hover:bg-transparent transition" [disabled]="page() >= totalPages() - 1" (click)="page.set(page() + 1)">Siguiente ›</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Drawer de Detalle (Panel Lateral Derecho) -->
+@if (selectedPatient(); as p) {
+  <app-patient-detail-drawer
+    [patient]="p"
+    [ficha]="ficha()"
+    [facturas]="facturas()"
+    [loading]="loadingFicha()"
+    (close)="selectedPatient.set(null)"
+    (edit)="openEditForm($event)"
+    (registerPago)="openQuickPayment($event)"
+    (generarFactura)="generarFacturaMensual($event)"
+    (traspasarTitularidad)="openTraspasoModal($event)"
+  />
+}
+
+<!-- Modal de Formulario de Alta / Edición (Tabulado) -->
+@if (formOpen()) {
+  <app-patient-form-modal
+    [initialForm]="form()"
+    [editingRow]="editingRow()"
+    [plans]="apiPlans()"
+    [savingForm]="savingForm()"
+    [formError]="formError()"
+    (close)="closeForm()"
+    (save)="saveForm($event)"
+  />
+}
+
+<!-- Modal de Registro Rápido de Pago (Sub-Modal) -->
+@if (paymentModalOpen()) {
+  <app-quick-payment-modal
+    [patient]="paymentTarget()!"
+    [suggestedAmount]="paymentAmount"
+    (close)="paymentModalOpen.set(false)"
+    (submit)="submitQuickPayment($event)"
+  />
+}
+
+<!-- Modal de Asistente de Traspaso de Titularidad (Premium) -->
+@if (traspasoModalOpen()) {
+  <div class="fixed inset-0 z-[60] bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+    <div class="w-full max-w-md bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+      
+      <!-- Modal Header -->
+      <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m16 11 2 2 4-4"/></svg>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-slate-800">Traspaso de Titularidad</h3>
+            <p class="text-[10.5px] font-mono text-slate-400 mt-0.5 uppercase tracking-wider">Asistente de Emergencia ALS</p>
+          </div>
+        </div>
+        <button class="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition" (click)="traspasoModalOpen.set(false)" [disabled]="traspasoLoading()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-6 flex flex-col gap-4">
+        <p class="text-xs text-slate-500 leading-normal">
+          Para reactivar la cuenta familiar y reanudar la facturación recurrente, seleccioná uno de los dependientes activos y mayores de edad para promoverlo como el nuevo **Responsable Financiero / Titular**.
+        </p>
+
+        @if (traspasoLoading()) {
+          <div class="flex flex-col items-center justify-center py-10 text-slate-400 text-xs font-mono">
+            <svg class="animate-spin h-5 w-5 text-blue-500 mb-2" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Procesando traspaso seguro…
+          </div>
+        } @else {
+          @if (traspasoMiembros().length === 0) {
+            <div class="p-5 bg-amber-50/50 border border-amber-100 rounded-2xl text-center text-xs text-amber-700 leading-normal">
+              ⚠ No se encontraron dependientes activos y elegibles en este grupo para realizar el traspaso. Deberás agregar un nuevo familiar antes.
+            </div>
+          } @else {
+            <div class="flex flex-col gap-2">
+              <span class="text-[9px] font-mono font-bold tracking-widest text-slate-400 uppercase">Seleccionar nuevo Titular</span>
+              <div class="flex flex-col gap-2 max-h-48 overflow-y-auto scrollbar-thin">
+                @for (m of traspasoMiembros(); track m.id) {
+                  <label class="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 hover:border-blue-400 rounded-2xl shadow-xs cursor-pointer transition"
+                         [class.border-blue-500]="traspasoSelectedMiembroId() === m.id"
+                         [class.bg-blue-50/20]="traspasoSelectedMiembroId() === m.id">
+                    <input type="radio" name="nuevoTitular" [value]="m.id" 
+                           [checked]="traspasoSelectedMiembroId() === m.id"
+                           (change)="traspasoSelectedMiembroId.set(m.id)"
+                           class="w-4 h-4 text-blue-600 border-slate-300 focus:ring-blue-500" />
+                    <div class="flex-1 min-w-0">
+                      <div class="font-bold text-slate-800 text-xs truncate">
+                        {{ m.paciente?.nombre }} {{ m.paciente?.apellido }}
+                      </div>
+                      <div class="text-[9.5px] font-mono text-slate-400 leading-none mt-0.5">
+                        DNI {{ m.paciente?.dni }} · {{ m.rolFamiliar === 'CO_TITULAR' ? 'Cónyuge' : 'Familiar' }}
+                      </div>
+                    </div>
+                  </label>
+                }
+              </div>
+            </div>
+          }
+        }
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="p-6 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-2.5">
+        <button class="px-4 py-2 border border-slate-200 text-xs font-semibold text-slate-600 bg-white hover:bg-slate-100 rounded-xl shadow-xs transition"
+                (click)="traspasoModalOpen.set(false)" [disabled]="traspasoLoading()">
+          Cancelar
+        </button>
+        <button class="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-xl shadow-xs transition"
+                [disabled]="!traspasoSelectedMiembroId() || traspasoLoading()" (click)="ejecutarTraspaso()">
+          Confirmar Traspaso
+        </button>
+      </div>
+
+    </div>
+  </div>
+}

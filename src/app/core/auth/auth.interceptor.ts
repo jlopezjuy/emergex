@@ -1,9 +1,8 @@
 import { HttpInterceptorFn } from '@angular/common/http';
-
-import { JWT_STORAGE_KEY } from './auth.constants';
+import { getSecureToken } from './auth.storage';
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
-  const token = localStorage.getItem(JWT_STORAGE_KEY);
+  const token = getSecureToken();
   if (token) {
     const cloned = req.clone({
       headers: req.headers.set('Authorization', `Bearer ${token}`),
