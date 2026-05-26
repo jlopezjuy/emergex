@@ -22,6 +22,7 @@ export interface UnidadMovilDTO {
   eta?: number | null;
   ticketActivo?: number;
   patente?: string;
+  modelo?: string;
   // inventario real del backend
   oxigenoPct?: number | null;
   adrenalinaPct?: number | null;

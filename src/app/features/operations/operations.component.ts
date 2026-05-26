@@ -1,4 +1,5 @@
 import { Component, inject, signal, computed, OnInit, OnDestroy, DestroyRef } from '@angular/core';
+import { DecimalPipe } from '@angular/common';
 import { EmergencyStore } from '../../core/stores/emergency.store';
 import { FleetStore } from '../../core/stores/fleet.store';
 import { WebsocketService } from '../../core/websocket/websocket.service';
@@ -32,76 +33,28 @@ type FeedTab = 'TODAS' | 'SIN_ASIGNAR' | 'CRITICAS';
     ModalShellComponent,
     DispatchModalComponent,
     FormsModule,
+    DecimalPipe,
   ],
   template: `
     <div class="h-full flex flex-col overflow-hidden">
-      <!-- Main 2-column area -->
-      <div class="flex-1 grid overflow-hidden" style="grid-template-columns: 1fr 340px;">
+      <!-- Main 3-column area -->
+      <div class="flex-1 grid overflow-hidden grid-cols-[340px_1fr_340px]">
 
-        <!-- Map (center/left) -->
-        <div class="relative overflow-hidden">
-          <!-- Map header overlay -->
-          <div class="ops-map-header absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 py-2.5 flex-shrink-0"
-            style="pointer-events: none;">
-            <div class="flex items-center gap-2" style="pointer-events: none;">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--text-muted)" stroke-width="1.5">
-                <path d="M8.5 1l-3.5 1.5-3.5-1.5v10l3.5 1.5 3.5-1.5 3.5 1.5V2.5L8.5 1z"/>
-                <path d="M5 2.5v10M8.5 1v10.5"/>
-              </svg>
-              <span class="font-mono text-xs font-semibold" style="color: var(--text-primary);">Mapa Operacional</span>
-              <span class="font-mono text-xs" style="color: var(--text-muted);">SSJ · VISTA MAESTRA</span>
-            </div>
-            <div class="flex items-center gap-1.5" style="pointer-events: auto;">
-              <button type="button" class="flex items-center gap-1 px-2 py-0.5 rounded font-mono text-xs"
-                style="background: rgba(239,68,68,0.12); color: var(--accent-red); border: 1px solid rgba(239,68,68,0.25);">
-                <span style="width:6px;height:6px;border-radius:50%;background:var(--accent-red);display:inline-block;"></span>ROJO
-              </button>
-              <button type="button" class="flex items-center gap-1 px-2 py-0.5 rounded font-mono text-xs"
-                style="background: rgba(245,158,11,0.12); color: var(--accent-amber); border: 1px solid rgba(245,158,11,0.25);">
-                <span style="width:6px;height:6px;border-radius:50%;background:var(--accent-amber);display:inline-block;"></span>AMARILLO
-              </button>
-              <button type="button" class="flex items-center gap-1 px-2 py-0.5 rounded font-mono text-xs"
-                style="background: rgba(16,185,129,0.12); color: var(--accent-emerald); border: 1px solid rgba(16,185,129,0.25);">
-                <span style="width:6px;height:6px;border-radius:50%;background:var(--accent-emerald);display:inline-block;"></span>VERDE
-              </button>
-              <button type="button" class="flex items-center gap-1 px-2 py-0.5 rounded font-mono text-xs"
-                style="background: rgba(59,130,246,0.12); color: var(--accent-blue); border: 1px solid rgba(59,130,246,0.25);">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5">
-                  <rect x="1" y="4" width="10" height="5" rx="1"/><path d="M3 4V3a2 2 0 014 0v1"/>
-                </svg>UNIDADES
-              </button>
-            </div>
-          </div>
-          <emx-operations-map
-            [ambulances]="fleetStore.ambulances()"
-            [emergencies]="emergencyStore.emergencies()"
-            [selectedEmergencyId]="emergencyStore.selectedId()"
-            [focusRequest]="mapFocusRequest()"
-            [autoFit]="true"
-            (selectEmergency)="emergencyStore.selectEmergency($event)"
-            (selectAmbulance)="onSelectAmbulance($event)"
-          />
-        </div>
-
-        <!-- Feed panel (right) -->
-        <div
-          class="ops-feed-panel flex flex-col overflow-hidden border-l"
-        >
+        <!-- Feed panel (left) -->
+        <div class="ops-feed-panel flex flex-col overflow-hidden border-r" style="border-color: var(--border-glass);">
           <!-- Feed panel title -->
-          <div class="flex items-center justify-between px-3 py-2 border-b flex-shrink-0"
-            style="border-color: var(--border-glass);">
+          <div class="flex items-center justify-between px-3 py-2 border-b flex-shrink-0" style="border-color: var(--border-glass);">
             <div class="flex items-center gap-2">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--accent-red)" stroke-width="1.5">
                 <path d="M7 1c0 3-4 4-4 7a4 4 0 008 0c0-3-4-4-4-7z"/>
               </svg>
               <span class="font-semibold text-sm" style="color: var(--text-primary);">Feed de Emergencias</span>
-              <span class="font-mono text-xs px-1.5 py-0.5 rounded"
-                style="background: rgba(239,68,68,0.15); color: var(--accent-red);">
+              <span class="font-mono text-xs px-1.5 py-0.5 rounded" style="background: rgba(239,68,68,0.15); color: var(--accent-red);">
                 {{ emergencyStore.emergencies().length }}
               </span>
             </div>
             <div class="flex items-center gap-1.5 font-mono text-xs" style="color: var(--accent-emerald);">
-              <span class="w-1.5 h-1.5 rounded-full" style="background: var(--accent-emerald);"></span>
+              <span class="w-1.5 h-1.5 rounded-full animate-pulse" style="background: var(--accent-emerald);"></span>
               LIVE
             </div>
           </div>
@@ -132,7 +85,7 @@ type FeedTab = 'TODAS' | 'SIN_ASIGNAR' | 'CRITICAS';
                 type="text"
                 [(ngModel)]="feedSearch"
                 placeholder="Buscar por tipo o dirección..."
-                class="w-full rounded-btn px-2.5 py-1.5 text-xs"
+                class="w-full rounded-btn px-2.5 py-1.5 text-xs outline-none"
                 style="background: var(--surface-glass); border: 1px solid var(--border-glass); color: var(--text-primary);"
               />
             </div>
@@ -157,17 +110,191 @@ type FeedTab = 'TODAS' | 'SIN_ASIGNAR' | 'CRITICAS';
             }
           </div>
         </div>
-      </div>
 
-      <!-- Telemetry bar (bottom) -->
-      <div
-        class="px-4 py-2 border-t flex-shrink-0"
-        style="height: 136px; border-color: var(--border-glass); background: var(--bg-elevated);"
-      >
-        <emx-telemetry-bar
-          [ambulances]="fleetStore.ambulances()"
-          [dashboard]="dashboard()"
-        />
+        <!-- Map (center) -->
+        <div class="relative overflow-hidden">
+          <!-- Map header overlay -->
+          <div class="ops-map-header absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 py-2.5 flex-shrink-0" style="pointer-events: none;">
+            <div class="flex items-center gap-2" style="pointer-events: none;">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--text-muted)" stroke-width="1.5">
+                <path d="M8.5 1l-3.5 1.5-3.5-1.5v10l3.5 1.5 3.5-1.5 3.5 1.5V2.5L8.5 1z"/>
+                <path d="M5 2.5v10M8.5 1v10.5"/>
+              </svg>
+              <span class="font-mono text-xs font-semibold" style="color: var(--text-primary);">Mapa Operacional</span>
+              <span class="font-mono text-xs" style="color: var(--text-muted);">SSJ · VISTA MAESTRA</span>
+            </div>
+            <div class="flex items-center gap-1.5" style="pointer-events: auto;">
+              <button type="button" class="flex items-center gap-1 px-2 py-0.5 rounded font-mono text-xs" style="background: rgba(239,68,68,0.12); color: var(--accent-red); border: 1px solid rgba(239,68,68,0.25);">
+                <span style="width:6px;height:6px;border-radius:50%;background:var(--accent-red);display:inline-block;"></span>ROJO
+              </button>
+              <button type="button" class="flex items-center gap-1 px-2 py-0.5 rounded font-mono text-xs" style="background: rgba(245,158,11,0.12); color: var(--accent-amber); border: 1px solid rgba(245,158,11,0.25);">
+                <span style="width:6px;height:6px;border-radius:50%;background:var(--accent-amber);display:inline-block;"></span>AMARILLO
+              </button>
+              <button type="button" class="flex items-center gap-1 px-2 py-0.5 rounded font-mono text-xs" style="background: rgba(16,185,129,0.12); color: var(--accent-emerald); border: 1px solid rgba(16,185,129,0.25);">
+                <span style="width:6px;height:6px;border-radius:50%;background:var(--accent-emerald);display:inline-block;"></span>VERDE
+              </button>
+            </div>
+          </div>
+          <emx-operations-map
+            [ambulances]="fleetStore.ambulances()"
+            [emergencies]="emergencyStore.emergencies()"
+            [selectedEmergencyId]="emergencyStore.selectedId()"
+            [focusRequest]="mapFocusRequest()"
+            [autoFit]="true"
+            (selectEmergency)="emergencyStore.selectEmergency($event)"
+            (selectAmbulance)="onSelectAmbulance($event)"
+          />
+        </div>
+
+        <!-- Inspector (right, 340px) -->
+        <div class="ops-feed-panel flex flex-col overflow-hidden border-l" style="border-color: var(--border-glass);">
+          @if (selectedAmbulance()) {
+            @let amb = selectedAmbulance()!;
+            <!-- Inspector Head -->
+            <div class="flex items-center gap-3 p-3 border-b flex-shrink-0" style="border-color: var(--border-glass);">
+              <div
+                class="w-10 h-10 rounded-xl flex items-center justify-center font-bold flex-shrink-0"
+                [style.background]="amb.estado === 'EN_RUTA' || amb.estado === 'TRASLADO' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)'"
+                [style.color]="amb.estado === 'EN_RUTA' || amb.estado === 'TRASLADO' ? 'var(--accent-red)' : 'var(--accent-emerald)'"
+                style="border: 1px solid var(--border-glass);"
+              >
+                🚑
+              </div>
+              <div class="min-w-0 flex-1">
+                <h3 class="font-bold text-sm leading-tight truncate" style="color: var(--text-primary);">
+                  {{ amb.identificador }} · {{ amb.tipo }}
+                </h3>
+                <p class="text-[11px]" style="color: var(--text-muted);">
+                  {{ amb.modelo || 'Mercedes Sprinter' }} · {{ amb.patente || 'AE-718-MZ' }}
+                </p>
+                <!-- Status badge custom -->
+                <span
+                  class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold font-mono tracking-wide uppercase mt-1"
+                  [style.background]="amb.estado === 'EN_RUTA' || amb.estado === 'TRASLADO' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)'"
+                  [style.color]="amb.estado === 'EN_RUTA' || amb.estado === 'TRASLADO' ? 'var(--accent-red)' : 'var(--accent-emerald)'"
+                >
+                  <span class="w-1.5 h-1.5 rounded-full animate-pulse"
+                    [style.background]="amb.estado === 'EN_RUTA' || amb.estado === 'TRASLADO' ? 'var(--accent-red)' : 'var(--accent-emerald)'"
+                  ></span>
+                  {{ amb.estado?.replace('_', ' ') }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Inspector Content -->
+            <div class="flex-1 overflow-y-auto p-3 flex flex-col gap-4">
+              
+              <!-- Telemetry HUD -->
+              <div class="grid grid-cols-2 gap-2 border rounded-xl p-2.5" style="border-color: var(--border-glass); background: var(--surface-glass);">
+                <div class="col-span-2 flex flex-col leading-tight border-b pb-1.5" style="border-color: var(--border-glass);">
+                  <span class="font-mono text-[9px] tracking-wider uppercase" style="color: var(--text-muted);">GPS · TIEMPO REAL</span>
+                  <span class="font-mono text-xs font-semibold" style="color: var(--accent-cyan);">
+                    {{ amb.latitud ? (amb.latitud | number:'1.4-4') + ', ' + (amb.longitud | number:'1.4-4') : '-34.5829, -58.4128' }}
+                  </span>
+                </div>
+                <div class="flex flex-col leading-tight">
+                  <span class="font-mono text-[9px] tracking-wider uppercase" style="color: var(--text-muted);">VELOCIDAD</span>
+                  <span class="font-mono text-xs font-semibold" style="color: var(--text-primary);">
+                    {{ amb.estado === 'EN_RUTA' ? '68 km/h' : '0 km/h' }}
+                  </span>
+                </div>
+                <div class="flex flex-col leading-tight">
+                  <span class="font-mono text-[9px] tracking-wider uppercase" style="color: var(--text-muted);">ETA</span>
+                  <span class="font-mono text-xs font-semibold"
+                    [style.color]="amb.estado === 'EN_RUTA' ? 'var(--accent-red)' : 'var(--text-primary)'"
+                  >
+                    {{ amb.estado === 'EN_RUTA' ? '03:45 min' : '—' }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Crew -->
+              @if (amb.tripulacion) {
+                <div>
+                  <div class="font-mono text-[10px] tracking-widest uppercase mb-1.5" style="color: var(--text-muted);">Tripulación activa</div>
+                  <div class="flex flex-col gap-1.5 border rounded-xl p-2" style="border-color: var(--border-glass); background: var(--surface-glass);">
+                    @for (member of getParsedCrew(amb.tripulacion); track member.name) {
+                      <div class="flex items-center gap-2 text-xs py-1 border-t first:border-t-0" style="border-color: var(--border-glass);">
+                        <div class="w-6 h-6 rounded-full bg-blue-900/30 text-blue-300 font-mono text-[9px] font-bold flex items-center justify-center shrink-0">
+                          {{ member.initials }}
+                        </div>
+                        <div class="min-w-0 flex-1">
+                          <p class="font-semibold leading-none" style="color: var(--text-primary);">{{ member.name }}</p>
+                          <p class="text-[10px] mt-0.5" style="color: var(--text-muted);">{{ member.role }}</p>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                </div>
+              }
+
+              <!-- Inventory -->
+              <div>
+                <div class="font-mono text-[10px] tracking-widest uppercase mb-1.5" style="color: var(--text-muted);">Inventario móvil</div>
+                <div class="flex flex-col gap-2.5 border rounded-xl p-2.5" style="border-color: var(--border-glass); background: var(--surface-glass);">
+                  <!-- Item Oxígeno -->
+                  <div class="flex flex-col gap-1 text-xs">
+                    <div class="flex justify-between font-semibold" style="color: var(--text-primary);">
+                      <span>Oxígeno central</span>
+                      <span style="color: var(--accent-emerald);">{{ amb.oxigenoPct ?? 85 }}%</span>
+                    </div>
+                    <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                      <div class="h-full bg-emerald-500 rounded-full" [style.width.%]="amb.oxigenoPct ?? 85"></div>
+                    </div>
+                  </div>
+                  <!-- Item Cardiodesfibrilador -->
+                  <div class="flex flex-col gap-1 text-xs border-t pt-2" style="border-color: var(--border-glass);">
+                    <div class="flex justify-between font-semibold" style="color: var(--text-primary);">
+                      <span>Cardiodesfibrilador (DEA)</span>
+                      <span style="color: var(--accent-emerald);">{{ amb.deaPct ?? 100 }}%</span>
+                    </div>
+                    <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                      <div class="h-full bg-emerald-500 rounded-full" [style.width.%]="amb.deaPct ?? 100"></div>
+                    </div>
+                  </div>
+                  <!-- Item Suero Salino -->
+                  <div class="flex flex-col gap-1 text-xs border-t pt-2" style="border-color: var(--border-glass);">
+                    <div class="flex justify-between font-semibold" style="color: var(--text-primary);">
+                      <span>Suero fisiológico 500mL</span>
+                      <span style="color: var(--accent-amber);">{{ amb.sueroSalinoPct ?? 50 }}%</span>
+                    </div>
+                    <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                      <div class="h-full bg-amber-500 rounded-full" [style.width.%]="amb.sueroSalinoPct ?? 50"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Radio Button -->
+              <button
+                type="button"
+                class="w-full border rounded-xl py-2 flex items-center justify-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-xs font-semibold"
+                style="border-color: var(--border-glass); background: var(--surface-glass); color: var(--text-primary);"
+              >
+                📡 Establecer comunicación VoIP
+              </button>
+
+              <!-- Quick Actions -->
+              <div>
+                <div class="font-mono text-[10px] tracking-widest uppercase mb-1.5" style="color: var(--text-muted);">Acciones rápidas</div>
+                <div class="grid grid-cols-2 gap-1.5">
+                  <button type="button" class="border rounded-lg py-1.5 text-[11px] font-medium hover:bg-slate-800/30" style="border-color: var(--border-glass); color: var(--text-secondary);">Reasignar</button>
+                  <button type="button" class="border rounded-lg py-1.5 text-[11px] font-medium hover:bg-slate-800/30" style="border-color: var(--border-glass); color: var(--text-secondary);">Notificar Hosp.</button>
+                  <button type="button" class="border rounded-lg py-1.5 text-[11px] font-medium hover:bg-slate-800/30" style="border-color: var(--border-glass); color: var(--text-secondary);">Refuerzos</button>
+                  <button type="button" class="border rounded-lg py-1.5 text-[11px] font-medium hover:bg-slate-800/30" style="border-color: var(--border-glass); color: var(--text-secondary);">Historial Clin.</button>
+                </div>
+              </div>
+
+            </div>
+          @} @else {
+            <div class="flex-1 flex flex-col items-center justify-center text-center p-6" style="color: var(--text-muted);">
+              <span class="text-3xl mb-2">📡</span>
+              <p class="text-xs font-mono uppercase tracking-wider">Sin unidad seleccionada</p>
+              <p class="text-[11px] mt-1">Seleccioná una unidad en el mapa para inspeccionar su telemetría, tripulación e inventario.</p>
+            </div>
+          }
+        </div>
+
       </div>
     </div>
 
@@ -255,7 +382,7 @@ type FeedTab = 'TODAS' | 'SIN_ASIGNAR' | 'CRITICAS';
   `],
 })
 export class OperationsComponent implements OnInit, OnDestroy {
-    private destroyRef = inject(DestroyRef);
+  private destroyRef = inject(DestroyRef);
   private readonly fleetCacheKey = 'emergex.operations.fleet.last-ok';
   readonly emergencyStore = inject(EmergencyStore);
   readonly fleetStore = inject(FleetStore);
@@ -266,6 +393,9 @@ export class OperationsComponent implements OnInit, OnDestroy {
 
   readonly dashboard = signal<DashboardOperativoDTO | null>(null);
   readonly selectedAmbulanceId = signal<number | null>(null);
+  readonly selectedAmbulance = computed(() =>
+    this.fleetStore.ambulances().find((a) => a.id === this.selectedAmbulanceId()),
+  );
   readonly mapFocusRequest = signal(0);
 
   readonly activeTab = signal<FeedTab>('TODAS');
@@ -436,5 +566,40 @@ export class OperationsComponent implements OnInit, OnDestroy {
 
   closeCall(): void {
     this.callTicket.set(null);
+  }
+
+  getParsedCrew(tripulacion?: string): { initials: string; name: string; role: string }[] {
+    if (!tripulacion) return [];
+    return tripulacion.split(',').map(member => {
+      const trimmed = member.trim();
+      const parts = trimmed.split(' ');
+      
+      // Extract initials
+      let initials = '';
+      if (parts.length > 0) {
+        const cleanParts = parts.filter(p => !/^(dr|dra|enf|lic|chofer|cond)\.?$/i.test(p));
+        if (cleanParts.length > 0) {
+          initials = cleanParts.map(p => p.charAt(0)).join('').toUpperCase();
+        } else {
+          initials = parts.map(p => p.charAt(0)).join('').toUpperCase();
+        }
+      }
+      initials = initials.substring(0, 2) || 'PR';
+
+      let role = 'Profesional de Guardia';
+      if (trimmed.toLowerCase().includes('dr') || trimmed.toLowerCase().includes('med')) {
+        role = 'Médico emergentólogo';
+      } else if (trimmed.toLowerCase().includes('enf') || trimmed.toLowerCase().includes('lic')) {
+        role = 'Enfermero profesional';
+      } else if (trimmed.toLowerCase().includes('chof') || trimmed.toLowerCase().includes('cond')) {
+        role = 'Chofer / Conductor';
+      }
+
+      return {
+        initials,
+        name: trimmed,
+        role
+      };
+    });
   }
 }

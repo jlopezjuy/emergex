@@ -15,7 +15,10 @@ export class FleetStore implements OnDestroy {
   }
 
   startLocationTracking(): void {
-    if (this.locationSub) return;
+    if (this.locationSub) {
+      this.locationSub.unsubscribe();
+      this.locationSub = null;
+    }
     this.locationSub = this.ws.subscribe('/topic/geo/posiciones', (raw: unknown) => {
       const geoDto = raw as GeoPosicionDTO;
       this.ambulances.update((list) =>

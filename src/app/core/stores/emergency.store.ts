@@ -63,7 +63,14 @@ export class EmergencyStore implements OnDestroy {
   }
 
   startTicketTracking(): void {
-    if (this.ticketSub) return;
+    if (this.ticketSub) {
+      this.ticketSub.unsubscribe();
+      this.ticketSub = null;
+    }
+    if (this.asignacionSub) {
+      this.asignacionSub.unsubscribe();
+      this.asignacionSub = null;
+    }
 
     this.ticketSub = this.ws.subscribe('/topic/tickets', (raw: unknown) => {
       const event = raw as TicketEstadoChangedEvent;
