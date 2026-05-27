@@ -18,6 +18,7 @@ interface InstitutionContract {
   monthlyCap: number;
   kpiMinutes: number;
   conditions: string;
+  polygonPoints?: { x: number; y: number }[];
 }
 
 interface Institution {
@@ -354,7 +355,7 @@ const PAGE_SIZE = 10;
                   </td>
                   <td (click)="$event.stopPropagation()" style="position:relative">
                     <button class="action-icon" style="width:28px;height:28px" title="Acciones"
-                      (click)="toggleMenu(inst.id)">
+                      (click)="toggleMenu(inst.id); $event.stopPropagation()">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
                     </button>
                     @if (menuOpen() === inst.id) {
@@ -452,6 +453,88 @@ const PAGE_SIZE = 10;
                 </select>
               </div>
             </div>
+
+            <!-- Geocerca (Polígono de Cobertura - Sprint 4 Nuevo) -->
+            <div style="padding:14px 16px;border-radius:12px;background:rgba(255,255,255,0.03);border:1px solid var(--border-glass);margin-bottom:14px">
+              <label class="eyebrow" style="color: var(--accent-cyan); display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span>Zona de Cobertura del Plan (Polígono)</span>
+                <span class="mono" style="font-size: 9.5px; color: var(--text-muted)">Hacé clicks en el mapa para trazar el perímetro</span>
+              </label>
+              
+              <div style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 14px;">
+                <!-- Interactive Drawing Map (SVG) -->
+                <div class="mini-map" style="aspect-ratio: 1 / 1; height: 160px; width: 160px; margin: 0 auto;">
+                  <svg viewBox="0 0 100 100" (click)="onContractMapClick($event)">
+                    <!-- Background -->
+                    <rect width="100" height="100" fill="rgba(2,6,23,0.92)"/>
+                    
+                    <!-- Grid lines for visual quality -->
+                    <line x1="25" y1="0" x2="25" y2="100" stroke="rgba(255,255,255,0.05)" stroke-width="0.5"/>
+                    <line x1="50" y1="0" x2="50" y2="100" stroke="rgba(255,255,255,0.05)" stroke-width="0.5"/>
+                    <line x1="75" y1="0" x2="75" y2="100" stroke="rgba(255,255,255,0.05)" stroke-width="0.5"/>
+                    <line x1="0" y1="25" x2="100" y2="25" stroke="rgba(255,255,255,0.05)" stroke-width="0.5"/>
+                    <line x1="0" y1="50" x2="100" y2="50" stroke="rgba(255,255,255,0.05)" stroke-width="0.5"/>
+                    <line x1="0" y1="75" x2="100" y2="75" stroke="rgba(255,255,255,0.05)" stroke-width="0.5"/>
+
+                    <!-- Drawn Polygon Area -->
+                    @if (ctr.polygonPoints && ctr.polygonPoints.length > 0) {
+                      <polygon 
+                        [attr.points]="getPointsString(ctr.polygonPoints)" 
+                        fill="rgba(59,130,246,0.22)" 
+                        stroke="var(--accent-blue)" 
+                        stroke-width="1.5" 
+                        stroke-linejoin="round"
+                      />
+                      @for (pt of ctr.polygonPoints; track pt; let idx = $index) {
+                        <circle [attr.cx]="pt.x" [attr.cy]="pt.y" r="2.5" fill="var(--accent-cyan)" stroke="white" stroke-width="0.5"/>
+                      }
+                    }
+                  </svg>
+                  <div class="mini-map__hint" style="background: rgba(59,130,246,0.6); font-size: 8px; padding: 2px 4px;">DIBUJAR</div>
+                </div>
+
+                <!-- Actions & Vertex List -->
+                <div style="display: flex; flex-direction: column; justify-content: space-between; background: rgba(255,255,255,0.02); border: 1px solid var(--border-glass); border-radius: 12px; padding: 10px;">
+                  <div style="flex: 1; overflow-y: auto; max-height: 90px;">
+                    <span class="eyebrow" style="margin-bottom: 4px; display: block;">Perímetro Cobertura</span>
+                    @if (!ctr.polygonPoints || ctr.polygonPoints.length === 0) {
+                      <div class="font-sans text-[10.5px]" style="color: var(--text-muted); line-height: 1.3;">
+                        Sin cobertura. Usá los botones de abajo o clickeá a la izquierda.
+                      </div>
+                    } @else {
+                      <div style="display: flex; flex-direction: column; gap: 4px;">
+                        @for (pt of ctr.polygonPoints; track pt; let idx = $index) {
+                          <div class="font-mono text-[9px] flex items-center justify-between px-2 py-0.5 rounded bg-white/5" style="color: var(--text-secondary)">
+                            <span>Vértice {{ idx + 1 }}: ({{ pt.x.toFixed(0) }}%, {{ pt.y.toFixed(0) }}%)</span>
+                            <button type="button" class="text-red-400 hover:text-red-300 font-bold" (click)="removeVertex(idx)">✕</button>
+                          </div>
+                        }
+                      </div>
+                    }
+                  </div>
+                  
+                  <!-- Circular Presets (Sprint 4) -->
+                  <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border-glass);">
+                    <span class="eyebrow" style="font-size: 8.5px; margin-bottom: 2px;">Autogenerar Radio</span>
+                    <div style="display: flex; gap: 3px;">
+                      <button type="button" class="filter-chip" style="flex: 1; height: 20px; font-size: 9px; padding: 0; justify-content: center; display: inline-flex; align-items: center;" (click)="generateCircularGeofence(5)">Cercano (5%)</button>
+                      <button type="button" class="filter-chip" style="flex: 1; height: 20px; font-size: 9px; padding: 0; justify-content: center; display: inline-flex; align-items: center;" (click)="generateCircularGeofence(12)">Medio (12%)</button>
+                      <button type="button" class="filter-chip" style="flex: 1; height: 20px; font-size: 9px; padding: 0; justify-content: center; display: inline-flex; align-items: center;" (click)="generateCircularGeofence(22)">Amplio (22%)</button>
+                    </div>
+                  </div>
+
+                  <div style="display: flex; gap: 4px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border-glass);">
+                    <button type="button" class="filter-chip" style="flex: 1; height: 22px; font-size: 10px; text-align: center; justify-content: center; display: inline-flex; align-items: center;" [disabled]="!ctr.polygonPoints || ctr.polygonPoints.length === 0" (click)="clearPolygon()">
+                      Reset
+                    </button>
+                    <button type="button" class="filter-chip" style="flex: 1; height: 22px; font-size: 10px; text-align: center; justify-content: center; display: inline-flex; align-items: center;" [disabled]="!ctr.polygonPoints || ctr.polygonPoints.length < 3" (click)="autoClosePolygon()">
+                      Cerrar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
 
             <!-- Condiciones: fila 1 -->
             <div class="contract-grid" style="margin-bottom:12px">
@@ -776,7 +859,7 @@ const PAGE_SIZE = 10;
     .pt-card {
       border-radius: var(--r-card);
       padding: 0;
-      overflow: hidden;
+      overflow: visible;
     }
 
     /* ── Toolbar ── */
@@ -835,7 +918,11 @@ const PAGE_SIZE = 10;
     }
 
     /* ── Table ── */
-    .scroll-y { overflow-y: auto; }
+    .data-table-wrap {
+      overflow: visible !important;
+      min-height: 225px;
+    }
+    .scroll-y { overflow-y: visible; }
 
     /* ── Pagination ── */
     .pt-pagination {
@@ -1365,11 +1452,80 @@ export class InstitutionsComponent implements OnInit {
   // ── Contract modal ──
   openContract(inst: Institution): void {
     this.contractInst.set(inst);
-    this.contractDraft.set({ ...inst.contract });
+    
+    // Configurar fechas predeterminadas de 1 año si están vacías
+    const todayStr = new Date().toISOString().split('T')[0];
+    const nextYear = new Date();
+    nextYear.setFullYear(nextYear.getFullYear() + 1);
+    const nextYearStr = nextYear.toISOString().split('T')[0];
+
+    const draft = { ...inst.contract };
+    if (!draft.from) draft.from = todayStr;
+    if (!draft.to) draft.to = nextYearStr;
+    if (!draft.plan) draft.plan = inst.plan || 'corp-medio';
+
+    // Auto-populado de tarifas y KPIs según el plan si están en cero
+    const plan = COMMERCIAL_PLANS.find(p => p.id === draft.plan);
+    if (plan) {
+      if (!draft.monthlyPrice) draft.monthlyPrice = plan.monthlyBase;
+      if (!draft.monthlyCap) {
+        draft.monthlyCap = plan.id.includes('premium') ? 50 : plan.id.includes('medio') ? 30 : 15;
+      }
+      if (!draft.kpiMinutes) {
+        draft.kpiMinutes = plan.id.includes('premium') ? 8 : plan.id.includes('medio') ? 12 : 15;
+      }
+    }
+
+    // Auto-generación de Geocerca circular predeterminada alrededor del marcador de la institución
+    if (!draft.polygonPoints || draft.polygonPoints.length === 0) {
+      const cx = inst.lat ?? 50;
+      const cy = inst.lng ?? 50;
+      const points = [];
+      const steps = 12;
+      const radius = 8; // radio predeterminado del 8% del mapa
+      for (let i = 0; i < steps; i++) {
+        const angle = (i / steps) * 2 * Math.PI;
+        points.push({
+          x: Math.round((cx + radius * Math.cos(angle)) * 10) / 10,
+          y: Math.round((cy + radius * Math.sin(angle)) * 10) / 10
+        });
+      }
+      points.push({ ...points[0] });
+      draft.polygonPoints = points;
+    }
+
+    this.contractDraft.set(draft);
   }
 
   patchContract(patch: Partial<InstitutionContract>): void {
-    this.contractDraft.set({ ...this.contractDraft(), ...patch });
+    const draft = { ...this.contractDraft(), ...patch };
+    if (patch.plan) {
+      const plan = COMMERCIAL_PLANS.find(p => p.id === patch.plan);
+      if (plan) {
+        draft.monthlyPrice = plan.monthlyBase;
+        draft.monthlyCap = plan.id.includes('premium') ? 50 : plan.id.includes('medio') ? 30 : 15;
+        draft.kpiMinutes = plan.id.includes('premium') ? 8 : plan.id.includes('medio') ? 12 : 15;
+      }
+    }
+    this.contractDraft.set(draft);
+  }
+
+  generateCircularGeofence(radius: number): void {
+    const inst = this.contractInst();
+    if (!inst) return;
+    const cx = inst.lat ?? 50;
+    const cy = inst.lng ?? 50;
+    const points = [];
+    const steps = 12;
+    for (let i = 0; i < steps; i++) {
+      const angle = (i / steps) * 2 * Math.PI;
+      points.push({
+        x: Math.round((cx + radius * Math.cos(angle)) * 10) / 10,
+        y: Math.round((cy + radius * Math.sin(angle)) * 10) / 10
+      });
+    }
+    points.push({ ...points[0] });
+    this.patchContract({ polygonPoints: points });
   }
 
   saveContract(): void {
@@ -1449,5 +1605,49 @@ export class InstitutionsComponent implements OnInit {
     const x = ((event.clientX - rect.left) / rect.width) * 100;
     const y = ((event.clientY - rect.top) / rect.height) * 100;
     this.patchForm({ lat: Math.round(x * 100) / 100, lng: Math.round(y * 100) / 100 });
+  }
+
+  // ── Sprint 4 Contract Polygon Drawing ──
+  getPointsString(pts?: { x: number; y: number }[]): string {
+    if (!pts) return '';
+    return pts.map(p => `${p.x},${p.y}`).join(' ');
+  }
+
+  onContractMapClick(event: MouseEvent): void {
+    const target = event.currentTarget as SVGElement;
+    const rect = target.getBoundingClientRect();
+    const x = ((event.clientX - rect.left) / rect.width) * 100;
+    const y = ((event.clientY - rect.top) / rect.height) * 100;
+    
+    const draft = this.contractDraft();
+    const currentPoints = draft.polygonPoints ? [...draft.polygonPoints] : [];
+    
+    currentPoints.push({ x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 });
+    this.patchContract({ polygonPoints: currentPoints });
+  }
+
+  removeVertex(index: number): void {
+    const draft = this.contractDraft();
+    const currentPoints = draft.polygonPoints ? [...draft.polygonPoints] : [];
+    currentPoints.splice(index, 1);
+    this.patchContract({ polygonPoints: currentPoints });
+  }
+
+  clearPolygon(): void {
+    this.patchContract({ polygonPoints: [] });
+  }
+
+  autoClosePolygon(): void {
+    const draft = this.contractDraft();
+    const pts = draft.polygonPoints ? [...draft.polygonPoints] : [];
+    if (pts.length > 2) {
+      const first = pts[0];
+      const last = pts[pts.length - 1];
+      const dist = Math.sqrt(Math.pow(last.x - first.x, 2) + Math.pow(last.y - first.y, 2));
+      if (dist > 1) {
+        pts.push({ ...first });
+        this.patchContract({ polygonPoints: pts });
+      }
+    }
   }
 }

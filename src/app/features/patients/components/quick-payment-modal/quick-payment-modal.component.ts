@@ -7,6 +7,7 @@ export interface QuickPaymentPayload {
   amount: number;
   method: string;
   ref: string;
+  billingMode: 'mensual' | 'anual';
 }
 
 @Component({
@@ -29,6 +30,8 @@ export class QuickPaymentModalComponent implements OnInit {
   paymentAmount: number = 0;
   paymentMethod: string = 'EFECTIVO';
   paymentRef: string = '';
+  billingMode: 'mensual' | 'anual' = 'mensual';
+  baseAmount: number = 18500;
 
   readonly metodosPago = [
     { value: 'EFECTIVO', label: 'Efectivo en caja' },
@@ -40,8 +43,22 @@ export class QuickPaymentModalComponent implements OnInit {
   ngOnInit(): void {
     // Si hay un monto sugerido mayor a cero, lo utilizamos para inicializar el cobro.
     // De lo contrario, si es 0 (no hay facturas emitidas), inicializamos con el monto de suscripción base
-    // pero manteniendo el flujo adaptativo para crear la factura bajo demanda de forma segura.
-    this.paymentAmount = this.suggestedAmount() > 0 ? this.suggestedAmount() : 18500;
+    this.baseAmount = this.suggestedAmount() > 0 ? this.suggestedAmount() : 18500;
+    this.updateAmount();
+  }
+
+  updateAmount(): void {
+    if (this.billingMode === 'mensual') {
+      this.paymentAmount = this.baseAmount;
+    } else {
+      // 12 meses con 15% de descuento por suscripción anual
+      this.paymentAmount = Math.round((this.baseAmount * 12) * 0.85);
+    }
+  }
+
+  setBillingMode(mode: 'mensual' | 'anual'): void {
+    this.billingMode = mode;
+    this.updateAmount();
   }
 
   onClose(): void {
@@ -53,7 +70,8 @@ export class QuickPaymentModalComponent implements OnInit {
       this.submit.emit({
         amount: this.paymentAmount,
         method: this.paymentMethod,
-        ref: this.paymentRef
+        ref: this.paymentRef,
+        billingMode: this.billingMode
       });
     }
   }

@@ -27,6 +27,11 @@ export interface TicketAsistenciaDTO {
   canal?: string;
   empresaHabilitaTelemedicina?: boolean;
   empresaUrlTelemedicina?: string;
+
+  // Sprint 3 Tarifas y Cargos
+  presupuestoAceptado?: number;
+  esperaMinutos?: number;
+  costoEspera?: number;
 }
 
 export interface AltaRapidaRequest {

@@ -185,6 +185,44 @@ const ALL_STEPS: StatusStep[] = [
                 </dl>
               </emx-glass-card>
 
+              <!-- Liquidación de Costos (Sprint 3) -->
+              @if (ticket()?.estado === 'COMPLETADO' || ticket()?.estado === 'CERRADO' || ticket()?.presupuestoAceptado != null) {
+                <emx-glass-card>
+                  <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+                    <h2 class="section-label" style="margin:0">Liquidación Comercial</h2>
+                    <span class="badge badge--stable font-mono text-xs px-2 py-0.5" style="margin-left:auto;background:rgba(59,130,246,0.1);color:var(--accent-blue)">
+                      SaaS Billing
+                    </span>
+                  </div>
+                  <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                    <div>
+                      <dt class="text-xs" style="color: var(--text-muted);">Cargo Base (Zona)</dt>
+                      <dd class="font-mono text-xs mt-0.5" style="color: var(--text-primary); font-weight:600">
+                        {{ ticket()?.presupuestoAceptado != null ? '$' + ticket()?.presupuestoAceptado : '$0' }}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt class="text-xs" style="color: var(--text-muted);">Espera Adicional</dt>
+                      <dd class="font-mono text-xs mt-0.5" style="color: var(--text-primary);">
+                        {{ ticket()?.esperaMinutos != null ? ticket()?.esperaMinutos + ' min' : '0 min' }}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt class="text-xs" style="color: var(--text-muted);">Costo de Espera</dt>
+                      <dd class="font-mono text-xs mt-0.5" style="color: var(--accent-blue); font-weight:600">
+                        {{ ticket()?.costoEspera != null ? '$' + ticket()?.costoEspera : '$0' }}
+                      </dd>
+                    </div>
+                    <div style="border-top: 1px solid var(--border-hairline); padding-top:6px; grid-column: span 2; display:flex; justify-content:space-between; align-items:center">
+                      <dt class="text-xs font-semibold" style="color: var(--text-primary);">Total Liquidado</dt>
+                      <dd class="font-mono text-sm" style="color: var(--accent-emerald); font-weight:700">
+                        \${{ (Number(ticket()?.presupuestoAceptado) || 0) + (Number(ticket()?.costoEspera) || 0) }}
+                      </dd>
+                    </div>
+                  </dl>
+                </emx-glass-card>
+              }
+
               <!-- 2. Triage / Síntomas -->
               <emx-glass-card>
                 <h2 class="section-label">Triage inicial</h2>

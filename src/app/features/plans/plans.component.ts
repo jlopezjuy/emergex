@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { PlansApiService } from '../../data-access/api/plans.api';
 import { PlanDTO, PlanCoverages } from '../../data-access/dto/plan.dto';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
+import { ZonesApiService, ZonaCoberturaDTO, TarifaPrestacionZonaDTO, PrestacionMedicaDTO } from '../../data-access/api/zones.api';
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
@@ -220,103 +221,248 @@ function emptyForm(): PlanForm {
             <div class="eyebrow">INSTITUCIONES · EMPRESAS — {{ countByAudience('corporativos') }} PLANES</div>
           </div>
         </button>
+        <button class="plans-tab" [attr.data-active]="tab() === 'zonas'" (click)="tab.set('zonas')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
+          <div>
+            <div style="font-size:14px;font-weight:600">Zonas y Tarifas</div>
+            <div class="eyebrow">ZONAS GEOGRÁFICAS · MATRIZ DE COSTOS</div>
+          </div>
+        </button>
       </div>
 
       <!-- ── Plans grid ── -->
-      <div class="plans-grid">
+      @if (tab() !== 'zonas') {
+        <div class="plans-grid">
 
-        @for (plan of filteredPlans(); track plan.id) {
-          <div class="pricing-card" [class.pricing-card--off]="!plan.active">
+          @for (plan of filteredPlans(); track plan.id) {
+            <div class="pricing-card" [class.pricing-card--off]="!plan.active">
 
-            <!-- Ribbon recomendado -->
-            @if (plan.tier === 'premium' && plan.active) {
-              <div style="position:absolute;top:12px;right:-8px;padding:4px 12px;background:var(--accent-emerald);color:white;font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;border-radius:4px;box-shadow:0 2px 8px rgba(16,185,129,0.35)">
-                RECOMENDADO
-              </div>
-            }
-
-            <!-- Card header: tier badge + toggle -->
-            <div style="display:flex;align-items:center;justify-content:space-between">
-              <span class="tier-badge" [style.background]="tierColor(plan.tier) + '18'" [style.color]="tierColor(plan.tier)" [style.border]="'1px solid ' + tierColor(plan.tier) + '44'">
-                <span style="width:6px;height:6px;border-radius:50%;background:currentColor;box-shadow:0 0 6px currentColor;display:inline-block"></span>
-                {{ tierLabel(plan.tier) }}
-              </span>
-              <button class="toggle-sw" [class.is-on]="plan.active" (click)="toggleActive(plan.id)" title="{{ plan.active ? 'Pausar plan' : 'Activar plan' }}">
-                <div class="toggle-sw__track">
-                  <div class="toggle-sw__thumb"></div>
+              <!-- Ribbon recomendado -->
+              @if (plan.tier === 'premium' && plan.active) {
+                <div style="position:absolute;top:12px;right:-8px;padding:4px 12px;background:var(--accent-emerald);color:white;font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;border-radius:4px;box-shadow:0 2px 8px rgba(16,185,129,0.35)">
+                  RECOMENDADO
                 </div>
+              }
+
+              <!-- Card header: tier badge + toggle -->
+              <div style="display:flex;align-items:center;justify-content:space-between">
+                <span class="tier-badge" [style.background]="tierColor(plan.tier) + '18'" [style.color]="tierColor(plan.tier)" [style.border]="'1px solid ' + tierColor(plan.tier) + '44'">
+                  <span style="width:6px;height:6px;border-radius:50%;background:currentColor;box-shadow:0 0 6px currentColor;display:inline-block"></span>
+                  {{ tierLabel(plan.tier) }}
+                </span>
+                <button class="toggle-sw" [class.is-on]="plan.active" (click)="toggleActive(plan.id)" title="{{ plan.active ? 'Pausar plan' : 'Activar plan' }}">
+                  <div class="toggle-sw__track">
+                    <div class="toggle-sw__thumb"></div>
+                  </div>
+                </button>
+              </div>
+
+              <!-- Nombre + id + modalidad -->
+              <div>
+                <h3 style="font-size:17px;font-weight:700;margin:0 0 2px;letter-spacing:-0.01em">{{ plan.name }}</h3>
+                <div class="mono micro" style="color:var(--text-muted)">{{ plan.id }}</div>
+                <div class="eyebrow" style="margin-top:4px">{{ modalityLabel(plan.modality) }}</div>
+              </div>
+
+              <!-- Precio -->
+              <div>
+                <div style="display:flex;align-items:baseline;gap:3px">
+                  <span style="font-size:13px;color:var(--text-secondary);font-family:var(--font-mono)">$</span>
+                  <span class="mono" style="font-size:26px;font-weight:700;letter-spacing:-0.02em">{{ fmtN(plan.pricing.monthly) }}</span>
+                  <span style="font-size:12px;color:var(--text-muted)">/ mes</span>
+                </div>
+                @if (plan.pricing.discountPct > 0) {
+                  <div style="font-size:12px;color:var(--accent-emerald);margin-top:3px;font-family:var(--font-mono)">
+                    {{ fmtCurrency(plan.pricing.annual) }} anual · ahorrás {{ plan.pricing.discountPct }}%
+                  </div>
+                }
+              </div>
+
+              <!-- Descripción -->
+              <p style="font-size:12px;color:var(--text-secondary);margin:0;line-height:1.5">{{ plan.description }}</p>
+
+              <!-- Coberturas activas -->
+              <div style="display:flex;flex-wrap:wrap;gap:6px">
+                @for (cov of activeCoverages(plan); track cov.key) {
+                  <div class="cov-icon-btn" [title]="cov.name + ' · ' + cov.sub"
+                    [style.border-color]="tierColor(plan.tier) + '55'"
+                    [style.background]="tierColor(plan.tier) + '14'"
+                    [style.color]="tierColor(plan.tier)">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                  </div>
+                }
+              </div>
+
+              <!-- Footer: límites + configurar -->
+              <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:auto;padding-top:4px;border-top:1px solid var(--border-hairline)">
+                <div style="font-size:11px">
+                  @if (plan.limits.monthlyCap === 0) {
+                    <div style="color:var(--accent-emerald);font-family:var(--font-mono);font-weight:600">Ilimitado</div>
+                  } @else {
+                    <div class="mono" style="color:var(--text-secondary)">{{ plan.limits.monthlyCap }} atenciones/mes</div>
+                    @if (plan.limits.freeIncluded > 0) {
+                      <div class="mono micro" style="color:var(--text-muted)">{{ plan.limits.freeIncluded }} sin cargo</div>
+                    }
+                  }
+                  @if (plan.limits.carencyDays === 0) {
+                    <div style="color:var(--accent-emerald);font-size:10.5px;margin-top:2px">Desde día 1</div>
+                  } @else {
+                    <div style="color:var(--text-muted);font-size:10.5px;margin-top:2px">{{ plan.limits.carencyDays }} días carencia</div>
+                  }
+                </div>
+                <button class="btn btn--ghost btn--sm" (click)="openEditForm(plan)" style="pointer-events:all">Configurar</button>
+              </div>
+            </div>
+          }
+
+          <!-- Card vacía: crear nuevo plan -->
+          <button class="pricing-card pricing-card--empty" (click)="openNewForm()">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="margin-bottom:8px">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            <span style="font-size:13px;font-weight:500">Crear nuevo plan</span>
+          </button>
+
+        </div>
+      }
+
+      @if (tab() === 'zonas') {
+        <div style="display:grid;grid-template-columns:300px 1fr;gap:20px;width:100%;align-items:start">
+          
+          <!-- COLUMNA 1: Zonas de Cobertura -->
+          <div class="glass rounded-panel p-5 flex flex-col gap-4">
+            <div style="display:flex;align-items:center;gap:8px">
+              <h3 style="font-size:15px;font-weight:700;margin:0;color:var(--text-primary)">Zonas Geográficas</h3>
+              <span class="mono micro" style="margin-left:auto;color:var(--accent-blue)">{{ zones().length }} ZONAS</span>
+            </div>
+            <p style="font-size:11.5px;color:var(--text-muted);margin:0;line-height:1.4">Mapeá localidades con códigos postales para calcular costos mínimos de traslados y visitas.</p>
+            
+            <!-- Inline Form Zonas -->
+            <div style="display:flex;flex-direction:column;gap:10px;padding:12px;border-radius:10px;border:1px solid var(--border-glass);background:rgba(255,255,255,0.02)">
+              <div class="qc-field">
+                <label class="eyebrow" style="font-size:9.5px">Nombre Zona</label>
+                <input class="qc-input" placeholder="Ej. Zona CABA Centro" [ngModel]="newZoneName()" (ngModelChange)="newZoneName.set($event)"/>
+              </div>
+              <div class="qc-field" style="margin-top:6px">
+                <label class="eyebrow" style="font-size:9.5px">Código Postal</label>
+                <input class="qc-input" placeholder="Ej. 1425" [ngModel]="newZoneCp()" (ngModelChange)="newZoneCp.set($event)"/>
+              </div>
+              <button class="btn btn--primary btn--sm" style="margin-top:10px;width:100%" [disabled]="!newZoneName() || !newZoneCp()" (click)="createZone()">
+                + Agregar Zona
               </button>
             </div>
 
-            <!-- Nombre + id + modalidad -->
-            <div>
-              <h3 style="font-size:17px;font-weight:700;margin:0 0 2px;letter-spacing:-0.01em">{{ plan.name }}</h3>
-              <div class="mono micro" style="color:var(--text-muted)">{{ plan.id }}</div>
-              <div class="eyebrow" style="margin-top:4px">{{ modalityLabel(plan.modality) }}</div>
-            </div>
-
-            <!-- Precio -->
-            <div>
-              <div style="display:flex;align-items:baseline;gap:3px">
-                <span style="font-size:13px;color:var(--text-secondary);font-family:var(--font-mono)">$</span>
-                <span class="mono" style="font-size:26px;font-weight:700;letter-spacing:-0.02em">{{ fmtN(plan.pricing.monthly) }}</span>
-                <span style="font-size:12px;color:var(--text-muted)">/ mes</span>
-              </div>
-              @if (plan.pricing.discountPct > 0) {
-                <div style="font-size:12px;color:var(--accent-emerald);margin-top:3px;font-family:var(--font-mono)">
-                  {{ fmtCurrency(plan.pricing.annual) }} anual · ahorrás {{ plan.pricing.discountPct }}%
+            <!-- Lista de Zonas -->
+            <div style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto;padding-right:4px">
+              @for (z of zones(); track z.id) {
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:10px;border-radius:8px;border:1px solid var(--border-glass);background:rgba(255,255,255,0.03)">
+                  <div>
+                    <div style="font-size:12.5px;font-weight:600;color:var(--text-primary)">{{ z.nombre }}</div>
+                    <div class="mono micro" style="color:var(--text-muted)">CP: {{ z.codigoPostal }}</div>
+                  </div>
+                  <button class="btn btn--ghost btn--sm" style="margin-left:auto;color:var(--accent-red);padding:4px 8px" (click)="deleteZone(z.id)">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                  </button>
                 </div>
               }
-            </div>
-
-            <!-- Descripción -->
-            <p style="font-size:12px;color:var(--text-secondary);margin:0;line-height:1.5">{{ plan.description }}</p>
-
-            <!-- Coberturas activas -->
-            <div style="display:flex;flex-wrap:wrap;gap:6px">
-              @for (cov of activeCoverages(plan); track cov.key) {
-                <div class="cov-icon-btn" [title]="cov.name + ' · ' + cov.sub"
-                  [style.border-color]="tierColor(plan.tier) + '55'"
-                  [style.background]="tierColor(plan.tier) + '14'"
-                  [style.color]="tierColor(plan.tier)">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="20 6 9 17 4 12"/>
-                  </svg>
-                </div>
-              }
-            </div>
-
-            <!-- Footer: límites + configurar -->
-            <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:auto;padding-top:4px;border-top:1px solid var(--border-hairline)">
-              <div style="font-size:11px">
-                @if (plan.limits.monthlyCap === 0) {
-                  <div style="color:var(--accent-emerald);font-family:var(--font-mono);font-weight:600">Ilimitado</div>
-                } @else {
-                  <div class="mono" style="color:var(--text-secondary)">{{ plan.limits.monthlyCap }} atenciones/mes</div>
-                  @if (plan.limits.freeIncluded > 0) {
-                    <div class="mono micro" style="color:var(--text-muted)">{{ plan.limits.freeIncluded }} sin cargo</div>
-                  }
-                }
-                @if (plan.limits.carencyDays === 0) {
-                  <div style="color:var(--accent-emerald);font-size:10.5px;margin-top:2px">Desde día 1</div>
-                } @else {
-                  <div style="color:var(--text-muted);font-size:10.5px;margin-top:2px">{{ plan.limits.carencyDays }} días carencia</div>
-                }
-              </div>
-              <button class="btn btn--ghost btn--sm" (click)="openEditForm(plan)" style="pointer-events:all">Configurar</button>
             </div>
           </div>
-        }
 
-        <!-- Card vacía: crear nuevo plan -->
-        <button class="pricing-card pricing-card--empty" (click)="openNewForm()">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="margin-bottom:8px">
-            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-          </svg>
-          <span style="font-size:13px;font-weight:500">Crear nuevo plan</span>
-        </button>
+          <!-- COLUMNA 2: Tarifas de Prestaciones -->
+          <div class="glass rounded-panel p-5 flex flex-col gap-4">
+            <div style="display:flex;align-items:center;gap:8px">
+              <h3 style="font-size:15px;font-weight:700;margin:0;color:var(--text-primary)">Matriz de Tarifas por Zona</h3>
+              <span class="mono micro" style="margin-left:auto;color:var(--accent-emerald)">{{ tariffs().length }} TARIFAS</span>
+            </div>
+            <p style="font-size:11.5px;color:var(--text-muted);margin:0;line-height:1.4">Definí los costos base y de espera fraccionada para cada tipo de prestación médica según la zona geográfica.</p>
 
-      </div>
+            <!-- Inline Form Tarifas -->
+            <div style="display:grid;grid-template-columns:repeat(4, 1fr) auto;gap:10px;align-items:end;padding:14px;border-radius:10px;border:1px solid var(--border-glass);background:rgba(255,255,255,0.02)">
+              <div class="qc-field">
+                <label class="eyebrow" style="font-size:9.5px">Prestación Médica</label>
+                <select class="qc-input" style="height:32px" [ngModel]="selectedPrestacionId()" (ngModelChange)="selectedPrestacionId.set(+$event)">
+                  <option [value]="null">Seleccionar...</option>
+                  @for (p of prestaciones(); track p.id) {
+                    <option [value]="p.id">{{ p.nombre }}</option>
+                  }
+                </select>
+              </div>
+              <div class="qc-field">
+                <label class="eyebrow" style="font-size:9.5px">Zona Geográfica</label>
+                <select class="qc-input" style="height:32px" [ngModel]="selectedZoneId()" (ngModelChange)="selectedZoneId.set(+$event)">
+                  <option [value]="null">Seleccionar...</option>
+                  @for (z of zones(); track z.id) {
+                    <option [value]="z.id">{{ z.nombre }} (CP {{ z.codigoPostal }})</option>
+                  }
+                </select>
+              </div>
+              <div class="qc-field">
+                <label class="eyebrow" style="font-size:9.5px">Cargo Base ($)</label>
+                <input class="qc-input" type="number" style="height:32px" [ngModel]="newTariffMin()" (ngModelChange)="newTariffMin.set(+$event)"/>
+              </div>
+              <div class="qc-field">
+                <label class="eyebrow" style="font-size:9.5px">Espera 30 min ($)</label>
+                <input class="qc-input" type="number" style="height:32px" [ngModel]="newTariffWait()" (ngModelChange)="newTariffWait.set(+$event)"/>
+              </div>
+              <button class="btn btn--primary" style="height:32px;white-space:nowrap;padding:0 14px;font-size:12px" [disabled]="!selectedPrestacionId() || !selectedZoneId()" (click)="createTariff()">
+                + Agregar Tarifa
+              </button>
+            </div>
+
+            <!-- Matriz / Tabla de Tarifas -->
+            <div style="overflow-x:auto;border-radius:10px;border:1px solid var(--border-glass);background:rgba(0,0,0,0.15)">
+              <table style="width:100%;border-collapse:collapse;text-align:left;font-size:12.5px">
+                <thead>
+                  <tr style="border-bottom:1px solid var(--border-glass);background:rgba(255,255,255,0.02)">
+                    <th style="padding:10px 14px;font-weight:600;color:var(--text-secondary)">Prestación</th>
+                    <th style="padding:10px 14px;font-weight:600;color:var(--text-secondary)">Zona / CP</th>
+                    <th style="padding:10px 14px;font-weight:600;color:var(--text-secondary);text-align:right">Cargo Base</th>
+                    <th style="padding:10px 14px;font-weight:600;color:var(--text-secondary);text-align:right">Espera 30 Min</th>
+                    <th style="padding:10px 14px;font-weight:600;color:var(--text-secondary);text-align:center">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (t of tariffs(); track t.id) {
+                    <tr style="border-bottom:1px solid var(--border-hairline)">
+                      <td style="padding:10px 14px;font-weight:500;color:var(--text-primary)">
+                        {{ t.prestacion?.nombre }} 
+                        <span class="mono micro" style="color:var(--text-muted);margin-left:4px">[{{ t.prestacion?.codigo }}]</span>
+                      </td>
+                      <td style="padding:10px 14px;color:var(--text-secondary)">
+                        {{ t.zona?.nombre }} 
+                        <span class="mono micro" style="color:var(--text-muted)">({{ t.zona?.codigoPostal }})</span>
+                      </td>
+                      <td class="mono" style="padding:10px 14px;text-align:right;color:var(--accent-emerald);font-weight:600">
+                        {{ fmtCurrency(t.cargoMinimo) }}
+                      </td>
+                      <td class="mono" style="padding:10px 14px;text-align:right;color:var(--accent-blue)">
+                        {{ fmtCurrency(t.costoEspera30Min) }}
+                      </td>
+                      <td style="padding:10px 14px;text-align:center">
+                        <button class="btn btn--ghost btn--sm" style="color:var(--accent-red);padding:4px 8px" (click)="deleteTariff(t.id)">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        </button>
+                      </td>
+                    </tr>
+                  } @empty {
+                    <tr>
+                      <td colspan="5" style="padding:20px;text-align:center;color:var(--text-muted)">
+                        No hay tarifas configuradas en la matriz de cobertura.
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+
+          </div>
+        </div>
+      }
     </div>
 
     <!-- ═══════════════════════════════════════════════════════
@@ -836,15 +982,31 @@ function emptyForm(): PlanForm {
 export class PlansComponent implements OnInit {
     private destroyRef = inject(DestroyRef);
   private api = inject(PlansApiService);
+  private zonesApi = inject(ZonesApiService);
 
   readonly coverageMeta = COVERAGE_META;
 
   // ── State ──
-  readonly tab = signal<'particulares' | 'corporativos'>('particulares');
+  readonly tab = signal<'particulares' | 'corporativos' | 'zonas'>('particulares');
   readonly plans = signal<Plan[]>([]);
   readonly formOpen = signal(false);
   readonly editingPlan = signal<Plan | null>(null);
   readonly form = signal<PlanForm>(emptyForm());
+
+  // ── Zonas / Tarifas State ──
+  readonly zones = signal<ZonaCoberturaDTO[]>([]);
+  readonly tariffs = signal<TarifaPrestacionZonaDTO[]>([]);
+  readonly prestaciones = signal<PrestacionMedicaDTO[]>([]);
+
+  // Zonas form
+  readonly newZoneName = signal('');
+  readonly newZoneCp = signal('');
+
+  // Tarifas form
+  readonly selectedZoneId = signal<number | null>(null);
+  readonly selectedPrestacionId = signal<number | null>(null);
+  readonly newTariffMin = signal(1500);
+  readonly newTariffWait = signal(500);
 
   // ── Two-way ngModel bridges (signals + getters/setters) ──
   get formName(): string { return this.form().name; }
@@ -927,6 +1089,57 @@ export class PlansComponent implements OnInit {
   // ── Lifecycle ──
   ngOnInit(): void {
     this.api.getAll().pipe(takeUntilDestroyed(this.destroyRef)).subscribe(data => this.plans.set(data));
+    this.loadZonesAndTariffs();
+  }
+
+  loadZonesAndTariffs(): void {
+    this.zonesApi.getZones().pipe(takeUntilDestroyed(this.destroyRef)).subscribe(data => this.zones.set(data));
+    this.zonesApi.getTariffs().pipe(takeUntilDestroyed(this.destroyRef)).subscribe(data => this.tariffs.set(data));
+    this.zonesApi.getPrestaciones().pipe(takeUntilDestroyed(this.destroyRef)).subscribe(data => this.prestaciones.set(data));
+  }
+
+  // ── Zones Actions ──
+  createZone(): void {
+    if (!this.newZoneName().trim() || !this.newZoneCp().trim()) return;
+    this.zonesApi.createZone({
+      nombre: this.newZoneName(),
+      codigoPostal: this.newZoneCp()
+    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.newZoneName.set('');
+      this.newZoneCp.set('');
+      this.loadZonesAndTariffs();
+    });
+  }
+
+  deleteZone(id?: number): void {
+    if (!id) return;
+    this.zonesApi.deleteZone(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.loadZonesAndTariffs();
+    });
+  }
+
+  // ── Tariffs Actions ──
+  createTariff(): void {
+    if (!this.selectedZoneId() || !this.selectedPrestacionId()) return;
+    this.zonesApi.createTariff({
+      cargoMinimo: this.newTariffMin(),
+      costoEspera30Min: this.newTariffWait(),
+      prestacion: { id: this.selectedPrestacionId() },
+      zona: { id: this.selectedZoneId() }
+    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.selectedZoneId.set(null);
+      this.selectedPrestacionId.set(null);
+      this.newTariffMin.set(1500);
+      this.newTariffWait.set(500);
+      this.loadZonesAndTariffs();
+    });
+  }
+
+  deleteTariff(id?: number): void {
+    if (!id) return;
+    this.zonesApi.deleteTariff(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.loadZonesAndTariffs();
+    });
   }
 
   // ── Actions ──
@@ -938,7 +1151,8 @@ export class PlansComponent implements OnInit {
 
   openNewForm(): void {
     this.editingPlan.set(null);
-    this.form.set({ ...emptyForm(), audience: this.tab() });
+    const aud = this.tab() === 'zonas' ? 'particulares' : this.tab() as 'particulares' | 'corporativos';
+    this.form.set({ ...emptyForm(), audience: aud });
     this.formOpen.set(true);
   }
 
