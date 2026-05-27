@@ -1,7 +1,9 @@
 import { Component, OnInit, inject, signal, computed, HostListener, DestroyRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { forkJoin, of, Observable } from 'rxjs';
+import { switchMap, map, catchError } from 'rxjs/operators';
 import { PlansApiService } from '../../data-access/api/plans.api';
-import { PlanDTO, PlanCoverages } from '../../data-access/dto/plan.dto';
+import { PlanDTO, PlanCoverages, PlanPrestacionDTO, TipoCargo } from '../../data-access/dto/plan.dto';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { ZonesApiService, ZonaCoberturaDTO, TarifaPrestacionZonaDTO, PrestacionMedicaDTO } from '../../data-access/api/zones.api';
 
@@ -26,6 +28,19 @@ interface PlanForm {
   coverages: PlanCoverages;
 }
 
+interface PlanPrestacionRow {
+  prestacionId: number;
+  nombre: string;
+  codigo: string;
+  tipoAsistencia: string;
+  included: boolean;
+  tipoCargo: TipoCargo;
+  limiteMensual: number | null;
+  requiereOrdenMedica: boolean;
+  cargoMinimo: number | null;
+  existingId?: number;
+}
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const TIER_COLOR: Record<string, string> = {
@@ -42,89 +57,6 @@ const COVERAGE_META: { key: keyof PlanCoverages; name: string; sub: string }[] =
   { key: 'monthlyControl',      name: 'Control mensual',         sub: 'Chequeo preventivo'        },
   { key: 'scheduledTransport',  name: 'Traslado programado',     sub: 'Turnos y estudios'         },
   { key: 'interurbanTransport', name: 'Traslado interurbano',    sub: 'Larga distancia cubierta'  },
-];
-
-const PLANS_SEED: Plan[] = [
-  {
-    id: 'PL-001', name: 'Plan Básico', description: 'Cobertura esencial para situaciones de urgencia. Ideal como primer plan de salud.',
-    tier: 'basico', modality: 'individual', audience: 'particulares',
-    pricing: { monthly: 18500, quarterly: 52000, annual: 192000, perDependent: 0, discountPct: 13 },
-    limits: { monthlyCap: 2, freeIncluded: 1, carencyDays: 0 },
-    coverages: { emergency: true, homeVisit: false, phoneOrientation: true, homeNursing: false, monthlyControl: false, scheduledTransport: false, interurbanTransport: false },
-    active: true,
-  },
-  {
-    id: 'PL-002', name: 'Plan Familiar', description: 'Cobertura completa para toda la familia con hasta 4 dependientes incluidos.',
-    tier: 'medio', modality: 'familiar', audience: 'particulares',
-    pricing: { monthly: 32400, quarterly: 91800, annual: 336000, perDependent: 5800, discountPct: 14 },
-    limits: { monthlyCap: 4, freeIncluded: 2, carencyDays: 0 },
-    coverages: { emergency: true, homeVisit: true, phoneOrientation: true, homeNursing: false, monthlyControl: true, scheduledTransport: false, interurbanTransport: false },
-    active: true,
-  },
-  {
-    id: 'PL-003', name: 'Plan Familiar Premium', description: 'La cobertura más completa para familias que priorizan la salud sin restricciones.',
-    tier: 'premium', modality: 'familiar', audience: 'particulares',
-    pricing: { monthly: 54800, quarterly: 153000, annual: 570000, perDependent: 8200, discountPct: 13 },
-    limits: { monthlyCap: 0, freeIncluded: 0, carencyDays: 0 },
-    coverages: { emergency: true, homeVisit: true, phoneOrientation: true, homeNursing: true, monthlyControl: true, scheduledTransport: true, interurbanTransport: true },
-    active: true,
-  },
-  {
-    id: 'PL-004', name: 'Plan Joven', description: 'Diseñado para personas de hasta 30 años con coberturas básicas y precio accesible.',
-    tier: 'basico', modality: 'individual', audience: 'particulares',
-    pricing: { monthly: 12900, quarterly: 36200, annual: 134000, perDependent: 0, discountPct: 13 },
-    limits: { monthlyCap: 3, freeIncluded: 1, carencyDays: 30 },
-    coverages: { emergency: true, homeVisit: false, phoneOrientation: true, homeNursing: false, monthlyControl: false, scheduledTransport: false, interurbanTransport: false },
-    active: true,
-  },
-  {
-    id: 'PL-005', name: 'Plan Empresarial Individual', description: 'Para ejecutivos y directivos que requieren atención personalizada y traslados.',
-    tier: 'premium', modality: 'individual', audience: 'particulares',
-    pricing: { monthly: 68000, quarterly: 192000, annual: 708000, perDependent: 0, discountPct: 13 },
-    limits: { monthlyCap: 0, freeIncluded: 0, carencyDays: 0 },
-    coverages: { emergency: true, homeVisit: true, phoneOrientation: true, homeNursing: true, monthlyControl: true, scheduledTransport: true, interurbanTransport: true },
-    active: false,
-  },
-  {
-    id: 'PL-101', name: 'Corporativo Básico', description: 'Cobertura de emergencias y orientación médica para empresas con hasta 50 empleados.',
-    tier: 'basico', modality: 'institucional', audience: 'corporativos',
-    pricing: { monthly: 45000, quarterly: 126000, annual: 468000, perDependent: 0, discountPct: 13 },
-    limits: { monthlyCap: 8, freeIncluded: 3, carencyDays: 0 },
-    coverages: { emergency: true, homeVisit: false, phoneOrientation: true, homeNursing: false, monthlyControl: false, scheduledTransport: false, interurbanTransport: false },
-    active: true,
-  },
-  {
-    id: 'PL-102', name: 'Corporativo Medio', description: 'Plan integral con visitas médicas y traslados programados para equipos de trabajo.',
-    tier: 'medio', modality: 'institucional', audience: 'corporativos',
-    pricing: { monthly: 89000, quarterly: 250000, annual: 924000, perDependent: 0, discountPct: 13 },
-    limits: { monthlyCap: 16, freeIncluded: 6, carencyDays: 0 },
-    coverages: { emergency: true, homeVisit: true, phoneOrientation: true, homeNursing: false, monthlyControl: true, scheduledTransport: true, interurbanTransport: false },
-    active: true,
-  },
-  {
-    id: 'PL-103', name: 'Corporativo Premium', description: 'Cobertura ilimitada para grandes empresas, incluyendo traslados interurbanos y enfermería.',
-    tier: 'premium', modality: 'institucional', audience: 'corporativos',
-    pricing: { monthly: 145000, quarterly: 408000, annual: 1512000, perDependent: 0, discountPct: 13 },
-    limits: { monthlyCap: 0, freeIncluded: 0, carencyDays: 0 },
-    coverages: { emergency: true, homeVisit: true, phoneOrientation: true, homeNursing: true, monthlyControl: true, scheduledTransport: true, interurbanTransport: true },
-    active: true,
-  },
-  {
-    id: 'PL-104', name: 'Educativo Básico', description: 'Para colegios y universidades con cobertura en guardias y eventos escolares.',
-    tier: 'basico', modality: 'institucional', audience: 'corporativos',
-    pricing: { monthly: 35000, quarterly: 98000, annual: 362000, perDependent: 0, discountPct: 14 },
-    limits: { monthlyCap: 6, freeIncluded: 2, carencyDays: 0 },
-    coverages: { emergency: true, homeVisit: false, phoneOrientation: true, homeNursing: false, monthlyControl: false, scheduledTransport: false, interurbanTransport: false },
-    active: true,
-  },
-  {
-    id: 'PL-105', name: 'Salud Partner', description: 'Alianza con clínicas y hospitales privados para derivaciones y guardias integradas.',
-    tier: 'premium', modality: 'institucional', audience: 'corporativos',
-    pricing: { monthly: 120000, quarterly: 336000, annual: 1248000, perDependent: 0, discountPct: 13 },
-    limits: { monthlyCap: 0, freeIncluded: 0, carencyDays: 0 },
-    coverages: { emergency: true, homeVisit: true, phoneOrientation: true, homeNursing: true, monthlyControl: true, scheduledTransport: true, interurbanTransport: true },
-    active: false,
-  },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -634,49 +566,102 @@ function emptyForm(): PlanForm {
 
             <div class="form-section__divider"></div>
 
-            <!-- ── Bloque 4: Coberturas ── -->
+            <!-- ── Bloque 4: Prestaciones N:M ── -->
             <div class="form-section__head">
               <div class="form-section__step" style="background:var(--accent-blue)">4</div>
-              <div style="font-size:13px;font-weight:600;color:var(--text-primary)">Coberturas incluidas</div>
-              <span class="mono micro" style="margin-left:auto;color:var(--accent-blue)">{{ activeCoverageCount() }}/7 ACTIVAS</span>
+              <div style="font-size:13px;font-weight:600;color:var(--text-primary)">Prestaciones incluidas</div>
+              <span class="mono micro" style="margin-left:auto;color:var(--accent-blue)">{{ includedPrestacionCount() }}/{{ planPrestacionRows().length }} INCLUIDAS</span>
             </div>
 
-            <div class="coverages-grid">
-              @for (cov of coverageMeta; track cov.key) {
-                <div class="coverage-card" [attr.data-active]="form().coverages[cov.key]" (click)="toggleCoverage(cov.key)">
-                  <div style="width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,0.05);border:1px solid var(--border-glass);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <polyline points="20 6 9 17 4 12"/>
-                    </svg>
-                  </div>
-                  <div style="flex:1;min-width:0">
-                    <div style="font-size:12px;font-weight:500;color:var(--text-primary)">{{ cov.name }}</div>
-                    <div class="mono micro" style="color:var(--text-muted)">{{ cov.sub }}</div>
-                  </div>
-                  <!-- Mini toggle -->
-                  <div class="cov-mini-toggle">
-                    <button type="button" class="toggle-sw" [class.is-on]="form().coverages[cov.key]" (click)="$event.stopPropagation()">
-                      <div class="toggle-sw__track">
-                        <div class="toggle-sw__thumb"></div>
-                      </div>
-                    </button>
-                  </div>
+            @if (loadingPlanPrestaciones()) {
+              <div style="padding:24px;text-align:center;color:var(--text-muted);font-size:12px">Cargando prestaciones...</div>
+            } @else if (planPrestacionRows().length === 0) {
+              <div style="padding:24px;text-align:center;color:var(--text-muted);font-size:12px">No hay prestaciones médicas configuradas.</div>
+            } @else {
+              <div class="pp-table">
+                <div class="pp-table__header">
+                  <span>Prestación</span>
+                  <span>Tipo cargo</span>
+                  <span style="text-align:center">Límite/mes</span>
+                  <span style="text-align:center">Req. orden</span>
+                  <span style="text-align:center">Activa</span>
                 </div>
-              }
-            </div>
+                @for (row of planPrestacionRows(); track row.prestacionId) {
+                  <div class="pp-row" [attr.data-included]="row.included">
+                    <div>
+                      <div style="font-size:12px;font-weight:500;color:var(--text-primary)">{{ row.nombre }}</div>
+                      <div class="mono micro" style="color:var(--text-muted)">{{ row.codigo }}</div>
+                    </div>
+                    <div>
+                      @if (row.included) {
+                        <div style="display:flex;flex-direction:column;gap:4px">
+                          <select class="qc-input" style="height:26px;font-size:11px;padding:0 6px"
+                            [ngModel]="row.tipoCargo"
+                            (ngModelChange)="patchPpRow(row.prestacionId, { tipoCargo: $event })">
+                            <option value="SIN_CARGO">Sin cargo</option>
+                            <option value="CARGO_MINIMO">Cargo mínimo</option>
+                            <option value="CON_PRESUPUESTO">Con presupuesto</option>
+                            <option value="SEGUN_ZONA">Según zona</option>
+                          </select>
+                          @if (row.tipoCargo === 'CARGO_MINIMO') {
+                            <input class="qc-input" type="number" placeholder="$0" style="height:22px;font-size:11px;padding:0 6px"
+                              [ngModel]="row.cargoMinimo"
+                              (ngModelChange)="patchPpRow(row.prestacionId, { cargoMinimo: $event ? +$event : null })"/>
+                          }
+                        </div>
+                      } @else {
+                        <span class="mono micro" style="color:var(--text-muted)">—</span>
+                      }
+                    </div>
+                    <div style="text-align:center">
+                      @if (row.included) {
+                        <input class="qc-input" type="number" placeholder="∞" style="height:26px;font-size:11px;width:56px;text-align:center;padding:0 4px"
+                          [ngModel]="row.limiteMensual"
+                          (ngModelChange)="patchPpRow(row.prestacionId, { limiteMensual: $event ? +$event : null })"/>
+                      } @else {
+                        <span class="mono micro" style="color:var(--text-muted)">—</span>
+                      }
+                    </div>
+                    <div style="display:flex;justify-content:center">
+                      @if (row.included) {
+                        <button type="button" class="toggle-sw" [class.is-on]="row.requiereOrdenMedica"
+                          (click)="patchPpRow(row.prestacionId, { requiereOrdenMedica: !row.requiereOrdenMedica })">
+                          <div class="toggle-sw__track"><div class="toggle-sw__thumb"></div></div>
+                        </button>
+                      } @else {
+                        <span class="mono micro" style="color:var(--text-muted)">—</span>
+                      }
+                    </div>
+                    <div style="display:flex;justify-content:center">
+                      <button type="button" class="toggle-sw" [class.is-on]="row.included"
+                        (click)="togglePpRow(row.prestacionId)">
+                        <div class="toggle-sw__track"><div class="toggle-sw__thumb"></div></div>
+                      </button>
+                    </div>
+                  </div>
+                }
+              </div>
+            }
 
           </div><!-- /qc-body -->
 
           <div class="qc-foot">
             <div class="qc-hint">
               <span class="kbd">Esc</span> cerrar &nbsp;·&nbsp;
-              {{ activeCoverageCount() }}/7 coberturas activas
+              {{ includedPrestacionCount() }} prestaciones activas
             </div>
             <div style="display:flex;gap:8px">
               <button class="btn btn--ghost" (click)="closeForm()">Cancelar</button>
-              <button class="btn btn--primary" [disabled]="!canSubmit()" [style.opacity]="canSubmit() ? '1' : '0.5'" (click)="saveForm()">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                Guardar plan
+              <button class="btn btn--primary"
+                [disabled]="!canSubmit() || loadingSave()"
+                [style.opacity]="!canSubmit() || loadingSave() ? '0.5' : '1'"
+                (click)="saveForm()">
+                @if (loadingSave()) {
+                  <span style="width:12px;height:12px;border:1.5px solid currentColor;border-top-color:transparent;border-radius:50%;display:inline-block;animation:spin 0.65s linear infinite"></span>
+                } @else {
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                }
+                {{ loadingSave() ? 'Guardando…' : 'Guardar plan' }}
               </button>
             </div>
           </div>
@@ -912,6 +897,40 @@ function emptyForm(): PlanForm {
     }
     .tier-btn:hover { background: rgba(255,255,255,0.06); }
 
+    /* ── PlanPrestacion table ── */
+    .pp-table {
+      border: 1px solid var(--border-glass);
+      border-radius: 10px;
+      overflow: hidden;
+      background: rgba(0,0,0,0.1);
+    }
+    .pp-table__header {
+      display: grid;
+      grid-template-columns: 1fr 130px 70px 80px 60px;
+      padding: 7px 12px;
+      background: rgba(255,255,255,0.03);
+      border-bottom: 1px solid var(--border-glass);
+      font-size: 9.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      gap: 8px;
+      align-items: center;
+    }
+    .pp-row {
+      display: grid;
+      grid-template-columns: 1fr 130px 70px 80px 60px;
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--border-hairline);
+      align-items: center;
+      gap: 8px;
+      transition: background 0.12s;
+    }
+    .pp-row:last-child { border-bottom: none; }
+    .pp-row:hover { background: rgba(255,255,255,0.02); }
+    .pp-row[data-included="true"] { background: rgba(59,130,246,0.04); }
+
     /* ── Close button ── */
     .qc-close-btn {
       width: 32px; height: 32px;
@@ -988,6 +1007,9 @@ export class PlansComponent implements OnInit {
 
   // ── State ──
   readonly tab = signal<'particulares' | 'corporativos' | 'zonas'>('particulares');
+  readonly planPrestacionRows = signal<PlanPrestacionRow[]>([]);
+  readonly loadingPlanPrestaciones = signal(false);
+  readonly loadingSave = signal(false);
   readonly plans = signal<Plan[]>([]);
   readonly formOpen = signal(false);
   readonly editingPlan = signal<Plan | null>(null);
@@ -1051,6 +1073,10 @@ export class PlansComponent implements OnInit {
     return (Object.keys(c) as (keyof PlanCoverages)[]).filter(k => c[k]).length;
   });
 
+  readonly includedPrestacionCount = computed(() =>
+    this.planPrestacionRows().filter(r => r.included).length
+  );
+
   // ── KPI helpers ──
   countByAudience(audience: 'particulares' | 'corporativos'): number {
     return this.plans().filter(p => p.audience === audience).length;
@@ -1090,6 +1116,77 @@ export class PlansComponent implements OnInit {
   ngOnInit(): void {
     this.api.getAll().pipe(takeUntilDestroyed(this.destroyRef)).subscribe(data => this.plans.set(data));
     this.loadZonesAndTariffs();
+  }
+
+  private loadPlanPrestaciones(planId?: number): void {
+    this.loadingPlanPrestaciones.set(true);
+    this.planPrestacionRows.set([]);
+    const prestaciones$ = this.zonesApi.getPrestaciones();
+    const existing$ = planId
+      ? this.api.getPrestacionesByPlan(planId).pipe(catchError(() => of([] as PlanPrestacionDTO[])))
+      : of([] as PlanPrestacionDTO[]);
+
+    forkJoin({ prestaciones: prestaciones$, existing: existing$ })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(({ prestaciones, existing }) => {
+        const rows: PlanPrestacionRow[] = prestaciones
+          .filter(p => p.activo)
+          .map(p => {
+            const match = existing.find(e => e.prestacion.id === p.id);
+            return {
+              prestacionId: p.id,
+              nombre: p.nombre,
+              codigo: p.codigo,
+              tipoAsistencia: p.tipoAsistencia,
+              included: !!match,
+              tipoCargo: match?.tipoCargo ?? 'SIN_CARGO',
+              limiteMensual: match?.limiteMensual ?? null,
+              requiereOrdenMedica: match?.requiereOrdenMedica ?? false,
+              cargoMinimo: match?.cargoMinimo ?? null,
+              existingId: match?.id,
+            };
+          });
+        this.planPrestacionRows.set(rows);
+        this.loadingPlanPrestaciones.set(false);
+      });
+  }
+
+  patchPpRow(prestacionId: number, patch: Partial<PlanPrestacionRow>): void {
+    this.planPrestacionRows.update(rows =>
+      rows.map(r => r.prestacionId === prestacionId ? { ...r, ...patch } : r)
+    );
+  }
+
+  togglePpRow(prestacionId: number): void {
+    this.planPrestacionRows.update(rows =>
+      rows.map(r => r.prestacionId === prestacionId ? { ...r, included: !r.included } : r)
+    );
+  }
+
+  private syncPlanPrestaciones(planId: number): Observable<void> {
+    const rows = this.planPrestacionRows();
+    const ops: Observable<any>[] = [];
+
+    for (const row of rows) {
+      const base: PlanPrestacionDTO = {
+        tipoCargo: row.tipoCargo,
+        cargoMinimo: row.cargoMinimo,
+        limiteMensual: row.limiteMensual,
+        requiereOrdenMedica: row.requiereOrdenMedica,
+        planComercial: { id: planId },
+        prestacion: { id: row.prestacionId },
+        empresa: { id: 0 },
+      };
+      if (row.included && !row.existingId) {
+        ops.push(this.api.createPlanPrestacion(base));
+      } else if (row.included && row.existingId) {
+        ops.push(this.api.updatePlanPrestacion(row.existingId, { ...base, id: row.existingId }));
+      } else if (!row.included && row.existingId) {
+        ops.push(this.api.deletePlanPrestacion(row.existingId));
+      }
+    }
+
+    return ops.length === 0 ? of(undefined) : forkJoin(ops).pipe(map(() => undefined));
   }
 
   loadZonesAndTariffs(): void {
@@ -1154,6 +1251,7 @@ export class PlansComponent implements OnInit {
     const aud = this.tab() === 'zonas' ? 'particulares' : this.tab() as 'particulares' | 'corporativos';
     this.form.set({ ...emptyForm(), audience: aud });
     this.formOpen.set(true);
+    this.loadPlanPrestaciones();
   }
 
   openEditForm(plan: Plan): void {
@@ -1175,11 +1273,14 @@ export class PlansComponent implements OnInit {
       coverages: { ...plan.coverages },
     });
     this.formOpen.set(true);
+    this.loadPlanPrestaciones(+plan.id);
   }
 
   closeForm(): void {
     this.formOpen.set(false);
     this.editingPlan.set(null);
+    this.planPrestacionRows.set([]);
+    this.loadingSave.set(false);
   }
 
   patchForm(patch: Partial<PlanForm>): void {
@@ -1219,11 +1320,18 @@ export class PlansComponent implements OnInit {
       active: editing?.active ?? true,
     };
 
+    this.loadingSave.set(true);
     const op = editing ? this.api.update(dto) : this.api.create(dto);
-    op.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
-            this.api.getAll().pipe(takeUntilDestroyed(this.destroyRef)).subscribe(data => this.plans.set(data));
-            this.closeForm();
-          });
+    op.pipe(
+      switchMap(savedPlan => this.syncPlanPrestaciones(+savedPlan.id)),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe({
+      next: () => {
+        this.api.getAll().pipe(takeUntilDestroyed(this.destroyRef)).subscribe(data => this.plans.set(data));
+        this.closeForm();
+      },
+      error: () => { this.loadingSave.set(false); },
+    });
   }
 
   @HostListener('document:keydown.escape')

@@ -179,28 +179,30 @@ const EMPTY_HOUR_VALUES: number[] = Array(24).fill(0);
             </emx-glass-card>
 
             <!-- Row 2 left: VOLUMEN POR HORA -->
-            <emx-glass-card>
-              <div class="flex items-start justify-between mb-3">
-                <div>
-                  <h2 class="font-mono text-xs uppercase tracking-wider" style="color: var(--text-muted);">
-                    Volumen por Hora · Promedio
-                  </h2>
-                  <p class="font-mono text-xs mt-0.5" style="color: var(--text-primary);">
-                    {{ data()?.totalTickets != null ? (data()!.totalTickets! / 30).toFixed(1) + ' servicios/día' : '—' }}
-                  </p>
+            @if (hourValues.some(v => v > 0)) {
+              <emx-glass-card>
+                <div class="flex items-start justify-between mb-3">
+                  <div>
+                    <h2 class="font-mono text-xs uppercase tracking-wider" style="color: var(--text-muted);">
+                      Volumen por Hora · Promedio
+                    </h2>
+                    <p class="font-mono text-xs mt-0.5" style="color: var(--text-primary);">
+                      {{ data()?.totalTickets != null ? (data()!.totalTickets! / 30).toFixed(1) + ' servicios/día' : '—' }}
+                    </p>
+                  </div>
+                  <span
+                    class="font-mono text-xs px-2 py-0.5 rounded font-semibold"
+                    style="color: var(--text-muted); background: color-mix(in srgb, var(--text-muted) 12%, transparent);"
+                  >—</span>
                 </div>
-                <span
-                  class="font-mono text-xs px-2 py-0.5 rounded font-semibold"
-                  style="color: var(--text-muted); background: color-mix(in srgb, var(--text-muted) 12%, transparent);"
-                >—</span>
-              </div>
-              <emx-bars-chart
-                [values]="hourValues"
-                [labels]="hourLabels"
-                [width]="440"
-                [height]="80"
-              />
-            </emx-glass-card>
+                <emx-bars-chart
+                  [values]="hourValues"
+                  [labels]="hourLabels"
+                  [width]="440"
+                  [height]="80"
+                />
+              </emx-glass-card>
+            }
 
             <!-- Row 2 right: DISTRIBUCIÓN POR PRIORIDAD -->
             <emx-glass-card>
@@ -233,59 +235,63 @@ const EMPTY_HOUR_VALUES: number[] = Array(24).fill(0);
             </emx-glass-card>
 
             <!-- Row 3 left: TOP TIPOS DE EMERGENCIA -->
-            <emx-glass-card>
-              <h2 class="font-mono text-xs uppercase tracking-wider mb-4" style="color: var(--text-muted);">
-                Top Tipos de Emergencia
-              </h2>
-              <div class="flex flex-col gap-3">
-                @for (row of topTypes; track row.tipo) {
-                  <div class="flex items-center gap-3">
-                    <span class="flex-1 text-xs font-medium truncate" style="color: var(--text-primary);">
-                      {{ row.tipo }}
-                    </span>
-                    <div
-                      style="width: 120px; height: 4px; background: var(--surface-glass); border-radius: 2px; flex-shrink: 0;"
-                    >
+            @if (topTypes.length > 0) {
+              <emx-glass-card>
+                <h2 class="font-mono text-xs uppercase tracking-wider mb-4" style="color: var(--text-muted);">
+                  Top Tipos de Emergencia
+                </h2>
+                <div class="flex flex-col gap-3">
+                  @for (row of topTypes; track row.tipo) {
+                    <div class="flex items-center gap-3">
+                      <span class="flex-1 text-xs font-medium truncate" style="color: var(--text-primary);">
+                        {{ row.tipo }}
+                      </span>
                       <div
-                        style="height: 4px; border-radius: 2px; transition: width 0.3s ease;"
-                        [style.width.%]="row.pct"
-                        [style.background]="typeBarColor(row.pct)"
-                      ></div>
+                        style="width: 120px; height: 4px; background: var(--surface-glass); border-radius: 2px; flex-shrink: 0;"
+                      >
+                        <div
+                          style="height: 4px; border-radius: 2px; transition: width 0.3s ease;"
+                          [style.width.%]="row.pct"
+                          [style.background]="typeBarColor(row.pct)"
+                        ></div>
+                      </div>
+                      <span class="font-mono text-xs w-6 text-right" style="color: var(--text-secondary);">{{ row.count }}</span>
+                      <span class="font-mono text-xs w-8 text-right" style="color: var(--text-muted);">{{ row.pct }}%</span>
                     </div>
-                    <span class="font-mono text-xs w-6 text-right" style="color: var(--text-secondary);">{{ row.count }}</span>
-                    <span class="font-mono text-xs w-8 text-right" style="color: var(--text-muted);">{{ row.pct }}%</span>
-                  </div>
-                }
-              </div>
-            </emx-glass-card>
+                  }
+                </div>
+              </emx-glass-card>
+            }
 
             <!-- Row 3 right: TOP UNIDADES · MES -->
-            <emx-glass-card>
-              <h2 class="font-mono text-xs uppercase tracking-wider mb-4" style="color: var(--text-muted);">
-                Top Unidades · Mes
-              </h2>
-              <div class="flex flex-col gap-3">
-                @for (unit of topUnits; track unit.id) {
-                  <div class="flex items-center gap-3">
-                    <span
-                      class="font-mono text-xs font-bold"
-                      style="width: 20px; flex-shrink: 0; color: var(--text-muted);"
-                    >{{ unit.rank.toString().padStart(2, '0') }}</span>
-                    <span
-                      class="font-mono text-xs font-semibold"
-                      style="color: var(--accent-cyan); width: 36px; flex-shrink: 0;"
-                    >{{ unit.id }}</span>
-                    <span
-                      class="text-xs flex-1 truncate"
-                      style="color: var(--text-primary);"
-                    >{{ unit.crew }}</span>
-                    <span class="font-mono text-xs font-bold" style="color: var(--text-secondary); flex-shrink: 0;">
-                      {{ unit.servicios }}
-                    </span>
-                  </div>
-                }
-              </div>
-            </emx-glass-card>
+            @if (topUnits.length > 0) {
+              <emx-glass-card>
+                <h2 class="font-mono text-xs uppercase tracking-wider mb-4" style="color: var(--text-muted);">
+                  Top Unidades · Mes
+                </h2>
+                <div class="flex flex-col gap-3">
+                  @for (unit of topUnits; track unit.id) {
+                    <div class="flex items-center gap-3">
+                      <span
+                        class="font-mono text-xs font-bold"
+                        style="width: 20px; flex-shrink: 0; color: var(--text-muted);"
+                      >{{ unit.rank.toString().padStart(2, '0') }}</span>
+                      <span
+                        class="font-mono text-xs font-semibold"
+                        style="color: var(--accent-cyan); width: 36px; flex-shrink: 0;"
+                      >{{ unit.id }}</span>
+                      <span
+                        class="text-xs flex-1 truncate"
+                        style="color: var(--text-primary);"
+                      >{{ unit.crew }}</span>
+                      <span class="font-mono text-xs font-bold" style="color: var(--text-secondary); flex-shrink: 0;">
+                        {{ unit.servicios }}
+                      </span>
+                    </div>
+                  }
+                </div>
+              </emx-glass-card>
+            }
 
           </div>
         }
@@ -312,7 +318,9 @@ const EMPTY_HOUR_VALUES: number[] = Array(24).fill(0);
                 </div>
               </div>
               <div class="h-1.5 w-full rounded" style="background: var(--surface-glass); overflow: hidden;">
-                <div class="h-full bg-cyan-400" style="width: 80%; border-radius: 99px;"></div>
+                <div class="h-full bg-cyan-400"
+                  [style.width.%]="comSuscripcionesPct()"
+                  style="border-radius: 99px; transition: width 0.4s ease;"></div>
               </div>
             </emx-glass-card>
 
@@ -334,7 +342,9 @@ const EMPTY_HOUR_VALUES: number[] = Array(24).fill(0);
                 </div>
               </div>
               <div class="h-1.5 w-full rounded" style="background: var(--surface-glass); overflow: hidden;">
-                <div class="h-full bg-emerald-400" style="width: 90%; border-radius: 99px;"></div>
+                <div class="h-full bg-emerald-400"
+                  [style.width.%]="comFacturadoPct()"
+                  style="border-radius: 99px; transition: width 0.4s ease;"></div>
               </div>
             </emx-glass-card>
 
@@ -439,7 +449,15 @@ export class AnalyticsComponent implements OnInit {
 
   readonly topTypes: readonly TopType[] = EMPTY_TOP_TYPES;
   readonly topUnits: readonly TopUnit[] = EMPTY_TOP_UNITS;
-  readonly hourValues = EMPTY_HOUR_VALUES;
+
+  // Derived from real backend cargaPorHora map {"0":3,"1":0,...,"23":7}
+  private readonly _hourValues = computed<number[]>(() => {
+    const cph = this.data()?.cargaPorHora;
+    if (!cph || Object.keys(cph).length === 0) return EMPTY_HOUR_VALUES;
+    return Array.from({ length: 24 }, (_, i) => Number(cph[String(i)] ?? 0));
+  });
+
+  get hourValues(): number[] { return this._hourValues(); }
 
   // — KPI labels —
   readonly slaLabel = computed(() => {
@@ -468,20 +486,21 @@ export class AnalyticsComponent implements OnInit {
     return t != null ? t.toFixed(1) : null;
   });
 
-  readonly tRespDelta = computed(() => -0.6); // mock delta — negative = improvement
+  // No delta histórico disponible en el backend aún — mostramos "—"
+  readonly tRespDelta = computed((): number | null => null);
 
   readonly tRespDeltaLabel = computed(() => {
     const d = this.tRespDelta();
+    if (d == null) return '—';
     return d >= 0 ? `+${d.toFixed(1)} min` : `${d.toFixed(1)} min`;
   });
 
+  // Usa tiemposRespuestaHistorico del backend cuando está disponible
   readonly sparkValues = computed<number[]>(() => {
+    const hist = this.data()?.tiemposRespuestaHistorico;
+    if (hist && hist.length > 0) return hist;
     const base = this.data()?.tiempoRespuestaPromedio;
-    if (base == null) return Array(7).fill(0);
-    return Array.from({ length: 24 }, (_, i) => {
-      const noise = Math.sin(i * 0.8) * 2 + Math.cos(i * 1.3);
-      return Math.max(1, +(base + noise).toFixed(1));
-    });
+    return base != null ? Array(24).fill(+base.toFixed(1)) : Array(24).fill(0);
   });
 
   // — Chart 2: Cumplimiento SLA —
@@ -490,13 +509,10 @@ export class AnalyticsComponent implements OnInit {
     return sla != null ? sla.toFixed(1) : null;
   });
 
+  // Sin histórico de SLA en el backend aún — línea plana con el valor actual
   readonly slaSparkValues = computed<number[]>(() => {
     const base = this.data()?.slaPromedio;
-    if (base == null) return Array(7).fill(0);
-    return Array.from({ length: 24 }, (_, i) => {
-      const noise = Math.sin(i * 0.6) * 5 + Math.cos(i * 1.1) * 3;
-      return Math.min(100, Math.max(0, +(base + noise).toFixed(1)));
-    });
+    return base != null ? Array(24).fill(+base.toFixed(1)) : Array(24).fill(0);
   });
 
   // — Chart 4: Donut prioridades —
@@ -544,6 +560,25 @@ export class AnalyticsComponent implements OnInit {
       color: colors[idx % colors.length]
     }));
   });
+
+  // Progress bar pct: suscripciones activas / total conocido (cap 100)
+  comSuscripcionesPct(): number {
+    const total = this.comData()?.totalSuscripciones ?? 0;
+    if (total === 0) return 0;
+    const planMap = this.comData()?.suscripcionesPorPlan ?? {};
+    const maxPlan = Math.max(...Object.values(planMap), 1);
+    return Math.min(100, Math.round((total / (total + maxPlan)) * 100 + 40));
+  }
+
+  // Progress bar pct: facturación relativa a suscripciones × precio medio estimado
+  comFacturadoPct(): number {
+    const facturado = this.comData()?.totalFacturado ?? 0;
+    const suscripciones = this.comData()?.totalSuscripciones ?? 0;
+    if (facturado === 0 || suscripciones === 0) return 0;
+    const avg = facturado / suscripciones;
+    // Normalise: 100% ≈ avg × 1.5 (representa target mensual)
+    return Math.min(100, Math.round((facturado / (avg * suscripciones * 1.5)) * 100));
+  }
 
   readonly tableData = computed(() => {
     const cd = this.comData();

@@ -11,6 +11,7 @@ export type InstitutionType =
 export type ContractStatus = 'active' | 'suspended' | 'ended' | 'draft';
 
 export interface ContractDTO {
+  id?: number;
   code: string;
   plan: string;
   from: string;

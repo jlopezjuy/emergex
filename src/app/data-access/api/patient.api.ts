@@ -13,6 +13,8 @@ import {
   RegistrarPagoRequest,
   PagoResponseDTO,
   CrearCoberturaRequest,
+  ConsumoMensualDTO,
+  OrdenMedicaDTO,
 } from '../dto/patient.dto';
 
 @Injectable({ providedIn: 'root' })
@@ -141,5 +143,13 @@ export class PatientApiService {
 
   crearCobertura(pacienteId: number, req: CrearCoberturaRequest): Observable<unknown> {
     return this.http.post<unknown>(`${this.afiliadosBase}/${pacienteId}/coberturas`, req);
+  }
+
+  getConsumoMensual(pacienteId: number): Observable<ConsumoMensualDTO> {
+    return this.http.get<ConsumoMensualDTO>(`${this.afiliadosBase}/${pacienteId}/consumo-mensual`);
+  }
+
+  getOrdenesMedicas(pacienteId: number): Observable<OrdenMedicaDTO[]> {
+    return this.http.get<OrdenMedicaDTO[]>(`${environment.apiUrl}/api/ordenes-medicas/paciente/${pacienteId}`);
   }
 }

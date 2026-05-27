@@ -1,6 +1,6 @@
 import { Component, input, output } from '@angular/core';
 import { PatientRow } from '../../patients.component';
-import { FichaAfiliadoDTO, FacturaDTO, CoberturaFichaDTO } from '../../../../data-access/dto/patient.dto';
+import { FichaAfiliadoDTO, FacturaDTO, CoberturaFichaDTO, ConsumoMensualDTO, OrdenMedicaDTO } from '../../../../data-access/dto/patient.dto';
 
 @Component({
   selector: 'app-patient-detail-drawer',
@@ -13,6 +13,8 @@ export class PatientDetailDrawerComponent {
   readonly patient  = input.required<PatientRow>();
   readonly ficha    = input<FichaAfiliadoDTO | null>(null);
   readonly facturas = input<FacturaDTO[]>([]);
+  readonly consumo  = input<ConsumoMensualDTO | null>(null);
+  readonly ordenes  = input<OrdenMedicaDTO[]>([]);
   readonly loading  = input<boolean>(false);
 
   // ── Outputs ──
@@ -72,6 +74,11 @@ export class PatientDetailDrawerComponent {
     const [y, m, d] = parts;
     const months = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
     return `${d} ${months[parseInt(m) - 1]} ${y}`;
+  }
+
+  consumoPct(consumido: number, maximo: number): number {
+    if (!maximo || maximo <= 0) return 0;
+    return Math.min(100, Math.round((consumido / maximo) * 100));
   }
 
   cobOf(ficha: FichaAfiliadoDTO | null): CoberturaFichaDTO | null {

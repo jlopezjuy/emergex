@@ -1,14 +1,26 @@
 import { Component, OnInit, signal, computed, HostListener, inject, DestroyRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { catchError, of } from 'rxjs';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { InstitutionsApiService } from '../../data-access/api/institutions.api';
+import { PlansApiService } from '../../data-access/api/plans.api';
 import { environment } from '../../../environments/environment';
 import { DateUtils } from '../../core/utils/date.utils';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
+interface CommercialPlanItem {
+  id: string;
+  numericId: number;
+  name: string;
+  color: string;
+  monthlyBase: number;
+  tier: string;
+}
+
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 
 interface InstitutionContract {
+  id?: number;
   code: string;
   plan: string;
   from: string;
@@ -72,14 +84,11 @@ const INSTITUTION_TYPES = [
   { id: 'otro',        label: 'Otro',                    icon: '📍' },
 ];
 
-const COMMERCIAL_PLANS = [
-  { id: 'corp-basico',   name: 'Corporativo Básico',   color: 'var(--text-muted)',     monthlyBase: 45000  },
-  { id: 'corp-medio',    name: 'Corporativo Medio',    color: 'var(--accent-blue)',    monthlyBase: 89000  },
-  { id: 'corp-premium',  name: 'Corporativo Premium',  color: 'var(--accent-emerald)', monthlyBase: 145000 },
-  { id: 'edu-basico',    name: 'Educativo Básico',     color: 'var(--accent-cyan)',    monthlyBase: 35000  },
-  { id: 'edu-premium',   name: 'Educativo Premium',    color: 'var(--accent-amber)',   monthlyBase: 72000  },
-  { id: 'salud-partner', name: 'Salud Partner',        color: 'var(--accent-red)',     monthlyBase: 120000 },
-];
+function planTierColor(tier: string): string {
+  if (tier === 'premium') return 'var(--accent-emerald)';
+  if (tier === 'medio')   return 'var(--accent-blue)';
+  return 'var(--text-muted)';
+}
 
 const INSTITUTIONS_SEED: Institution[] = environment.production ? [] : [
   {
@@ -410,7 +419,12 @@ const PAGE_SIZE = 10;
       @let ci = contractInst()!;
       @let ctr = contractDraft();
       <div class="qc-overlay" (click)="contractInst.set(null)">
-        <div class="qc-modal qc-modal--contract glass-strong" (click)="$event.stopPropagation()">
+        <div class="qc-modal qc-modal--contract glass-strong" style="position:relative" (click)="$event.stopPropagation()">
+          @if (loadingContract()) {
+            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(2,6,23,0.55);border-radius:inherit;z-index:20">
+              <div style="width:22px;height:22px;border:2px solid var(--accent-blue);border-top-color:transparent;border-radius:50%;animation:spin 0.65s linear infinite"></div>
+            </div>
+          }
           <div class="qc-head">
             <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0">
               <div class="institution-avatar"
@@ -636,9 +650,13 @@ const PAGE_SIZE = 10;
             <div class="qc-hint"><span class="kbd">Esc</span> cerrar sin guardar</div>
             <div style="display:flex;gap:8px">
               <button class="btn btn--ghost" (click)="contractInst.set(null)">Cancelar</button>
-              <button class="btn btn--primary" (click)="saveContract()">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                Guardar contrato
+              <button class="btn btn--primary" (click)="saveContract()" [disabled]="loadingContract()">
+                @if (loadingContract()) {
+                  <span style="width:12px;height:12px;border:1.5px solid currentColor;border-top-color:transparent;border-radius:50%;display:inline-block;animation:spin 0.65s linear infinite"></span>
+                } @else {
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                }
+                {{ loadingContract() ? 'Guardando…' : 'Guardar contrato' }}
               </button>
             </div>
           </div>
@@ -683,17 +701,35 @@ const PAGE_SIZE = 10;
                 <div class="qc-row">
                   <div class="qc-field" style="flex:2">
                     <label class="eyebrow">Nombre de fantasía <span style="color:var(--accent-red)">*</span></label>
-                    <input class="qc-input" placeholder="Ej. Colegio Santa Ana" [(ngModel)]="form().name" (ngModelChange)="patchForm({ name: $event })" autofocus/>
+                    <input class="qc-input"
+                      [style.border-color]="formTouched() && !form().name.trim() ? 'var(--accent-red)' : ''"
+                      placeholder="Ej. Colegio Santa Ana"
+                      [(ngModel)]="form().name" (ngModelChange)="patchForm({ name: $event })" autofocus/>
+                    @if (formTouched() && !form().name.trim()) {
+                      <div style="font-size:10.5px;color:var(--accent-red);margin-top:3px">Campo obligatorio</div>
+                    }
                   </div>
                   <div class="qc-field" style="flex:1">
                     <label class="eyebrow">CUIT <span style="color:var(--accent-red)">*</span></label>
-                    <input class="qc-input" placeholder="30-58741236-9" [(ngModel)]="form().cuit" (ngModelChange)="patchForm({ cuit: $event })"/>
+                    <input class="qc-input"
+                      [style.border-color]="formTouched() && !form().cuit.trim() ? 'var(--accent-red)' : ''"
+                      placeholder="30-58741236-9"
+                      [(ngModel)]="form().cuit" (ngModelChange)="patchForm({ cuit: $event })"/>
+                    @if (formTouched() && !form().cuit.trim()) {
+                      <div style="font-size:10.5px;color:var(--accent-red);margin-top:3px">Campo obligatorio</div>
+                    }
                   </div>
                 </div>
 
                 <div class="qc-field">
                   <label class="eyebrow">Razón social <span style="color:var(--accent-red)">*</span></label>
-                  <input class="qc-input" placeholder="Ej. Asociación Civil Educativa Santa Ana" [(ngModel)]="form().razonSocial" (ngModelChange)="patchForm({ razonSocial: $event })"/>
+                  <input class="qc-input"
+                    [style.border-color]="formTouched() && !form().razonSocial.trim() ? 'var(--accent-red)' : ''"
+                    placeholder="Ej. Asociación Civil Educativa Santa Ana"
+                    [(ngModel)]="form().razonSocial" (ngModelChange)="patchForm({ razonSocial: $event })"/>
+                  @if (formTouched() && !form().razonSocial.trim()) {
+                    <div style="font-size:10.5px;color:var(--accent-red);margin-top:3px">Campo obligatorio</div>
+                  }
                 </div>
 
                 <div class="qc-field">
@@ -842,9 +878,16 @@ const PAGE_SIZE = 10;
             </div>
             <div style="display:flex;gap:8px">
               <button class="btn btn--ghost" (click)="closeForm()">Cancelar</button>
-              <button class="btn btn--primary" [disabled]="!canSubmit()" [style.opacity]="canSubmit() ? '1' : '0.5'" (click)="saveForm()">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                Guardar institución
+              <button class="btn btn--primary"
+                [disabled]="loadingSave()"
+                [style.opacity]="(!canSubmit() && formTouched()) || loadingSave() ? '0.6' : '1'"
+                (click)="saveForm()">
+                @if (loadingSave()) {
+                  <span style="width:12px;height:12px;border:1.5px solid currentColor;border-top-color:transparent;border-radius:50%;display:inline-block;animation:spin 0.65s linear infinite"></span>
+                } @else {
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                }
+                {{ loadingSave() ? 'Guardando…' : 'Guardar institución' }}
               </button>
             </div>
           </div>
@@ -1269,11 +1312,16 @@ const PAGE_SIZE = 10;
   `],
 })
 export class InstitutionsComponent implements OnInit {
-    private destroyRef = inject(DestroyRef);
+  private destroyRef = inject(DestroyRef);
   private readonly api = inject(InstitutionsApiService);
+  private readonly plansApi = inject(PlansApiService);
+
+  // ── State ──
+  private readonly _commercialPlans = signal<CommercialPlanItem[]>([]);
+
   // ── Constants exposed to template ──
   readonly institutionTypes = INSTITUTION_TYPES;
-  readonly commercialPlans = COMMERCIAL_PLANS;
+  get commercialPlans(): CommercialPlanItem[] { return this._commercialPlans(); }
   readonly statusOptions = [
     { value: 'all',      label: 'Todas'     },
     { value: 'activa',   label: 'Activas'   },
@@ -1289,6 +1337,20 @@ export class InstitutionsComponent implements OnInit {
   // ── Lifecycle ──
   ngOnInit(): void {
     this.loadInstitutions();
+    this.loadPlans();
+  }
+
+  private loadPlans(): void {
+    this.plansApi.getAll().pipe(takeUntilDestroyed(this.destroyRef)).subscribe(plans => {
+      this._commercialPlans.set(plans.map(p => ({
+        id:          p.name,
+        numericId:   Number(p.id),
+        name:        p.name,
+        color:       planTierColor(p.tier),
+        monthlyBase: p.pricing.monthly,
+        tier:        p.tier,
+      })));
+    });
   }
 
   private loadInstitutions(): void {
@@ -1331,12 +1393,15 @@ export class InstitutionsComponent implements OnInit {
   // Contract modal
   readonly contractInst = signal<Institution | null>(null);
   readonly contractDraft = signal<InstitutionContract>({ code: '', plan: '', from: '', to: '', status: 'active', monthlyPrice: 0, monthlyCap: 0, kpiMinutes: 0, conditions: '' });
+  readonly loadingContract = signal(false);
 
   // Form modal
   readonly formOpen = signal(false);
   readonly editingInst = signal<Institution | null>(null);
   readonly formTab = signal<'general' | 'contacto'>('general');
   readonly form = signal<InstitutionForm>(emptyForm());
+  readonly formTouched = signal(false);
+  readonly loadingSave = signal(false);
 
   // ── ngModel bridges ──
   get searchQuery_(): string { return this.searchQuery(); }
@@ -1409,16 +1474,16 @@ export class InstitutionsComponent implements OnInit {
   readonly Math = Math;
 
   planColor(planId: string): string {
-    return COMMERCIAL_PLANS.find(p => p.id === planId)?.color ?? 'var(--text-muted)';
+    return this._commercialPlans().find(p => p.id === planId)?.color ?? 'var(--text-muted)';
   }
   planName(planId: string): string {
-    return COMMERCIAL_PLANS.find(p => p.id === planId)?.name ?? planId;
+    return this._commercialPlans().find(p => p.id === planId)?.name ?? planId;
   }
   planBase(planId: string): number {
-    return COMMERCIAL_PLANS.find(p => p.id === planId)?.monthlyBase ?? 0;
+    return this._commercialPlans().find(p => p.id === planId)?.monthlyBase ?? 0;
   }
-  getPlan(planId: string): typeof COMMERCIAL_PLANS[number] | undefined {
-    return COMMERCIAL_PLANS.find(p => p.id === planId);
+  getPlan(planId: string): CommercialPlanItem | undefined {
+    return this._commercialPlans().find(p => p.id === planId);
   }
   getType(typeId: string): typeof INSTITUTION_TYPES[number] | undefined {
     return INSTITUTION_TYPES.find(t => t.id === typeId);
@@ -1452,42 +1517,36 @@ export class InstitutionsComponent implements OnInit {
   // ── Contract modal ──
   openContract(inst: Institution): void {
     this.contractInst.set(inst);
-    
-    // Configurar fechas predeterminadas de 1 año si están vacías
+
+    // Pre-populate draft with local data so the modal opens immediately
     const todayStr = new Date().toISOString().split('T')[0];
     const nextYear = new Date();
     nextYear.setFullYear(nextYear.getFullYear() + 1);
     const nextYearStr = nextYear.toISOString().split('T')[0];
 
-    const draft = { ...inst.contract };
+    const draft: InstitutionContract = { ...inst.contract };
     if (!draft.from) draft.from = todayStr;
     if (!draft.to) draft.to = nextYearStr;
-    if (!draft.plan) draft.plan = inst.plan || 'corp-medio';
+    if (!draft.plan) draft.plan = inst.plan || '';
 
-    // Auto-populado de tarifas y KPIs según el plan si están en cero
-    const plan = COMMERCIAL_PLANS.find(p => p.id === draft.plan);
+    const plan = this._commercialPlans().find(p => p.id === draft.plan);
     if (plan) {
       if (!draft.monthlyPrice) draft.monthlyPrice = plan.monthlyBase;
-      if (!draft.monthlyCap) {
-        draft.monthlyCap = plan.id.includes('premium') ? 50 : plan.id.includes('medio') ? 30 : 15;
-      }
-      if (!draft.kpiMinutes) {
-        draft.kpiMinutes = plan.id.includes('premium') ? 8 : plan.id.includes('medio') ? 12 : 15;
-      }
+      if (!draft.monthlyCap)   draft.monthlyCap   = plan.tier === 'premium' ? 50 : plan.tier === 'medio' ? 30 : 15;
+      if (!draft.kpiMinutes)   draft.kpiMinutes   = plan.tier === 'premium' ? 8  : plan.tier === 'medio' ? 12 : 15;
     }
 
-    // Auto-generación de Geocerca circular predeterminada alrededor del marcador de la institución
     if (!draft.polygonPoints || draft.polygonPoints.length === 0) {
       const cx = inst.lat ?? 50;
       const cy = inst.lng ?? 50;
       const points = [];
       const steps = 12;
-      const radius = 8; // radio predeterminado del 8% del mapa
+      const radius = 8;
       for (let i = 0; i < steps; i++) {
         const angle = (i / steps) * 2 * Math.PI;
         points.push({
           x: Math.round((cx + radius * Math.cos(angle)) * 10) / 10,
-          y: Math.round((cy + radius * Math.sin(angle)) * 10) / 10
+          y: Math.round((cy + radius * Math.sin(angle)) * 10) / 10,
         });
       }
       points.push({ ...points[0] });
@@ -1495,16 +1554,57 @@ export class InstitutionsComponent implements OnInit {
     }
 
     this.contractDraft.set(draft);
+
+    // Load real contract from backend (keeps modal open with real data when it arrives)
+    const institucionId = Number(inst.id);
+    if (!institucionId) return;
+
+    this.loadingContract.set(true);
+    this.api.getContratosByInstitucion(institucionId)
+      .pipe(
+        catchError(() => of([])),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe(contratos => {
+        this.loadingContract.set(false);
+        if (contratos.length === 0) return;
+
+        // Use the most recent contract (first result — backend orders by id desc)
+        const c = contratos[0];
+        const planName = this._commercialPlans().find(p => p.numericId === Number(c.plan))?.id ?? draft.plan;
+
+        this.contractDraft.update(d => ({
+          ...d,
+          id:           c.id,
+          code:         c.code || d.code,
+          plan:         planName,
+          from:         c.from || d.from,
+          to:           c.to   || d.to,
+          status:       c.status,
+          monthlyPrice: c.monthlyPrice || d.monthlyPrice,
+          monthlyCap:   c.monthlyCap   || d.monthlyCap,
+          kpiMinutes:   c.kpiMinutes   || d.kpiMinutes,
+          conditions:   c.conditions   ?? d.conditions,
+        }));
+
+        // Sync local institution contract so the table row reflects real data
+        this.institutions.update(list =>
+          list.map(i => i.id === inst.id
+            ? { ...i, contract: { ...i.contract, id: c.id, code: c.code, status: c.status } }
+            : i,
+          ),
+        );
+      });
   }
 
   patchContract(patch: Partial<InstitutionContract>): void {
     const draft = { ...this.contractDraft(), ...patch };
     if (patch.plan) {
-      const plan = COMMERCIAL_PLANS.find(p => p.id === patch.plan);
+      const plan = this._commercialPlans().find(p => p.id === patch.plan);
       if (plan) {
         draft.monthlyPrice = plan.monthlyBase;
-        draft.monthlyCap = plan.id.includes('premium') ? 50 : plan.id.includes('medio') ? 30 : 15;
-        draft.kpiMinutes = plan.id.includes('premium') ? 8 : plan.id.includes('medio') ? 12 : 15;
+        draft.monthlyCap = plan.tier === 'premium' ? 50 : plan.tier === 'medio' ? 30 : 15;
+        draft.kpiMinutes = plan.tier === 'premium' ? 8 : plan.tier === 'medio' ? 12 : 15;
       }
     }
     this.contractDraft.set(draft);
@@ -1531,11 +1631,41 @@ export class InstitutionsComponent implements OnInit {
   saveContract(): void {
     const inst = this.contractInst();
     if (!inst) return;
-    const draft = this.contractDraft();
-    this.institutions.update(list =>
-      list.map(i => i.id === inst.id ? { ...i, plan: draft.plan, contract: { ...draft } } : i)
-    );
-    this.contractInst.set(null);
+
+    const draft    = this.contractDraft();
+    const planItem = this._commercialPlans().find(p => p.id === draft.plan);
+    const planNumericId = planItem?.numericId ?? 0;
+    const institucionId = Number(inst.id);
+
+    this.loadingContract.set(true);
+
+    this.api.saveContrato(
+      { ...draft, conditions: draft.conditions ?? '' },
+      institucionId,
+      planNumericId,
+    )
+      .pipe(
+        catchError(err => {
+          console.error('Error saving contract', err);
+          return of(null);
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe(saved => {
+        this.loadingContract.set(false);
+        if (!saved) return;
+
+        const updatedDraft: InstitutionContract = { ...draft, id: saved.id, code: saved.code };
+
+        this.institutions.update(list =>
+          list.map(i =>
+            i.id === inst.id
+              ? { ...i, plan: planItem?.id ?? i.plan, contract: updatedDraft }
+              : i,
+          ),
+        );
+        this.contractInst.set(null);
+      });
   }
 
   // ── Form modal ──
@@ -1563,6 +1693,8 @@ export class InstitutionsComponent implements OnInit {
   closeForm(): void {
     this.formOpen.set(false);
     this.editingInst.set(null);
+    this.formTouched.set(false);
+    this.loadingSave.set(false);
   }
 
   patchForm(patch: Partial<InstitutionForm>): void {
@@ -1570,7 +1702,9 @@ export class InstitutionsComponent implements OnInit {
   }
 
   saveForm(): void {
+    this.formTouched.set(true);
     if (!this.canSubmit()) return;
+
     const f = this.form();
     const editing = this.editingInst();
 
@@ -1591,11 +1725,17 @@ export class InstitutionsComponent implements OnInit {
       lng:          f.lng,
     };
 
+    this.loadingSave.set(true);
     const op$ = editing ? this.api.update(dto) : this.api.create(dto);
-    op$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
-            this.closeForm();
-            this.loadInstitutions();
-          });
+    op$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: () => {
+        this.closeForm();
+        this.loadInstitutions();
+      },
+      error: () => {
+        this.loadingSave.set(false);
+      },
+    });
   }
 
   // ── Mini-map click ──

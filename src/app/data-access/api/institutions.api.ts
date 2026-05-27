@@ -3,7 +3,81 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
-import { InstitutionDTO, InstitutionType } from '../dto/institution.dto';
+import { ContractDTO, ContractStatus, InstitutionDTO, InstitutionType } from '../dto/institution.dto';
+
+// ── ContratoCobertura backend types ──────────────────────────────────────────
+
+type EstadoContrato = 'BORRADOR' | 'ACTIVO' | 'SUSPENDIDO' | 'VENCIDO' | 'RESCINDIDO' | 'EN_RENEGOCIACION' | 'FINALIZADO' | 'ANULADO';
+
+interface ContratoBackend {
+  id?: number;
+  codigo: string;
+  modalidadCobertura: 'INDIVIDUAL_PLAN' | 'AREA_PROTEGIDA' | 'EVENTO';
+  vigenciaDesde: string;
+  vigenciaHasta: string;
+  estadoContrato: EstadoContrato;
+  precioMensualAcordado: number;
+  topeAtencionesMensuales: number;
+  kpiRespuestaMinutos: number;
+  condicionesParticulares?: string;
+  institucion: { id: number };
+  planComercial: { id: number };
+  nombre?: string;
+}
+
+interface BackendPage<T> {
+  content: T[];
+  totalElements: number;
+  totalPages: number;
+}
+
+const STATUS_TO_BACKEND: Record<ContractStatus, EstadoContrato> = {
+  active:    'ACTIVO',
+  suspended: 'SUSPENDIDO',
+  ended:     'FINALIZADO',
+  draft:     'BORRADOR',
+};
+
+const STATUS_FROM_BACKEND: Partial<Record<EstadoContrato, ContractStatus>> = {
+  ACTIVO:     'active',
+  SUSPENDIDO: 'suspended',
+  FINALIZADO: 'ended',
+  VENCIDO:    'ended',
+  RESCINDIDO: 'ended',
+  BORRADOR:   'draft',
+};
+
+function contratoToDTO(b: ContratoBackend): ContractDTO {
+  return {
+    id:           b.id,
+    code:         b.codigo ?? '',
+    plan:         b.planComercial ? String(b.planComercial.id) : '',
+    from:         b.vigenciaDesde ? b.vigenciaDesde.split('T')[0] : '',
+    to:           b.vigenciaHasta ? b.vigenciaHasta.split('T')[0] : '',
+    status:       STATUS_FROM_BACKEND[b.estadoContrato] ?? 'draft',
+    monthlyPrice: b.precioMensualAcordado ?? 0,
+    monthlyCap:   b.topeAtencionesMensuales ?? 0,
+    kpiMinutes:   b.kpiRespuestaMinutos ?? 0,
+    conditions:   b.condicionesParticulares,
+  };
+}
+
+function contratoToBackend(dto: ContractDTO, institucionId: number, planNumericId: number): Omit<ContratoBackend, 'id'> & { id?: number } {
+  return {
+    ...(dto.id ? { id: dto.id } : {}),
+    codigo:                  dto.code,
+    modalidadCobertura:      'AREA_PROTEGIDA',
+    vigenciaDesde:           dto.from ? dto.from + 'T00:00:00Z' : '',
+    vigenciaHasta:           dto.to   ? dto.to   + 'T00:00:00Z' : '',
+    estadoContrato:          STATUS_TO_BACKEND[dto.status],
+    precioMensualAcordado:   dto.monthlyPrice,
+    topeAtencionesMensuales: dto.monthlyCap,
+    kpiRespuestaMinutos:     dto.kpiMinutes,
+    condicionesParticulares: dto.conditions || undefined,
+    institucion:             { id: institucionId },
+    planComercial:           { id: planNumericId },
+  };
+}
 
 interface InstitucionBackend {
   id: number;
@@ -126,5 +200,29 @@ export class InstitutionsApiService {
 
   delete(id: string): Observable<void> {
     return this.http.delete<void>(`${this.base}/${id}`);
+  }
+
+  // ── ContratoCobertura ────────────────────────────────────────────────────────
+
+  private contratoBase = `${environment.apiUrl}/api/v2/contratos-cobertura`;
+
+  getContratosByInstitucion(institucionId: number): Observable<ContractDTO[]> {
+    return this.http
+      .get<BackendPage<ContratoBackend>>(
+        `${this.contratoBase}?institucionId.equals=${institucionId}&size=50`,
+      )
+      .pipe(map(page => page.content.map(contratoToDTO)));
+  }
+
+  saveContrato(dto: ContractDTO, institucionId: number, planNumericId: number): Observable<ContractDTO> {
+    const body = contratoToBackend(dto, institucionId, planNumericId);
+    if (dto.id) {
+      return this.http
+        .put<ContratoBackend>(`${this.contratoBase}/${dto.id}`, body)
+        .pipe(map(contratoToDTO));
+    }
+    return this.http
+      .post<ContratoBackend>(this.contratoBase, body)
+      .pipe(map(contratoToDTO));
   }
 }

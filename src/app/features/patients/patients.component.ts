@@ -7,7 +7,7 @@ import { localDateYmd } from '../../shared/utils/date-local.util';
 import { PatientApiService } from '../../data-access/api/patient.api';
 import { PlansApiService } from '../../data-access/api/plans.api';
 import { AuthService } from '../../core/auth/auth.service';
-import { PacienteDTO, FichaAfiliadoDTO, FacturaDTO, CoberturaFichaDTO, MiembroGrupoFamiliarDTO } from '../../data-access/dto/patient.dto';
+import { PacienteDTO, FichaAfiliadoDTO, FacturaDTO, CoberturaFichaDTO, MiembroGrupoFamiliarDTO, ConsumoMensualDTO, OrdenMedicaDTO } from '../../data-access/dto/patient.dto';
 import { PlanDTO, PlanCoverages } from '../../data-access/dto/plan.dto';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
@@ -178,10 +178,12 @@ export class PatientsComponent implements OnInit {
   readonly menuOpen     = signal<string | null>(null);
 
   // ── State — Slide Drawer (Detail) ──
-  readonly selectedPatient = signal<PatientRow | null>(null);
-  readonly ficha           = signal<FichaAfiliadoDTO | null>(null);
-  readonly facturas        = signal<FacturaDTO[]>([]);
-  readonly loadingFicha    = signal(false);
+  readonly selectedPatient  = signal<PatientRow | null>(null);
+  readonly ficha            = signal<FichaAfiliadoDTO | null>(null);
+  readonly facturas         = signal<FacturaDTO[]>([]);
+  readonly consumo          = signal<ConsumoMensualDTO | null>(null);
+  readonly ordenes          = signal<OrdenMedicaDTO[]>([]);
+  readonly loadingFicha     = signal(false);
   readonly originalMiembros = signal<MiembroGrupoFamiliarDTO[]>([]);
 
   // ── State — Quick Payment Modal ──
@@ -487,12 +489,18 @@ export class PatientsComponent implements OnInit {
 
   private loadFichaAndFacturas(pacienteId: number): void {
     this.loadingFicha.set(true);
+    this.consumo.set(null);
+    this.ordenes.set([]);
     forkJoin({
-      ficha: this.patientApi.getFicha(pacienteId).pipe(catchError(() => of(null))),
+      ficha:    this.patientApi.getFicha(pacienteId).pipe(catchError(() => of(null))),
       facturas: this.patientApi.getFacturasAfiliado(pacienteId).pipe(catchError(() => of([] as FacturaDTO[]))),
-    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(({ ficha, facturas }) => {
+      consumo:  this.patientApi.getConsumoMensual(pacienteId).pipe(catchError(() => of(null))),
+      ordenes:  this.patientApi.getOrdenesMedicas(pacienteId).pipe(catchError(() => of([] as OrdenMedicaDTO[]))),
+    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(({ ficha, facturas, consumo, ordenes }) => {
       this.ficha.set(ficha);
       this.facturas.set(facturas ?? []);
+      this.consumo.set(consumo);
+      this.ordenes.set(ordenes ?? []);
       this.loadingFicha.set(false);
     });
   }

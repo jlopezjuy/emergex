@@ -146,6 +146,24 @@ export interface PagoResponseDTO {
   saldoPendiente?: number;
 }
 
+// ─── Consumo mensual y órdenes médicas ───────────────────────────────────────
+
+export interface OrdenMedicaDTO {
+  id: number;
+  numeroOrden: string;
+  fechaEmision: string;
+  fechaUso?: string;
+  usada: boolean;
+}
+
+export interface ConsumoMensualDTO {
+  atencionesConsumidas: number;
+  atencionesMaximas: number;
+  controlesMedicosConsumidos: number;
+  controlesMedicosMaximos: number;
+  ordenesDisponibles: OrdenMedicaDTO[];
+}
+
 // ─── Cobertura / plan ────────────────────────────────────────────────────────
 
 export interface CrearCoberturaRequest {

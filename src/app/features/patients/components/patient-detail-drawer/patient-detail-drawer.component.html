@@ -142,6 +142,75 @@
             </div>
           }
 
+          <!-- Consumo mensual del plan -->
+          @if (consumo(); as c) {
+            <div>
+              <span class="text-[9px] font-mono font-bold tracking-widest text-slate-400 uppercase block mb-2">Consumo del Mes</span>
+              <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3 flex flex-col gap-3">
+
+                <!-- Atenciones -->
+                <div>
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="text-xs font-medium text-slate-600">Atenciones</span>
+                    <span class="font-mono text-[11px] text-slate-500">{{ c.atencionesConsumidas }} / {{ c.atencionesMaximas > 0 ? c.atencionesMaximas : '∞' }}</span>
+                  </div>
+                  <div class="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                    <div class="h-full rounded-full transition-all duration-300"
+                         [style.width.%]="consumoPct(c.atencionesConsumidas, c.atencionesMaximas)"
+                         [class.bg-emerald-500]="consumoPct(c.atencionesConsumidas, c.atencionesMaximas) < 80"
+                         [class.bg-amber-500]="consumoPct(c.atencionesConsumidas, c.atencionesMaximas) >= 80 && consumoPct(c.atencionesConsumidas, c.atencionesMaximas) < 100"
+                         [class.bg-red-500]="consumoPct(c.atencionesConsumidas, c.atencionesMaximas) >= 100">
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Controles médicos -->
+                <div>
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="text-xs font-medium text-slate-600">Controles médicos</span>
+                    <span class="font-mono text-[11px] text-slate-500">{{ c.controlesMedicosConsumidos }} / {{ c.controlesMedicosMaximos > 0 ? c.controlesMedicosMaximos : '∞' }}</span>
+                  </div>
+                  <div class="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                    <div class="h-full rounded-full transition-all duration-300"
+                         [style.width.%]="consumoPct(c.controlesMedicosConsumidos, c.controlesMedicosMaximos)"
+                         [class.bg-emerald-500]="consumoPct(c.controlesMedicosConsumidos, c.controlesMedicosMaximos) < 80"
+                         [class.bg-amber-500]="consumoPct(c.controlesMedicosConsumidos, c.controlesMedicosMaximos) >= 80 && consumoPct(c.controlesMedicosConsumidos, c.controlesMedicosMaximos) < 100"
+                         [class.bg-red-500]="consumoPct(c.controlesMedicosConsumidos, c.controlesMedicosMaximos) >= 100">
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          }
+
+          <!-- Órdenes médicas activas -->
+          @if (ordenes().length > 0) {
+            <div>
+              <span class="text-[9px] font-mono font-bold tracking-widest text-slate-400 uppercase block mb-2">
+                Órdenes Médicas · {{ ordenes().length }} disponibles
+              </span>
+              <div class="flex flex-col gap-1.5">
+                @for (o of ordenes(); track o.id) {
+                  <div class="flex items-center justify-between px-3 py-2 bg-slate-50 border rounded-xl"
+                       [class.border-slate-200]="!o.usada"
+                       [class.border-slate-100]="o.usada"
+                       [class.opacity-50]="o.usada">
+                    <div>
+                      <span class="font-mono text-[10.5px] font-semibold text-slate-700">{{ o.numeroOrden }}</span>
+                      <span class="text-[9.5px] font-mono text-slate-400 ml-2">{{ fmtDate(o.fechaEmision) }}</span>
+                    </div>
+                    @if (o.usada) {
+                      <span class="text-[9.5px] font-bold font-mono text-slate-400 uppercase tracking-wide">Usada</span>
+                    } @else {
+                      <span class="text-[9.5px] font-bold font-mono text-emerald-600 uppercase tracking-wide">● Disponible</span>
+                    }
+                  </div>
+                }
+              </div>
+            </div>
+          }
+
           <!-- Group members list -->
           <div>
             <span class="text-[9px] font-mono font-bold tracking-widest text-slate-400 uppercase block mb-2">

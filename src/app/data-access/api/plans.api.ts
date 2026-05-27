@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
-import { PlanDTO, PlanTier, PlanModality } from '../dto/plan.dto';
+import { PlanDTO, PlanTier, PlanModality, PlanPrestacionDTO } from '../dto/plan.dto';
 
 interface BackendPlan {
   id: number;
@@ -134,5 +134,21 @@ export class PlansApiService {
     return this.http.put<BackendPlan>(`${this.crudBase}/${dto.id}`, toBackend(dto)).pipe(
       map(toDTO)
     );
+  }
+
+  getPrestacionesByPlan(planId: number): Observable<PlanPrestacionDTO[]> {
+    return this.http.get<PlanPrestacionDTO[]>(`${environment.apiUrl}/api/plan-prestaciones/plan/${planId}`);
+  }
+
+  createPlanPrestacion(dto: PlanPrestacionDTO): Observable<PlanPrestacionDTO> {
+    return this.http.post<PlanPrestacionDTO>(`${environment.apiUrl}/api/plan-prestaciones`, dto);
+  }
+
+  updatePlanPrestacion(id: number, dto: PlanPrestacionDTO): Observable<PlanPrestacionDTO> {
+    return this.http.put<PlanPrestacionDTO>(`${environment.apiUrl}/api/plan-prestaciones/${id}`, dto);
+  }
+
+  deletePlanPrestacion(id: number): Observable<void> {
+    return this.http.delete<void>(`${environment.apiUrl}/api/plan-prestaciones/${id}`);
   }
 }
