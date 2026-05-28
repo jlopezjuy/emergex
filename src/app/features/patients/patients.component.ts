@@ -923,6 +923,25 @@ export class PatientsComponent implements OnInit {
         this.savingForm.set(false);
         this.closeForm();
         this.loadPatients(true);
+
+        // If an invoice was generated, open the quick payment modal right away
+        if (resp.facturaId) {
+          const planInfo = this.apiPlans().find(p => p.id === altaReq.planComercialId.toString());
+          const newRow: PatientRow = {
+            id:         String(resp.pacienteId),
+            pacienteId: resp.pacienteId,
+            name:       `${altaReq.nombre} ${altaReq.apellido}`,
+            dni:        altaReq.dni,
+            type:       'titular',
+            planNombre: planInfo?.name ?? 'Sin plan',
+            planColor:  this.getPlanColor(planInfo?.tier ?? 'basico'),
+            status:     'deuda',
+            sinceMonth: '',
+            depCount:   altaReq.dependientes.length,
+            _raw:       {} as any,
+          };
+          this.openQuickPayment(newRow);
+        }
       });
       return;
     }

@@ -210,6 +210,7 @@ export interface AltaAfiliadoCompletaResponse {
   coberturaId: number;
   numeroCuentaGrupo: string;
   dependientesCreados: number;
+  facturaId?: number;
 }
 
 // ─── Búsqueda de afiliados server-side ──────────────────────────────────────
