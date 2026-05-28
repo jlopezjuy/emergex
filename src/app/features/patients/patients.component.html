@@ -306,8 +306,9 @@
 <!-- Modal de Registro Rápido de Pago (Sub-Modal) -->
 @if (paymentModalOpen()) {
   <app-quick-payment-modal
-    [patient]="paymentTarget()!"
+    [patient]="paymentTarget()"
     [suggestedAmount]="paymentAmount"
+    [isNewSubscription]="paymentIsNewSubscription()"
     [error]="paymentError()"
     [facturas]="facturas()"
     (close)="paymentModalOpen.set(false)"

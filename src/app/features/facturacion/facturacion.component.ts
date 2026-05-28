@@ -1,5 +1,6 @@
 import { Component, signal, computed, HostListener, inject, OnInit, DestroyRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { QuickPaymentModalComponent, QuickPaymentPayload } from '../patients/components/quick-payment-modal/quick-payment-modal.component';
 import { catchError, of } from 'rxjs';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { localDateYmd } from '../../shared/utils/date-local.util';
@@ -73,7 +74,7 @@ function estadoColor(estado: string): string {
 @Component({
   selector: 'app-facturacion',
   standalone: true,
-  imports: [FormsModule, StatusBadgeComponent],
+  imports: [FormsModule, StatusBadgeComponent, QuickPaymentModalComponent],
   template: `
     <div class="screen">
 
@@ -328,75 +329,16 @@ function estadoColor(estado: string): string {
     }
 
     <!-- ═══════════════════════════════════════════════════════
-         REGISTRAR PAGO MODAL
+         REGISTRAR PAGO — componente unificado
          ═══════════════════════════════════════════════════════ -->
     @if (showPayModal()) {
-      <div class="qc-overlay" (click)="closePayModal()">
-        <div class="qc-modal glass-strong" (click)="$event.stopPropagation()" style="max-width:480px">
-          <div class="qc-head">
-            <div>
-              <div class="eyebrow" style="color:var(--accent-emerald)">● REGISTRAR PAGO</div>
-              <h2 style="margin:4px 0 0;font-size:18px;font-weight:600">{{ payFactura()?.numeroFactura }}</h2>
-              <div class="mono micro" style="color:var(--text-muted);margin-top:4px">
-                {{ fmtPeriodo(payFactura()?.periodoDesde, payFactura()?.periodoHasta, payFactura()?.tipoPeriodo) }}
-                · {{ fmtCurrency(payFactura()?.importeTotal ?? 0) }}
-              </div>
-            </div>
-            <button class="qc-close-btn" (click)="closePayModal()">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="1" y1="1" x2="13" y2="13"/><line x1="13" y1="1" x2="1" y2="13"/></svg>
-            </button>
-          </div>
-          <div class="qc-body" style="padding:20px;display:flex;flex-direction:column;gap:14px">
-
-            <div class="qc-row">
-              <div class="qc-field" style="flex:1">
-                <label class="eyebrow">Monto <span style="color:var(--accent-red)">*</span></label>
-                <input class="qc-input" type="number" min="0" placeholder="0" [(ngModel)]="payMonto"/>
-              </div>
-              <div class="qc-field" style="flex:1">
-                <label class="eyebrow">Fecha de pago <span style="color:var(--accent-red)">*</span></label>
-                <input class="qc-input" type="date" [(ngModel)]="payFecha"/>
-              </div>
-            </div>
-
-            <div class="qc-field">
-              <label class="eyebrow">Método de pago <span style="color:var(--accent-red)">*</span></label>
-              <select class="qc-input" [(ngModel)]="payMetodo">
-                <option value="">— Seleccioná —</option>
-                @for (m of metodosPago; track m.value) {
-                  <option [value]="m.value">{{ m.label }}</option>
-                }
-              </select>
-            </div>
-
-            <div class="qc-field">
-              <label class="eyebrow">Referencia / comprobante</label>
-              <input class="qc-input" placeholder="Nro. de transferencia, recibo…" [(ngModel)]="payReferencia"/>
-            </div>
-
-            <div class="qc-field">
-              <label class="eyebrow">Nota</label>
-              <textarea class="qc-input" rows="2" placeholder="Observaciones opcionales" [(ngModel)]="payNota"></textarea>
-            </div>
-
-            @if (payError()) {
-              <div style="padding:8px 12px;border-radius:8px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);font-size:12px;color:var(--accent-red)">
-                {{ payError() }}
-              </div>
-            }
-
-          </div>
-          <div class="qc-foot">
-            <div></div>
-            <div style="display:flex;gap:8px">
-              <button class="btn btn--ghost" (click)="closePayModal()">Cancelar</button>
-              <button class="btn btn--primary" [disabled]="!canPay() || savingPay()" [style.opacity]="canPay() && !savingPay() ? '1':'0.5'" (click)="confirmarPago()">
-                {{ savingPay() ? 'Registrando…' : 'Confirmar pago' }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <app-quick-payment-modal
+        [invoiceContext]="payInvoiceContext()"
+        [suggestedAmount]="payFactura()?.saldoPendiente ?? payFactura()?.importeTotal ?? 0"
+        [error]="payError()"
+        (close)="closePayModal()"
+        (submit)="confirmarPago($event)"
+      />
     }
   `,
   styles: [`
@@ -518,13 +460,18 @@ export class FacturacionComponent implements OnInit {
   // ── Pago modal ──
   readonly showPayModal = signal(false);
   readonly payFactura   = signal<FacturaDTO | null>(null);
-  payMonto    = '';
-  payFecha    = todayISO();
-  payMetodo   = '';
-  payReferencia = '';
-  payNota     = '';
-  readonly savingPay = signal(false);
-  readonly payError  = signal<string | null>(null);
+  readonly savingPay    = signal(false);
+  readonly payError     = signal<string | null>(null);
+
+  readonly payInvoiceContext = computed(() => {
+    const f = this.payFactura();
+    if (!f) return null;
+    return {
+      numero:  f.numeroFactura,
+      periodo: fmtPeriodo(f.periodoDesde, f.periodoHasta, f.tipoPeriodo),
+      importe: f.saldoPendiente ?? f.importeTotal,
+    };
+  });
 
   // ── Computed ──
   readonly filtered = computed(() => {
@@ -614,11 +561,6 @@ export class FacturacionComponent implements OnInit {
   // ── Pago modal ──
   openPayModal(f: FacturaDTO): void {
     this.payFactura.set(f);
-    this.payMonto     = String(f.saldoPendiente ?? f.importeTotal);
-    this.payFecha     = todayISO();
-    this.payMetodo    = '';
-    this.payReferencia = '';
-    this.payNota      = '';
     this.payError.set(null);
     this.showPayModal.set(true);
   }
@@ -626,25 +568,22 @@ export class FacturacionComponent implements OnInit {
   closePayModal(): void {
     this.showPayModal.set(false);
     this.payError.set(null);
+    this.payFactura.set(null);
   }
 
-  canPay(): boolean {
-    return Number(this.payMonto) > 0 && !!this.payMetodo;
-  }
-
-  confirmarPago(): void {
+  confirmarPago(payload: QuickPaymentPayload): void {
     const f = this.payFactura();
-    if (!f || !this.canPay() || this.savingPay()) return;
+    if (!f || this.savingPay()) return;
 
     this.savingPay.set(true);
     this.payError.set(null);
 
     this.api.registrarPago(f.id, {
-      fechaPago:        this.payFecha,
-      monto:            Number(this.payMonto),
-      metodoPago:       this.payMetodo as MetodoPago,
-      numeroReferencia: this.payReferencia || undefined,
-      nota:             this.payNota || undefined,
+      fechaPago:        payload.fecha,
+      monto:            payload.amount,
+      metodoPago:       payload.method as MetodoPago,
+      numeroReferencia: payload.ref  || undefined,
+      nota:             payload.nota || undefined,
     }).pipe(
       catchError(err => {
         this.payError.set(this.translatePayError(err));

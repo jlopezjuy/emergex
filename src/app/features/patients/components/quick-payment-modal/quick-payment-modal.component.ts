@@ -4,11 +4,24 @@ import { FormsModule } from '@angular/forms';
 import { PatientRow } from '../../patients.component';
 import { FacturaDTO } from '../../../../data-access/dto/patient.dto';
 
+export interface InvoiceContext {
+  numero: string;
+  periodo: string;
+  importe: number;
+  patientLabel?: string;
+}
+
 export interface QuickPaymentPayload {
   amount: number;
   method: string;
   ref: string;
+  nota: string;
+  fecha: string;
   billingMode: 'mensual' | 'anual';
+}
+
+function todayISO(): string {
+  return new Date().toISOString().split('T')[0];
 }
 
 @Component({
@@ -20,51 +33,59 @@ export interface QuickPaymentPayload {
 })
 export class QuickPaymentModalComponent implements OnInit {
   // ── Inputs ──
-  readonly patient         = input.required<PatientRow>();
-  readonly suggestedAmount = input<number>(0);
-  readonly error           = input<string | null>(null);
-  readonly facturas        = input<FacturaDTO[]>([]);
+  readonly patient          = input<PatientRow | null>(null);
+  readonly invoiceContext   = input<InvoiceContext | null>(null);
+  readonly suggestedAmount  = input<number>(0);
+  readonly isNewSubscription = input<boolean>(false);
+  readonly error            = input<string | null>(null);
+  readonly facturas         = input<FacturaDTO[]>([]);
 
   // ── Outputs ──
-  readonly close = output<void>();
+  readonly close  = output<void>();
   readonly submit = output<QuickPaymentPayload>();
 
   /** Factura del mes corriente ya pagada, si existe */
   readonly paidThisMonth = computed<FacturaDTO | null>(() => {
-    const ym = new Date().toISOString().slice(0, 7); // "YYYY-MM"
+    const ym = new Date().toISOString().slice(0, 7);
     return this.facturas().find(f =>
       f.estado === 'PAGADA' && f.fechaEmision?.startsWith(ym)
     ) ?? null;
   });
 
-  // ── Internal State ──
+  /** Show billing-cycle toggle only when creating a brand-new invoice */
+  readonly showCycleToggle = computed(() =>
+    this.isNewSubscription() && !this.invoiceContext()
+  );
+
+  // ── Internal state ──
   paymentAmount: number = 0;
-  paymentMethod: string = 'EFECTIVO';
-  paymentRef: string = '';
+  paymentMethod: string = '';
+  paymentRef:    string = '';
+  paymentNota:   string = '';
+  paymentFecha:  string = todayISO();
   billingMode: 'mensual' | 'anual' = 'mensual';
-  baseAmount: number = 18500;
+  baseAmount: number = 0;
 
   readonly metodosPago = [
-    { value: 'EFECTIVO', label: 'Efectivo en caja' },
-    { value: 'TRANSFERENCIA', label: 'Transferencia bancaria' },
-    { value: 'TARJETA_DEBITO', label: 'Tarjeta de Débito' },
-    { value: 'TARJETA_CREDITO', label: 'Tarjeta de Crédito' }
+    { value: 'EFECTIVO',        label: 'Efectivo en caja' },
+    { value: 'TRANSFERENCIA',   label: 'Transferencia bancaria' },
+    { value: 'TARJETA_DEBITO',  label: 'Tarjeta de débito' },
+    { value: 'TARJETA_CREDITO', label: 'Tarjeta de crédito' },
+    { value: 'MERCADOPAGO',     label: 'MercadoPago' },
+    { value: 'CHEQUE',          label: 'Cheque' },
   ];
 
   ngOnInit(): void {
-    // Si hay un monto sugerido mayor a cero, lo utilizamos para inicializar el cobro.
-    // De lo contrario, si es 0 (no hay facturas emitidas), inicializamos con el monto de suscripción base
-    this.baseAmount = this.suggestedAmount() > 0 ? this.suggestedAmount() : 18500;
+    this.baseAmount = this.suggestedAmount() > 0
+      ? this.suggestedAmount()
+      : (this.invoiceContext()?.importe ?? 0);
     this.updateAmount();
   }
 
   updateAmount(): void {
-    if (this.billingMode === 'mensual') {
-      this.paymentAmount = this.baseAmount;
-    } else {
-      // 12 meses con 15% de descuento por suscripción anual
-      this.paymentAmount = Math.round((this.baseAmount * 12) * 0.85);
-    }
+    this.paymentAmount = this.billingMode === 'mensual'
+      ? this.baseAmount
+      : Math.round(this.baseAmount * 12 * 0.85);
   }
 
   setBillingMode(mode: 'mensual' | 'anual'): void {
@@ -72,18 +93,22 @@ export class QuickPaymentModalComponent implements OnInit {
     this.updateAmount();
   }
 
-  onClose(): void {
-    this.close.emit();
-  }
+  onClose(): void { this.close.emit(); }
 
   onSubmit(): void {
-    if (this.paymentAmount > 0) {
+    if (this.paymentAmount > 0 && this.paymentMethod) {
       this.submit.emit({
-        amount: this.paymentAmount,
-        method: this.paymentMethod,
-        ref: this.paymentRef,
-        billingMode: this.billingMode
+        amount:      this.paymentAmount,
+        method:      this.paymentMethod,
+        ref:         this.paymentRef,
+        nota:        this.paymentNota,
+        fecha:       this.paymentFecha,
+        billingMode: this.billingMode,
       });
     }
+  }
+
+  get canSubmit(): boolean {
+    return this.paymentAmount > 0 && !!this.paymentMethod;
   }
 }

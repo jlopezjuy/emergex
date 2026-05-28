@@ -15,7 +15,7 @@ import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 // Importación de los nuevos componentes modulares
 import { PatientDetailDrawerComponent } from './components/patient-detail-drawer/patient-detail-drawer.component';
 import { PatientFormModalComponent } from './components/patient-form-modal/patient-form-modal.component';
-import { QuickPaymentModalComponent } from './components/quick-payment-modal/quick-payment-modal.component';
+import { QuickPaymentModalComponent, QuickPaymentPayload } from './components/quick-payment-modal/quick-payment-modal.component';
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -202,12 +202,13 @@ export class PatientsComponent implements OnInit {
   readonly originalMiembros = signal<MiembroGrupoFamiliarDTO[]>([]);
 
   // ── State — Quick Payment Modal ──
-  readonly paymentModalOpen = signal(false);
-  readonly paymentTarget    = signal<PatientRow | null>(null);
-  readonly paymentError     = signal<string | null>(null);
-  paymentAmount             = 54800;
-  paymentMethod             = 'DEBITO_AUTOMATICO';
-  paymentRef                = '';
+  readonly paymentModalOpen        = signal(false);
+  readonly paymentTarget           = signal<PatientRow | null>(null);
+  readonly paymentError            = signal<string | null>(null);
+  readonly paymentIsNewSubscription = signal(false);
+  paymentAmount                    = 0;
+  paymentMethod                    = 'EFECTIVO';
+  paymentRef                       = '';
 
   // ── State — DNI async check (for alta nueva wizard) ──
   readonly dniCheckResult = signal<boolean | null>(null);
@@ -537,6 +538,7 @@ export class PatientsComponent implements OnInit {
   openQuickPayment(row: PatientRow): void {
     this.paymentTarget.set(row);
     this.paymentError.set(null);
+    this.paymentIsNewSubscription.set(false);
     this.loading.set(true);
 
     this.patientApi.getFacturasAfiliado(row.pacienteId).pipe(
@@ -548,16 +550,20 @@ export class PatientsComponent implements OnInit {
 
       const facturasVencidas = facturas.filter(f => f.estado !== 'PAGADA');
       const realPlan = this.apiPlans().find(p => p.name.toLowerCase() === row.planNombre.toLowerCase());
+      const planMonthly = realPlan?.pricing.monthly ?? 0;
 
-      // Si tiene facturas pendientes, sugerimos el saldo pendiente real (importeTotal menos pagos parciales previos)
       if (facturasVencidas.length > 0) {
+        // Deuda pendiente: suma de saldos reales
         this.paymentAmount = facturasVencidas.reduce((sum, f) => sum + (f.saldoPendiente ?? f.importeTotal ?? 0), 0);
+        this.paymentIsNewSubscription.set(false);
       } else if (facturas.length > 0) {
-        // Al día con facturas: sugerimos el monto de su cuota estándar
-        this.paymentAmount = realPlan ? realPlan.pricing.monthly : 18500;
+        // Al día: sugerir cuota mensual del plan
+        this.paymentAmount = planMonthly;
+        this.paymentIsNewSubscription.set(false);
       } else {
-        // Afiliado nuevo sin facturación: enviamos monto sugerido en 0 para disparar el flujo adaptativo en la UI
-        this.paymentAmount = 0;
+        // Sin facturas: se generará la primera — usar precio del plan como monto sugerido
+        this.paymentAmount = planMonthly;
+        this.paymentIsNewSubscription.set(true);
       }
 
       this.paymentMethod = 'EFECTIVO';
@@ -583,74 +589,58 @@ export class PatientsComponent implements OnInit {
    * 
    * @param payment Estructura que contiene el monto, método de pago y referencia del comprobante.
    */
-  submitQuickPayment(payment: { amount: number; method: string; ref: string }): void {
+  submitQuickPayment(payment: QuickPaymentPayload): void {
     const target = this.paymentTarget();
     if (!target) return;
 
-    const finalAmount = payment.amount;
-    const finalMethod = payment.method;
-    const finalRef    = payment.ref;
+    const pagoBase = {
+      fechaPago:        payment.fecha,
+      monto:            payment.amount,
+      metodoPago:       payment.method as any,
+      numeroReferencia: payment.ref   || undefined,
+      nota:             payment.nota  || undefined,
+    };
 
-    // Buscamos si existe alguna factura vencida o pendiente
     const pendingInvoice = this.facturas().find(f => f.estado !== 'PAGADA');
 
     if (!pendingInvoice) {
-      // Flujo adaptativo: Afiliado nuevo sin facturas.
-      // Generamos la factura del mes de forma automática e inmediatamente registramos su cobro.
+      // Flujo adaptativo: afiliado nuevo sin facturas — generar y cobrar en un solo paso
       this.loading.set(true);
       this.patientApi.generarFacturaIndividual(target.pacienteId).pipe(
         concatMap(() => this.patientApi.getFacturasAfiliado(target.pacienteId)),
         concatMap(facturas => {
           this.facturas.set(facturas);
           const newInvoice = facturas.find(f => f.estado !== 'PAGADA');
-          if (!newInvoice) {
-            throw new Error('No se pudo encontrar o generar la factura de este mes para el afiliado.');
-          }
-          return this.patientApi.registrarPago(newInvoice.id, {
-            fechaPago: todayISO(),
-            monto: finalAmount,
-            metodoPago: finalMethod as any,
-            numeroReferencia: finalRef || undefined,
-          });
+          if (!newInvoice) throw new Error('No se pudo encontrar la factura generada.');
+          // Use the invoice's actual balance — avoids overpayment if plan price differs from user input
+          const safeAmount = Math.min(pagoBase.monto, newInvoice.saldoPendiente ?? newInvoice.importeTotal ?? pagoBase.monto);
+          return this.patientApi.registrarPago(newInvoice.id, { ...pagoBase, monto: safeAmount });
         }),
         catchError(err => {
-          this.paymentError.set(this.translatePaymentError(err, 'Error al generar la factura mensual o al aplicar el cobro en el acto.'));
+          this.paymentError.set(this.translatePaymentError(err, 'Error al generar o cobrar la factura.'));
           this.loading.set(false);
           return of(null);
         }),
         takeUntilDestroyed(this.destroyRef)
       ).subscribe(result => {
         this.loading.set(false);
-        if (result) {
-          target.status = 'al-dia';
-          this.loadPatients();
-          this.paymentModalOpen.set(false);
-        }
+        if (result) { target.status = 'al-dia'; this.loadPatients(); this.paymentModalOpen.set(false); }
       });
       return;
     }
 
-    // Flujo estándar: Registrar cobro sobre la factura pendiente existente en la DB
+    // Flujo estándar: factura existente
     this.loading.set(true);
-    this.patientApi.registrarPago(pendingInvoice.id, {
-      fechaPago: todayISO(),
-      monto: finalAmount,
-      metodoPago: finalMethod as any,
-      numeroReferencia: finalRef || undefined,
-    }).pipe(
+    this.patientApi.registrarPago(pendingInvoice.id, pagoBase).pipe(
       catchError(err => {
-        this.paymentError.set(this.translatePaymentError(err, 'Error al registrar el pago de la factura.'));
+        this.paymentError.set(this.translatePaymentError(err, 'Error al registrar el cobro.'));
         this.loading.set(false);
         return of(null);
       }),
       takeUntilDestroyed(this.destroyRef)
     ).subscribe(res => {
       this.loading.set(false);
-      if (res) {
-        target.status = 'al-dia';
-        this.loadPatients();
-        this.paymentModalOpen.set(false);
-      }
+      if (res) { target.status = 'al-dia'; this.loadPatients(); this.paymentModalOpen.set(false); }
     });
   }
 
