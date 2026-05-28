@@ -281,6 +281,7 @@
     [loading]="loadingFicha()"
     (close)="selectedPatient.set(null)"
     (edit)="openEditForm($event)"
+    (editFamily)="openEditForm($event, 'group')"
     (registerPago)="openQuickPayment($event)"
     (generarFactura)="generarFacturaMensual($event)"
     (traspasarTitularidad)="openTraspasoModal($event)"
@@ -341,6 +342,35 @@
 
       <!-- Body: plan cards -->
       <div class="p-6 flex flex-col gap-4">
+        @if (cambiarPlanTarget(); as t) {
+          <!-- Comparador Visual Dinámico -->
+          <div class="p-4 bg-slate-50 border border-slate-200/60 rounded-2xl flex items-center justify-between shadow-xs">
+            <div style="flex:1">
+              <span class="text-[9px] font-mono font-bold tracking-widest text-slate-400 uppercase">Plan Actual</span>
+              <div class="text-xs font-bold text-slate-700 mt-1 flex items-center gap-1.5">
+                <span class="w-1.5 h-1.5 rounded-full" [style.background-color]="t.planColor"></span>
+                {{ t.planNombre }}
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:center;padding:0 12px">
+              <svg class="text-slate-300" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            </div>
+            <div style="flex:1;text-align:right">
+              <span class="text-[9px] font-mono font-bold tracking-widest text-slate-400 uppercase">Nuevo Plan</span>
+              <div class="text-xs font-bold mt-1 flex items-center justify-end gap-1.5" 
+                   [style.color]="cambiarPlanId() ? getPlanColor(apiPlans().find(p => p.id === cambiarPlanId())?.tier) : '#94a3b8'">
+                @if (cambiarPlanId()) {
+                  @let np = apiPlans().find(p => p.id === cambiarPlanId());
+                  <span class="w-1.5 h-1.5 rounded-full" [style.background-color]="getPlanColor(np?.tier)"></span>
+                  {{ np?.name }}
+                } @else {
+                  Seleccionar...
+                }
+              </div>
+            </div>
+          </div>
+        }
+
         <p class="text-xs text-slate-500 leading-normal">Seleccioná el nuevo plan. El cambio entrará en vigencia desde hoy.</p>
 
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
@@ -364,6 +394,21 @@
             </button>
           }
         </div>
+
+        @if (cambiarPlanId()) {
+          @let np = apiPlans().find(p => p.id === cambiarPlanId());
+          <div class="p-4 bg-blue-50/40 border border-blue-100/60 rounded-2xl flex flex-col gap-2 animate-in fade-in slide-in-from-top-1 duration-150">
+            <span class="text-[9px] font-mono font-bold tracking-widest text-blue-600 uppercase">Beneficios Incluidos</span>
+            <div class="flex flex-wrap gap-x-4 gap-y-2">
+              @for (feat of getPlanFeatures(np?.tier); track feat) {
+                <div class="flex items-center gap-1.5 text-slate-600 text-xs">
+                  <svg class="flex-shrink-0" width="12" height="12" viewBox="0 0 24 24" fill="none" [attr.stroke]="getPlanColor(np?.tier)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  <span class="font-medium leading-none">{{ feat }}</span>
+                </div>
+              }
+            </div>
+          </div>
+        }
 
         @if (cambiarPlanError()) {
           <div style="padding:8px 12px;border-radius:8px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);font-size:11px;color:#ef4444">

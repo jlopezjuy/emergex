@@ -20,6 +20,7 @@ export class PatientDetailDrawerComponent {
   // ── Outputs ──
   readonly close                = output<void>();
   readonly edit                 = output<PatientRow>();
+  readonly editFamily           = output<PatientRow>();
   readonly registerPago         = output<PatientRow>();
   readonly generarFactura       = output<number>();
   readonly traspasarTitularidad = output<number>();
@@ -32,6 +33,10 @@ export class PatientDetailDrawerComponent {
 
   onEdit(): void {
     this.edit.emit(this.patient());
+  }
+
+  onEditFamily(): void {
+    this.editFamily.emit(this.patient());
   }
 
   onRegisterPago(): void {

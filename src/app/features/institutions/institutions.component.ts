@@ -9,6 +9,8 @@ import { environment } from '../../../environments/environment';
 import { DateUtils } from '../../core/utils/date.utils';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { InstitutionDetailDrawerComponent, DrawerInstitution } from './components/institution-detail-drawer/institution-detail-drawer.component';
+import { InstitutionFormModalComponent, InstitutionForm } from './components/institution-form-modal/institution-form-modal.component';
+import { InstitutionType } from '../../data-access/dto/institution.dto';
 
 interface CommercialPlanItem {
   id: string;
@@ -40,7 +42,7 @@ interface Institution {
   name: string;
   razonSocial: string;
   cuit: string;
-  type: string;
+  type: InstitutionType;
   status: 'activa' | 'inactiva';
   plan: string;
   email: string;
@@ -56,22 +58,6 @@ interface Institution {
   contract: InstitutionContract;
 }
 
-interface InstitutionForm {
-  name: string;
-  razonSocial: string;
-  cuit: string;
-  type: string;
-  plan: string;
-  status: 'activa' | 'inactiva';
-  email: string;
-  phone: string;
-  adminContact: string;
-  opsContact: string;
-  address: string;
-  city: string;
-  lat: number;
-  lng: number;
-}
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -92,92 +78,7 @@ function planTierColor(tier: string): string {
   return 'var(--text-muted)';
 }
 
-const INSTITUTIONS_SEED: Institution[] = environment.production ? [] : [
-  {
-    id: 'INST-001', name: 'Colegio Santa Ana', razonSocial: 'Asociación Civil Educativa Santa Ana', cuit: '30-58741236-9',
-    type: 'colegio', status: 'activa', plan: 'edu-premium',
-    email: 'administracion@santaana.edu.ar', phone: '+54 388 4221-1001', adminContact: 'Marta Pereyra', opsContact: 'Gustavo Flores',
-    address: 'Av. Sarmiento 1250', city: 'San Salvador de Jujuy', lat: 45, lng: 35, members: 320, sinceMonth: 'Marzo 2021',
-    contract: { code: 'CTR-2021-001', plan: 'edu-premium', from: '2025-01-01', to: '2025-12-31', status: 'active', monthlyPrice: 72000, monthlyCap: 60, kpiMinutes: 12, conditions: 'Cobertura en horario escolar 7:30 a 17:00 hs. Incluye eventos deportivos intra-escolares.' },
-  },
-  {
-    id: 'INST-002', name: 'Minera Puna S.A.', razonSocial: 'Minera Puna Sociedad Anónima', cuit: '30-71234589-4',
-    type: 'empresa', status: 'activa', plan: 'corp-premium',
-    email: 'rrhh@minerapuna.com.ar', phone: '+54 388 4778-4400', adminContact: 'Roberto Salas', opsContact: 'Claudia Mamani',
-    address: 'Ruta Provincial 1 Km 34', city: 'Abra Pampa', lat: 28, lng: 60, members: 180, sinceMonth: 'Enero 2020',
-    contract: { code: 'CTR-2020-002', plan: 'corp-premium', from: '2025-01-01', to: '2025-12-31', status: 'active', monthlyPrice: 145000, monthlyCap: 40, kpiMinutes: 8, conditions: 'Cobertura 24/7 en planta y campamentos. SLA extendido para emergencias graves.' },
-  },
-  {
-    id: 'INST-003', name: 'Universidad Nacional de Jujuy', razonSocial: 'Universidad Nacional de Jujuy', cuit: '30-54128963-7',
-    type: 'universidad', status: 'activa', plan: 'edu-basico',
-    email: 'secretaria@unju.edu.ar', phone: '+54 388 4221-5000', adminContact: 'Dr. Marcos Villafuerte', opsContact: 'Lic. Paula Aguirre',
-    address: 'Av. Bolivia 7300', city: 'San Salvador de Jujuy', lat: 38, lng: 52, members: 850, sinceMonth: 'Agosto 2019',
-    contract: { code: 'CTR-2019-003', plan: 'edu-basico', from: '2025-03-01', to: '2025-12-15', status: 'active', monthlyPrice: 35000, monthlyCap: 80, kpiMinutes: 15, conditions: 'Cobertura para personal docente y no docente. Estudiantes no incluidos. Ciclo lectivo solamente.' },
-  },
-  {
-    id: 'INST-004', name: 'Clínica de la Quebrada', razonSocial: 'Sanatorio Quebrada S.R.L.', cuit: '30-68941237-1',
-    type: 'hospital', status: 'activa', plan: 'salud-partner',
-    email: 'gerencia@clinicaquebrada.com.ar', phone: '+54 3885 4-1200', adminContact: 'Dr. Hernán Cáceres', opsContact: 'Enf. Jefe Ana Quispe',
-    address: 'Calle Lavalle 820', city: 'Humahuaca', lat: 20, lng: 40, members: 95, sinceMonth: 'Noviembre 2022',
-    contract: { code: 'CTR-2022-004', plan: 'salud-partner', from: '2025-01-01', to: '2025-12-31', status: 'active', monthlyPrice: 120000, monthlyCap: 30, kpiMinutes: 6, conditions: 'Servicio de traslado asistido inter-hospitalario. Prioridad absoluta en despacho.' },
-  },
-  {
-    id: 'INST-005', name: 'Club Atlético Talleres', razonSocial: 'Club Atlético Talleres de Jujuy', cuit: '30-34781254-5',
-    type: 'club', status: 'activa', plan: 'corp-basico',
-    email: 'secretaria@talleresjujuy.com.ar', phone: '+54 388 4332-7780', adminContact: 'Carlos Rivas', opsContact: 'Pablo Condori',
-    address: 'Av. Fascio 1500', city: 'San Salvador de Jujuy', lat: 55, lng: 42, members: 210, sinceMonth: 'Febrero 2023',
-    contract: { code: 'CTR-2023-005', plan: 'corp-basico', from: '2025-01-01', to: '2025-12-31', status: 'active', monthlyPrice: 45000, monthlyCap: 25, kpiMinutes: 12, conditions: 'Cobertura activa en partidos locales y torneos. Fines de semana y feriados incluidos.' },
-  },
-  {
-    id: 'INST-006', name: 'Municipalidad de Tilcara', razonSocial: 'Municipalidad de Tilcara', cuit: '30-52147896-3',
-    type: 'gobierno', status: 'activa', plan: 'corp-medio',
-    email: 'intendencia@tilcara.gob.ar', phone: '+54 3885 5-5100', adminContact: 'Lic. Rodrigo Heredia', opsContact: 'Sra. Mirta Colque',
-    address: 'Belgrano 590', city: 'Tilcara', lat: 65, lng: 30, members: 142, sinceMonth: 'Mayo 2022',
-    contract: { code: 'CTR-2022-006', plan: 'corp-medio', from: '2025-01-01', to: '2025-12-31', status: 'active', monthlyPrice: 89000, monthlyCap: 35, kpiMinutes: 10, conditions: 'Personal municipal y eventos turísticos de temporada alta incluidos.' },
-  },
-  {
-    id: 'INST-007', name: 'Fundación Warmi', razonSocial: 'Fundación Warmi por la Salud Comunitaria', cuit: '30-71589412-8',
-    type: 'ong', status: 'activa', plan: 'edu-basico',
-    email: 'contacto@warmi.org.ar', phone: '+54 388 4115-2233', adminContact: 'Fernanda Yapura', opsContact: 'Diego Mamani',
-    address: 'Av. Senador Pérez 450', city: 'San Salvador de Jujuy', lat: 48, lng: 58, members: 68, sinceMonth: 'Septiembre 2023',
-    contract: { code: 'CTR-2023-007', plan: 'edu-basico', from: '2025-04-01', to: '2025-03-31', status: 'active', monthlyPrice: 35000, monthlyCap: 20, kpiMinutes: 15, conditions: 'Tarifa social. Cobertura para personal y beneficiarios directos en actividades de campo.' },
-  },
-  {
-    id: 'INST-008', name: 'Ingenio La Esperanza', razonSocial: 'Ingenio La Esperanza S.A.', cuit: '30-50012478-6',
-    type: 'empresa', status: 'inactiva', plan: 'corp-medio',
-    email: 'administracion@ingeniolaesperanza.com.ar', phone: '+54 3886 4-2200', adminContact: 'Ing. Luis Saravia', opsContact: 'Jefa HSE Lorena Paz',
-    address: 'Ruta Nacional 34 Km 1220', city: 'San Pedro de Jujuy', lat: 72, lng: 78, members: 0, sinceMonth: 'Junio 2020',
-    contract: { code: 'CTR-2020-008', plan: 'corp-medio', from: '2024-01-01', to: '2024-12-31', status: 'ended', monthlyPrice: 89000, monthlyCap: 50, kpiMinutes: 10, conditions: 'Contrato finalizado. Renovación pendiente de presupuesto anual.' },
-  },
-  {
-    id: 'INST-009', name: 'Colegio Nuestra Señora del Rosario', razonSocial: 'Fundación Educativa del Rosario', cuit: '30-61478523-2',
-    type: 'colegio', status: 'activa', plan: 'edu-premium',
-    email: 'direccion@rosariojujuy.edu.ar', phone: '+54 388 4558-9900', adminContact: 'Hna. Cecilia Vargas', opsContact: 'Víctor Llanos',
-    address: 'Calle Independencia 230', city: 'San Salvador de Jujuy', lat: 40, lng: 44, members: 280, sinceMonth: 'Marzo 2018',
-    contract: { code: 'CTR-2018-009', plan: 'edu-premium', from: '2025-03-01', to: '2025-12-20', status: 'active', monthlyPrice: 72000, monthlyCap: 55, kpiMinutes: 12, conditions: 'Cobertura extendida para viajes educativos dentro de la provincia.' },
-  },
-  {
-    id: 'INST-010', name: 'Aeropuerto Internacional Dr. H. Guzmán', razonSocial: 'Dirección Nacional de Aviación Civil — Jujuy', cuit: '30-51245879-0',
-    type: 'gobierno', status: 'activa', plan: 'corp-premium',
-    email: 'jefe.aeropuerto@jujuy.gob.ar', phone: '+54 388 4910-0200', adminContact: 'Cdte. Federico Torres', opsContact: 'Sra. Valeria Nieva',
-    address: 'Acceso Aeropuerto s/n', city: 'Palpala', lat: 62, lng: 65, members: 120, sinceMonth: 'Julio 2021',
-    contract: { code: 'CTR-2021-010', plan: 'corp-premium', from: '2025-01-01', to: '2025-12-31', status: 'active', monthlyPrice: 145000, monthlyCap: 30, kpiMinutes: 6, conditions: 'Cobertura ALS para pista y terminal. Coordinación con SAME y emergencias aeronáuticas.' },
-  },
-  {
-    id: 'INST-011', name: 'Constructora Andina S.A.', razonSocial: 'Constructora Andina Sociedad Anónima', cuit: '30-69873412-4',
-    type: 'empresa', status: 'inactiva', plan: 'corp-basico',
-    email: 'rrhh@constructoraandina.com.ar', phone: '+54 388 4223-6610', adminContact: 'Arq. Santiago Morales', opsContact: 'Técnico Raúl Sipán',
-    address: 'Parque Industrial Mza. 14', city: 'Palpala', lat: 68, lng: 72, members: 0, sinceMonth: 'Octubre 2022',
-    contract: { code: 'CTR-2022-011', plan: 'corp-basico', from: '2024-06-01', to: '2024-11-30', status: 'suspended', monthlyPrice: 45000, monthlyCap: 20, kpiMinutes: 12, conditions: 'Suspendido por mora en pagos. Requiere regularización.' },
-  },
-  {
-    id: 'INST-012', name: 'Instituto Técnico Superior de Jujuy', razonSocial: 'Instituto Técnico Superior Provincial N° 1', cuit: '30-54896321-5',
-    type: 'universidad', status: 'activa', plan: 'edu-basico',
-    email: 'rectoria@itsjujuy.edu.ar', phone: '+54 388 4445-8800', adminContact: 'Rector Juan Pablo Velez', opsContact: 'Bedel Sergio Cruz',
-    address: 'Av. 19 de Abril 850', city: 'San Salvador de Jujuy', lat: 42, lng: 38, members: 195, sinceMonth: 'Agosto 2024',
-    contract: { code: 'CTR-2024-012', plan: 'edu-basico', from: '2025-03-01', to: '2025-12-15', status: 'draft', monthlyPrice: 35000, monthlyCap: 40, kpiMinutes: 15, conditions: 'Contrato en revisión. Pendiente firma del Ministerio de Educación.' },
-  },
-];
+const INSTITUTIONS_SEED: Institution[] = [];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -218,7 +119,7 @@ const PAGE_SIZE = 10;
 @Component({
   selector: 'app-institutions',
   standalone: true,
-  imports: [FormsModule, StatusBadgeComponent, InstitutionDetailDrawerComponent],
+  imports: [FormsModule, StatusBadgeComponent, InstitutionDetailDrawerComponent, InstitutionFormModalComponent],
   template: `
     <div class="screen">
 
@@ -327,7 +228,9 @@ const PAGE_SIZE = 10;
                 </tr>
               }
               @for (inst of paged(); track inst.id) {
-                <tr (click)="openDrawer(inst)" style="cursor:pointer">
+                <tr (click)="openDrawer(inst)" style="cursor:pointer"
+                  [style.z-index]="menuOpen() === inst.id ? 40 : 'auto'"
+                  [style.position]="menuOpen() === inst.id ? 'relative' : 'static'">
                   <td>
                     <div style="display:flex;align-items:center;gap:10px">
                       <div class="institution-avatar"
@@ -366,7 +269,8 @@ const PAGE_SIZE = 10;
                       {{ planName(inst.plan) }}
                     </span>
                   </td>
-                  <td (click)="$event.stopPropagation()" style="position:relative">
+                  <td (click)="$event.stopPropagation()" style="position:relative"
+                    [style.z-index]="menuOpen() === inst.id ? 50 : 'auto'">
                     <button class="action-icon" style="width:28px;height:28px" title="Acciones"
                       (click)="toggleMenu(inst.id); $event.stopPropagation()">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
@@ -688,231 +592,14 @@ const PAGE_SIZE = 10;
          INSTITUTION FORM MODAL
          ═══════════════════════════════════════════════════════ -->
     @if (formOpen()) {
-      <div class="qc-overlay" (click)="closeForm()">
-        <div class="qc-modal qc-modal--wide glass-strong" (click)="$event.stopPropagation()">
-          <div class="qc-head">
-            <div>
-              <div class="eyebrow" style="color:var(--accent-blue)">● {{ editingInst() ? 'EDITAR INSTITUCIÓN' : 'ALTA DE INSTITUCIÓN' }}</div>
-              <h2 style="margin:4px 0 0;font-size:20px;font-weight:600;letter-spacing:-0.01em">
-                {{ editingInst() ? form().name : 'Nueva institución corporativa' }}
-              </h2>
-            </div>
-            <button class="qc-close-btn" (click)="closeForm()">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="1" y1="1" x2="13" y2="13"/><line x1="13" y1="1" x2="1" y2="13"/></svg>
-            </button>
-          </div>
-
-          <!-- Tabs -->
-          <div class="us-tabs">
-            <button class="us-tab" [attr.data-active]="formTab() === 'general'" (click)="formTab.set('general')">
-              <svg width="13" height="13" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="3" width="14" height="12" rx="1"/><line x1="6" y1="7" x2="12" y2="7"/><line x1="6" y1="10" x2="10" y2="10"/></svg>
-              Datos generales
-            </button>
-            <button class="us-tab" [attr.data-active]="formTab() === 'contacto'" (click)="formTab.set('contacto')">
-              <svg width="13" height="13" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="9" cy="7" r="3"/><path d="M3 16c0-3.31 2.69-6 6-6s6 2.69 6 6"/></svg>
-              Contacto y ubicación
-            </button>
-          </div>
-
-          <div class="qc-body" style="max-height:60vh;overflow-y:auto;padding:16px 20px">
-            @if (formTab() === 'general') {
-              <div style="display:flex;flex-direction:column;gap:14px">
-
-                <div class="qc-row">
-                  <div class="qc-field" style="flex:2">
-                    <label class="eyebrow">Nombre de fantasía <span style="color:var(--accent-red)">*</span></label>
-                    <input class="qc-input"
-                      [style.border-color]="formTouched() && !form().name.trim() ? 'var(--accent-red)' : ''"
-                      placeholder="Ej. Colegio Santa Ana"
-                      [(ngModel)]="form().name" (ngModelChange)="patchForm({ name: $event })" autofocus/>
-                    @if (formTouched() && !form().name.trim()) {
-                      <div style="font-size:10.5px;color:var(--accent-red);margin-top:3px">Campo obligatorio</div>
-                    }
-                  </div>
-                  <div class="qc-field" style="flex:1">
-                    <label class="eyebrow">CUIT <span style="color:var(--accent-red)">*</span></label>
-                    <input class="qc-input"
-                      [style.border-color]="formTouched() && !form().cuit.trim() ? 'var(--accent-red)' : ''"
-                      placeholder="30-58741236-9"
-                      [(ngModel)]="form().cuit" (ngModelChange)="patchForm({ cuit: formatCuit($event) })"/>
-                    @if (formTouched() && !form().cuit.trim()) {
-                      <div style="font-size:10.5px;color:var(--accent-red);margin-top:3px">Campo obligatorio</div>
-                    }
-                  </div>
-                </div>
-
-                <div class="qc-field">
-                  <label class="eyebrow">Razón social <span style="color:var(--accent-red)">*</span></label>
-                  <input class="qc-input"
-                    [style.border-color]="formTouched() && !form().razonSocial.trim() ? 'var(--accent-red)' : ''"
-                    placeholder="Ej. Asociación Civil Educativa Santa Ana"
-                    [(ngModel)]="form().razonSocial" (ngModelChange)="patchForm({ razonSocial: $event })"/>
-                  @if (formTouched() && !form().razonSocial.trim()) {
-                    <div style="font-size:10.5px;color:var(--accent-red);margin-top:3px">Campo obligatorio</div>
-                  }
-                </div>
-
-                <div class="qc-field">
-                  <label class="eyebrow">Tipo de institución</label>
-                  <div class="type-grid">
-                    @for (t of institutionTypes; track t.id) {
-                      <button type="button" class="type-pill"
-                        [attr.data-active]="form().type === t.id"
-                        (click)="patchForm({ type: t.id })">
-                        {{ t.icon }} {{ t.label }}
-                      </button>
-                    }
-                  </div>
-                </div>
-
-                <div class="qc-field">
-                  <label class="eyebrow">Plan comercial</label>
-                  <select class="qc-input" [(ngModel)]="form().plan" (ngModelChange)="patchForm({ plan: $event })">
-                    @for (p of commercialPlans; track p.id) {
-                      <option [value]="p.id">{{ p.name }}</option>
-                    }
-                  </select>
-                  @let selPlan = getPlan(form().plan);
-                  @if (selPlan) {
-                    <div class="mono micro" style="color:var(--text-muted);margin-top:3px">Tarifa base: {{ fmtCurrency(selPlan.monthlyBase) }}/mes</div>
-                  }
-                </div>
-
-                <div class="qc-field">
-                  <label class="eyebrow">Estado</label>
-                  <div style="display:flex;align-items:center;gap:10px">
-                    <button type="button" class="toggle-sw"
-                      [attr.data-on]="form().status === 'activa'"
-                      (click)="patchForm({ status: form().status === 'activa' ? 'inactiva' : 'activa' })">
-                      <div class="toggle-sw__track"
-                        [style.background]="form().status === 'activa' ? 'rgba(16,185,129,0.25)' : 'rgba(148,163,184,0.32)'"
-                        [style.border-color]="form().status === 'activa' ? 'rgba(16,185,129,0.55)' : 'rgba(148,163,184,0.32)'"
-                        [style.box-shadow]="form().status === 'activa' ? '0 0 8px rgba(16,185,129,0.35)' : 'none'"
-                      >
-                        <div class="toggle-sw__thumb"
-                          [style.transform]="form().status === 'activa' ? 'translateX(18px)' : 'translateX(0)'"
-                          [style.background]="form().status === 'activa' ? 'var(--accent-emerald)' : 'white'"
-                        ></div>
-                      </div>
-                    </button>
-                    <span style="font-size:12.5px" [style.color]="form().status === 'activa' ? 'var(--accent-emerald)' : 'var(--text-muted)'">
-                      {{ form().status === 'activa' ? 'Activa' : 'Inactiva' }}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            }
-
-            @if (formTab() === 'contacto') {
-              <div class="contact-grid">
-                <!-- Izquierda -->
-                <div style="display:flex;flex-direction:column;gap:12px">
-                  <div class="qc-row">
-                    <div class="qc-field" style="flex:1">
-                      <label class="eyebrow">Email</label>
-                      <input class="qc-input" type="email" placeholder="admin@institucion.com.ar" [(ngModel)]="form().email" (ngModelChange)="patchForm({ email: $event })"/>
-                    </div>
-                    <div class="qc-field" style="flex:1">
-                      <label class="eyebrow">Teléfono</label>
-                      <input class="qc-input" placeholder="+54 388 4221-0000" [(ngModel)]="form().phone" (ngModelChange)="patchForm({ phone: $event })"/>
-                    </div>
-                  </div>
-                  <div class="qc-field">
-                    <label class="eyebrow">Contacto administrativo</label>
-                    <input class="qc-input" placeholder="Nombre del referente admin" [(ngModel)]="form().adminContact" (ngModelChange)="patchForm({ adminContact: $event })"/>
-                  </div>
-                  <div class="qc-field">
-                    <label class="eyebrow">Contacto operativo</label>
-                    <input class="qc-input" placeholder="Nombre del referente operativo" [(ngModel)]="form().opsContact" (ngModelChange)="patchForm({ opsContact: $event })"/>
-                  </div>
-                  <div class="qc-field">
-                    <label class="eyebrow">Dirección</label>
-                    <input class="qc-input" placeholder="Calle y número" [(ngModel)]="form().address" (ngModelChange)="patchForm({ address: $event })"/>
-                  </div>
-                  <div class="qc-row">
-                    <div class="qc-field" style="flex:1">
-                      <label class="eyebrow">Latitud</label>
-                      <input class="qc-input mono" type="number" step="0.0001" [value]="form().lat" (input)="patchForm({ lat: +$any($event.target).value })"/>
-                    </div>
-                    <div class="qc-field" style="flex:1">
-                      <label class="eyebrow">Longitud</label>
-                      <input class="qc-input mono" type="number" step="0.0001" [value]="form().lng" (input)="patchForm({ lng: +$any($event.target).value })"/>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Derecha: Mini-map -->
-                <div style="display:flex;flex-direction:column;gap:8px">
-                  <div class="eyebrow">Georreferenciación</div>
-                  <div class="mini-map">
-                    <svg viewBox="0 0 100 100" (click)="onMapClick($event)">
-                      <!-- Background -->
-                      <rect width="100" height="100" fill="rgba(2,6,23,0.90)"/>
-                      <!-- Parques -->
-                      <rect x="5" y="60" width="12" height="8" rx="1" fill="rgba(16,185,129,0.18)"/>
-                      <rect x="78" y="10" width="10" height="10" rx="1" fill="rgba(16,185,129,0.15)"/>
-                      <rect x="60" y="75" width="14" height="9" rx="1" fill="rgba(16,185,129,0.18)"/>
-                      <!-- Bloques urbanos -->
-                      <rect x="18" y="8" width="16" height="10" rx="1" fill="rgba(100,116,139,0.25)"/>
-                      <rect x="38" y="8" width="14" height="10" rx="1" fill="rgba(100,116,139,0.22)"/>
-                      <rect x="55" y="8" width="18" height="10" rx="1" fill="rgba(100,116,139,0.22)"/>
-                      <rect x="8" y="22" width="20" height="10" rx="1" fill="rgba(100,116,139,0.20)"/>
-                      <rect x="32" y="22" width="24" height="10" rx="1" fill="rgba(100,116,139,0.22)"/>
-                      <rect x="60" y="22" width="18" height="10" rx="1" fill="rgba(100,116,139,0.20)"/>
-                      <rect x="20" y="36" width="16" height="10" rx="1" fill="rgba(100,116,139,0.22)"/>
-                      <rect x="40" y="36" width="20" height="10" rx="1" fill="rgba(100,116,139,0.22)"/>
-                      <rect x="64" y="36" width="14" height="10" rx="1" fill="rgba(100,116,139,0.20)"/>
-                      <rect x="8" y="50" width="18" height="10" rx="1" fill="rgba(100,116,139,0.18)"/>
-                      <rect x="30" y="50" width="22" height="10" rx="1" fill="rgba(100,116,139,0.22)"/>
-                      <rect x="56" y="50" width="16" height="10" rx="1" fill="rgba(100,116,139,0.20)"/>
-                      <rect x="20" y="64" width="18" height="10" rx="1" fill="rgba(100,116,139,0.18)"/>
-                      <rect x="42" y="64" width="14" height="10" rx="1" fill="rgba(100,116,139,0.20)"/>
-                      <rect x="8" y="78" width="14" height="10" rx="1" fill="rgba(100,116,139,0.18)"/>
-                      <rect x="26" y="78" width="20" height="10" rx="1" fill="rgba(100,116,139,0.20)"/>
-                      <rect x="50" y="78" width="16" height="10" rx="1" fill="rgba(100,116,139,0.18)"/>
-                      <!-- Río -->
-                      <path d="M0 88 Q20 82 35 90 Q50 98 70 88 Q85 80 100 85" fill="none" stroke="rgba(34,211,238,0.30)" stroke-width="5"/>
-                      <!-- Avenida principal -->
-                      <line x1="0" y1="32" x2="100" y2="32" stroke="rgba(59,130,246,0.45)" stroke-width="1.5" stroke-dasharray="4 2"/>
-                      <line x1="50" y1="0" x2="50" y2="100" stroke="rgba(59,130,246,0.30)" stroke-width="1" stroke-dasharray="3 3"/>
-                      <!-- Marcador -->
-                      <circle [attr.cx]="form().lat" [attr.cy]="form().lng" r="6" fill="rgba(239,68,68,0.35)"/>
-                      <circle [attr.cx]="form().lat" [attr.cy]="form().lng" r="3" fill="rgba(239,68,68,0.9)" stroke="white" stroke-width="1"/>
-                    </svg>
-                    <div class="mini-map__hint">toca para fijar</div>
-                    <div class="mini-map__overlay">
-                      <div style="color:var(--accent-cyan);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:2px">POSICIÓN GEOREFERENCIADA</div>
-                      <div class="mono" style="color:white;font-size:10px">{{ form().lat.toFixed(2) }}, {{ form().lng.toFixed(2) }}</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            }
-          </div>
-
-          <div class="qc-foot">
-            <div class="qc-hint">
-              <span class="kbd">Esc</span> cerrar &nbsp;·&nbsp;
-              Tab: <strong [style.color]="formTab() === 'general' ? 'var(--accent-blue)' : 'var(--text-muted)'">General</strong>
-              · <strong [style.color]="formTab() === 'contacto' ? 'var(--accent-blue)' : 'var(--text-muted)'">Contacto</strong>
-            </div>
-            <div style="display:flex;gap:8px">
-              <button class="btn btn--ghost" (click)="closeForm()">Cancelar</button>
-              <button class="btn btn--primary"
-                [disabled]="loadingSave()"
-                [style.opacity]="(!canSubmit() && formTouched()) || loadingSave() ? '0.6' : '1'"
-                (click)="saveForm()">
-                @if (loadingSave()) {
-                  <span style="width:12px;height:12px;border:1.5px solid currentColor;border-top-color:transparent;border-radius:50%;display:inline-block;animation:spin 0.65s linear infinite"></span>
-                } @else {
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                }
-                {{ loadingSave() ? 'Guardando…' : 'Guardar institución' }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <app-institution-form-modal
+        [editingInst]="editingInst()"
+        [commercialPlans]="commercialPlans"
+        [loadingSave]="loadingSave()"
+        [initialForm]="form()"
+        (close)="closeForm()"
+        (save)="saveFormFromModal($event)"
+      />
     }
   `,
   styles: [`
@@ -1371,7 +1058,7 @@ export class InstitutionsComponent implements OnInit {
   private loadPlans(): void {
     this.plansApi.getAll().pipe(takeUntilDestroyed(this.destroyRef)).subscribe(plans => {
       this._commercialPlans.set(plans.map(p => ({
-        id:          p.name,
+        id:          p.id,
         numericId:   Number(p.id),
         name:        p.name,
         color:       planTierColor(p.tier),
@@ -1494,9 +1181,36 @@ export class InstitutionsComponent implements OnInit {
     };
   });
 
+  isValidCuit(cuit: string): boolean {
+    const raw = cuit.replace(/\D/g, '');
+    if (raw.length !== 11) return false;
+    const coefficients = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
+    let sum = 0;
+    for (let i = 0; i < 10; i++) {
+      sum += parseInt(raw[i]) * coefficients[i];
+    }
+    const rem = sum % 11;
+    const dv = rem === 0 ? 0 : rem === 1 ? 9 : 11 - rem;
+    return parseInt(raw[10]) === dv;
+  }
+
+  isValidEmail(email: string): boolean {
+    if (!email) return true;
+    const re = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    return re.test(email);
+  }
+
+  isValidPhone(phone: string): boolean {
+    if (!phone) return true;
+    const raw = phone.replace(/[^\d+]/g, '');
+    return raw.length >= 8 && raw.length <= 15;
+  }
+
   readonly canSubmit = computed(() => {
     const f = this.form();
-    return f.name.trim().length > 0 && f.cuit.trim().length > 0 && f.razonSocial.trim().length > 0;
+    const hasGeneral = f.name.trim().length > 0 && f.cuit.trim().length > 0 && f.razonSocial.trim().length > 0;
+    if (!hasGeneral) return false;
+    return this.isValidCuit(f.cuit) && this.isValidEmail(f.email ?? '') && this.isValidPhone(f.phone ?? '');
   });
 
   // ── Helpers exposed to template ──
@@ -1505,16 +1219,16 @@ export class InstitutionsComponent implements OnInit {
   readonly Math = Math;
 
   planColor(planId: string): string {
-    return this._commercialPlans().find(p => p.id === planId)?.color ?? 'var(--text-muted)';
+    return this._commercialPlans().find(p => p.id === planId || p.name === planId)?.color ?? 'var(--text-muted)';
   }
   planName(planId: string): string {
-    return this._commercialPlans().find(p => p.id === planId)?.name ?? planId;
+    return this._commercialPlans().find(p => p.id === planId || p.name === planId)?.name ?? planId;
   }
   planBase(planId: string): number {
-    return this._commercialPlans().find(p => p.id === planId)?.monthlyBase ?? 0;
+    return this._commercialPlans().find(p => p.id === planId || p.name === planId)?.monthlyBase ?? 0;
   }
   getPlan(planId: string): CommercialPlanItem | undefined {
-    return this._commercialPlans().find(p => p.id === planId);
+    return this._commercialPlans().find(p => p.id === planId || p.name === planId);
   }
   getType(typeId: string): typeof INSTITUTION_TYPES[number] | undefined {
     return INSTITUTION_TYPES.find(t => t.id === typeId);
@@ -1736,6 +1450,11 @@ export class InstitutionsComponent implements OnInit {
 
   patchForm(patch: Partial<InstitutionForm>): void {
     this.form.set({ ...this.form(), ...patch });
+  }
+
+  saveFormFromModal(f: InstitutionForm): void {
+    this.form.set(f);
+    this.saveForm();
   }
 
   saveForm(): void {

@@ -692,7 +692,7 @@ export class PatientsComponent implements OnInit {
    * 
    * @param row Fila del paciente titular a editar.
    */
-  openEditForm(row: PatientRow): void {
+  openEditForm(row: PatientRow, activeTab: 'titular' | 'group' = 'titular'): void {
     this.loading.set(true);
     this.originalMiembros.set([]);
 
@@ -751,7 +751,7 @@ export class PatientsComponent implements OnInit {
             planId:   planId,
             deps,
           });
-          this.formTab.set('titular');
+          this.formTab.set(activeTab);
           this.formError.set(null);
           this.formOpen.set(true);
         });
@@ -770,7 +770,7 @@ export class PatientsComponent implements OnInit {
           planId:   planId,
           deps:     [],
         });
-        this.formTab.set('titular');
+        this.formTab.set(activeTab);
         this.formError.set(null);
         this.formOpen.set(true);
       }

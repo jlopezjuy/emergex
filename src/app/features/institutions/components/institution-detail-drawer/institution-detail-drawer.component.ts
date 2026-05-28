@@ -4,7 +4,7 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { catchError, of } from 'rxjs';
 import { InstitutionsApiService } from '../../../../data-access/api/institutions.api';
-import { InstitucionMiembroItem } from '../../../../data-access/dto/institution.dto';
+import { InstitucionMiembroItem, InstitutionType } from '../../../../data-access/dto/institution.dto';
 import { StatusBadgeComponent } from '../../../../shared/components/status-badge/status-badge.component';
 
 export interface DrawerInstitution {
@@ -12,7 +12,7 @@ export interface DrawerInstitution {
   name: string;
   razonSocial: string;
   cuit: string;
-  type: string;
+  type: InstitutionType;
   status: 'activa' | 'inactiva';
   plan: string;
   email: string;

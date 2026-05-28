@@ -18,17 +18,6 @@ import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
-const METODOS_PAGO: { value: MetodoPago; label: string }[] = [
-  { value: 'EFECTIVO',        label: 'Efectivo' },
-  { value: 'TRANSFERENCIA',   label: 'Transferencia bancaria' },
-  { value: 'TARJETA_DEBITO',  label: 'Tarjeta débito' },
-  { value: 'TARJETA_CREDITO', label: 'Tarjeta crédito' },
-  { value: 'MERCADOPAGO',     label: 'MercadoPago' },
-  { value: 'CHEQUE',          label: 'Cheque' },
-  { value: 'OBRA_SOCIAL',     label: 'Obra social' },
-  { value: 'OTRO',            label: 'Otro' },
-];
-
 const ESTADOS_FILTER: { value: EstadoFactura | 'all'; label: string }[] = [
   { value: 'all',     label: 'Todas' },
   { value: 'EMITIDA', label: 'Emitidas' },
@@ -438,7 +427,6 @@ export class FacturacionComponent implements OnInit {
 
   // ── Constants ──
   readonly estadosFiltro = ESTADOS_FILTER;
-  readonly metodosPago   = METODOS_PAGO;
   readonly meses         = MESES;
 
   // ── Table state ──

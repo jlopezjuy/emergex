@@ -181,7 +181,7 @@ export class InstitutionsApiService {
   private base = `${environment.apiUrl}/api/v2/instituciones`;
 
   getAll(): Observable<InstitutionDTO[]> {
-    return this.http.get<InstitucionBackend[]>(this.base).pipe(
+    return this.http.get<InstitucionBackend[]>(`${this.base}?size=1000`).pipe(
       map(list => list.map(toDTO)),
     );
   }
