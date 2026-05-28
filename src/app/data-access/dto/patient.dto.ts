@@ -66,6 +66,8 @@ export interface CoberturaFichaDTO {
   nivel?: string;
   copago?: string;
   prestaciones?: string[];
+  /** Precio mensual acordado devuelto por el backend (cuando disponible) */
+  precioMensualAcordado?: number;
 }
 
 export interface MiembroFichaDTO {
@@ -171,4 +173,59 @@ export interface CrearCoberturaRequest {
   planComercialId?: number;
   vigenciaDesde: string;
   numeroCredencial?: string;
+}
+
+// ─── Alta completa (endpoint atómico) ────────────────────────────────────────
+
+export interface AltaAfiliadoCompletaRequest {
+  nombre: string;
+  apellido: string;
+  dni: string;
+  tipoDocumento: 'DNI' | 'PASAPORTE' | 'CEDULA' | 'OTRO';
+  sexo: 'MASCULINO' | 'FEMENINO' | 'OTRO';
+  fechaNacimiento?: string;
+  email?: string;
+  telefono?: string;
+  direccion?: string;
+  ciudad?: string;
+  provincia?: string;
+  planComercialId: number;
+  dependientes: DependienteAltaRequest[];
+}
+
+export interface DependienteAltaRequest {
+  nombre: string;
+  apellido: string;
+  dni: string;
+  tipoDocumento: 'DNI' | 'PASAPORTE' | 'CEDULA' | 'OTRO';
+  sexo: 'MASCULINO' | 'FEMENINO' | 'OTRO';
+  fechaNacimiento?: string;
+  rolFamiliar: 'TITULAR' | 'CO_TITULAR' | 'DEPENDIENTE';
+}
+
+export interface AltaAfiliadoCompletaResponse {
+  pacienteId: number;
+  grupoFamiliarId: number;
+  coberturaId: number;
+  numeroCuentaGrupo: string;
+  dependientesCreados: number;
+}
+
+// ─── Búsqueda de afiliados server-side ──────────────────────────────────────
+
+export interface AfiliadoSearchResult {
+  pacienteId: number;
+  nombreCompleto: string;
+  dni: string;
+  telefono?: string;
+  numeroAfiliado?: string;
+  grupoFamiliarId?: number;
+  numeroCuentaGrupo?: string;
+  estadoGrupo?: string;
+  coberturaActiva?: string;
+  planNivel?: string;
+  depCount?: number;
+  activo?: boolean;
+  createdAt?: string;
+  contextoCoberturaId?: number;
 }

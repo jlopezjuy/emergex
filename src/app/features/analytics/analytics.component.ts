@@ -12,7 +12,7 @@ import { KpiCardComponent } from '../../shared/components/kpi-card/kpi-card.comp
 import { LoadingStateComponent } from '../../shared/components/loading-state/loading-state.component';
 import { ErrorStateComponent } from '../../shared/components/error-state/error-state.component';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
-import { CurrencyPipe, DecimalPipe } from '@angular/common';
+import { CurrencyPipe, DecimalPipe, KeyValuePipe } from '@angular/common';
 
 type Period = '7d' | '30d' | '90d';
 
@@ -36,6 +36,7 @@ const EMPTY_HOUR_VALUES: number[] = Array(24).fill(0);
     ErrorStateComponent,
     CurrencyPipe,
     DecimalPipe,
+    KeyValuePipe,
   ],
   template: `
     <div class="flex flex-col overflow-y-auto h-full">
@@ -421,6 +422,86 @@ const EMPTY_HOUR_VALUES: number[] = Array(24).fill(0);
               </div>
             </emx-glass-card>
 
+            <!-- KPI: Altas del mes -->
+            <emx-glass-card>
+              <div class="flex items-start justify-between mb-2">
+                <h2 class="font-mono text-xs uppercase tracking-wider" style="color: var(--text-muted);">
+                  Altas del Mes
+                </h2>
+                <span class="font-mono text-xs" style="color: var(--accent-cyan);">Mes Actual</span>
+              </div>
+              <div class="flex items-end justify-between mb-3">
+                <span class="font-mono text-4xl font-bold" style="color: var(--accent-cyan);">
+                  {{ comData()?.altasMes ?? 0 }}
+                </span>
+                <div class="text-right">
+                  <p class="text-xs font-semibold" style="color: var(--accent-cyan);">Nuevas coberturas</p>
+                  <p class="font-mono text-[10px]" style="color: var(--text-muted);">Mes calendario vigente</p>
+                </div>
+              </div>
+            </emx-glass-card>
+
+            <!-- KPI: Coberturas por vencer -->
+            <emx-glass-card>
+              <div class="flex items-start justify-between mb-2">
+                <h2 class="font-mono text-xs uppercase tracking-wider" style="color: var(--text-muted);">
+                  Coberturas por Vencer
+                </h2>
+                <span class="font-mono text-xs px-1.5 py-0.5 rounded"
+                  [style]="(comData()?.coberturasPorVencer ?? 0) > 0
+                    ? 'background: rgba(245,158,11,0.15); color: var(--accent-amber);'
+                    : 'background: rgba(16,185,129,0.12); color: var(--accent-emerald);'"
+                >{{ (comData()?.coberturasPorVencer ?? 0) > 0 ? 'ALERTA' : 'OK' }}</span>
+              </div>
+              <div class="flex items-end justify-between mb-3">
+                <span class="font-mono text-4xl font-bold"
+                  [style]="(comData()?.coberturasPorVencer ?? 0) > 0
+                    ? 'color: var(--accent-amber);'
+                    : 'color: var(--accent-emerald);'"
+                >
+                  {{ comData()?.coberturasPorVencer ?? 0 }}
+                </span>
+                <div class="text-right">
+                  <p class="text-xs font-semibold" style="color: var(--text-muted);">Próximos 30 días</p>
+                  <p class="font-mono text-[10px]" style="color: var(--text-muted);">Vigencia próxima a expirar</p>
+                </div>
+              </div>
+            </emx-glass-card>
+
+            <!-- Tendencia de altas (barra mensual) -->
+            @if (altaSerieValues().length > 0) {
+              <emx-glass-card>
+                <div class="flex items-start justify-between mb-3">
+                  <h2 class="font-mono text-xs uppercase tracking-wider" style="color: var(--text-muted);">
+                    Tendencia de Altas · Últimos 6 Meses
+                  </h2>
+                </div>
+                <emx-bars-chart
+                  [values]="altaSerieValues()"
+                  [labels]="altaSerieLabels()"
+                  [width]="440"
+                  [height]="80"
+                />
+              </emx-glass-card>
+            }
+
+            <!-- Afiliados por institución -->
+            @if ((comData()?.afiliadosPorInstitucion | keyvalue)?.length) {
+              <emx-glass-card>
+                <h2 class="font-mono text-xs uppercase tracking-wider mb-4" style="color: var(--text-muted);">
+                  Afiliados por Institución (B2B)
+                </h2>
+                <div class="flex flex-col gap-3">
+                  @for (entry of (comData()!.afiliadosPorInstitucion! | keyvalue); track entry.key) {
+                    <div class="flex items-center gap-3">
+                      <span class="flex-1 text-xs font-medium truncate" style="color: var(--text-primary);">{{ entry.key }}</span>
+                      <span class="font-mono text-xs font-bold" style="color: var(--accent-blue);">{{ entry.value }}</span>
+                    </div>
+                  }
+                </div>
+              </emx-glass-card>
+            }
+
           </div>
         }
 
@@ -559,6 +640,22 @@ export class AnalyticsComponent implements OnInit {
       label: plan,
       color: colors[idx % colors.length]
     }));
+  });
+
+  readonly altaSerieValues = computed<number[]>(() => {
+    const serie = this.comData()?.altasSerie;
+    if (!serie) return [];
+    return Object.values(serie).map(Number);
+  });
+
+  readonly altaSerieLabels = computed<string[]>(() => {
+    const serie = this.comData()?.altasSerie;
+    if (!serie) return [];
+    return Object.keys(serie).map(k => {
+      const [year, month] = k.split('-');
+      const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+      return months[parseInt(month) - 1] ?? k;
+    });
   });
 
   // Progress bar pct: suscripciones activas / total conocido (cap 100)

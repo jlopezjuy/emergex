@@ -2,14 +2,14 @@ import { Component, OnInit, inject, signal, computed, HostListener, DestroyRef }
 import { FormsModule } from '@angular/forms';
 import { forkJoin, of, Observable } from 'rxjs';
 import { switchMap, map, catchError } from 'rxjs/operators';
-import { PlansApiService } from '../../data-access/api/plans.api';
-import { PlanDTO, PlanCoverages, PlanPrestacionDTO, TipoCargo } from '../../data-access/dto/plan.dto';
+import { PlanComercialApiService } from '../../data-access/api/plan-comercial.api';
+import { PlanComercialDTO, PlanCoverages, PlanPrestacionDTO, TipoCargo } from '../../data-access/dto/plan-comercial.dto';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { ZonesApiService, ZonaCoberturaDTO, TarifaPrestacionZonaDTO, PrestacionMedicaDTO } from '../../data-access/api/zones.api';
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
-type Plan = PlanDTO;
+type Plan = PlanComercialDTO;
 
 interface PlanForm {
   name: string;
@@ -1000,7 +1000,7 @@ function emptyForm(): PlanForm {
 })
 export class PlansComponent implements OnInit {
     private destroyRef = inject(DestroyRef);
-  private api = inject(PlansApiService);
+  private api = inject(PlanComercialApiService);
   private zonesApi = inject(ZonesApiService);
 
   readonly coverageMeta = COVERAGE_META;

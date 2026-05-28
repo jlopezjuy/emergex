@@ -24,7 +24,7 @@ export interface PlanPrestacionDTO {
   empresa: { id: number };
 }
 
-export interface PlanDTO {
+export interface PlanComercialDTO {
   id: string;
   name: string;
   description?: string;

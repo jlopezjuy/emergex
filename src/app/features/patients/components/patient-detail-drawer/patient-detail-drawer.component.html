@@ -1,5 +1,6 @@
-<div class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex justify-end" (click)="onClose()">
-  <aside class="w-full max-w-md h-full bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-200 overflow-hidden" (click)="$event.stopPropagation()">
+<div class="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex justify-end" (click)="onClose()" role="presentation">
+  <aside class="w-full max-w-md h-full bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-200 overflow-hidden" (click)="$event.stopPropagation()"
+    role="dialog" aria-modal="true" [attr.aria-label]="'Detalle de ' + patient().name">
     
     <!-- Drawer Header -->
     <div class="p-5 border-b border-slate-100 flex items-start justify-between bg-slate-50/50">
@@ -138,6 +139,12 @@
                     <span class="font-medium leading-none">{{ feat }}</span>
                   </div>
                 }
+                <button type="button"
+                  class="mt-2 w-full py-2 px-3 border border-slate-200 text-xs font-semibold text-slate-600 bg-white hover:bg-slate-50 rounded-xl shadow-xs transition flex items-center justify-center gap-1.5"
+                  (click)="onCambiarPlan()">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+                  Cambiar plan
+                </button>
               </div>
             </div>
           }

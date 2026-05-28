@@ -23,6 +23,7 @@ export class PatientDetailDrawerComponent {
   readonly registerPago         = output<PatientRow>();
   readonly generarFactura       = output<number>();
   readonly traspasarTitularidad = output<number>();
+  readonly cambiarPlan          = output<PatientRow>();
 
   // ── Helper methods ──
   onClose(): void {
@@ -43,6 +44,10 @@ export class PatientDetailDrawerComponent {
    */
   onGenerarFactura(): void {
     this.generarFactura.emit(this.patient().pacienteId);
+  }
+
+  onCambiarPlan(): void {
+    this.cambiarPlan.emit(this.patient());
   }
 
   onTraspasarTitularidad(): void {
@@ -97,7 +102,12 @@ export class PatientDetailDrawerComponent {
   }
 
   getMontoCuota(ficha: FichaAfiliadoDTO | null): number {
-    if (!ficha || !ficha.cobertura) return 0;
+    if (!ficha?.cobertura) return 0;
+    // Use the real agreed price when the backend provides it
+    if (ficha.cobertura.precioMensualAcordado) {
+      return ficha.cobertura.precioMensualAcordado;
+    }
+    // Fallback to tier-based approximation until backend wires up precioMensualAcordado
     const nivel = ficha.cobertura.nivel?.toLowerCase() ?? 'basico';
     if (nivel === 'premium') return 54800;
     if (nivel === 'medio' || nivel === 'familiar') return 32400;

@@ -9,6 +9,10 @@ export interface ReporteComercialDTO {
   totalFacturado: number;
   consumosPorPrestacion: Record<string, number>;
   ingresosPorPrestacion: Record<string, number>;
+  altasMes?: number;
+  coberturasPorVencer?: number;
+  afiliadosPorInstitucion?: Record<string, number>;
+  altasSerie?: Record<string, number>;
 }
 
 @Injectable({ providedIn: 'root' })

@@ -43,3 +43,15 @@ export interface InstitutionDTO {
   sinceMonth?: string;
   contract?: ContractDTO;
 }
+
+export interface InstitucionMiembroItem {
+  id: number;
+  nombre: string;
+  apellido: string;
+  dni?: string;
+  telefono?: string;
+  rol: string;
+  vigenciaDesde?: string;
+  vigenciaHasta?: string;
+  activo: boolean;
+}

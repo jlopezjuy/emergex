@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { localDateYmd } from '../../shared/utils/date-local.util';
 import {
@@ -15,6 +16,9 @@ import {
   CrearCoberturaRequest,
   ConsumoMensualDTO,
   OrdenMedicaDTO,
+  AltaAfiliadoCompletaRequest,
+  AltaAfiliadoCompletaResponse,
+  AfiliadoSearchResult,
 } from '../dto/patient.dto';
 
 @Injectable({ providedIn: 'root' })
@@ -151,5 +155,38 @@ export class PatientApiService {
 
   getOrdenesMedicas(pacienteId: number): Observable<OrdenMedicaDTO[]> {
     return this.http.get<OrdenMedicaDTO[]>(`${environment.apiUrl}/api/ordenes-medicas/paciente/${pacienteId}`);
+  }
+
+  altaCompleta(req: AltaAfiliadoCompletaRequest): Observable<AltaAfiliadoCompletaResponse> {
+    return this.http.post<AltaAfiliadoCompletaResponse>(`${this.afiliadosBase}/alta-completa`, req);
+  }
+
+  buscarAfiliados(params: {
+    q?: string;
+    planId?: number;
+    page?: number;
+    size?: number;
+  }): Observable<{ data: AfiliadoSearchResult[]; total: number; totalPages: number }> {
+    let httpParams = new HttpParams()
+      .set('page', String(params.page ?? 0))
+      .set('size', String(params.size ?? 20))
+      .set('sort', 'apellido,asc');
+    if (params.q) httpParams = httpParams.set('q', params.q);
+    if (params.planId) httpParams = httpParams.set('planId', String(params.planId));
+
+    return this.http.get<AfiliadoSearchResult[]>(`${this.afiliadosBase}/buscar`, {
+      params: httpParams,
+      observe: 'response',
+    }).pipe(
+      map(response => ({
+        data: response.body ?? [],
+        total: Number(response.headers.get('X-Total-Count') ?? '0'),
+        totalPages: Number(response.headers.get('X-Total-Pages') ?? '1'),
+      }))
+    );
+  }
+
+  checkDniExists(dni: string): Observable<boolean> {
+    return this.http.get<boolean>(`${environment.apiUrl}/api/pacientes/dni-exists/${encodeURIComponent(dni)}`);
   }
 }

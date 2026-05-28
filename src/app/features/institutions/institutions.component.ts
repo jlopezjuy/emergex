@@ -1,12 +1,14 @@
 import { Component, OnInit, signal, computed, HostListener, inject, DestroyRef } from '@angular/core';
+import { SessionStore } from '../../core/stores/session.store';
 import { FormsModule } from '@angular/forms';
 import { catchError, of } from 'rxjs';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { InstitutionsApiService } from '../../data-access/api/institutions.api';
-import { PlansApiService } from '../../data-access/api/plans.api';
+import { PlanComercialApiService } from '../../data-access/api/plan-comercial.api';
 import { environment } from '../../../environments/environment';
 import { DateUtils } from '../../core/utils/date.utils';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
+import { InstitutionDetailDrawerComponent, DrawerInstitution } from './components/institution-detail-drawer/institution-detail-drawer.component';
 
 interface CommercialPlanItem {
   id: string;
@@ -216,7 +218,7 @@ const PAGE_SIZE = 10;
 @Component({
   selector: 'app-institutions',
   standalone: true,
-  imports: [FormsModule, StatusBadgeComponent],
+  imports: [FormsModule, StatusBadgeComponent, InstitutionDetailDrawerComponent],
   template: `
     <div class="screen">
 
@@ -258,10 +260,12 @@ const PAGE_SIZE = 10;
 
         <div class="screen-head__actions">
           <button class="btn btn--ghost btn--sm">Exportar</button>
-          <button class="btn btn--primary btn--sm" (click)="openNewForm()">
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="1" x2="6" y2="11"/><line x1="1" y1="6" x2="11" y2="6"/></svg>
-            Nueva institución
-          </button>
+          @if (canEdit()) {
+            <button class="btn btn--primary btn--sm" (click)="openNewForm()">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="1" x2="6" y2="11"/><line x1="1" y1="6" x2="11" y2="6"/></svg>
+              Nueva institución
+            </button>
+          }
         </div>
       </div>
 
@@ -323,7 +327,7 @@ const PAGE_SIZE = 10;
                 </tr>
               }
               @for (inst of paged(); track inst.id) {
-                <tr (click)="openContract(inst)" style="cursor:pointer">
+                <tr (click)="openDrawer(inst)" style="cursor:pointer">
                   <td>
                     <div style="display:flex;align-items:center;gap:10px">
                       <div class="institution-avatar"
@@ -373,19 +377,21 @@ const PAGE_SIZE = 10;
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                           Editar
                         </button>
-                        <button class="user-menu__item" (click)="openContract(inst); menuOpen.set(null)">
+                        <button class="user-menu__item" (click)="openDrawer(inst); menuOpen.set(null)">
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                           Ver contrato
                         </button>
-                        <button class="user-menu__item" (click)="openContract(inst); menuOpen.set(null)">
+                        <button class="user-menu__item" (click)="openDrawer(inst); menuOpen.set(null)">
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.25"/></svg>
                           Renovar contrato
                         </button>
                         <div style="height:1px;background:var(--border-hairline);margin:4px 0"></div>
-                        <button class="user-menu__item user-menu__item--danger">
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                          Dar de baja
-                        </button>
+                        @if (canAdmin()) {
+                          <button class="user-menu__item user-menu__item--danger">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                            Dar de baja
+                          </button>
+                        }
                       </div>
                     }
                   </td>
@@ -411,6 +417,20 @@ const PAGE_SIZE = 10;
         </div>
       </div>
     </div>
+
+    <!-- ═══════════════════════════════════════════════════════
+         INSTITUTION DETAIL DRAWER (360°)
+         ═══════════════════════════════════════════════════════ -->
+    @if (drawerInst()) {
+      <app-institution-detail-drawer
+        [institution]="drawerInst()!"
+        [planName]="planName(drawerInst()!.plan)"
+        [planColor]="planColor(drawerInst()!.plan)"
+        (close)="drawerInst.set(null)"
+        (edit)="drawerInst.set(null); openEditForm($event)"
+        (openContract)="drawerInst.set(null); openContract($event)"
+      />
+    }
 
     <!-- ═══════════════════════════════════════════════════════
          CONTRACT MODAL
@@ -714,7 +734,7 @@ const PAGE_SIZE = 10;
                     <input class="qc-input"
                       [style.border-color]="formTouched() && !form().cuit.trim() ? 'var(--accent-red)' : ''"
                       placeholder="30-58741236-9"
-                      [(ngModel)]="form().cuit" (ngModelChange)="patchForm({ cuit: $event })"/>
+                      [(ngModel)]="form().cuit" (ngModelChange)="patchForm({ cuit: formatCuit($event) })"/>
                     @if (formTouched() && !form().cuit.trim()) {
                       <div style="font-size:10.5px;color:var(--accent-red);margin-top:3px">Campo obligatorio</div>
                     }
@@ -1314,7 +1334,15 @@ const PAGE_SIZE = 10;
 export class InstitutionsComponent implements OnInit {
   private destroyRef = inject(DestroyRef);
   private readonly api = inject(InstitutionsApiService);
-  private readonly plansApi = inject(PlansApiService);
+  private readonly plansApi = inject(PlanComercialApiService);
+  private readonly session = inject(SessionStore);
+
+  readonly canEdit = computed(() =>
+    this.session.hasAnyRole(['ROLE_ADMIN','ROLE_PROPIETARIO','ROLE_ADMINISTRADOR','ROLE_DESPACHANTE'])
+  );
+  readonly canAdmin = computed(() =>
+    this.session.hasAnyRole(['ROLE_ADMIN','ROLE_PROPIETARIO','ROLE_ADMINISTRADOR'])
+  );
 
   // ── State ──
   private readonly _commercialPlans = signal<CommercialPlanItem[]>([]);
@@ -1389,6 +1417,9 @@ export class InstitutionsComponent implements OnInit {
   readonly typeFilter = signal('all');
   readonly page = signal(0);
   readonly menuOpen = signal<string | null>(null);
+
+  // Drawer (360° view)
+  readonly drawerInst = signal<Institution | null>(null);
 
   // Contract modal
   readonly contractInst = signal<Institution | null>(null);
@@ -1506,12 +1537,18 @@ export class InstitutionsComponent implements OnInit {
   onEsc(): void {
     if (this.formOpen()) { this.closeForm(); return; }
     if (this.contractInst()) { this.contractInst.set(null); return; }
+    if (this.drawerInst()) { this.drawerInst.set(null); return; }
   }
 
   // ── Filter ──
   setStatus(v: string): void {
     this.statusFilter.set(v);
     this.page.set(0);
+  }
+
+  // ── Detail drawer ──
+  openDrawer(inst: Institution): void {
+    this.drawerInst.set(inst);
   }
 
   // ── Contract modal ──
@@ -1789,5 +1826,12 @@ export class InstitutionsComponent implements OnInit {
         this.patchContract({ polygonPoints: pts });
       }
     }
+  }
+
+  formatCuit(raw: string): string {
+    const digits = raw.replace(/\D/g, '').slice(0, 11);
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 10) return digits.slice(0, 2) + '-' + digits.slice(2);
+    return digits.slice(0, 2) + '-' + digits.slice(2, 10) + '-' + digits.slice(10);
   }
 }

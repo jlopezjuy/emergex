@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
-import { ContractDTO, ContractStatus, InstitutionDTO, InstitutionType } from '../dto/institution.dto';
+import { ContractDTO, ContractStatus, InstitutionDTO, InstitutionType, InstitucionMiembroItem } from '../dto/institution.dto';
 
 // ── ContratoCobertura backend types ──────────────────────────────────────────
 
@@ -212,6 +212,25 @@ export class InstitutionsApiService {
         `${this.contratoBase}?institucionId.equals=${institucionId}&size=50`,
       )
       .pipe(map(page => page.content.map(contratoToDTO)));
+  }
+
+  getMiembros(institucionId: number, page = 0, size = 50): Observable<InstitucionMiembroItem[]> {
+    return this.http.get<any[]>(
+      `${environment.apiUrl}/api/v2/instituciones/${institucionId}/miembros`,
+      { params: { page: page.toString(), size: size.toString() } }
+    ).pipe(
+      map(list => list.map(m => ({
+        id: m.id,
+        nombre: m.nombre ?? '',
+        apellido: m.apellido ?? '',
+        dni: m.dni,
+        telefono: m.telefono,
+        rol: m.rol ?? '',
+        vigenciaDesde: m.vigenciaDesde,
+        vigenciaHasta: m.vigenciaHasta,
+        activo: m.activo ?? true,
+      } as InstitucionMiembroItem)))
+    );
   }
 
   saveContrato(dto: ContractDTO, institucionId: number, planNumericId: number): Observable<ContractDTO> {

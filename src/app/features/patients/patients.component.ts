@@ -2,13 +2,14 @@ import { Component, signal, computed, HostListener, inject, OnInit, DestroyRef }
 import { FormsModule } from '@angular/forms';
 import { UpperCasePipe } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { catchError, of, forkJoin, map, concatMap } from 'rxjs';
+import { catchError, of, forkJoin, map, concatMap, Subject, debounceTime, distinctUntilChanged } from 'rxjs';
 import { localDateYmd } from '../../shared/utils/date-local.util';
 import { PatientApiService } from '../../data-access/api/patient.api';
-import { PlansApiService } from '../../data-access/api/plans.api';
+import { PlanComercialApiService } from '../../data-access/api/plan-comercial.api';
 import { AuthService } from '../../core/auth/auth.service';
-import { PacienteDTO, FichaAfiliadoDTO, FacturaDTO, CoberturaFichaDTO, MiembroGrupoFamiliarDTO, ConsumoMensualDTO, OrdenMedicaDTO } from '../../data-access/dto/patient.dto';
-import { PlanDTO, PlanCoverages } from '../../data-access/dto/plan.dto';
+import { SessionStore } from '../../core/stores/session.store';
+import { PacienteDTO, FichaAfiliadoDTO, FacturaDTO, CoberturaFichaDTO, MiembroGrupoFamiliarDTO, ConsumoMensualDTO, OrdenMedicaDTO, AltaAfiliadoCompletaRequest, DependienteAltaRequest } from '../../data-access/dto/patient.dto';
+import { PlanComercialDTO, PlanCoverages } from '../../data-access/dto/plan-comercial.dto';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 // Importación de los nuevos componentes modulares
@@ -144,10 +145,18 @@ function sexoFromGender(g: 'M' | 'F' | 'X'): 'MASCULINO' | 'FEMENINO' | 'OTRO' {
 export class PatientsComponent implements OnInit {
   private destroyRef = inject(DestroyRef);
   private patientApi  = inject(PatientApiService);
-  private plansApi    = inject(PlansApiService);
+  private plansApi    = inject(PlanComercialApiService);
   private authService = inject(AuthService);
   private router      = inject(Router);
   private route       = inject(ActivatedRoute);
+  private readonly session = inject(SessionStore);
+
+  readonly canEdit = computed(() =>
+    this.session.hasAnyRole(['ROLE_ADMIN','ROLE_PROPIETARIO','ROLE_ADMINISTRADOR','ROLE_DESPACHANTE'])
+  );
+  readonly canAdmin = computed(() =>
+    this.session.hasAnyRole(['ROLE_ADMIN','ROLE_PROPIETARIO','ROLE_ADMINISTRADOR'])
+  );
 
   // ── Constants exposed to template ──
   readonly parentescos = PARENTESCOS;
@@ -177,6 +186,12 @@ export class PatientsComponent implements OnInit {
   readonly page         = signal(0);
   readonly menuOpen     = signal<string | null>(null);
 
+  // ── State — server-side pagination & search ──
+  readonly serverPage    = signal(0);
+  readonly serverTotal   = signal(0);
+  readonly serverTotalPg = signal(1);
+  private readonly searchSubject = new Subject<string>();
+
   // ── State — Slide Drawer (Detail) ──
   readonly selectedPatient  = signal<PatientRow | null>(null);
   readonly ficha            = signal<FichaAfiliadoDTO | null>(null);
@@ -192,6 +207,16 @@ export class PatientsComponent implements OnInit {
   paymentAmount             = 54800;
   paymentMethod             = 'DEBITO_AUTOMATICO';
   paymentRef                = '';
+
+  // ── State — DNI async check (for alta nueva wizard) ──
+  readonly dniCheckResult = signal<boolean | null>(null);
+
+  // ── State — Cambiar plan modal ──
+  readonly cambiarPlanOpen    = signal(false);
+  readonly cambiarPlanTarget  = signal<PatientRow | null>(null);
+  readonly cambiarPlanLoading = signal(false);
+  readonly cambiarPlanError   = signal<string | null>(null);
+  readonly cambiarPlanId      = signal<string>('');
 
   // ── State — Traspaso de Titularidad Modal ──
   readonly traspasoModalOpen          = signal(false);
@@ -209,20 +234,15 @@ export class PatientsComponent implements OnInit {
   readonly formError     = signal<string | null>(null);
 
   // ── State — plans (for new afiliado form) ──
-  readonly apiPlans    = signal<PlanDTO[]>([]);
+  readonly apiPlans    = signal<PlanComercialDTO[]>([]);
   readonly loadingPlans = signal(false);
 
   // ── Computed ──
+  // searchQuery and planFilter are server-side; only statusFilter remains client-side
   readonly filtered = computed(() => {
-    const q  = this.searchQuery().toLowerCase();
-    const s  = this.statusFilter();
-    const pf = this.planFilter();
-    return this.patients().filter(p => {
-      const matchStatus = (s === 'all' || p.status === s);
-      const matchSearch = (!q || p.name.toLowerCase().includes(q) || p.dni.includes(q) || p.id.toLowerCase().includes(q));
-      const matchPlan   = (pf === 'all' || p.planNombre.toLowerCase().includes(pf));
-      return matchStatus && matchSearch && matchPlan;
-    });
+    const s = this.statusFilter();
+    if (s === 'all') return this.patients();
+    return this.patients().filter(p => p.status === s);
   });
 
   readonly totalPages = computed(() => Math.max(1, Math.ceil(this.filtered().length / PAGE_SIZE)));
@@ -259,87 +279,70 @@ export class PatientsComponent implements OnInit {
 
   // ── Lifecycle ──
   ngOnInit(): void {
+    // Debounce search → server-side
+    this.searchSubject.pipe(
+      debounceTime(350),
+      distinctUntilChanged(),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(() => this.loadPatients(true));
+
     this.loadPatients();
     this.loadPlans();
   }
 
-  private loadPatients(): void {
+  private loadPatients(resetPage = false): void {
+    if (resetPage) this.serverPage.set(0);
     const editId = Number(this.route.snapshot.queryParams['edit']) || null;
     this.loading.set(true);
-    this.patientApi.getAll().pipe(
-      catchError(() => of([] as PacienteDTO[])), takeUntilDestroyed(this.destroyRef)
-    ).subscribe(dtos => {
-      if (dtos.length === 0) {
-        this.patients.set([]);
-        this.loading.set(false);
-        return;
+
+    this.patientApi.buscarAfiliados({
+      q: this.searchQuery() || undefined,
+      planId: this.planFilter() !== 'all' ? Number(this.planFilter()) : undefined,
+      page: this.serverPage(),
+      size: 20,
+    }).pipe(
+      catchError(() => of({ data: [], total: 0, totalPages: 1 })),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(({ data, total, totalPages }) => {
+      const rows = data.map(r => ({
+        pacienteId: r.pacienteId,
+        id: r.numeroAfiliado ?? `AF-${r.pacienteId}`,
+        name: r.nombreCompleto ?? '',
+        dni: r.dni,
+        type: 'titular' as const,
+        status: (r.activo !== false ? 'al-dia' : 'deuda') as 'al-dia' | 'deuda',
+        sinceMonth: r.createdAt ? sinceMonthFromISO(r.createdAt) : '—',
+        planNombre: r.coberturaActiva ?? 'Sin plan',
+        planColor: this.getPlanColor((r.planNivel ?? 'basico').toLowerCase()),
+        depCount: r.depCount ?? 0,
+        _raw: {
+          id: r.pacienteId,
+          nombre: r.nombreCompleto?.split(' ')[0] ?? '',
+          apellido: r.nombreCompleto?.split(' ').slice(1).join(' ') ?? '',
+          dni: r.dni,
+          telefono: r.telefono,
+          numeroAfiliado: r.numeroAfiliado,
+          activo: r.activo,
+          createdAt: r.createdAt,
+        } as any,
+      }));
+
+      this.patients.set(rows);
+      this.serverTotal.set(total);
+      this.serverTotalPg.set(totalPages);
+      this.loading.set(false);
+
+      if (editId) {
+        const row = rows.find(r => r.pacienteId === editId);
+        if (row) this.openEditForm(row);
       }
-
-      // Fetch Ficha for each real database patient in parallel to resolve their actual plans and dependents count
-      const requests = dtos.map(p =>
-        this.patientApi.getFicha(p.id).pipe(
-          map(ficha => ({ p, ficha })),
-          catchError(() => of({ p, ficha: null }))
-        )
-      );
-
-      forkJoin(requests).pipe(
-        takeUntilDestroyed(this.destroyRef)
-      ).subscribe(results => {
-        const rows = results.map(({ p, ficha }) => {
-          let planNombre = 'Plan Básico';
-          let planColor = '#94a3b8';
-          let depCount = 0;
-
-          if (ficha) {
-            if (ficha.cobertura) {
-              planNombre = ficha.cobertura.nombre ?? 'Plan Básico';
-              const nivel = ficha.cobertura.nivel ?? 'basico';
-              planColor = this.getPlanColor(nivel.toLowerCase());
-            }
-            if (ficha.miembrosGrupo) {
-              depCount = ficha.miembrosGrupo.filter(m => m.rol !== 'TITULAR').length;
-            }
-          } else {
-            // Apply cache if freshly created or updated
-            const cache = this.localPatientPlans.get(p.id);
-            if (cache) {
-              planNombre = cache.planNombre;
-              planColor  = cache.planColor;
-              depCount   = cache.depCount;
-            }
-          }
-
-          return {
-            pacienteId: p.id,
-            id:         p.numeroAfiliado ?? `AF-${p.id}`,
-            name:       `${p.nombre ?? ''} ${p.apellido ?? ''}`.trim(),
-            dni:        p.dni,
-            type:       'titular' as const,
-            status:     (p.activo !== false ? 'al-dia' : 'deuda') as 'al-dia' | 'deuda',
-            sinceMonth: sinceMonthFromISO(p.createdAt),
-            planNombre,
-            planColor,
-            depCount,
-            _raw:       p,
-          };
-        });
-
-        this.patients.set(rows);
-        this.loading.set(false);
-
-        if (editId) {
-          const row = rows.find(r => r.pacienteId === editId);
-          if (row) this.openEditForm(row);
-        }
-      });
     });
   }
 
   private loadPlans(): void {
     this.loadingPlans.set(true);
     this.plansApi.getAll().pipe(
-      catchError(() => of([] as PlanDTO[])), takeUntilDestroyed(this.destroyRef)
+      catchError(() => of([] as PlanComercialDTO[])), takeUntilDestroyed(this.destroyRef)
     ).subscribe(plans => {
       // Excluir planes institucionales (corporativos/áreas protegidas) para pacientes personas físicas
       this.apiPlans.set(plans.filter(p => p.active && p.modality !== 'institucional'));
@@ -467,6 +470,16 @@ export class PatientsComponent implements OnInit {
     this.page.set(0);
   }
 
+  reloadPatients(resetPage = false): void {
+    this.loadPatients(resetPage);
+  }
+
+  onSearchInput(value: string): void {
+    this.searchQuery.set(value);
+    this.page.set(0);
+    this.searchSubject.next(value);
+  }
+
   toggleMenu(id: string): void {
     this.menuOpen.set(this.menuOpen() === id ? null : id);
   }
@@ -476,6 +489,7 @@ export class PatientsComponent implements OnInit {
 
   @HostListener('document:keydown.escape')
   onEsc(): void {
+    if (this.cambiarPlanOpen()) { this.cambiarPlanOpen.set(false); return; }
     if (this.paymentModalOpen()) { this.paymentModalOpen.set(false); return; }
     if (this.formOpen()) { this.closeForm(); return; }
     if (this.selectedPatient()) { this.selectedPatient.set(null); return; }
@@ -655,6 +669,7 @@ export class PatientsComponent implements OnInit {
     this.form.set(emptyForm());
     this.formTab.set('titular');
     this.formError.set(null);
+    this.dniCheckResult.set(null);
     this.formOpen.set(true);
   }
 
@@ -759,6 +774,58 @@ export class PatientsComponent implements OnInit {
     this.formOpen.set(false);
     this.editingRow.set(null);
     this.formError.set(null);
+    this.dniCheckResult.set(null);
+  }
+
+  /** Called by patient-form-modal when DNI blur fires during alta nueva */
+  onDniCheck(dni: string): void {
+    this.patientApi.checkDniExists(dni).pipe(
+      catchError(() => of(false)),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(exists => {
+      this.dniCheckResult.set(exists);
+    });
+  }
+
+  // ── Cambiar plan ──
+  onCambiarPlan(row: PatientRow): void {
+    this.cambiarPlanTarget.set(row);
+    this.cambiarPlanId.set('');
+    this.cambiarPlanError.set(null);
+    this.cambiarPlanOpen.set(true);
+  }
+
+  confirmCambiarPlan(): void {
+    const target = this.cambiarPlanTarget();
+    const planId = this.cambiarPlanId();
+    if (!target || !planId) return;
+
+    this.cambiarPlanLoading.set(true);
+    this.cambiarPlanError.set(null);
+
+    this.patientApi.crearCobertura(target.pacienteId, {
+      tipoCobertura: 'PLAN_PROPIO',
+      planComercialId: Number(planId),
+      vigenciaDesde: todayISO(),
+    }).pipe(
+      catchError(err => {
+        this.cambiarPlanError.set(err?.error?.detail ?? err?.error?.title ?? 'Error al cambiar el plan.');
+        this.cambiarPlanLoading.set(false);
+        return of(null);
+      }),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(res => {
+      if (res === null) return;
+      this.cambiarPlanLoading.set(false);
+      this.cambiarPlanOpen.set(false);
+      this.cambiarPlanTarget.set(null);
+      // Reload both ficha (if drawer open) and patients list
+      const selected = this.selectedPatient();
+      if (selected && selected.pacienteId === target.pacienteId) {
+        this.loadFichaAndFacturas(selected.pacienteId);
+      }
+      this.loadPatients();
+    });
   }
 
   patchForm(patch: Partial<PatientForm>): void {
@@ -800,14 +867,54 @@ export class PatientsComponent implements OnInit {
       empresa:   { id: empresaId },
     };
 
+    // ── ALTA NUEVA: endpoint atómico transaccional ──
+    if (!editing) {
+      const altaReq: AltaAfiliadoCompletaRequest = {
+        nombre: f.nombre.trim(),
+        apellido: f.apellido.trim(),
+        dni: f.dni.trim(),
+        tipoDocumento: 'DNI',
+        sexo: sexoFromGender(f.gender),
+        fechaNacimiento: f.birth || undefined,
+        email: f.email || undefined,
+        telefono: f.phone || undefined,
+        direccion: f.addr || undefined,
+        planComercialId: Number(f.planId),
+        dependientes: f.deps.map(d => ({
+          nombre: d.name.trim(),
+          apellido: d.apellido.trim(),
+          dni: d.dni.trim(),
+          tipoDocumento: 'DNI' as const,
+          sexo: sexoFromGender(d.gender ?? 'M'),
+          fechaNacimiento: d.birth || undefined,
+          rolFamiliar: (d.parentesco === 'Cónyuge' ? 'CO_TITULAR' : 'DEPENDIENTE') as 'TITULAR' | 'CO_TITULAR' | 'DEPENDIENTE',
+        })),
+      };
+
+      this.savingForm.set(true);
+      this.formError.set(null);
+
+      this.patientApi.altaCompleta(altaReq).pipe(
+        catchError(err => {
+          this.formError.set(err?.error?.detail ?? err?.error?.title ?? 'Error al crear el afiliado.');
+          this.savingForm.set(false);
+          return of(null);
+        }),
+        takeUntilDestroyed(this.destroyRef)
+      ).subscribe(resp => {
+        if (!resp) return;
+        this.savingForm.set(false);
+        this.closeForm();
+        this.loadPatients(true);
+      });
+      return;
+    }
+
+    // ── EDICIÓN: mantener flujo existente ──
     this.savingForm.set(true);
     this.formError.set(null);
 
-    const save$ = editing
-      ? this.patientApi.update(editing.pacienteId, payload)
-      : this.patientApi.create(payload);
-
-    save$.pipe(
+    this.patientApi.update(editing.pacienteId, payload).pipe(
       catchError(err => {
         this.formError.set(err?.error?.detail ?? err?.error?.title ?? 'Error al guardar el titular. Verifique los datos.');
         this.savingForm.set(false);
@@ -815,19 +922,6 @@ export class PatientsComponent implements OnInit {
       }), takeUntilDestroyed(this.destroyRef)
     ).subscribe(saved => {
       if (!saved) return;
-
-      // Crear cobertura o plan del afiliado en segundo plano
-      if (f.planId) {
-        const planComId = Number(f.planId);
-        this.patientApi.crearCobertura(saved.id, {
-          tipoCobertura: 'PLAN_PROPIO',
-          planComercialId: planComId,
-          vigenciaDesde: todayISO(),
-        }).pipe(
-          catchError(() => of(null)),
-          takeUntilDestroyed(this.destroyRef)
-        ).subscribe();
-      }
 
       // Creamos caché local para visualización fluida
       const selectedPlanInfo = this.apiPlans().find(p => p.id === f.planId);
@@ -844,17 +938,15 @@ export class PatientsComponent implements OnInit {
         takeUntilDestroyed(this.destroyRef)
       ).subscribe(ficha => {
         if (ficha && ficha.grupoFamiliarId) {
-          // El titular ya posee un grupo en el backend, procesamos dependientes
           this.processFamilyGroup(saved.id, ficha.grupoFamiliarId, f.deps, this.originalMiembros(), empresaId);
         } else {
-          // Si es afiliado nuevo, le creamos el grupo familiar automáticamente
           const numCuenta = 'GRP-' + saved.id;
           this.patientApi.createGrupoFamiliar({
             numeroCuenta: numCuenta,
             estadoGrupo: 'ACTIVO',
             empresa: { id: empresaId }
           }).pipe(
-            catchError(err => {
+            catchError(() => {
               this.formError.set('Error crítico al instanciar el grupo familiar en base de datos.');
               this.savingForm.set(false);
               return of(null);
@@ -862,8 +954,6 @@ export class PatientsComponent implements OnInit {
             takeUntilDestroyed(this.destroyRef)
           ).subscribe(newGrupo => {
             if (!newGrupo) return;
-
-            // Vinculamos de inmediato al Titular como líder del grupo familiar
             const reqTitular = {
               rolFamiliar: 'TITULAR' as const,
               fechaIngreso: todayISO(),
@@ -872,12 +962,10 @@ export class PatientsComponent implements OnInit {
               grupoFamiliar: { id: newGrupo.id },
               paciente: { id: saved.id }
             };
-
             this.patientApi.addMiembro(reqTitular).pipe(
               catchError(() => of(null)),
               takeUntilDestroyed(this.destroyRef)
             ).subscribe(() => {
-              // Procesamos dependientes dentro del nuevo grupo creado
               this.processFamilyGroup(saved.id, newGrupo.id, f.deps, [], empresaId);
             });
           });

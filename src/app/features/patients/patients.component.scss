@@ -7,6 +7,25 @@
   min-height: calc(100vh - 56px);
 }
 
+/* Plan cards used in the change-plan modal */
+.plan-card-inline {
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s;
+
+  &:hover {
+    border-color: #cbd5e1;
+  }
+
+  &.active {
+    box-shadow: 0 0 0 1px currentColor;
+  }
+}
+
 /* Custom scrollbar */
 .scrollbar-thin {
   &::-webkit-scrollbar {

@@ -3,9 +3,9 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
-import { PlanDTO, PlanTier, PlanModality, PlanPrestacionDTO } from '../dto/plan.dto';
+import { PlanComercialDTO, PlanTier, PlanModality, PlanPrestacionDTO } from '../dto/plan-comercial.dto';
 
-interface BackendPlan {
+interface BackendPlanComercial {
   id: number;
   nombre: string;
   nivel: 'PREMIUM' | 'MEDIO' | 'BASICO';
@@ -30,31 +30,31 @@ interface BackendPlan {
   empresa?: { id: number; nombre: string };
 }
 
-const TIER_MAP: Record<BackendPlan['nivel'], PlanTier> = {
+const TIER_MAP: Record<BackendPlanComercial['nivel'], PlanTier> = {
   PREMIUM: 'premium',
   MEDIO: 'medio',
   BASICO: 'basico',
 };
 
-const TIER_MAP_INVERSE: Record<PlanTier, BackendPlan['nivel']> = {
+const TIER_MAP_INVERSE: Record<PlanTier, BackendPlanComercial['nivel']> = {
   premium: 'PREMIUM',
   medio: 'MEDIO',
   basico: 'BASICO',
 };
 
-const MODALITY_MAP: Record<BackendPlan['modalidad'], PlanModality> = {
+const MODALITY_MAP: Record<BackendPlanComercial['modalidad'], PlanModality> = {
   INDIVIDUAL: 'individual',
   GRUPO_FAMILIAR: 'familiar',
   AREA_PROTEGIDA: 'institucional',
 };
 
-const MODALITY_MAP_INVERSE: Record<PlanModality, BackendPlan['modalidad']> = {
+const MODALITY_MAP_INVERSE: Record<PlanModality, BackendPlanComercial['modalidad']> = {
   individual: 'INDIVIDUAL',
   familiar: 'GRUPO_FAMILIAR',
   institucional: 'AREA_PROTEGIDA',
 };
 
-function toDTO(b: BackendPlan): PlanDTO {
+function toDTO(b: BackendPlanComercial): PlanComercialDTO {
   return {
     id: String(b.id),
     name: b.nombre,
@@ -87,7 +87,7 @@ function toDTO(b: BackendPlan): PlanDTO {
   };
 }
 
-function toBackend(dto: PlanDTO): Partial<BackendPlan> {
+function toBackend(dto: PlanComercialDTO): Partial<BackendPlanComercial> {
   return {
     nombre: dto.name,
     descripcion: dto.description,
@@ -113,25 +113,25 @@ function toBackend(dto: PlanDTO): Partial<BackendPlan> {
 }
 
 @Injectable({ providedIn: 'root' })
-export class PlansApiService {
+export class PlanComercialApiService {
   private http = inject(HttpClient);
-  private catalogBase = `${environment.apiUrl}/api/v1/planes`;
+  private catalogBase = `${environment.apiUrl}/api/v1/planes-comerciales`;
   private crudBase = `${environment.apiUrl}/api/plan-comercials`;
 
-  getAll(): Observable<PlanDTO[]> {
-    return this.http.get<BackendPlan[]>(this.catalogBase).pipe(
+  getAll(): Observable<PlanComercialDTO[]> {
+    return this.http.get<BackendPlanComercial[]>(this.catalogBase).pipe(
       map(list => list.map(toDTO))
     );
   }
 
-  create(dto: PlanDTO): Observable<PlanDTO> {
-    return this.http.post<BackendPlan>(this.crudBase, toBackend(dto)).pipe(
+  create(dto: PlanComercialDTO): Observable<PlanComercialDTO> {
+    return this.http.post<BackendPlanComercial>(this.crudBase, toBackend(dto)).pipe(
       map(toDTO)
     );
   }
 
-  update(dto: PlanDTO): Observable<PlanDTO> {
-    return this.http.put<BackendPlan>(`${this.crudBase}/${dto.id}`, toBackend(dto)).pipe(
+  update(dto: PlanComercialDTO): Observable<PlanComercialDTO> {
+    return this.http.put<BackendPlanComercial>(`${this.crudBase}/${dto.id}`, toBackend(dto)).pipe(
       map(toDTO)
     );
   }
