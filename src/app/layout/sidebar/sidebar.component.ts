@@ -203,6 +203,7 @@ export class SidebarComponent {
     { path: '/hospitals', label: 'Hospitales', title: 'Hospitales', icon: '🏨' },
     { path: '/communications', label: 'Comunicaciones', title: 'Comunicaciones', icon: '📡' },
     { path: '/internacion', label: 'Internación', title: 'Internación domiciliaria', icon: '🛏️' },
+    { path: '/management', label: 'Gerencial', title: 'Gestión Gerencial', icon: '💼' },
     { path: '/analytics', label: 'Analítica', title: 'Analítica', icon: '📊' },
     { path: '/admin/global', label: 'Admin global', title: 'Administración global', icon: '🏢', adminOnly: true },
   ];

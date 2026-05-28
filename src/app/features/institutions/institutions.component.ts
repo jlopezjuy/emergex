@@ -11,6 +11,8 @@ import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { InstitutionDetailDrawerComponent, DrawerInstitution } from './components/institution-detail-drawer/institution-detail-drawer.component';
 import { InstitutionFormModalComponent, InstitutionForm } from './components/institution-form-modal/institution-form-modal.component';
 import { InstitutionType } from '../../data-access/dto/institution.dto';
+import { InstitutionContractModalComponent } from './components/institution-contract-modal/institution-contract-modal.component';
+import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 
 interface CommercialPlanItem {
   id: string;
@@ -21,9 +23,7 @@ interface CommercialPlanItem {
   tier: string;
 }
 
-// ─── Interfaces ──────────────────────────────────────────────────────────────
-
-interface InstitutionContract {
+export interface InstitutionContract {
   id?: number;
   code: string;
   plan: string;
@@ -37,7 +37,7 @@ interface InstitutionContract {
   polygonPoints?: { x: number; y: number }[];
 }
 
-interface Institution {
+export interface Institution {
   id: string;
   name: string;
   razonSocial: string;
@@ -120,7 +120,7 @@ const PAGE_SIZE = 10;
 @Component({
   selector: 'app-institutions',
   standalone: true,
-  imports: [FormsModule, StatusBadgeComponent, InstitutionDetailDrawerComponent, InstitutionFormModalComponent],
+  imports: [FormsModule, StatusBadgeComponent, InstitutionDetailDrawerComponent, InstitutionFormModalComponent, InstitutionContractModalComponent, EmptyStateComponent],
   template: `
     <div class="screen">
 
@@ -225,7 +225,9 @@ const PAGE_SIZE = 10;
             <tbody>
               @if (paged().length === 0) {
                 <tr>
-                  <td colspan="7" style="padding:40px;text-align:center;color:var(--text-muted);font-size:12px">Sin resultados</td>
+                  <td colspan="7" style="padding:20px;text-align:center;">
+                    <emx-empty-state message="No se encontraron instituciones en base a los criterios de filtrado." />
+                  </td>
                 </tr>
               }
               @for (inst of paged(); track inst.id) {
@@ -341,252 +343,14 @@ const PAGE_SIZE = 10;
          CONTRACT MODAL
          ═══════════════════════════════════════════════════════ -->
     @if (contractInst()) {
-      @let ci = contractInst()!;
-      @let ctr = contractDraft();
-      <div class="qc-overlay" (click)="contractInst.set(null)">
-        <div class="qc-modal qc-modal--contract glass-strong" style="position:relative" (click)="$event.stopPropagation()">
-          @if (loadingContract()) {
-            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(2,6,23,0.55);border-radius:inherit;z-index:20">
-              <div style="width:22px;height:22px;border:2px solid var(--accent-blue);border-top-color:transparent;border-radius:50%;animation:spin 0.65s linear infinite"></div>
-            </div>
-          }
-          <div class="qc-head">
-            <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0">
-              <div class="institution-avatar"
-                [style.background]="planColor(ci.plan) + '20'"
-                [style.color]="planColor(ci.plan)"
-                [style.border-color]="planColor(ci.plan) + '44'"
-                style="width:40px;height:40px;font-size:13px"
-              >{{ avatarOf(ci.name) }}</div>
-              <div style="min-width:0">
-                <div class="eyebrow" style="color:var(--accent-blue)">CONFIGURACIÓN DE CONTRATO Y PLAN</div>
-                <div style="font-size:16px;font-weight:600;margin-top:2px">{{ ci.name }}</div>
-                <div class="mono micro" style="color:var(--text-muted);margin-top:2px">{{ ci.contract.code }} · {{ ci.cuit }}</div>
-              </div>
-            </div>
-            <button class="qc-close-btn" (click)="contractInst.set(null)">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="1" y1="1" x2="13" y2="13"/><line x1="13" y1="1" x2="1" y2="13"/></svg>
-            </button>
-          </div>
-
-          <div class="qc-body" style="padding:16px 20px;overflow-y:auto;max-height:62vh">
-
-            <!-- Plan selector card -->
-            <div style="padding:14px 16px;border-radius:12px;background:rgba(255,255,255,0.03);border:1px solid var(--border-glass);margin-bottom:14px">
-              <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
-                <span style="width:12px;height:12px;border-radius:50%;display:inline-block;flex-shrink:0;box-shadow:0 0 10px currentColor"
-                  [style.background]="planColor(ctr.plan)"
-                  [style.color]="planColor(ctr.plan)"
-                ></span>
-                <div>
-                  <div style="font-size:14px;font-weight:600" [style.color]="planColor(ctr.plan)">{{ planName(ctr.plan) }}</div>
-                  <div class="mono micro" style="color:var(--text-muted);margin-top:1px">Tarifa base: {{ fmtCurrency(planBase(ctr.plan)) }}/mes</div>
-                </div>
-              </div>
-              <div class="qc-field">
-                <label class="eyebrow">Cambiar plan</label>
-                <select class="qc-input" [(ngModel)]="contractDraftPlan" (ngModelChange)="patchContract({ plan: $event })">
-                  @for (p of commercialPlans; track p.id) {
-                    <option [value]="p.id">{{ p.name }} — {{ fmtCurrency(p.monthlyBase) }}/mes</option>
-                  }
-                </select>
-              </div>
-            </div>
-
-            <!-- Geocerca (Polígono de Cobertura - Sprint 4 Nuevo) -->
-            <div style="padding:14px 16px;border-radius:12px;background:rgba(255,255,255,0.03);border:1px solid var(--border-glass);margin-bottom:14px">
-              <label class="eyebrow" style="color: var(--accent-cyan); display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <span>Zona de Cobertura del Plan (Polígono)</span>
-                <span class="mono" style="font-size: 9.5px; color: var(--text-muted)">Hacé clicks en el mapa para trazar el perímetro</span>
-              </label>
-              
-              <div style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 14px;">
-                <!-- Interactive Drawing Map (SVG) -->
-                <div class="mini-map" style="aspect-ratio: 1 / 1; height: 160px; width: 160px; margin: 0 auto;">
-                  <svg viewBox="0 0 100 100" (click)="onContractMapClick($event)">
-                    <!-- Background -->
-                    <rect width="100" height="100" fill="rgba(2,6,23,0.92)"/>
-                    
-                    <!-- Grid lines for visual quality -->
-                    <line x1="25" y1="0" x2="25" y2="100" stroke="rgba(255,255,255,0.05)" stroke-width="0.5"/>
-                    <line x1="50" y1="0" x2="50" y2="100" stroke="rgba(255,255,255,0.05)" stroke-width="0.5"/>
-                    <line x1="75" y1="0" x2="75" y2="100" stroke="rgba(255,255,255,0.05)" stroke-width="0.5"/>
-                    <line x1="0" y1="25" x2="100" y2="25" stroke="rgba(255,255,255,0.05)" stroke-width="0.5"/>
-                    <line x1="0" y1="50" x2="100" y2="50" stroke="rgba(255,255,255,0.05)" stroke-width="0.5"/>
-                    <line x1="0" y1="75" x2="100" y2="75" stroke="rgba(255,255,255,0.05)" stroke-width="0.5"/>
-
-                    <!-- Drawn Polygon Area -->
-                    @if (ctr.polygonPoints && ctr.polygonPoints.length > 0) {
-                      <polygon 
-                        [attr.points]="getPointsString(ctr.polygonPoints)" 
-                        fill="rgba(59,130,246,0.22)" 
-                        stroke="var(--accent-blue)" 
-                        stroke-width="1.5" 
-                        stroke-linejoin="round"
-                      />
-                      @for (pt of ctr.polygonPoints; track pt; let idx = $index) {
-                        <circle [attr.cx]="pt.x" [attr.cy]="pt.y" r="2.5" fill="var(--accent-cyan)" stroke="white" stroke-width="0.5"/>
-                      }
-                    }
-                  </svg>
-                  <div class="mini-map__hint" style="background: rgba(59,130,246,0.6); font-size: 8px; padding: 2px 4px;">DIBUJAR</div>
-                </div>
-
-                <!-- Actions & Vertex List -->
-                <div style="display: flex; flex-direction: column; justify-content: space-between; background: rgba(255,255,255,0.02); border: 1px solid var(--border-glass); border-radius: 12px; padding: 10px;">
-                  <div style="flex: 1; overflow-y: auto; max-height: 90px;">
-                    <span class="eyebrow" style="margin-bottom: 4px; display: block;">Perímetro Cobertura</span>
-                    @if (!ctr.polygonPoints || ctr.polygonPoints.length === 0) {
-                      <div class="font-sans text-[10.5px]" style="color: var(--text-muted); line-height: 1.3;">
-                        Sin cobertura. Usá los botones de abajo o clickeá a la izquierda.
-                      </div>
-                    } @else {
-                      <div style="display: flex; flex-direction: column; gap: 4px;">
-                        @for (pt of ctr.polygonPoints; track pt; let idx = $index) {
-                          <div class="font-mono text-[9px] flex items-center justify-between px-2 py-0.5 rounded bg-white/5" style="color: var(--text-secondary)">
-                            <span>Vértice {{ idx + 1 }}: ({{ pt.x.toFixed(0) }}%, {{ pt.y.toFixed(0) }}%)</span>
-                            <button type="button" class="text-red-400 hover:text-red-300 font-bold" (click)="removeVertex(idx)">✕</button>
-                          </div>
-                        }
-                      </div>
-                    }
-                  </div>
-                  
-                  <!-- Circular Presets (Sprint 4) -->
-                  <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border-glass);">
-                    <span class="eyebrow" style="font-size: 8.5px; margin-bottom: 2px;">Autogenerar Radio</span>
-                    <div style="display: flex; gap: 3px;">
-                      <button type="button" class="filter-chip" style="flex: 1; height: 20px; font-size: 9px; padding: 0; justify-content: center; display: inline-flex; align-items: center;" (click)="generateCircularGeofence(5)">Cercano (5%)</button>
-                      <button type="button" class="filter-chip" style="flex: 1; height: 20px; font-size: 9px; padding: 0; justify-content: center; display: inline-flex; align-items: center;" (click)="generateCircularGeofence(12)">Medio (12%)</button>
-                      <button type="button" class="filter-chip" style="flex: 1; height: 20px; font-size: 9px; padding: 0; justify-content: center; display: inline-flex; align-items: center;" (click)="generateCircularGeofence(22)">Amplio (22%)</button>
-                    </div>
-                  </div>
-
-                  <div style="display: flex; gap: 4px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border-glass);">
-                    <button type="button" class="filter-chip" style="flex: 1; height: 22px; font-size: 10px; text-align: center; justify-content: center; display: inline-flex; align-items: center;" [disabled]="!ctr.polygonPoints || ctr.polygonPoints.length === 0" (click)="clearPolygon()">
-                      Reset
-                    </button>
-                    <button type="button" class="filter-chip" style="flex: 1; height: 22px; font-size: 10px; text-align: center; justify-content: center; display: inline-flex; align-items: center;" [disabled]="!ctr.polygonPoints || ctr.polygonPoints.length < 3" (click)="autoClosePolygon()">
-                      Cerrar
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-
-            <!-- Condiciones: fila 1 -->
-            <div class="contract-grid" style="margin-bottom:12px">
-              <div class="qc-field">
-                <label class="eyebrow">Vigencia desde</label>
-                <input class="qc-input" type="date" [(ngModel)]="contractDraftFrom" (ngModelChange)="patchContract({ from: $event })"/>
-              </div>
-              <div class="qc-field">
-                <label class="eyebrow">Vigencia hasta</label>
-                <input class="qc-input" type="date" [(ngModel)]="contractDraftTo" (ngModelChange)="patchContract({ to: $event })"/>
-              </div>
-              <div class="qc-field">
-                <label class="eyebrow">Estado</label>
-                <div style="display:flex;gap:4px;flex-wrap:wrap">
-                  @for (cs of contractStatuses; track cs.value) {
-                    <button class="ctr-status-pill"
-                      [attr.data-active]="ctr.status === cs.value"
-                      [style.border-color]="ctr.status === cs.value ? cs.color : 'transparent'"
-                      [style.background]="ctr.status === cs.value ? cs.color + '18' : 'rgba(255,255,255,0.04)'"
-                      [style.color]="ctr.status === cs.value ? cs.color : 'var(--text-muted)'"
-                      (click)="patchContract({ status: cs.value })">
-                      {{ cs.label }}
-                    </button>
-                  }
-                </div>
-              </div>
-              <div class="qc-field">
-                <label class="eyebrow">Duración</label>
-                <div class="qc-input mono" style="background:rgba(255,255,255,0.02);color:var(--accent-cyan);cursor:default">
-                  {{ calcMonths(ctr.from, ctr.to) }} meses
-                </div>
-              </div>
-            </div>
-
-            <!-- Condiciones: fila 2 -->
-            <div class="contract-grid" style="margin-bottom:12px">
-              <div class="qc-field">
-                <label class="eyebrow">Precio mensual</label>
-                <div class="numeric-input">
-                  <span style="display:flex;align-items:center;padding:0 8px;background:rgba(255,255,255,0.04);border:1px solid var(--border-glass);border-right:none;border-radius:var(--r-btn) 0 0 var(--r-btn);font-size:12px;color:var(--text-muted)">$</span>
-                  <input class="qc-input" type="number" style="border-radius:0;flex:1;border-left:none"
-                    [(ngModel)]="contractDraftPrice" (ngModelChange)="patchContract({ monthlyPrice: +$event })"/>
-                  <span style="display:flex;align-items:center;padding:0 8px;background:rgba(255,255,255,0.04);border:1px solid var(--border-glass);border-left:none;border-radius:0 var(--r-btn) var(--r-btn) 0;font-size:11px;color:var(--text-muted);white-space:nowrap">ARS/mes</span>
-                </div>
-              </div>
-              <div class="qc-field">
-                <label class="eyebrow">Tope mensual</label>
-                <div class="numeric-input">
-                  <input class="qc-input" type="number" style="flex:1;border-radius:var(--r-btn) 0 0 var(--r-btn);border-right:none"
-                    [(ngModel)]="contractDraftCap" (ngModelChange)="patchContract({ monthlyCap: +$event })"/>
-                  <span style="display:flex;align-items:center;padding:0 8px;background:rgba(255,255,255,0.04);border:1px solid var(--border-glass);border-left:none;border-radius:0 var(--r-btn) var(--r-btn) 0;font-size:11px;color:var(--text-muted);white-space:nowrap">servicios</span>
-                </div>
-              </div>
-              <div class="qc-field">
-                <label class="eyebrow">KPI respuesta</label>
-                <div class="numeric-input">
-                  <input class="qc-input" type="number" style="flex:1;border-radius:var(--r-btn) 0 0 var(--r-btn);border-right:none"
-                    [(ngModel)]="contractDraftKpi" (ngModelChange)="patchContract({ kpiMinutes: +$event })"/>
-                  <span style="display:flex;align-items:center;padding:0 8px;background:rgba(255,255,255,0.04);border:1px solid var(--border-glass);border-left:none;border-radius:0 var(--r-btn) var(--r-btn) 0;font-size:11px;color:var(--text-muted);white-space:nowrap">min. máx.</span>
-                </div>
-              </div>
-              <div class="qc-field">
-                <label class="eyebrow">Costo unitario</label>
-                <div class="qc-input mono" style="background:rgba(255,255,255,0.02);color:var(--accent-cyan);cursor:default">
-                  {{ ctr.monthlyCap > 0 ? fmtCurrency(Math.round(ctr.monthlyPrice / ctr.monthlyCap)) : '—' }}
-                </div>
-              </div>
-            </div>
-
-            <!-- Condiciones particulares -->
-            <div class="qc-field" style="margin-bottom:12px">
-              <label class="eyebrow">Condiciones particulares</label>
-              <textarea class="qc-input" rows="3" style="resize:vertical"
-                [(ngModel)]="contractDraftConditions" (ngModelChange)="patchContract({ conditions: $event })"></textarea>
-            </div>
-
-            <!-- Resumen comercial -->
-            <div class="wiz-summary">
-              <div>
-                <div class="eyebrow">Anual estimado</div>
-                <div class="mono" style="font-size:15px;font-weight:600;color:var(--accent-emerald);margin-top:4px">{{ fmtCurrency(ctr.monthlyPrice * 12) }}</div>
-              </div>
-              <div>
-                <div class="eyebrow">Atenciones máx/año</div>
-                <div class="mono" style="font-size:15px;font-weight:600;margin-top:4px">{{ ctr.monthlyCap * 12 }}</div>
-              </div>
-              <div>
-                <div class="eyebrow">SLA acordado</div>
-                <div class="mono" style="font-size:15px;font-weight:600;color:var(--accent-cyan);margin-top:4px">{{ ctr.kpiMinutes }} min</div>
-              </div>
-              <div>
-                <div class="eyebrow">Vigencia</div>
-                <div class="mono" style="font-size:15px;font-weight:600;margin-top:4px">{{ calcDays(ctr.from, ctr.to) }} días</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="qc-foot">
-            <div class="qc-hint"><span class="kbd">Esc</span> cerrar sin guardar</div>
-            <div style="display:flex;gap:8px">
-              <button class="btn btn--ghost" (click)="contractInst.set(null)">Cancelar</button>
-              <button class="btn btn--primary" (click)="saveContract()" [disabled]="loadingContract()">
-                @if (loadingContract()) {
-                  <span style="width:12px;height:12px;border:1.5px solid currentColor;border-top-color:transparent;border-radius:50%;display:inline-block;animation:spin 0.65s linear infinite"></span>
-                } @else {
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                }
-                {{ loadingContract() ? 'Guardando…' : 'Guardar contrato' }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <app-institution-contract-modal
+        [institution]="contractInst()!"
+        [commercialPlans]="commercialPlans"
+        [loadingContract]="loadingContract()"
+        [initialContract]="contractDraft()"
+        (close)="contractInst.set(null)"
+        (save)="saveContractFromModal($event)"
+      />
     }
 
     <!-- ═══════════════════════════════════════════════════════
@@ -1017,6 +781,47 @@ const PAGE_SIZE = 10;
       background: rgba(255,255,255,0.04);
     }
     .ctr-status-pill:hover { background: rgba(255,255,255,0.08); }
+
+    /* ── Responsive adjustments ── */
+    @media (max-width: 900px) {
+      .screen-head {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 16px !important;
+      }
+      .screen-head__kpis {
+        display: grid !important;
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px !important;
+        width: 100% !important;
+      }
+      .screen-kpi {
+        margin: 0 !important;
+        padding: 8px 12px !important;
+        background: var(--surface-glass) !important;
+        border-radius: var(--r-btn) !important;
+        border: 1px solid var(--border-glass) !important;
+      }
+      .pt-toolbar {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 10px !important;
+      }
+      .pt-filters {
+        width: 100% !important;
+        flex-wrap: wrap !important;
+      }
+      .pt-search {
+        width: 100% !important;
+      }
+      .qc-modal {
+        width: 95% !important;
+        max-height: 95vh !important;
+      }
+      .data-table-wrap {
+        overflow-x: auto !important;
+      }
+    }
   `],
 })
 export class InstitutionsComponent implements OnInit {
@@ -1096,6 +901,20 @@ export class InstitutionsComponent implements OnInit {
               },
             }));
             this.institutions.set(mapped);
+
+            // Fetch real members counts asynchronously in parallel for each row
+            mapped.forEach(inst => {
+              const numericId = Number(inst.id);
+              if (numericId) {
+                this.api.getMiembros(numericId, 0, 1000).pipe(
+                  catchError(() => of([]))
+                ).subscribe(miembros => {
+                  this.institutions.update(list =>
+                    list.map(i => i.id === inst.id ? { ...i, members: miembros.length } : i)
+                  );
+                });
+              }
+            });
           });
   }
 
@@ -1130,27 +949,6 @@ export class InstitutionsComponent implements OnInit {
   get typeFilterValue(): string { return this.typeFilter(); }
   set typeFilterValue(v: string) { this.typeFilter.set(v); this.page.set(0); }
 
-  // Contract draft bridges (ngModel needs writable accessors on primitives)
-  get contractDraftPlan(): string { return this.contractDraft().plan; }
-  set contractDraftPlan(v: string) { this.patchContract({ plan: v }); }
-
-  get contractDraftFrom(): string { return this.contractDraft().from; }
-  set contractDraftFrom(v: string) { this.patchContract({ from: v }); }
-
-  get contractDraftTo(): string { return this.contractDraft().to; }
-  set contractDraftTo(v: string) { this.patchContract({ to: v }); }
-
-  get contractDraftPrice(): number { return this.contractDraft().monthlyPrice; }
-  set contractDraftPrice(v: number) { this.patchContract({ monthlyPrice: +v }); }
-
-  get contractDraftCap(): number { return this.contractDraft().monthlyCap; }
-  set contractDraftCap(v: number) { this.patchContract({ monthlyCap: +v }); }
-
-  get contractDraftKpi(): number { return this.contractDraft().kpiMinutes; }
-  set contractDraftKpi(v: number) { this.patchContract({ kpiMinutes: +v }); }
-
-  get contractDraftConditions(): string { return this.contractDraft().conditions; }
-  set contractDraftConditions(v: string) { this.patchContract({ conditions: v }); }
 
   // ── Computed ──
   readonly filtered = computed(() => {
@@ -1350,35 +1148,9 @@ export class InstitutionsComponent implements OnInit {
       });
   }
 
-  patchContract(patch: Partial<InstitutionContract>): void {
-    const draft = { ...this.contractDraft(), ...patch };
-    if (patch.plan) {
-      const plan = this._commercialPlans().find(p => p.id === patch.plan);
-      if (plan) {
-        draft.monthlyPrice = plan.monthlyBase;
-        draft.monthlyCap = plan.tier === 'premium' ? 50 : plan.tier === 'medio' ? 30 : 15;
-        draft.kpiMinutes = plan.tier === 'premium' ? 8 : plan.tier === 'medio' ? 12 : 15;
-      }
-    }
-    this.contractDraft.set(draft);
-  }
-
-  generateCircularGeofence(radius: number): void {
-    const inst = this.contractInst();
-    if (!inst) return;
-    const cx = inst.lat ?? 50;
-    const cy = inst.lng ?? 50;
-    const points = [];
-    const steps = 12;
-    for (let i = 0; i < steps; i++) {
-      const angle = (i / steps) * 2 * Math.PI;
-      points.push({
-        x: Math.round((cx + radius * Math.cos(angle)) * 10) / 10,
-        y: Math.round((cy + radius * Math.sin(angle)) * 10) / 10
-      });
-    }
-    points.push({ ...points[0] });
-    this.patchContract({ polygonPoints: points });
+  saveContractFromModal(ctr: InstitutionContract): void {
+    this.contractDraft.set(ctr);
+    this.saveContract();
   }
 
   saveContract(): void {
@@ -1505,50 +1277,6 @@ export class InstitutionsComponent implements OnInit {
     const x = ((event.clientX - rect.left) / rect.width) * 100;
     const y = ((event.clientY - rect.top) / rect.height) * 100;
     this.patchForm({ lat: Math.round(x * 100) / 100, lng: Math.round(y * 100) / 100 });
-  }
-
-  // ── Sprint 4 Contract Polygon Drawing ──
-  getPointsString(pts?: { x: number; y: number }[]): string {
-    if (!pts) return '';
-    return pts.map(p => `${p.x},${p.y}`).join(' ');
-  }
-
-  onContractMapClick(event: MouseEvent): void {
-    const target = event.currentTarget as SVGElement;
-    const rect = target.getBoundingClientRect();
-    const x = ((event.clientX - rect.left) / rect.width) * 100;
-    const y = ((event.clientY - rect.top) / rect.height) * 100;
-    
-    const draft = this.contractDraft();
-    const currentPoints = draft.polygonPoints ? [...draft.polygonPoints] : [];
-    
-    currentPoints.push({ x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 });
-    this.patchContract({ polygonPoints: currentPoints });
-  }
-
-  removeVertex(index: number): void {
-    const draft = this.contractDraft();
-    const currentPoints = draft.polygonPoints ? [...draft.polygonPoints] : [];
-    currentPoints.splice(index, 1);
-    this.patchContract({ polygonPoints: currentPoints });
-  }
-
-  clearPolygon(): void {
-    this.patchContract({ polygonPoints: [] });
-  }
-
-  autoClosePolygon(): void {
-    const draft = this.contractDraft();
-    const pts = draft.polygonPoints ? [...draft.polygonPoints] : [];
-    if (pts.length > 2) {
-      const first = pts[0];
-      const last = pts[pts.length - 1];
-      const dist = Math.sqrt(Math.pow(last.x - first.x, 2) + Math.pow(last.y - first.y, 2));
-      if (dist > 1) {
-        pts.push({ ...first });
-        this.patchContract({ polygonPoints: pts });
-      }
-    }
   }
 
   formatCuit(raw: string): string {

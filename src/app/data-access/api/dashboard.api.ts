@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
-import { DashboardOperativoDTO } from '../dto/dashboard.dto';
+import { DashboardOperativoDTO, DashboardComercialDTO } from '../dto/dashboard.dto';
 
 @Injectable({ providedIn: 'root' })
 export class DashboardApiService {
@@ -31,5 +31,9 @@ export class DashboardApiService {
         cargaPorHora: raw.cargaPorHora ?? {},
       } as DashboardOperativoDTO)),
     );
+  }
+
+  comercial(): Observable<DashboardComercialDTO> {
+    return this.http.get<DashboardComercialDTO>(`${this.base}/comercial`);
   }
 }

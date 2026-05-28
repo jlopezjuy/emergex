@@ -11,3 +11,14 @@ export interface DashboardOperativoDTO {
   tiemposRespuestaHistorico?: number[];
   cargaPorHora?: Record<string, number>;
 }
+
+export interface DashboardComercialDTO {
+  totalAfiliadosActivos: number;
+  altasMesActual: number;
+  ingresosMesActual: number;
+  institucionesActivas: number;
+  afiliadosPorPlan: Record<string, number>;
+  facturasImpagas: number;
+  facturasCobradas: number;
+  moraFacturas: number;
+}

@@ -136,6 +136,14 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'management',
+        canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_PROPIETARIO', 'ROLE_ADMINISTRADOR')],
+        loadComponent: () =>
+          import('./features/management-dashboard/management-dashboard.component').then(
+            (m) => m.ManagementDashboardComponent,
+          ),
+      },
+      {
         path: 'asistencias/historial',
         loadComponent: () =>
           import('./features/asistencias-historial/asistencias-historial.component').then(
