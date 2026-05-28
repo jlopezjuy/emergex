@@ -17,6 +17,7 @@ interface BackendFactura {
   grupoFamiliarId?: number;
   grupoNumeroCuenta?: string;
   importeTotal?: number;
+  saldoPendiente?: number;
 }
 
 interface BackendGenerarResponse {
@@ -56,6 +57,7 @@ export interface FacturaDTO {
   grupoFamiliarId?: number;
   grupoNumeroCuenta?: string;
   importeTotal: number;
+  saldoPendiente?: number;
   tipoPeriodo: 'MENSUAL' | 'ANUAL';
 }
 
@@ -100,6 +102,7 @@ function toFacturaDTO(b: BackendFactura, tipoPeriodo: 'MENSUAL' | 'ANUAL'): Fact
     grupoFamiliarId:  b.grupoFamiliarId,
     grupoNumeroCuenta: b.grupoNumeroCuenta,
     importeTotal:     b.importeTotal ?? 0,
+    saldoPendiente:   b.saldoPendiente,
     tipoPeriodo,
   };
 }

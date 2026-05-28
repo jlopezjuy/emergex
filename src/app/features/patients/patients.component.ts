@@ -204,6 +204,7 @@ export class PatientsComponent implements OnInit {
   // ── State — Quick Payment Modal ──
   readonly paymentModalOpen = signal(false);
   readonly paymentTarget    = signal<PatientRow | null>(null);
+  readonly paymentError     = signal<string | null>(null);
   paymentAmount             = 54800;
   paymentMethod             = 'DEBITO_AUTOMATICO';
   paymentRef                = '';
@@ -535,6 +536,7 @@ export class PatientsComponent implements OnInit {
    */
   openQuickPayment(row: PatientRow): void {
     this.paymentTarget.set(row);
+    this.paymentError.set(null);
     this.loading.set(true);
 
     this.patientApi.getFacturasAfiliado(row.pacienteId).pipe(
@@ -547,9 +549,9 @@ export class PatientsComponent implements OnInit {
       const facturasVencidas = facturas.filter(f => f.estado !== 'PAGADA');
       const realPlan = this.apiPlans().find(p => p.name.toLowerCase() === row.planNombre.toLowerCase());
 
-      // Si tiene facturas pendientes, sugerimos la sumatoria de deuda
+      // Si tiene facturas pendientes, sugerimos el saldo pendiente real (importeTotal menos pagos parciales previos)
       if (facturasVencidas.length > 0) {
-        this.paymentAmount = facturasVencidas.reduce((sum, f) => sum + (f.importeTotal ?? 0), 0);
+        this.paymentAmount = facturasVencidas.reduce((sum, f) => sum + (f.saldoPendiente ?? f.importeTotal ?? 0), 0);
       } else if (facturas.length > 0) {
         // Al día con facturas: sugerimos el monto de su cuota estándar
         this.paymentAmount = realPlan ? realPlan.pricing.monthly : 18500;
@@ -612,7 +614,7 @@ export class PatientsComponent implements OnInit {
           });
         }),
         catchError(err => {
-          alert(err?.error?.detail ?? err?.error?.title ?? 'Error al generar la factura mensual o al aplicar el cobro en el acto.');
+          this.paymentError.set(this.translatePaymentError(err, 'Error al generar la factura mensual o al aplicar el cobro en el acto.'));
           this.loading.set(false);
           return of(null);
         }),
@@ -637,7 +639,7 @@ export class PatientsComponent implements OnInit {
       numeroReferencia: finalRef || undefined,
     }).pipe(
       catchError(err => {
-        alert(err?.error?.detail ?? 'Error al registrar el pago de la factura.');
+        this.paymentError.set(this.translatePaymentError(err, 'Error al registrar el pago de la factura.'));
         this.loading.set(false);
         return of(null);
       }),
@@ -650,6 +652,20 @@ export class PatientsComponent implements OnInit {
         this.paymentModalOpen.set(false);
       }
     });
+  }
+
+  private translatePaymentError(err: any, fallback: string): string {
+    const key = err?.error?.message ?? err?.error?.detail ?? '';
+    if (key.includes('montoExcedeSaldo') || key.includes('monto excede')) {
+      const pending = this.facturas().find(f => f.estado !== 'PAGADA');
+      const saldo = pending?.saldoPendiente ?? pending?.importeTotal;
+      const hint = saldo != null ? ` El saldo restante es $${saldo.toLocaleString('es-AR')}.` : '';
+      return `El monto ingresado supera el saldo pendiente de la factura.${hint}`;
+    }
+    if (key.includes('facturaYaPagada') || key.includes('ya fue pagada')) {
+      return 'Esta factura ya fue pagada anteriormente.';
+    }
+    return err?.error?.detail ?? err?.error?.title ?? fallback;
   }
 
   confirmBaja(row: PatientRow): void {
@@ -689,18 +705,19 @@ export class PatientsComponent implements OnInit {
   openEditForm(row: PatientRow): void {
     this.loading.set(true);
     this.originalMiembros.set([]);
-    
-    // Obtenemos primero la Ficha completa del titular para conocer su grupoFamiliarId
-    this.patientApi.getFicha(row.pacienteId).pipe(
-      catchError(() => of(null)),
-      takeUntilDestroyed(this.destroyRef)
-    ).subscribe(ficha => {
+
+    // Load full patient + ficha in parallel — _raw from search only carries partial fields
+    forkJoin({
+      paciente: this.patientApi.getById(row.pacienteId).pipe(catchError(() => of(null))),
+      ficha:    this.patientApi.getFicha(row.pacienteId).pipe(catchError(() => of(null))),
+    }).pipe(takeUntilDestroyed(this.destroyRef))
+    .subscribe(({ paciente, ficha }) => {
       if (!ficha) {
         this.loading.set(false);
         return;
       }
-      
-      const raw = row._raw;
+
+      const raw = paciente ?? row._raw;
       const realPlan = this.apiPlans().find(p => p.name.toLowerCase() === row.planNombre.toLowerCase());
       const planId = realPlan?.id ?? (this.apiPlans()[0]?.id ?? '');
 
@@ -736,7 +753,7 @@ export class PatientsComponent implements OnInit {
             nombre:   raw.nombre ?? '',
             apellido: raw.apellido ?? '',
             dni:      raw.dni,
-            birth:    raw.fechaNacimiento ?? '',
+            birth:    raw.fechaNacimiento ? raw.fechaNacimiento.split('T')[0] : '',
             gender:   raw.sexo === 'FEMENINO' ? 'F' : raw.sexo === 'MASCULINO' ? 'M' : 'X',
             phone:    raw.telefono ?? '',
             email:    raw.email ?? '',
@@ -755,7 +772,7 @@ export class PatientsComponent implements OnInit {
           nombre:   raw.nombre ?? '',
           apellido: raw.apellido ?? '',
           dni:      raw.dni,
-          birth:    raw.fechaNacimiento ?? '',
+          birth:    raw.fechaNacimiento ? raw.fechaNacimiento.split('T')[0] : '',
           gender:   raw.sexo === 'FEMENINO' ? 'F' : raw.sexo === 'MASCULINO' ? 'M' : 'X',
           phone:    raw.telefono ?? '',
           email:    raw.email ?? '',

@@ -302,6 +302,8 @@
   <app-quick-payment-modal
     [patient]="paymentTarget()!"
     [suggestedAmount]="paymentAmount"
+    [error]="paymentError()"
+    [facturas]="facturas()"
     (close)="paymentModalOpen.set(false)"
     (submit)="submitQuickPayment($event)"
   />

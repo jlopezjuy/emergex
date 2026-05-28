@@ -128,6 +128,7 @@ export interface FacturaDTO {
   grupoFamiliarId?: number;
   grupoNumeroCuenta?: string;
   importeTotal?: number;
+  saldoPendiente?: number;
 }
 
 export interface RegistrarPagoRequest {

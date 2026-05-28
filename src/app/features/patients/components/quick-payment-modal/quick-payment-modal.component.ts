@@ -1,7 +1,8 @@
-import { Component, input, output, OnInit } from '@angular/core';
+import { Component, input, output, OnInit, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PatientRow } from '../../patients.component';
+import { FacturaDTO } from '../../../../data-access/dto/patient.dto';
 
 export interface QuickPaymentPayload {
   amount: number;
@@ -19,12 +20,22 @@ export interface QuickPaymentPayload {
 })
 export class QuickPaymentModalComponent implements OnInit {
   // ── Inputs ──
-  readonly patient = input.required<PatientRow>();
+  readonly patient         = input.required<PatientRow>();
   readonly suggestedAmount = input<number>(0);
+  readonly error           = input<string | null>(null);
+  readonly facturas        = input<FacturaDTO[]>([]);
 
   // ── Outputs ──
   readonly close = output<void>();
   readonly submit = output<QuickPaymentPayload>();
+
+  /** Factura del mes corriente ya pagada, si existe */
+  readonly paidThisMonth = computed<FacturaDTO | null>(() => {
+    const ym = new Date().toISOString().slice(0, 7); // "YYYY-MM"
+    return this.facturas().find(f =>
+      f.estado === 'PAGADA' && f.fechaEmision?.startsWith(ym)
+    ) ?? null;
+  });
 
   // ── Internal State ──
   paymentAmount: number = 0;

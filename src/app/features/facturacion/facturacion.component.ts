@@ -614,7 +614,7 @@ export class FacturacionComponent implements OnInit {
   // ── Pago modal ──
   openPayModal(f: FacturaDTO): void {
     this.payFactura.set(f);
-    this.payMonto     = String(f.importeTotal);
+    this.payMonto     = String(f.saldoPendiente ?? f.importeTotal);
     this.payFecha     = todayISO();
     this.payMetodo    = '';
     this.payReferencia = '';
@@ -647,7 +647,7 @@ export class FacturacionComponent implements OnInit {
       nota:             this.payNota || undefined,
     }).pipe(
       catchError(err => {
-        this.payError.set(err?.error?.detail ?? err?.error?.title ?? 'Error al registrar el pago.');
+        this.payError.set(this.translatePayError(err));
         this.savingPay.set(false);
         return of(null);
       }), takeUntilDestroyed(this.destroyRef)
@@ -657,5 +657,22 @@ export class FacturacionComponent implements OnInit {
       this.closePayModal();
       this.loadFacturas();
     });
+  }
+
+  private translatePayError(err: any): string {
+    const key = err?.error?.message ?? err?.error?.detail ?? '';
+    if (key.includes('montoExcedeSaldo') || key.includes('monto excede')) {
+      const f = this.payFactura();
+      const saldo = f?.saldoPendiente ?? f?.importeTotal;
+      const hint = saldo != null ? ` El saldo restante es $${saldo.toLocaleString('es-AR')}.` : '';
+      return `El monto ingresado supera el saldo pendiente de la factura.${hint}`;
+    }
+    if (key.includes('facturaYaPagada') || key.includes('ya fue pagada')) {
+      return 'Esta factura ya fue pagada anteriormente.';
+    }
+    if (key.includes('estadoInvalido')) {
+      return 'No se puede registrar un pago sobre una factura anulada.';
+    }
+    return err?.error?.detail ?? err?.error?.title ?? 'Error al registrar el pago.';
   }
 }
