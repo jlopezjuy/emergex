@@ -1,5 +1,4 @@
 import { Component, inject, signal, computed, OnInit, OnDestroy, DestroyRef } from '@angular/core';
-import { DecimalPipe } from '@angular/common';
 import { EmergencyStore } from '../../core/stores/emergency.store';
 import { FleetStore } from '../../core/stores/fleet.store';
 import { WebsocketService } from '../../core/websocket/websocket.service';
@@ -16,7 +15,7 @@ import { EmptyStateComponent } from '../../shared/components/empty-state/empty-s
 import { ModalShellComponent } from '../../shared/components/modal-shell/modal-shell.component';
 import { DispatchModalComponent } from '../../shared/components/emergency/dispatch-modal/dispatch-modal.component';
 import { FormsModule } from '@angular/forms';
-import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { catchError, of } from 'rxjs';
 
 type FeedTab = 'TODAS' | 'SIN_ASIGNAR' | 'CRITICAS';
@@ -33,49 +32,169 @@ type FeedTab = 'TODAS' | 'SIN_ASIGNAR' | 'CRITICAS';
     ModalShellComponent,
     DispatchModalComponent,
     FormsModule,
-    DecimalPipe,
   ],
   template: `
     <div class="h-full flex flex-col overflow-hidden">
-      <!-- Main 3-column area -->
-      <div class="flex-1 grid overflow-hidden grid-cols-[340px_1fr_340px]">
-
-        <!-- Feed panel (left) -->
-        <div class="ops-feed-panel flex flex-col overflow-hidden border-r" style="border-color: var(--border-glass);">
-          <!-- Feed panel title -->
-          <div class="flex items-center justify-between px-3 py-2 border-b flex-shrink-0" style="border-color: var(--border-glass);">
-            <div class="flex items-center gap-2">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--accent-red)" stroke-width="1.5">
-                <path d="M7 1c0 3-4 4-4 7a4 4 0 008 0c0-3-4-4-4-7z"/>
+      <!-- Main 2-column area -->
+      <div class="flex-1 grid overflow-hidden" style="grid-template-columns: 1fr 340px;">
+        <!-- Map (center/left) -->
+        <div class="relative overflow-hidden">
+          <!-- Map header overlay -->
+          <div
+            class="ops-map-header absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 py-2.5 flex-shrink-0"
+            style="pointer-events: none;"
+          >
+            <div class="flex items-center gap-2" style="pointer-events: none;">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 14 14"
+                fill="none"
+                stroke="var(--text-muted)"
+                stroke-width="1.5"
+              >
+                <path d="M8.5 1l-3.5 1.5-3.5-1.5v10l3.5 1.5 3.5-1.5 3.5 1.5V2.5L8.5 1z" />
+                <path d="M5 2.5v10M8.5 1v10.5" />
               </svg>
-              <span class="font-semibold text-sm" style="color: var(--text-primary);">Feed de Emergencias</span>
-              <span class="font-mono text-xs px-1.5 py-0.5 rounded" style="background: rgba(239,68,68,0.15); color: var(--accent-red);">
+              <span class="font-mono text-xs font-semibold" style="color: var(--text-primary);"
+                >Mapa Operacional</span
+              >
+              <span class="font-mono text-xs" style="color: var(--text-muted);"
+                >SSJ · VISTA MAESTRA</span
+              >
+            </div>
+            <div class="flex items-center gap-1.5" style="pointer-events: auto;">
+              <button
+                type="button"
+                class="flex items-center gap-1 px-2 py-0.5 rounded font-mono text-xs"
+                style="background: rgba(239,68,68,0.12); color: var(--accent-red); border: 1px solid rgba(239,68,68,0.25);"
+              >
+                <span
+                  style="width:6px;height:6px;border-radius:50%;background:var(--accent-red);display:inline-block;"
+                ></span
+                >ROJO
+              </button>
+              <button
+                type="button"
+                class="flex items-center gap-1 px-2 py-0.5 rounded font-mono text-xs"
+                style="background: rgba(245,158,11,0.12); color: var(--accent-amber); border: 1px solid rgba(245,158,11,0.25);"
+              >
+                <span
+                  style="width:6px;height:6px;border-radius:50%;background:var(--accent-amber);display:inline-block;"
+                ></span
+                >AMARILLO
+              </button>
+              <button
+                type="button"
+                class="flex items-center gap-1 px-2 py-0.5 rounded font-mono text-xs"
+                style="background: rgba(16,185,129,0.12); color: var(--accent-emerald); border: 1px solid rgba(16,185,129,0.25);"
+              >
+                <span
+                  style="width:6px;height:6px;border-radius:50%;background:var(--accent-emerald);display:inline-block;"
+                ></span
+                >VERDE
+              </button>
+              <button
+                type="button"
+                class="flex items-center gap-1 px-2 py-0.5 rounded font-mono text-xs"
+                style="background: rgba(59,130,246,0.12); color: var(--accent-blue); border: 1px solid rgba(59,130,246,0.25);"
+              >
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                >
+                  <rect x="1" y="4" width="10" height="5" rx="1" />
+                  <path d="M3 4V3a2 2 0 014 0v1" /></svg
+                >UNIDADES
+              </button>
+            </div>
+          </div>
+          <emx-operations-map
+            [ambulances]="fleetStore.ambulances()"
+            [emergencies]="emergencyStore.emergencies()"
+            [selectedEmergencyId]="emergencyStore.selectedId()"
+            [focusRequest]="mapFocusRequest()"
+            [autoFit]="true"
+            (selectEmergency)="emergencyStore.selectEmergency($event)"
+            (selectAmbulance)="onSelectAmbulance($event)"
+          />
+        </div>
+
+        <!-- Feed panel (right) -->
+        <div class="ops-feed-panel flex flex-col overflow-hidden border-l">
+          <!-- Feed panel title -->
+          <div
+            class="flex items-center justify-between px-3 py-2 border-b flex-shrink-0"
+            style="border-color: var(--border-glass);"
+          >
+            <div class="flex items-center gap-2">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 14 14"
+                fill="none"
+                stroke="var(--accent-red)"
+                stroke-width="1.5"
+              >
+                <path d="M7 1c0 3-4 4-4 7a4 4 0 008 0c0-3-4-4-4-7z" />
+              </svg>
+              <span class="font-semibold text-sm" style="color: var(--text-primary);"
+                >Feed de Emergencias</span
+              >
+              <span
+                class="font-mono text-xs px-1.5 py-0.5 rounded"
+                style="background: rgba(239,68,68,0.15); color: var(--accent-red);"
+              >
                 {{ emergencyStore.emergencies().length }}
               </span>
             </div>
-            <div class="flex items-center gap-1.5 font-mono text-xs" style="color: var(--accent-emerald);">
-              <span class="w-1.5 h-1.5 rounded-full animate-pulse" style="background: var(--accent-emerald);"></span>
+            <div
+              class="flex items-center gap-1.5 font-mono text-xs"
+              style="color: var(--accent-emerald);"
+            >
+              <span
+                class="w-1.5 h-1.5 rounded-full"
+                style="background: var(--accent-emerald);"
+              ></span>
               LIVE
             </div>
           </div>
 
           <!-- Panel header: tabs -->
-          <div class="flex flex-col flex-shrink-0 border-b" style="border-color: var(--border-glass);">
+          <div
+            class="flex flex-col flex-shrink-0 border-b"
+            style="border-color: var(--border-glass);"
+          >
             <div class="flex items-center px-2 pt-2 gap-0.5">
               @for (tab of feedTabs; track tab.id) {
                 <button
                   type="button"
                   class="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-t transition-all"
-                  [style.color]="activeTab() === tab.id ? 'var(--accent-cyan)' : 'var(--text-muted)'"
-                  [style.border-bottom]="activeTab() === tab.id ? '2px solid var(--accent-cyan)' : '2px solid transparent'"
+                  [style.color]="
+                    activeTab() === tab.id ? 'var(--accent-cyan)' : 'var(--text-muted)'
+                  "
+                  [style.border-bottom]="
+                    activeTab() === tab.id
+                      ? '2px solid var(--accent-cyan)'
+                      : '2px solid transparent'
+                  "
                   (click)="activeTab.set(tab.id)"
                 >
                   {{ tab.label }}
                   <span
                     class="font-mono text-xs px-1 rounded"
-                    [style.background]="activeTab() === tab.id ? 'rgba(6,182,212,0.15)' : 'var(--surface-glass)'"
-                    [style.color]="activeTab() === tab.id ? 'var(--accent-cyan)' : 'var(--text-muted)'"
-                  >{{ tab.count() }}</span>
+                    [style.background]="
+                      activeTab() === tab.id ? 'rgba(6,182,212,0.15)' : 'var(--surface-glass)'
+                    "
+                    [style.color]="
+                      activeTab() === tab.id ? 'var(--accent-cyan)' : 'var(--text-muted)'
+                    "
+                    >{{ tab.count() }}</span
+                  >
                 </button>
               }
             </div>
@@ -85,7 +204,7 @@ type FeedTab = 'TODAS' | 'SIN_ASIGNAR' | 'CRITICAS';
                 type="text"
                 [(ngModel)]="feedSearch"
                 placeholder="Buscar por tipo o dirección..."
-                class="w-full rounded-btn px-2.5 py-1.5 text-xs outline-none"
+                class="w-full rounded-btn px-2.5 py-1.5 text-xs"
                 style="background: var(--surface-glass); border: 1px solid var(--border-glass); color: var(--text-primary);"
               />
             </div>
@@ -110,191 +229,14 @@ type FeedTab = 'TODAS' | 'SIN_ASIGNAR' | 'CRITICAS';
             }
           </div>
         </div>
+      </div>
 
-        <!-- Map (center) -->
-        <div class="relative overflow-hidden">
-          <!-- Map header overlay -->
-          <div class="ops-map-header absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 py-2.5 flex-shrink-0" style="pointer-events: none;">
-            <div class="flex items-center gap-2" style="pointer-events: none;">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--text-muted)" stroke-width="1.5">
-                <path d="M8.5 1l-3.5 1.5-3.5-1.5v10l3.5 1.5 3.5-1.5 3.5 1.5V2.5L8.5 1z"/>
-                <path d="M5 2.5v10M8.5 1v10.5"/>
-              </svg>
-              <span class="font-mono text-xs font-semibold" style="color: var(--text-primary);">Mapa Operacional</span>
-              <span class="font-mono text-xs" style="color: var(--text-muted);">SSJ · VISTA MAESTRA</span>
-            </div>
-            <div class="flex items-center gap-1.5" style="pointer-events: auto;">
-              <button type="button" class="flex items-center gap-1 px-2 py-0.5 rounded font-mono text-xs" style="background: rgba(239,68,68,0.12); color: var(--accent-red); border: 1px solid rgba(239,68,68,0.25);">
-                <span style="width:6px;height:6px;border-radius:50%;background:var(--accent-red);display:inline-block;"></span>ROJO
-              </button>
-              <button type="button" class="flex items-center gap-1 px-2 py-0.5 rounded font-mono text-xs" style="background: rgba(245,158,11,0.12); color: var(--accent-amber); border: 1px solid rgba(245,158,11,0.25);">
-                <span style="width:6px;height:6px;border-radius:50%;background:var(--accent-amber);display:inline-block;"></span>AMARILLO
-              </button>
-              <button type="button" class="flex items-center gap-1 px-2 py-0.5 rounded font-mono text-xs" style="background: rgba(16,185,129,0.12); color: var(--accent-emerald); border: 1px solid rgba(16,185,129,0.25);">
-                <span style="width:6px;height:6px;border-radius:50%;background:var(--accent-emerald);display:inline-block;"></span>VERDE
-              </button>
-            </div>
-          </div>
-          <emx-operations-map
-            [ambulances]="fleetStore.ambulances()"
-            [emergencies]="emergencyStore.emergencies()"
-            [selectedEmergencyId]="emergencyStore.selectedId()"
-            [focusRequest]="mapFocusRequest()"
-            [autoFit]="true"
-            (selectEmergency)="emergencyStore.selectEmergency($event)"
-            (selectAmbulance)="onSelectAmbulance($event)"
-          />
-        </div>
-
-        <!-- Inspector (right, 340px) -->
-        <div class="ops-feed-panel flex flex-col overflow-hidden border-l" style="border-color: var(--border-glass);">
-          @if (selectedAmbulance()) {
-            @let amb = selectedAmbulance()!;
-            <!-- Inspector Head -->
-            <div class="flex items-center gap-3 p-3 border-b flex-shrink-0" style="border-color: var(--border-glass);">
-              <div
-                class="w-10 h-10 rounded-xl flex items-center justify-center font-bold flex-shrink-0"
-                [style.background]="amb.estado === 'EN_RUTA' || amb.estado === 'TRASLADO' ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)'"
-                [style.color]="amb.estado === 'EN_RUTA' || amb.estado === 'TRASLADO' ? 'var(--accent-red)' : 'var(--accent-emerald)'"
-                style="border: 1px solid var(--border-glass);"
-              >
-                🚑
-              </div>
-              <div class="min-w-0 flex-1">
-                <h3 class="font-bold text-sm leading-tight truncate" style="color: var(--text-primary);">
-                  {{ amb.identificador }} · {{ amb.tipo }}
-                </h3>
-                <p class="text-[11px]" style="color: var(--text-muted);">
-                  {{ amb.modelo || 'Mercedes Sprinter' }} · {{ amb.patente || 'AE-718-MZ' }}
-                </p>
-                <!-- Status badge custom -->
-                <span
-                  class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold font-mono tracking-wide uppercase mt-1"
-                  [style.background]="amb.estado === 'EN_RUTA' || amb.estado === 'TRASLADO' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)'"
-                  [style.color]="amb.estado === 'EN_RUTA' || amb.estado === 'TRASLADO' ? 'var(--accent-red)' : 'var(--accent-emerald)'"
-                >
-                  <span class="w-1.5 h-1.5 rounded-full animate-pulse"
-                    [style.background]="amb.estado === 'EN_RUTA' || amb.estado === 'TRASLADO' ? 'var(--accent-red)' : 'var(--accent-emerald)'"
-                  ></span>
-                  {{ amb.estado?.replace('_', ' ') }}
-                </span>
-              </div>
-            </div>
-
-            <!-- Inspector Content -->
-            <div class="flex-1 overflow-y-auto p-3 flex flex-col gap-4">
-              
-              <!-- Telemetry HUD -->
-              <div class="grid grid-cols-2 gap-2 border rounded-xl p-2.5" style="border-color: var(--border-glass); background: var(--surface-glass);">
-                <div class="col-span-2 flex flex-col leading-tight border-b pb-1.5" style="border-color: var(--border-glass);">
-                  <span class="font-mono text-[9px] tracking-wider uppercase" style="color: var(--text-muted);">GPS · TIEMPO REAL</span>
-                  <span class="font-mono text-xs font-semibold" style="color: var(--accent-cyan);">
-                    {{ amb.latitud ? (amb.latitud | number:'1.4-4') + ', ' + (amb.longitud | number:'1.4-4') : '-34.5829, -58.4128' }}
-                  </span>
-                </div>
-                <div class="flex flex-col leading-tight">
-                  <span class="font-mono text-[9px] tracking-wider uppercase" style="color: var(--text-muted);">VELOCIDAD</span>
-                  <span class="font-mono text-xs font-semibold" style="color: var(--text-primary);">
-                    {{ amb.estado === 'EN_RUTA' ? '68 km/h' : '0 km/h' }}
-                  </span>
-                </div>
-                <div class="flex flex-col leading-tight">
-                  <span class="font-mono text-[9px] tracking-wider uppercase" style="color: var(--text-muted);">ETA</span>
-                  <span class="font-mono text-xs font-semibold"
-                    [style.color]="amb.estado === 'EN_RUTA' ? 'var(--accent-red)' : 'var(--text-primary)'"
-                  >
-                    {{ amb.estado === 'EN_RUTA' ? '03:45 min' : '—' }}
-                  </span>
-                </div>
-              </div>
-
-              <!-- Crew -->
-              @if (amb.tripulacion) {
-                <div>
-                  <div class="font-mono text-[10px] tracking-widest uppercase mb-1.5" style="color: var(--text-muted);">Tripulación activa</div>
-                  <div class="flex flex-col gap-1.5 border rounded-xl p-2" style="border-color: var(--border-glass); background: var(--surface-glass);">
-                    @for (member of getParsedCrew(amb.tripulacion); track member.name) {
-                      <div class="flex items-center gap-2 text-xs py-1 border-t first:border-t-0" style="border-color: var(--border-glass);">
-                        <div class="w-6 h-6 rounded-full bg-blue-900/30 text-blue-300 font-mono text-[9px] font-bold flex items-center justify-center shrink-0">
-                          {{ member.initials }}
-                        </div>
-                        <div class="min-w-0 flex-1">
-                          <p class="font-semibold leading-none" style="color: var(--text-primary);">{{ member.name }}</p>
-                          <p class="text-[10px] mt-0.5" style="color: var(--text-muted);">{{ member.role }}</p>
-                        </div>
-                      </div>
-                    }
-                  </div>
-                </div>
-              }
-
-              <!-- Inventory -->
-              <div>
-                <div class="font-mono text-[10px] tracking-widest uppercase mb-1.5" style="color: var(--text-muted);">Inventario móvil</div>
-                <div class="flex flex-col gap-2.5 border rounded-xl p-2.5" style="border-color: var(--border-glass); background: var(--surface-glass);">
-                  <!-- Item Oxígeno -->
-                  <div class="flex flex-col gap-1 text-xs">
-                    <div class="flex justify-between font-semibold" style="color: var(--text-primary);">
-                      <span>Oxígeno central</span>
-                      <span style="color: var(--accent-emerald);">{{ amb.oxigenoPct ?? 85 }}%</span>
-                    </div>
-                    <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                      <div class="h-full bg-emerald-500 rounded-full" [style.width.%]="amb.oxigenoPct ?? 85"></div>
-                    </div>
-                  </div>
-                  <!-- Item Cardiodesfibrilador -->
-                  <div class="flex flex-col gap-1 text-xs border-t pt-2" style="border-color: var(--border-glass);">
-                    <div class="flex justify-between font-semibold" style="color: var(--text-primary);">
-                      <span>Cardiodesfibrilador (DEA)</span>
-                      <span style="color: var(--accent-emerald);">{{ amb.deaPct ?? 100 }}%</span>
-                    </div>
-                    <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                      <div class="h-full bg-emerald-500 rounded-full" [style.width.%]="amb.deaPct ?? 100"></div>
-                    </div>
-                  </div>
-                  <!-- Item Suero Salino -->
-                  <div class="flex flex-col gap-1 text-xs border-t pt-2" style="border-color: var(--border-glass);">
-                    <div class="flex justify-between font-semibold" style="color: var(--text-primary);">
-                      <span>Suero fisiológico 500mL</span>
-                      <span style="color: var(--accent-amber);">{{ amb.sueroSalinoPct ?? 50 }}%</span>
-                    </div>
-                    <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                      <div class="h-full bg-amber-500 rounded-full" [style.width.%]="amb.sueroSalinoPct ?? 50"></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Radio Button -->
-              <button
-                type="button"
-                class="w-full border rounded-xl py-2 flex items-center justify-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-xs font-semibold"
-                style="border-color: var(--border-glass); background: var(--surface-glass); color: var(--text-primary);"
-              >
-                📡 Establecer comunicación VoIP
-              </button>
-
-              <!-- Quick Actions -->
-              <div>
-                <div class="font-mono text-[10px] tracking-widest uppercase mb-1.5" style="color: var(--text-muted);">Acciones rápidas</div>
-                <div class="grid grid-cols-2 gap-1.5">
-                  <button type="button" class="border rounded-lg py-1.5 text-[11px] font-medium hover:bg-slate-800/30" style="border-color: var(--border-glass); color: var(--text-secondary);">Reasignar</button>
-                  <button type="button" class="border rounded-lg py-1.5 text-[11px] font-medium hover:bg-slate-800/30" style="border-color: var(--border-glass); color: var(--text-secondary);">Notificar Hosp.</button>
-                  <button type="button" class="border rounded-lg py-1.5 text-[11px] font-medium hover:bg-slate-800/30" style="border-color: var(--border-glass); color: var(--text-secondary);">Refuerzos</button>
-                  <button type="button" class="border rounded-lg py-1.5 text-[11px] font-medium hover:bg-slate-800/30" style="border-color: var(--border-glass); color: var(--text-secondary);">Historial Clin.</button>
-                </div>
-              </div>
-
-            </div>
-          @} @else {
-            <div class="flex-1 flex flex-col items-center justify-center text-center p-6" style="color: var(--text-muted);">
-              <span class="text-3xl mb-2">📡</span>
-              <p class="text-xs font-mono uppercase tracking-wider">Sin unidad seleccionada</p>
-              <p class="text-[11px] mt-1">Seleccioná una unidad en el mapa para inspeccionar su telemetría, tripulación e inventario.</p>
-            </div>
-          }
-        </div>
-
+      <!-- Telemetry bar (bottom) -->
+      <div
+        class="px-4 py-2 border-t flex-shrink-0"
+        style="height: 136px; border-color: var(--border-glass); background: var(--bg-elevated);"
+      >
+        <emx-telemetry-bar [ambulances]="fleetStore.ambulances()" [dashboard]="dashboard()" />
       </div>
     </div>
 
@@ -303,11 +245,22 @@ type FeedTab = 'TODAS' | 'SIN_ASIGNAR' | 'CRITICAS';
       <emx-modal-shell title="Llamada de emergencia" (closed)="closeCall()">
         <div class="flex flex-col gap-4 py-1">
           <div class="flex items-center gap-3">
-            <div class="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0"
-              style="background: var(--accent-red-dim); border: 1px solid rgba(239,68,68,0.3);">
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"
-                style="color: var(--accent-red);">
-                <path d="M3 3.5C3 9.85 9.15 16 15.5 16c.47 0 .83-.36.83-.83v-3.34a.83.83 0 00-.83-.83c-1.33 0-2.62-.21-3.82-.6a.83.83 0 00-.85.2L9.72 11.72a12.59 12.59 0 01-5.77-5.77l2.12-2.12a.83.83 0 00.2-.85A10.64 10.64 0 015.67 1a.83.83 0 00-.83-.83H1.5A.83.83 0 00.67 1C.67 2 1 3.5 3 5"/>
+            <div
+              class="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0"
+              style="background: var(--accent-red-dim); border: 1px solid rgba(239,68,68,0.3);"
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 20 20"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                style="color: var(--accent-red);"
+              >
+                <path
+                  d="M3 3.5C3 9.85 9.15 16 15.5 16c.47 0 .83-.36.83-.83v-3.34a.83.83 0 00-.83-.83c-1.33 0-2.62-.21-3.82-.6a.83.83 0 00-.85.2L9.72 11.72a12.59 12.59 0 01-5.77-5.77l2.12-2.12a.83.83 0 00.2-.85A10.64 10.64 0 015.67 1a.83.83 0 00-.83-.83H1.5A.83.83 0 00.67 1C.67 2 1 3.5 3 5"
+                />
               </svg>
             </div>
             <div>
@@ -322,9 +275,9 @@ type FeedTab = 'TODAS' | 'SIN_ASIGNAR' | 'CRITICAS';
           <div class="glass rounded-panel px-4 py-3 flex flex-col gap-1">
             <p class="text-xs" style="color: var(--text-muted);">Protocolo de llamada</p>
             <p class="text-sm" style="color: var(--text-primary);">
-              1. Confirmar identidad del solicitante<br>
-              2. Verificar dirección exacta y punto de referencia<br>
-              3. Estado actual del paciente<br>
+              1. Confirmar identidad del solicitante<br />
+              2. Verificar dirección exacta y punto de referencia<br />
+              3. Estado actual del paciente<br />
               4. Confirmar unidad en camino
             </p>
           </div>
@@ -336,8 +289,17 @@ type FeedTab = 'TODAS' | 'SIN_ASIGNAR' | 'CRITICAS';
             class="btn btn--primary btn--sm"
             style="background: var(--accent-emerald);"
           >
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5">
-              <path d="M2 2.5C2 6.09 5.91 10 9.5 10c.28 0 .5-.22.5-.5v-2A.5.5 0 009.5 7c-.8 0-1.57-.13-2.29-.36a.5.5 0 00-.51.12L5.43 7.93A7.55 7.55 0 012.07 5l1.27-1.27a.5.5 0 00.12-.51C3.13 2.57 3 1.8 3 1A.5.5 0 002.5.5h-2A.5.5 0 000 1C0 2 .5 3.5 2 5"/>
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 12 12"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+            >
+              <path
+                d="M2 2.5C2 6.09 5.91 10 9.5 10c.28 0 .5-.22.5-.5v-2A.5.5 0 009.5 7c-.8 0-1.57-.13-2.29-.36a.5.5 0 00-.51.12L5.43 7.93A7.55 7.55 0 012.07 5l1.27-1.27a.5.5 0 00.12-.51C3.13 2.57 3 1.8 3 1A.5.5 0 002.5.5h-2A.5.5 0 000 1C0 2 .5 3.5 2 5"
+              />
             </svg>
             Iniciar llamada
           </a>
@@ -354,32 +316,44 @@ type FeedTab = 'TODAS' | 'SIN_ASIGNAR' | 'CRITICAS';
       />
     }
   `,
-  styles: [`
-    .ops-map-header {
-      background: linear-gradient(to bottom, rgba(248, 250, 252, 0.92) 0%, rgba(248, 250, 252, 0.76) 58%, transparent 100%);
-      border-bottom: 1px solid rgba(15, 23, 42, 0.07);
-      backdrop-filter: blur(10px);
-    }
+  styles: [
+    `
+      .ops-map-header {
+        background: linear-gradient(
+          to bottom,
+          rgba(248, 250, 252, 0.92) 0%,
+          rgba(248, 250, 252, 0.76) 58%,
+          transparent 100%
+        );
+        border-bottom: 1px solid rgba(15, 23, 42, 0.07);
+        backdrop-filter: blur(10px);
+      }
 
-    .ops-feed-panel {
-      border-color: var(--border-glass);
-      background:
-        radial-gradient(700px 420px at 50% 110%, rgba(59, 130, 246, 0.06), transparent 65%),
-        var(--bg-deep);
-    }
+      .ops-feed-panel {
+        border-color: var(--border-glass);
+        background:
+          radial-gradient(700px 420px at 50% 110%, rgba(59, 130, 246, 0.06), transparent 65%),
+          var(--bg-deep);
+      }
 
-    :host-context([data-theme="dark"]) .ops-map-header {
-      background: linear-gradient(to bottom, rgba(2, 6, 23, 0.88) 0%, rgba(2, 6, 23, 0.68) 58%, transparent 100%);
-      border-bottom-color: rgba(255, 255, 255, 0.06);
-      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
-    }
+      :host-context([data-theme='dark']) .ops-map-header {
+        background: linear-gradient(
+          to bottom,
+          rgba(2, 6, 23, 0.88) 0%,
+          rgba(2, 6, 23, 0.68) 58%,
+          transparent 100%
+        );
+        border-bottom-color: rgba(255, 255, 255, 0.06);
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+      }
 
-    :host-context([data-theme="light"]) .ops-feed-panel {
-      background:
-        radial-gradient(650px 420px at 50% 105%, rgba(59, 130, 246, 0.08), transparent 65%),
-        linear-gradient(180deg, rgba(248, 250, 252, 0.96), rgba(241, 245, 249, 0.94));
-    }
-  `],
+      :host-context([data-theme='light']) .ops-feed-panel {
+        background:
+          radial-gradient(650px 420px at 50% 105%, rgba(59, 130, 246, 0.08), transparent 65%),
+          linear-gradient(180deg, rgba(248, 250, 252, 0.96), rgba(241, 245, 249, 0.94));
+      }
+    `,
+  ],
 })
 export class OperationsComponent implements OnInit, OnDestroy {
   private destroyRef = inject(DestroyRef);
@@ -413,8 +387,7 @@ export class OperationsComponent implements OnInit, OnDestroy {
     if (q) {
       list = list.filter(
         (e) =>
-          e.tipoEmergencia?.toLowerCase().includes(q) ||
-          e.direccion?.toLowerCase().includes(q),
+          e.tipoEmergencia?.toLowerCase().includes(q) || e.direccion?.toLowerCase().includes(q),
       );
     }
 
@@ -436,7 +409,8 @@ export class OperationsComponent implements OnInit, OnDestroy {
     {
       id: 'CRITICAS',
       label: 'Críticas',
-      count: () => this.emergencyStore.emergencies().filter((e) => e.prioridad === 'CRITICA').length,
+      count: () =>
+        this.emergencyStore.emergencies().filter((e) => e.prioridad === 'CRITICA').length,
     },
   ];
 
@@ -573,7 +547,7 @@ export class OperationsComponent implements OnInit, OnDestroy {
     return tripulacion.split(',').map(member => {
       const trimmed = member.trim();
       const parts = trimmed.split(' ');
-      
+
       // Extract initials
       let initials = '';
       if (parts.length > 0) {

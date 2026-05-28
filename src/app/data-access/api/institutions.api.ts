@@ -93,6 +93,7 @@ interface InstitucionBackend {
   direccion?: string;
   latitud?: number;
   longitud?: number;
+  perimetroJson?: string;
   empresaId?: number;
   planComercialNombre?: string;
 }
@@ -138,6 +139,11 @@ function mapTipoToBackend(type: InstitutionType): string {
   }
 }
 
+function parsePolygon(json?: string): [number, number][] | undefined {
+  if (!json) return undefined;
+  try { return JSON.parse(json) as [number, number][]; } catch { return undefined; }
+}
+
 function toDTO(b: InstitucionBackend): InstitutionDTO {
   return {
     id:           String(b.id),
@@ -154,6 +160,7 @@ function toDTO(b: InstitucionBackend): InstitutionDTO {
     address:      b.direccion,
     lat:          b.latitud,
     lng:          b.longitud,
+    polygon:      parsePolygon(b.perimetroJson),
   };
 }
 
@@ -172,6 +179,7 @@ function toBackend(dto: InstitutionDTO): Omit<InstitucionBackend, 'id' | 'planCo
     direccion:             dto.address || undefined,
     latitud:               dto.lat,
     longitud:              dto.lng,
+    perimetroJson:         dto.polygon?.length ? JSON.stringify(dto.polygon) : undefined,
   };
 }
 

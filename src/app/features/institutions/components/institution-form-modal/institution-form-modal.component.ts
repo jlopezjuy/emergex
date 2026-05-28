@@ -1,6 +1,20 @@
-import { Component, input, output, signal, computed, OnInit } from '@angular/core';
+import {
+  Component,
+  OnDestroy,
+  OnInit,
+  computed,
+  inject,
+  input,
+  output,
+  signal,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Subject, from, of } from 'rxjs';
+import { catchError, debounceTime, distinctUntilChanged, switchMap, takeUntil } from 'rxjs';
 import { InstitutionType, InstitutionDTO } from '../../../../data-access/dto/institution.dto';
+import { GeocodeResult } from '../../../../shared/map/geocoder-provider';
+import { HttpGeocoderProvider } from '../../../../shared/map/providers/http-geocoder.provider';
+import { LocationPolygonMapComponent } from '../../../../shared/components/map/location-polygon-map/location-polygon-map.component';
 
 interface CommercialPlanItem {
   id: string;
@@ -26,6 +40,7 @@ export interface InstitutionForm {
   city: string;
   lat: number;
   lng: number;
+  polygon?: [number, number][];  // lng, lat pairs, open ring
 }
 
 const INSTITUTION_TYPES: { id: InstitutionType; label: string; icon: string }[] = [
@@ -42,7 +57,7 @@ const INSTITUTION_TYPES: { id: InstitutionType; label: string; icon: string }[] 
 @Component({
   selector: 'app-institution-form-modal',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, LocationPolygonMapComponent],
   template: `
     <div class="qc-overlay" (click)="onClose()" role="presentation">
       <div class="qc-modal qc-modal--wide glass-strong" (click)="$event.stopPropagation()">
@@ -163,7 +178,7 @@ const INSTITUTION_TYPES: { id: InstitutionType; label: string; icon: string }[] 
 
           @if (formTab() === 'contacto') {
             <div class="contact-grid">
-              <!-- Izquierda -->
+              <!-- Left column -->
               <div style="display:flex;flex-direction:column;gap:12px">
                 <div class="qc-row">
                   <div class="qc-field" style="flex:1">
@@ -193,39 +208,53 @@ const INSTITUTION_TYPES: { id: InstitutionType; label: string; icon: string }[] 
                   <label class="eyebrow">Contacto operativo</label>
                   <input class="qc-input" placeholder="Nombre del referente operativo" [(ngModel)]="form().opsContact" (ngModelChange)="patchForm({ opsContact: $event })"/>
                 </div>
-                <div class="qc-field">
+
+                <!-- Address with geocoding dropdown -->
+                <div class="qc-field" style="position:relative">
                   <label class="eyebrow">Dirección</label>
-                  <input class="qc-input" placeholder="Calle y número" [(ngModel)]="form().address" (ngModelChange)="patchForm({ address: $event })"/>
-                </div>
-                <div class="qc-row">
-                  <div class="qc-field" style="flex:1">
-                    <label class="eyebrow">Latitud</label>
-                    <input class="qc-input mono" type="number" step="0.0001" [value]="form().lat" (input)="patchForm({ lat: +$any($event.target).value })"/>
-                  </div>
-                  <div class="qc-field" style="flex:1">
-                    <label class="eyebrow">Longitud</label>
-                    <input class="qc-input mono" type="number" step="0.0001" [value]="form().lng" (input)="patchForm({ lng: +$any($event.target).value })"/>
-                  </div>
+                  <input class="qc-input" placeholder="Calle y número"
+                    [value]="form().address"
+                    (input)="onAddressInput($any($event.target).value)"/>
+                  @if (geocodeSearching()) {
+                    <div style="font-size:10.5px;color:var(--text-muted);margin-top:3px">Buscando ubicación...</div>
+                  }
+                  @if (geocodeResults().length > 0) {
+                    <div style="position:absolute;left:0;right:0;top:100%;z-index:200;
+                      border-radius:8px;overflow:hidden;
+                      border:1px solid rgba(148,163,184,0.35);background:#fff;
+                      box-shadow:0 14px 34px rgba(15,23,42,0.18);">
+                      @for (result of geocodeResults(); track result.address) {
+                        <button type="button"
+                          style="display:block;width:100%;text-align:left;padding:8px 12px;font-size:12px;
+                            color:#0f172a;border-bottom:1px solid rgba(148,163,184,0.18);
+                            background:transparent;border-left:none;border-right:none;cursor:pointer;"
+                          (click)="selectGeocode(result)">
+                          <span style="font-weight:500">{{ result.label }}</span>
+                          <span style="display:block;margin-top:2px;font-size:10.5px;color:#64748b">{{ result.lat.toFixed(5) }}, {{ result.lng.toFixed(5) }}</span>
+                        </button>
+                      }
+                    </div>
+                  }
                 </div>
               </div>
 
-              <!-- Derecha: Mini-map -->
+              <!-- Right column: real map -->
               <div style="display:flex;flex-direction:column;gap:8px">
-                <div class="eyebrow">Georreferenciación</div>
-                <div class="mini-map">
-                  <svg viewBox="0 0 100 100" (click)="onMapClick($event)">
-                    <rect width="100" height="100" fill="rgba(2,6,23,0.90)"/>
-                    <rect x="5" y="60" width="12" height="8" rx="1" fill="rgba(16,185,129,0.18)"/>
-                    <line x1="10" y1="0" x2="10" y2="100" stroke="rgba(255,255,255,0.06)" stroke-width="0.3"/>
-                    <line x1="50" y1="0" x2="50" y2="100" stroke="rgba(255,255,255,0.06)" stroke-width="0.3"/>
-                    <line x1="90" y1="0" x2="90" y2="100" stroke="rgba(255,255,255,0.06)" stroke-width="0.3"/>
-                    <line x1="0" y1="30" x2="100" y2="30" stroke="rgba(255,255,255,0.06)" stroke-width="0.3"/>
-                    <line x1="0" y1="70" x2="100" y2="70" stroke="rgba(255,255,255,0.06)" stroke-width="0.3"/>
-                    <circle [attr.cx]="form().lat" [attr.cy]="form().lng" r="4.5" fill="rgba(59,130,246,0.3)" stroke="var(--accent-blue)" stroke-width="1.2"/>
-                    <circle [attr.cx]="form().lat" [attr.cy]="form().lng" r="1.5" fill="var(--accent-blue)"/>
-                  </svg>
-                  <div class="mini-map__hint">Click en el mapa para posicionar domicilio comercial.</div>
+                <div class="eyebrow">Georreferenciación y perímetro</div>
+                <div style="height:260px; border-radius:0.75rem; overflow:hidden; border:1px solid rgba(148,163,184,0.3)">
+                  <app-location-polygon-map
+                    [lat]="form().lat || null"
+                    [lng]="form().lng || null"
+                    [polygon]="form().polygon ?? null"
+                    (pointChanged)="onPointChanged($event)"
+                    (polygonChanged)="onPolygonChanged($event)"
+                  />
                 </div>
+                @if (selectedLocation() || (form().lat && form().lng)) {
+                  <div style="font-size:10.5px;color:var(--accent-emerald);margin-top:4px">
+                    Ubicación confirmada · {{ (selectedLocation()?.lat ?? form().lat).toFixed(5) }}, {{ (selectedLocation()?.lng ?? form().lng).toFixed(5) }}
+                  </div>
+                }
               </div>
             </div>
           }
@@ -257,7 +286,7 @@ const INSTITUTION_TYPES: { id: InstitutionType; label: string; icon: string }[] 
   `,
   styleUrl: './institution-form-modal.component.scss'
 })
-export class InstitutionFormModalComponent implements OnInit {
+export class InstitutionFormModalComponent implements OnInit, OnDestroy {
   readonly editingInst    = input<any | null>(null);
   readonly commercialPlans = input<CommercialPlanItem[]>([]);
   readonly loadingSave     = input<boolean>(false);
@@ -266,9 +295,19 @@ export class InstitutionFormModalComponent implements OnInit {
   readonly close = output<void>();
   readonly save  = output<InstitutionForm>();
 
-  readonly formTab = signal<'general' | 'contacto'>('general');
-  readonly form    = signal<InstitutionForm>(null as any);
+  readonly formTab     = signal<'general' | 'contacto'>('general');
+  readonly form        = signal<InstitutionForm>(null as any);
   readonly formTouched = signal(false);
+
+  // Geocoding state
+  readonly geocodeResults   = signal<GeocodeResult[]>([]);
+  readonly geocodeSearching = signal(false);
+  readonly selectedLocation = signal<GeocodeResult | null>(null);
+
+  private geocode$ = new Subject<string>();
+  private destroy$ = new Subject<void>();
+
+  private geocoder = inject(HttpGeocoderProvider);
 
   readonly institutionTypes = INSTITUTION_TYPES;
 
@@ -276,6 +315,32 @@ export class InstitutionFormModalComponent implements OnInit {
     this.form.set(JSON.parse(JSON.stringify(this.initialForm())));
     this.formTab.set('general');
     this.formTouched.set(false);
+
+    // Geocoding pipeline
+    this.geocode$.pipe(
+      debounceTime(650),
+      distinctUntilChanged(),
+      switchMap(query => {
+        const q = query.trim();
+        this.selectedLocation.set(null);
+        if (q.length < 4) {
+          this.geocodeResults.set([]);
+          this.geocodeSearching.set(false);
+          return of([]);
+        }
+        this.geocodeSearching.set(true);
+        return from(this.geocoder.search(q)).pipe(catchError(() => of([])));
+      }),
+      takeUntil(this.destroy$),
+    ).subscribe((results: GeocodeResult[]) => {
+      this.geocodeResults.set(results);
+      this.geocodeSearching.set(false);
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   onClose(): void {
@@ -293,12 +358,30 @@ export class InstitutionFormModalComponent implements OnInit {
     this.form.update(f => ({ ...f, ...patch }));
   }
 
-  onMapClick(e: MouseEvent): void {
-    const rect = (e.currentTarget as SVGElement).getBoundingClientRect();
-    const x = Math.round(((e.clientX - rect.left) / rect.width) * 100);
-    const y = Math.round(((e.clientY - rect.top) / rect.height) * 100);
-    this.patchForm({ lat: x, lng: y });
+  // ── Geocoding ─────────────────────────────────────────────────────────────
+
+  onAddressInput(value: string): void {
+    this.patchForm({ address: value });
+    this.geocode$.next(value);
   }
+
+  selectGeocode(result: GeocodeResult): void {
+    this.selectedLocation.set(result);
+    this.geocodeResults.set([]);
+    this.patchForm({ address: result.address || result.label, lat: result.lat, lng: result.lng });
+  }
+
+  // ── Map callbacks ─────────────────────────────────────────────────────────
+
+  onPointChanged(point: { lat: number; lng: number }): void {
+    this.patchForm({ lat: point.lat, lng: point.lng });
+  }
+
+  onPolygonChanged(polygon: [number, number][]): void {
+    this.patchForm({ polygon });
+  }
+
+  // ── Validation ────────────────────────────────────────────────────────────
 
   isValidCuit(cuit: string): boolean {
     const raw = cuit.replace(/\D/g, '');

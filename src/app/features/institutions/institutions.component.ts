@@ -53,6 +53,7 @@ interface Institution {
   city: string;
   lat: number;
   lng: number;
+  polygon?: [number, number][];
   members: number;
   sinceMonth: string;
   contract: InstitutionContract;
@@ -94,7 +95,7 @@ function emptyForm(): InstitutionForm {
   return {
     name: '', razonSocial: '', cuit: '', type: 'empresa', plan: 'corp-medio', status: 'activa',
     email: '', phone: '', adminContact: '', opsContact: '', address: '', city: 'San Salvador de Jujuy',
-    lat: 50, lng: 50,
+    lat: 0, lng: 0,
   };
 }
 
@@ -1084,8 +1085,9 @@ export class InstitutionsComponent implements OnInit {
               opsContact:   dto.opsContact ?? '',
               address:      dto.address ?? '',
               city:         '',
-              lat:          dto.lat ?? 50,
-              lng:          dto.lng ?? 50,
+              lat:          dto.lat ?? 0,
+              lng:          dto.lng ?? 0,
+              polygon:      dto.polygon,
               members:      0,
               sinceMonth:   '',
               contract: {
@@ -1436,6 +1438,7 @@ export class InstitutionsComponent implements OnInit {
       adminContact: inst.adminContact, opsContact: inst.opsContact,
       address: inst.address, city: inst.city,
       lat: inst.lat, lng: inst.lng,
+      polygon: inst.polygon,
     });
     this.formTab.set('general');
     this.formOpen.set(true);
@@ -1479,6 +1482,7 @@ export class InstitutionsComponent implements OnInit {
       address:      f.address || undefined,
       lat:          f.lat,
       lng:          f.lng,
+      polygon:      f.polygon?.length ? f.polygon : undefined,
     };
 
     this.loadingSave.set(true);

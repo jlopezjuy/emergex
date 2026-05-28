@@ -39,6 +39,7 @@ export interface InstitutionDTO {
   city?: string;
   lat?: number;
   lng?: number;
+  polygon?: [number, number][];
   members?: number;
   sinceMonth?: string;
   contract?: ContractDTO;
