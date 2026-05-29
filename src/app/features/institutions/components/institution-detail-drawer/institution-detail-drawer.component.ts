@@ -67,6 +67,7 @@ export class InstitutionDetailDrawerComponent implements OnChanges {
   readonly facturasContrato = signal<FacturacionContratoDTO[]>([]);
   readonly loadingFacturas = signal(false);
   readonly savingEstado = signal(false);
+  readonly estadoError = signal<string | null>(null);
   readonly showFacturaForm = signal(false);
   readonly savingFactura = signal(false);
 
@@ -150,11 +151,18 @@ export class InstitutionDetailDrawerComponent implements OnChanges {
   onCambiarEstado(nuevoEstado: EstadoInstitucion): void {
     const id = Number(this.institution().id);
     if (!id || this.savingEstado()) return;
+    this.estadoError.set(null);
     this.savingEstado.set(true);
     this.api.cambiarEstadoInstitucion(id, nuevoEstado).pipe(
-      catchError(() => of(null)),
+      catchError((err) => {
+        const msg = err?.error?.detail ?? err?.error?.title ?? 'No se pudo cambiar el estado.';
+        this.estadoError.set(msg);
+        this.savingEstado.set(false);
+        return of(null);
+      }),
       takeUntilDestroyed(this.destroyRef),
-    ).subscribe(() => {
+    ).subscribe(res => {
+      if (res === null && this.estadoError()) return; // catchError already handled
       this.savingEstado.set(false);
       this.statusChanged.emit({ id: this.institution().id, nuevoEstado });
     });

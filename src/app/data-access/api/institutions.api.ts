@@ -221,6 +221,13 @@ export class InstitutionsApiService {
       .pipe(map(list => list.map(contratoToDTO)));
   }
 
+  /** All active contracts for the current empresa (multi-tenant filtered server-side). */
+  getAllContratosActivos(): Observable<ContractDTO[]> {
+    return this.http
+      .get<{ content: ContratoBackend[] }>(`${this.contratoBase}?estadoContrato.equals=ACTIVO&size=100`)
+      .pipe(map(page => page.content.map(contratoToDTO)));
+  }
+
   getMiembros(institucionId: number, page = 0, size = 50): Observable<InstitucionMiembroItem[]> {
     return this.http.get<any[]>(
       `${environment.apiUrl}/api/v2/instituciones/${institucionId}/miembros`,

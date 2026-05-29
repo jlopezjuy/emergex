@@ -15,7 +15,7 @@ import {
 } from '../../data-access/api/facturacion.api';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { InstitutionsApiService } from '../../data-access/api/institutions.api';
-import { FacturacionContratoDTO, GenerarFacturaContratoRequest } from '../../data-access/dto/institution.dto';
+import { ContractDTO, FacturacionContratoDTO, GenerarFacturaContratoRequest } from '../../data-access/dto/institution.dto';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -132,7 +132,7 @@ function estadoColor(estado: string): string {
           <div style="padding:16px">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
               <div class="eyebrow" style="color:var(--accent-blue)">FACTURAS INSTITUCIONALES</div>
-              <button class="btn btn--primary btn--sm" (click)="showGenerarInstModal.set(true)">
+              <button class="btn btn--primary btn--sm" (click)="openGenerarInstModal()">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 Generar factura
               </button>
@@ -298,8 +298,19 @@ function estadoColor(estado: string): string {
               <button class="btn btn--ghost btn--sm" (click)="showGenerarInstModal.set(false); generarInstResult.set(null)">Cerrar</button>
             } @else {
               <div style="display:flex;flex-direction:column;gap:4px">
-                <label class="eyebrow">ID de Contrato *</label>
-                <input class="form-input" type="number" placeholder="Ej: 12" [(ngModel)]="genInstContratoId" min="1"/>
+                <label class="eyebrow">Contrato *</label>
+                @if (loadingContratos()) {
+                  <div style="font-size:12px;color:var(--text-muted)">Cargando contratos...</div>
+                } @else if (contratosActivos().length === 0) {
+                  <div style="font-size:12px;color:var(--accent-amber)">Sin contratos activos. Verificá el estado del contrato.</div>
+                } @else {
+                  <select class="form-input" [(ngModel)]="genInstContratoId">
+                    <option [value]="0" disabled>Seleccioná un contrato...</option>
+                    @for (c of contratosActivos(); track c.id) {
+                      <option [value]="c.id">{{ c.plan }} — {{ c.code || 'Sin código' }}</option>
+                    }
+                  </select>
+                }
               </div>
               <div style="display:flex;gap:10px">
                 <div style="flex:1;display:flex;flex-direction:column;gap:4px">
@@ -581,10 +592,12 @@ export class FacturacionComponent implements OnInit {
   readonly loadingInstitucionales  = signal(false);
 
   // ── Generar factura institucional modal ──
-  readonly showGenerarInstModal = signal(false);
-  readonly generandoInst        = signal(false);
-  readonly generarInstError     = signal<string | null>(null);
-  readonly generarInstResult    = signal<FacturacionContratoDTO | null>(null);
+  readonly showGenerarInstModal  = signal(false);
+  readonly generandoInst         = signal(false);
+  readonly generarInstError      = signal<string | null>(null);
+  readonly generarInstResult     = signal<FacturacionContratoDTO | null>(null);
+  readonly contratosActivos      = signal<ContractDTO[]>([]);
+  readonly loadingContratos      = signal(false);
   genInstContratoId      = 0;
   genInstPeriodoDesde    = '';
   genInstPeriodoHasta    = '';
@@ -653,6 +666,7 @@ export class FacturacionComponent implements OnInit {
   ngOnInit(): void {
     this.loadFacturas();
     this.loadFacturasInstitucionales();
+    this.loadContratosActivos();
   }
 
   loadFacturasInstitucionales(): void {
@@ -664,6 +678,35 @@ export class FacturacionComponent implements OnInit {
       },
       error: () => this.loadingInstitucionales.set(false),
     });
+  }
+
+  loadContratosActivos(): void {
+    this.loadingContratos.set(true);
+    this.institutionsApi.getAllContratosActivos().pipe(
+      catchError(() => of([] as ContractDTO[])),
+    ).subscribe(list => {
+      this.contratosActivos.set(list);
+      this.loadingContratos.set(false);
+      // Auto-select first contract if available and none selected
+      if (list.length > 0 && !this.genInstContratoId) {
+        this.genInstContratoId = list[0].id ?? 0;
+      }
+    });
+  }
+
+  openGenerarInstModal(): void {
+    this.generarInstError.set(null);
+    this.generarInstResult.set(null);
+    // Pre-fill current month period
+    const hoy = new Date();
+    const primerDia = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    const ultimoDia = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+    this.genInstPeriodoDesde = primerDia.toISOString().split('T')[0];
+    this.genInstPeriodoHasta = ultimoDia.toISOString().split('T')[0];
+    if (this.contratosActivos().length > 0 && !this.genInstContratoId) {
+      this.genInstContratoId = this.contratosActivos()[0].id ?? 0;
+    }
+    this.showGenerarInstModal.set(true);
   }
 
   onGenerarFacturaInst(): void {
