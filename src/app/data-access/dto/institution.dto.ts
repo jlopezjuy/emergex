@@ -1,3 +1,5 @@
+export type EstadoInstitucion = 'ACTIVA' | 'PENDIENTE_ACTIVACION' | 'SUSPENDIDA' | 'BAJA';
+
 export type InstitutionType =
   | 'colegio'
   | 'universidad'
@@ -29,7 +31,7 @@ export interface InstitutionDTO {
   razonSocial: string;
   cuit: string;
   type: InstitutionType;
-  status: 'activa' | 'inactiva';
+  status: EstadoInstitucion;
   plan: string;
   email?: string;
   phone?: string;
@@ -43,6 +45,36 @@ export interface InstitutionDTO {
   members?: number;
   sinceMonth?: string;
   contract?: ContractDTO;
+}
+
+export interface ContratoCoberturaPlanDTO {
+  id?: number;
+  contratoCoberturaId: number;
+  planComercialId: number;
+  planComercialNombre?: string;
+  descripcion?: string;
+  cantidadAfiliadosAsignados?: number;
+  precioAcordadoOverride?: number;
+  activo: boolean;
+}
+
+export interface FacturacionContratoDTO {
+  id: number;
+  periodoDesde: string;
+  periodoHasta: string;
+  cantidadMiembrosFacturados: number;
+  precioUnitario: number;
+  importeTotal: number;
+  observaciones?: string;
+  contratoCobertura?: { id: number; codigo?: string; nombre?: string };
+  empresa?: { id: number };
+}
+
+export interface GenerarFacturaContratoRequest {
+  contratoId: number;
+  periodoDesde: string;
+  periodoHasta: string;
+  observaciones?: string;
 }
 
 export interface InstitucionMiembroItem {

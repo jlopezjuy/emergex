@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
-import { ContractDTO, ContractStatus, InstitutionDTO, InstitutionType, InstitucionMiembroItem } from '../dto/institution.dto';
+import { ContractDTO, ContractStatus, EstadoInstitucion, FacturacionContratoDTO, GenerarFacturaContratoRequest, ContratoCoberturaPlanDTO, InstitutionDTO, InstitutionType, InstitucionMiembroItem } from '../dto/institution.dto';
 
 // ── ContratoCobertura backend types ──────────────────────────────────────────
 
@@ -90,6 +90,7 @@ interface InstitucionBackend {
   contactoAdministrativo?: string;
   contactoOperativo?: string;
   activa: boolean;
+  estadoInstitucional?: string;
   direccion?: string;
   latitud?: number;
   longitud?: number;
@@ -151,7 +152,7 @@ function toDTO(b: InstitucionBackend): InstitutionDTO {
     razonSocial:  b.razonSocial ?? '',
     cuit:         b.cuit ?? '',
     type:         mapTipoToFrontend(b.tipoInstitucion),
-    status:       b.activa ? 'activa' : 'inactiva',
+    status:       (b.estadoInstitucional as EstadoInstitucion) ?? (b.activa ? 'ACTIVA' : 'BAJA'),
     plan:         b.planComercialNombre ?? '',
     email:        b.email,
     phone:        b.telefono,
@@ -171,7 +172,7 @@ function toBackend(dto: InstitutionDTO): Omit<InstitucionBackend, 'id' | 'planCo
     razonSocial:           dto.razonSocial || undefined,
     cuit:                  dto.cuit || undefined,
     tipoInstitucion:       mapTipoToBackend(dto.type),
-    activa:                dto.status === 'activa',
+    activa:                dto.status === 'ACTIVA' || dto.status === 'PENDIENTE_ACTIVACION',
     telefono:              dto.phone || undefined,
     email:                 dto.email || undefined,
     contactoAdministrativo: dto.adminContact || undefined,
@@ -216,10 +217,8 @@ export class InstitutionsApiService {
 
   getContratosByInstitucion(institucionId: number): Observable<ContractDTO[]> {
     return this.http
-      .get<BackendPage<ContratoBackend>>(
-        `${this.contratoBase}?institucionId.equals=${institucionId}&size=50`,
-      )
-      .pipe(map(page => page.content.map(contratoToDTO)));
+      .get<ContratoBackend[]>(`${this.contratoBase}/institucion/${institucionId}`)
+      .pipe(map(list => list.map(contratoToDTO)));
   }
 
   getMiembros(institucionId: number, page = 0, size = 50): Observable<InstitucionMiembroItem[]> {
@@ -251,5 +250,45 @@ export class InstitutionsApiService {
     return this.http
       .post<ContratoBackend>(this.contratoBase, body)
       .pipe(map(contratoToDTO));
+  }
+
+  // ── Planes por contrato ──────────────────────────────────────────────────────
+
+  private planesBase = `${environment.apiUrl}/api/v2/contratos-cobertura`;
+
+  getPlanesByContrato(contratoId: number): Observable<ContratoCoberturaPlanDTO[]> {
+    return this.http.get<ContratoCoberturaPlanDTO[]>(`${this.planesBase}/${contratoId}/planes`);
+  }
+
+  addPlanToContrato(contratoId: number, plan: Omit<ContratoCoberturaPlanDTO, 'id'>): Observable<ContratoCoberturaPlanDTO> {
+    return this.http.post<ContratoCoberturaPlanDTO>(`${this.planesBase}/${contratoId}/planes`, plan);
+  }
+
+  // ── Facturación institucional ────────────────────────────────────────────────
+
+  private facturacionInstBase = `${environment.apiUrl}/api/v2/facturacion-institucional`;
+
+  generarFacturaInstitucional(req: GenerarFacturaContratoRequest): Observable<FacturacionContratoDTO> {
+    return this.http.post<FacturacionContratoDTO>(`${this.facturacionInstBase}/generar`, req);
+  }
+
+  getFacturasByContrato(contratoId: number): Observable<FacturacionContratoDTO[]> {
+    return this.http.get<FacturacionContratoDTO[]>(`${this.facturacionInstBase}/contrato/${contratoId}`);
+  }
+
+  getAllFacturasInstitucionales(page = 0, size = 50): Observable<FacturacionContratoDTO[]> {
+    return this.http.get<FacturacionContratoDTO[]>(`${this.facturacionInstBase}`, {
+      params: { page: String(page), size: String(size), sort: 'periodoDesde,desc' }
+    });
+  }
+
+  // ── Estado institucional ─────────────────────────────────────────────────────
+
+  cambiarEstadoInstitucion(id: number, estado: EstadoInstitucion): Observable<void> {
+    return this.http.patch<void>(
+      `${environment.apiUrl}/api/v2/instituciones/${id}/estado`,
+      JSON.stringify(estado),
+      { headers: { 'Content-Type': 'application/json' } }
+    );
   }
 }

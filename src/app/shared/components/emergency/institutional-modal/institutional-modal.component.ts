@@ -6,9 +6,12 @@ import { StatusBadgeComponent } from '../../status-badge/status-badge.component'
 import { InstitutionsApiService } from '../../../../data-access/api/institutions.api';
 import { MiembrosInstitucionApiService, MiembroInstitucionDTO } from '../../../../data-access/api/miembros-institucion.api';
 import { EmergencyApiService } from '../../../../data-access/api/emergency.api';
+import { PatientApiService } from '../../../../data-access/api/patient.api';
+import { CoberturaVigenteDTO } from '../../../../data-access/dto/patient.dto';
 import { InstitutionDTO } from '../../../../data-access/dto/institution.dto';
 import { CrearTicketRequest, TicketAsistenciaDTO } from '../../../../data-access/dto/ticket.dto';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
+import { catchError, of } from 'rxjs';
 
 // ─── Enum maps ────────────────────────────────────────────────────────────────
 
@@ -182,8 +185,8 @@ function parseApiError(err: any): string {
                             <div style="font-size:13px;font-weight:500;color:var(--text-primary)">{{ r.name }}</div>
                             <div class="mono micro" style="color:var(--text-muted)">{{ r.type | uppercase }} · {{ r.address ?? 'Sin dirección' }}</div>
                           </div>
-                          @if (r.status === 'inactiva') {
-                            <emx-status-badge variant="urgent">INACTIVA</emx-status-badge>
+                          @if (r.status === 'SUSPENDIDA' || r.status === 'BAJA') {
+                            <emx-status-badge variant="urgent">{{ r.status }}</emx-status-badge>
                           }
                         </button>
                       }
@@ -286,7 +289,7 @@ function parseApiError(err: any): string {
                         (input)="onMemberInput($any($event.target).value)" />
                       @if (isLoadingMembers()) { <span class="ac-spinner"></span> }
                       @if (member()) {
-                        <button type="button" class="ac-clear" (click)="patchForm({ memberId: null, memberQuery: '' }); memberResults.set([])">
+                        <button type="button" class="ac-clear" (click)="patchForm({ memberId: null, memberQuery: '' }); memberResults.set([]); coberturaVigente.set(null)">
                           <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="1" y1="1" x2="9" y2="9"/><line x1="9" y1="1" x2="1" y2="9"/></svg>
                         </button>
                       }
@@ -301,7 +304,7 @@ function parseApiError(err: any): string {
                           </div>
                         }
                         @for (r of memberResults(); track r.id) {
-                          <button type="button" class="ac-row" (click)="patchForm({ memberId: r.id, memberQuery: '' })">
+                          <button type="button" class="ac-row" (click)="patchForm({ memberId: r.id, memberQuery: '' }); consultarCoberturaVigente(r.dni ?? '')">
                             <div class="avatar avatar--sm">{{ avatarOf(r.nombre + ' ' + r.apellido) }}</div>
                             <div style="flex:1;text-align:left;min-width:0">
                               <div style="font-size:13px;font-weight:500;color:var(--text-primary)">{{ r.nombre }} {{ r.apellido }}</div>
@@ -322,6 +325,27 @@ function parseApiError(err: any): string {
                       </div>
                       <emx-status-badge variant="info">EXPEDIENTE</emx-status-badge>
                     </div>
+                    @if (coberturaVigente()) {
+                      @let cob = coberturaVigente()!;
+                      <div style="margin-top:8px;padding:10px 12px;border-radius:8px;background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.25)">
+                        <div class="eyebrow" style="color:var(--accent-emerald);margin-bottom:6px">COBERTURA VIGENTE</div>
+                        <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px">
+                          <span><span style="color:var(--text-muted)">Plan: </span>{{ cob.planNombre ?? '—' }}</span>
+                          @if (cob.institucionNombre) {
+                            <span><span style="color:var(--text-muted)">Institución: </span>{{ cob.institucionNombre }}</span>
+                          }
+                          @if (cob.requiereCopago) {
+                            <span style="color:var(--accent-amber)">⚠ Requiere copago</span>
+                          }
+                          @if (cob.requiereAutorizacion) {
+                            <span style="color:var(--accent-amber)">⚠ Requiere autorización</span>
+                          }
+                          @if (!cob.requiereCopago && !cob.requiereAutorizacion) {
+                            <span style="color:var(--accent-emerald)">✓ Sin copago · Sin autorización</span>
+                          }
+                        </div>
+                      </div>
+                    }
                   }
                 </div>
               }
@@ -745,6 +769,7 @@ export class InstitutionalModalComponent implements OnInit, OnDestroy {
   private readonly instituciones = inject(InstitutionsApiService);
   private readonly miembros      = inject(MiembrosInstitucionApiService);
   private readonly emergencyApi  = inject(EmergencyApiService);
+  private readonly patientApi    = inject(PatientApiService);
 
   // ── Constants ──
   readonly prioLevels      = PRIO_LEVELS;
@@ -769,6 +794,9 @@ export class InstitutionalModalComponent implements OnInit, OnDestroy {
   readonly isSubmitting = signal(false);
   readonly submitError  = signal<string | null>(null);
 
+  // Cobertura vigente del miembro seleccionado
+  readonly coberturaVigente = signal<CoberturaVigenteDTO | null>(null);
+
   private _memberTimer?: ReturnType<typeof setTimeout>;
 
   // ── Derived ──
@@ -785,7 +813,7 @@ export class InstitutionalModalComponent implements OnInit, OnDestroy {
     this.isLoadingInstitutions.set(true);
     this.instituciones.getAll().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
             next: list => {
-              this._allInstitutions = list.filter(i => i.status === 'activa');
+              this._allInstitutions = list.filter(i => i.status === 'ACTIVA' || i.status === 'PENDIENTE_ACTIVACION');
               this.institutionResults.set(this._allInstitutions.slice(0, 8));
               this.isLoadingInstitutions.set(false);
             },
@@ -896,6 +924,17 @@ export class InstitutionalModalComponent implements OnInit, OnDestroy {
 
   patchTransient(patch: Partial<TransientForm>): void {
     this.form.update(f => ({ ...f, transient: { ...f.transient, ...patch } }));
+  }
+
+  consultarCoberturaVigente(dni: string): void {
+    if (!dni || dni.length < 7) { this.coberturaVigente.set(null); return; }
+    this.patientApi.getCoberturaVigente(dni).pipe(
+      catchError(() => of([])),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe(list => {
+      const activa = list.find(c => c.cubierto);
+      this.coberturaVigente.set(activa ?? null);
+    });
   }
 
   @HostListener('document:keydown.escape')

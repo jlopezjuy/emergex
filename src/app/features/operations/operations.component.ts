@@ -5,8 +5,10 @@ import { WebsocketService } from '../../core/websocket/websocket.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { FleetApiService } from '../../data-access/api/fleet.api';
 import { DashboardApiService } from '../../data-access/api/dashboard.api';
+import { PatientApiService } from '../../data-access/api/patient.api';
 import { DashboardOperativoDTO } from '../../data-access/dto/dashboard.dto';
 import { TicketAsistenciaDTO } from '../../data-access/dto/ticket.dto';
+import { CoberturaVigenteDTO } from '../../data-access/dto/patient.dto';
 import { OperationsMapComponent } from '../../shared/components/map/operations-map/operations-map.component';
 import { EmergencyListItemComponent } from '../../shared/components/emergency/emergency-list-item/emergency-list-item.component';
 import { TelemetryBarComponent } from '../../shared/components/telemetry-bar/telemetry-bar.component';
@@ -281,6 +283,45 @@ type FeedTab = 'TODAS' | 'SIN_ASIGNAR' | 'CRITICAS';
               4. Confirmar unidad en camino
             </p>
           </div>
+
+          <!-- Cobertura vigente -->
+          @if (callTicket()?.pacienteDni) {
+            <div class="glass rounded-panel px-4 py-3 flex flex-col gap-2">
+              <p class="text-xs font-semibold" style="color: var(--accent-cyan);">Cobertura vigente · DNI {{ callTicket()?.pacienteDni }}</p>
+              @if (loadingCobertura()) {
+                <p class="text-xs" style="color: var(--text-muted);">Verificando cobertura...</p>
+              } @else if (coberturaVigente().length === 0) {
+                <p class="text-xs" style="color: var(--accent-amber);">⚠ Sin cobertura activa registrada</p>
+              } @else {
+                @for (cob of coberturaVigente(); track $index) {
+                  <div style="display:flex;flex-direction:column;gap:3px;padding:8px;border-radius:6px;background:rgba(255,255,255,0.04);border:1px solid var(--border-glass)">
+                    <div style="display:flex;align-items:center;justify-content:space-between">
+                      <span class="text-xs font-semibold" style="color:var(--text-primary)">{{ cob.planNombre ?? cob.origen ?? 'Cobertura activa' }}</span>
+                      @if (cob.cubierto) {
+                        <span style="font-size:10px;color:var(--accent-emerald);font-weight:600">● CUBIERTO</span>
+                      } @else {
+                        <span style="font-size:10px;color:var(--accent-red);font-weight:600">● NO CUBIERTO</span>
+                      }
+                    </div>
+                    @if (cob.institucionNombre) {
+                      <span class="text-xs" style="color:var(--text-muted)">Institución: {{ cob.institucionNombre }}</span>
+                    }
+                    <div style="display:flex;gap:10px;flex-wrap:wrap">
+                      @if (cob.requiereAutorizacion) {
+                        <span style="font-size:10px;color:var(--accent-amber)">⚡ Req. autorización</span>
+                      }
+                      @if (cob.requiereCopago && cob.montoCopago) {
+                        <span style="font-size:10px;color:var(--accent-amber)">💲 Copago \${{ cob.montoCopago }}</span>
+                      }
+                      @if (cob.esFacturable) {
+                        <span style="font-size:10px;color:var(--accent-blue)">📋 Facturable</span>
+                      }
+                    </div>
+                  </div>
+                }
+              }
+            </div>
+          }
         </div>
         <div footer class="flex gap-2">
           <button type="button" class="btn btn--ghost btn--sm" (click)="closeCall()">Cerrar</button>
@@ -364,6 +405,7 @@ export class OperationsComponent implements OnInit, OnDestroy {
   private auth = inject(AuthService);
   private fleetApi = inject(FleetApiService);
   private dashboardApi = inject(DashboardApiService);
+  private patientApi = inject(PatientApiService);
 
   readonly dashboard = signal<DashboardOperativoDTO | null>(null);
   readonly selectedAmbulanceId = signal<number | null>(null);
@@ -416,6 +458,8 @@ export class OperationsComponent implements OnInit, OnDestroy {
 
   // Call modal state
   readonly callTicket = signal<TicketAsistenciaDTO | null>(null);
+  readonly coberturaVigente = signal<CoberturaVigenteDTO[]>([]);
+  readonly loadingCobertura = signal(false);
 
   // Dispatch modal state
   readonly showDispatchModal = signal(false);
@@ -536,10 +580,23 @@ export class OperationsComponent implements OnInit, OnDestroy {
 
   onCall(emergency: TicketAsistenciaDTO): void {
     this.callTicket.set(emergency);
+    this.coberturaVigente.set([]);
+    const dni = emergency.pacienteDni ?? null;
+    if (dni) {
+      this.loadingCobertura.set(true);
+      this.patientApi.getCoberturaVigente(dni).pipe(
+        catchError(() => of([])),
+        takeUntilDestroyed(this.destroyRef),
+      ).subscribe(list => {
+        this.coberturaVigente.set(list);
+        this.loadingCobertura.set(false);
+      });
+    }
   }
 
   closeCall(): void {
     this.callTicket.set(null);
+    this.coberturaVigente.set([]);
   }
 
   getParsedCrew(tripulacion?: string): { initials: string; name: string; role: string }[] {

@@ -169,8 +169,30 @@ export interface ConsumoMensualDTO {
 
 // ─── Cobertura / plan ────────────────────────────────────────────────────────
 
+export type OrigenCobertura = 'PLAN_PROPIO' | 'OBRA_SOCIAL' | 'INSTITUCIONAL' | 'SIN_COBERTURA';
+
+export interface CoberturaVigenteDTO {
+  pacienteNombre?: string;
+  pacienteDni?: string;
+  pacienteId?: number;
+  origen: OrigenCobertura;
+  cubierto: boolean;
+  planNombre?: string;
+  contratoId?: string;
+  contratoDescripcion?: string;
+  institucionNombre?: string;
+  miembroInstitucionId?: number;
+  requiereCopago?: boolean;
+  montoCopago?: number;
+  requiereAutorizacion?: boolean;
+  esFacturable?: boolean;
+  vigenciaDesde?: string;
+  vigenciaHasta?: string;
+  estadoCobertura?: string;
+}
+
 export interface CrearCoberturaRequest {
-  tipoCobertura: 'PLAN_PROPIO' | 'OBRA_SOCIAL' | 'BASICA' | 'COMPLETA' | 'PREMIUM';
+  tipoCobertura: 'PLAN_PROPIO' | 'OBRA_SOCIAL' | 'INSTITUCIONAL' | 'SIN_COBERTURA';
   planComercialId?: number;
   vigenciaDesde: string;
   numeroCredencial?: string;
@@ -230,4 +252,5 @@ export interface AfiliadoSearchResult {
   activo?: boolean;
   createdAt?: string;
   contextoCoberturaId?: number;
+  coberturaVigente?: CoberturaVigenteDTO;
 }

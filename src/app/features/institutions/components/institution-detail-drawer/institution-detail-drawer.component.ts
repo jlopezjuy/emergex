@@ -1,10 +1,12 @@
 import {
   Component, input, output, signal, inject, DestroyRef, OnChanges, SimpleChanges
 } from '@angular/core';
+import { DecimalPipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { catchError, of } from 'rxjs';
 import { InstitutionsApiService } from '../../../../data-access/api/institutions.api';
-import { InstitucionMiembroItem, InstitutionType } from '../../../../data-access/dto/institution.dto';
+import { ContratoCoberturaPlanDTO, EstadoInstitucion, FacturacionContratoDTO, GenerarFacturaContratoRequest, InstitucionMiembroItem, InstitutionType } from '../../../../data-access/dto/institution.dto';
 import { StatusBadgeComponent } from '../../../../shared/components/status-badge/status-badge.component';
 
 export interface DrawerInstitution {
@@ -13,7 +15,7 @@ export interface DrawerInstitution {
   razonSocial: string;
   cuit: string;
   type: InstitutionType;
-  status: 'activa' | 'inactiva';
+  status: EstadoInstitucion;
   plan: string;
   email: string;
   phone: string;
@@ -42,7 +44,7 @@ export interface DrawerInstitution {
 @Component({
   selector: 'app-institution-detail-drawer',
   standalone: true,
-  imports: [StatusBadgeComponent],
+  imports: [StatusBadgeComponent, DecimalPipe, FormsModule],
   templateUrl: './institution-detail-drawer.component.html',
 })
 export class InstitutionDetailDrawerComponent implements OnChanges {
@@ -60,11 +62,33 @@ export class InstitutionDetailDrawerComponent implements OnChanges {
   readonly activeTab = signal<'general' | 'contrato' | 'miembros'>('general');
   readonly miembros = signal<InstitucionMiembroItem[]>([]);
   readonly loadingMiembros = signal(false);
+  readonly planes = signal<ContratoCoberturaPlanDTO[]>([]);
+  readonly loadingPlanes = signal(false);
+  readonly facturasContrato = signal<FacturacionContratoDTO[]>([]);
+  readonly loadingFacturas = signal(false);
+  readonly savingEstado = signal(false);
+  readonly showFacturaForm = signal(false);
+  readonly savingFactura = signal(false);
+
+  readonly estadoOpciones: { value: EstadoInstitucion; label: string }[] = [
+    { value: 'ACTIVA',               label: 'Activa' },
+    { value: 'PENDIENTE_ACTIVACION', label: 'Pendiente activación' },
+    { value: 'SUSPENDIDA',           label: 'Suspendida' },
+    { value: 'BAJA',                 label: 'Baja' },
+  ];
+
+  facturaForm: GenerarFacturaContratoRequest = {
+    contratoId: 0, periodoDesde: '', periodoHasta: '', observaciones: '',
+  };
+
+  readonly statusChanged = output<{ id: string; nuevoEstado: EstadoInstitucion }>();
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['institution']) {
       this.activeTab.set('general');
       this.miembros.set([]);
+      this.planes.set([]);
+      this.facturasContrato.set([]);
     }
   }
 
@@ -73,6 +97,37 @@ export class InstitutionDetailDrawerComponent implements OnChanges {
     if (tab === 'miembros' && this.miembros().length === 0) {
       this.loadMiembros();
     }
+    if (tab === 'contrato') {
+      const contratoId = this.institution().contract?.id;
+      if (contratoId && this.planes().length === 0) {
+        this.loadPlanes(contratoId);
+      }
+      if (contratoId && this.facturasContrato().length === 0) {
+        this.loadFacturasContrato(contratoId);
+      }
+    }
+  }
+
+  private loadPlanes(contratoId: number): void {
+    this.loadingPlanes.set(true);
+    this.api.getPlanesByContrato(contratoId).pipe(
+      catchError(() => of([])),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe(list => {
+      this.planes.set(list);
+      this.loadingPlanes.set(false);
+    });
+  }
+
+  private loadFacturasContrato(contratoId: number): void {
+    this.loadingFacturas.set(true);
+    this.api.getFacturasByContrato(contratoId).pipe(
+      catchError(() => of([])),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe(list => {
+      this.facturasContrato.set(list);
+      this.loadingFacturas.set(false);
+    });
   }
 
   private loadMiembros(): void {
@@ -91,6 +146,44 @@ export class InstitutionDetailDrawerComponent implements OnChanges {
   onClose(): void { this.close.emit(); }
   onEdit(): void { this.edit.emit(this.institution()); }
   onOpenContract(): void { this.openContract.emit(this.institution()); }
+
+  onCambiarEstado(nuevoEstado: EstadoInstitucion): void {
+    const id = Number(this.institution().id);
+    if (!id || this.savingEstado()) return;
+    this.savingEstado.set(true);
+    this.api.cambiarEstadoInstitucion(id, nuevoEstado).pipe(
+      catchError(() => of(null)),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe(() => {
+      this.savingEstado.set(false);
+      this.statusChanged.emit({ id: this.institution().id, nuevoEstado });
+    });
+  }
+
+  abrirFormFactura(): void {
+    const contratoId = this.institution().contract?.id;
+    if (!contratoId) return;
+    const hoy = new Date();
+    const primerDia = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().split('T')[0];
+    const ultimoDia = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).toISOString().split('T')[0];
+    this.facturaForm = { contratoId, periodoDesde: primerDia, periodoHasta: ultimoDia, observaciones: '' };
+    this.showFacturaForm.set(true);
+  }
+
+  confirmarFactura(): void {
+    if (this.savingFactura() || !this.facturaForm.periodoDesde || !this.facturaForm.periodoHasta) return;
+    this.savingFactura.set(true);
+    this.api.generarFacturaInstitucional(this.facturaForm).pipe(
+      catchError(() => of(null)),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe(result => {
+      this.savingFactura.set(false);
+      if (result) {
+        this.facturasContrato.update(list => [result, ...list]);
+        this.showFacturaForm.set(false);
+      }
+    });
+  }
 
   contractStatusLabel(s: string): string {
     const map: Record<string, string> = {

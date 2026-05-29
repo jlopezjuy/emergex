@@ -19,6 +19,7 @@ import {
   AltaAfiliadoCompletaRequest,
   AltaAfiliadoCompletaResponse,
   AfiliadoSearchResult,
+  CoberturaVigenteDTO,
 } from '../dto/patient.dto';
 
 @Injectable({ providedIn: 'root' })
@@ -29,6 +30,7 @@ export class PatientApiService {
   private facturacionBase = `${environment.apiUrl}/api/v1/facturacion`;
   private miembrosBase = `${environment.apiUrl}/api/miembro-grupo-familiars`;
 
+  /** @deprecated Backend now always filters by current user's empresa. Migrate to buscarAfiliados(). */
   getAll(): Observable<PacienteDTO[]> {
     return this.http.get<PacienteDTO[]>(this.base);
   }
@@ -188,5 +190,12 @@ export class PatientApiService {
 
   checkDniExists(dni: string): Observable<boolean> {
     return this.http.get<boolean>(`${environment.apiUrl}/api/pacientes/dni-exists/${encodeURIComponent(dni)}`);
+  }
+
+  /** Unified B2C + B2B coverage lookup by DNI. Used by dispatch operators on incoming calls. */
+  getCoberturaVigente(dni: string): Observable<CoberturaVigenteDTO[]> {
+    return this.http.get<CoberturaVigenteDTO[]>(`${this.afiliadosBase}/cobertura-vigente`, {
+      params: { dni }
+    });
   }
 }

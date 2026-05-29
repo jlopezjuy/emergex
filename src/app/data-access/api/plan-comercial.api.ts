@@ -151,4 +151,9 @@ export class PlanComercialApiService {
   deletePlanPrestacion(id: number): Observable<void> {
     return this.http.delete<void>(`${environment.apiUrl}/api/plan-prestaciones/${id}`);
   }
+
+  /** Validates consistency between PlanComercial boolean flags and PlanPrestacion entries. Returns warning strings. */
+  validarConsistenciaPlan(planId: number): Observable<string[]> {
+    return this.http.get<string[]>(`${environment.apiUrl}/api/plan-prestaciones/plan/${planId}/consistencia`);
+  }
 }

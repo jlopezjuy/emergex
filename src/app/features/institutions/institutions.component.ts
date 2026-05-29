@@ -10,7 +10,7 @@ import { DateUtils } from '../../core/utils/date.utils';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { InstitutionDetailDrawerComponent, DrawerInstitution } from './components/institution-detail-drawer/institution-detail-drawer.component';
 import { InstitutionFormModalComponent, InstitutionForm } from './components/institution-form-modal/institution-form-modal.component';
-import { InstitutionType } from '../../data-access/dto/institution.dto';
+import { EstadoInstitucion, InstitutionType } from '../../data-access/dto/institution.dto';
 import { InstitutionContractModalComponent } from './components/institution-contract-modal/institution-contract-modal.component';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 
@@ -43,7 +43,7 @@ export interface Institution {
   razonSocial: string;
   cuit: string;
   type: InstitutionType;
-  status: 'activa' | 'inactiva';
+  status: EstadoInstitucion;
   plan: string;
   email: string;
   phone: string;
@@ -93,7 +93,7 @@ function avatarOf(name: string): string {
 
 function emptyForm(): InstitutionForm {
   return {
-    name: '', razonSocial: '', cuit: '', type: 'empresa', plan: 'corp-medio', status: 'activa',
+    name: '', razonSocial: '', cuit: '', type: 'empresa', plan: 'corp-medio', status: 'ACTIVA',
     email: '', phone: '', adminContact: '', opsContact: '', address: '', city: 'San Salvador de Jujuy',
     lat: 0, lng: 0,
   };
@@ -256,10 +256,14 @@ const PAGE_SIZE = 10;
                     </span>
                   </td>
                   <td>
-                    @if (inst.status === 'activa') {
+                    @if (inst.status === 'ACTIVA') {
                       <emx-status-badge variant="stable">Activa</emx-status-badge>
+                    } @else if (inst.status === 'PENDIENTE_ACTIVACION') {
+                      <emx-status-badge variant="info">Pendiente</emx-status-badge>
+                    } @else if (inst.status === 'SUSPENDIDA') {
+                      <emx-status-badge variant="urgent">Suspendida</emx-status-badge>
                     } @else {
-                      <span class="badge-inactive">● Inactiva</span>
+                      <span class="badge-inactive">● Baja</span>
                     }
                   </td>
                   <td>
@@ -844,9 +848,11 @@ export class InstitutionsComponent implements OnInit {
   readonly institutionTypes = INSTITUTION_TYPES;
   get commercialPlans(): CommercialPlanItem[] { return this._commercialPlans(); }
   readonly statusOptions = [
-    { value: 'all',      label: 'Todas'     },
-    { value: 'activa',   label: 'Activas'   },
-    { value: 'inactiva', label: 'Inactivas' },
+    { value: 'all',                  label: 'Todas'     },
+    { value: 'ACTIVA',               label: 'Activas'   },
+    { value: 'PENDIENTE_ACTIVACION', label: 'Pendientes' },
+    { value: 'SUSPENDIDA',           label: 'Suspendidas' },
+    { value: 'BAJA',                 label: 'Baja'      },
   ];
   readonly contractStatuses: { value: 'active' | 'suspended' | 'ended' | 'draft'; label: string; color: string }[] = [
     { value: 'active',    label: 'Activo',     color: 'var(--accent-emerald)' },
@@ -975,9 +981,9 @@ export class InstitutionsComponent implements OnInit {
     const list = this.institutions();
     return {
       total:    list.length,
-      activas:  list.filter(i => i.status === 'activa').length,
-      inactivas: list.filter(i => i.status === 'inactiva').length,
-      members:  list.filter(i => i.status === 'activa').reduce((s, i) => s + i.members, 0),
+      activas:  list.filter(i => i.status === 'ACTIVA' || i.status === 'PENDIENTE_ACTIVACION').length,
+      inactivas: list.filter(i => i.status === 'SUSPENDIDA' || i.status === 'BAJA').length,
+      members:  list.filter(i => i.status === 'ACTIVA' || i.status === 'PENDIENTE_ACTIVACION').reduce((s, i) => s + i.members, 0),
     };
   });
 
@@ -1244,8 +1250,8 @@ export class InstitutionsComponent implements OnInit {
       name:         f.name,
       razonSocial:  f.razonSocial,
       cuit:         f.cuit,
-      type:         f.type as import('../../data-access/dto/institution.dto').InstitutionType,
-      status:       f.status as 'activa' | 'inactiva',
+      type:         f.type as InstitutionType,
+      status:       f.status as EstadoInstitucion,
       plan:         f.plan,
       email:        f.email || undefined,
       phone:        f.phone || undefined,

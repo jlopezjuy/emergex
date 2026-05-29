@@ -1,5 +1,6 @@
 import { Component, signal, computed, HostListener, inject, OnInit, DestroyRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { DecimalPipe } from '@angular/common';
 import { QuickPaymentModalComponent, QuickPaymentPayload } from '../patients/components/quick-payment-modal/quick-payment-modal.component';
 import { catchError, of } from 'rxjs';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
@@ -13,6 +14,8 @@ import {
   MetodoPago,
 } from '../../data-access/api/facturacion.api';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
+import { InstitutionsApiService } from '../../data-access/api/institutions.api';
+import { FacturacionContratoDTO, GenerarFacturaContratoRequest } from '../../data-access/dto/institution.dto';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -63,7 +66,7 @@ function estadoColor(estado: string): string {
 @Component({
   selector: 'app-facturacion',
   standalone: true,
-  imports: [FormsModule, StatusBadgeComponent, QuickPaymentModalComponent],
+  imports: [FormsModule, DecimalPipe, StatusBadgeComponent, QuickPaymentModalComponent],
   template: `
     <div class="screen">
 
@@ -111,8 +114,64 @@ function estadoColor(estado: string): string {
         </div>
       </div>
 
+      <!-- ── Tabs B2C / B2B ── -->
+      <div class="ft-tabs">
+        <button class="ft-tab" [attr.data-active]="tabActivo() === 'b2c'" (click)="tabActivo.set('b2c')">
+          Facturación B2C
+        </button>
+        <button class="ft-tab" [attr.data-active]="tabActivo() === 'b2b'" (click)="tabActivo.set('b2b')">
+          Facturación Institucional
+        </button>
+      </div>
+
       <!-- ── Table card ── -->
       <div class="glass-strong ft-card">
+
+        @if (tabActivo() === 'b2b') {
+          <!-- ── Facturación institucional ── -->
+          <div style="padding:16px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+              <div class="eyebrow" style="color:var(--accent-blue)">FACTURAS INSTITUCIONALES</div>
+              <button class="btn btn--primary btn--sm" (click)="showGenerarInstModal.set(true)">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Generar factura
+              </button>
+            </div>
+
+            @if (loadingInstitucionales()) {
+              <div style="padding:40px;text-align:center;color:var(--text-muted);font-size:12px">Cargando...</div>
+            } @else if (facturasInstitucionales().length === 0) {
+              <div style="padding:48px;text-align:center">
+                <div style="font-size:13px;color:var(--text-muted)">Sin facturas institucionales registradas.</div>
+              </div>
+            } @else {
+              <table class="data-table" style="width:100%;min-width:700px">
+                <thead>
+                  <tr>
+                    <th>Contrato</th>
+                    <th>Período desde</th>
+                    <th>Período hasta</th>
+                    <th>Miembros</th>
+                    <th style="text-align:right">Importe total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (fc of facturasInstitucionales(); track fc.id) {
+                    <tr>
+                      <td>{{ fc.contratoCobertura?.nombre ?? 'Contrato #' + fc.contratoCobertura?.id }}</td>
+                      <td class="mono micro">{{ fc.periodoDesde }}</td>
+                      <td class="mono micro">{{ fc.periodoHasta }}</td>
+                      <td>{{ fc.cantidadMiembrosFacturados }}</td>
+                      <td class="mono" style="text-align:right;font-weight:600">{{ fmtCurrency(fc.importeTotal) }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            }
+          </div>
+        }
+
+        @if (tabActivo() === 'b2c') {
 
         <!-- Toolbar -->
         <div class="ft-toolbar">
@@ -207,8 +266,66 @@ function estadoColor(estado: string): string {
             </div>
           </div>
         }
+
+        } <!-- end @if b2c -->
+
       </div>
     </div>
+
+    <!-- ═══════════════════════════════════════════════════════
+         GENERAR FACTURA INSTITUCIONAL MODAL
+         ═══════════════════════════════════════════════════════ -->
+    @if (showGenerarInstModal()) {
+      <div class="modal-overlay" (click)="showGenerarInstModal.set(false); generarInstError.set(null); generarInstResult.set(null)">
+        <div class="modal-panel glass-strong" (click)="$event.stopPropagation()" style="max-width:420px">
+          <div class="qc-head" style="padding:16px 20px 0">
+            <div>
+              <div class="eyebrow" style="color:var(--accent-blue)">FACTURACIÓN INSTITUCIONAL</div>
+              <h3 style="margin:4px 0 0;font-size:16px;font-weight:600">Generar factura por contrato</h3>
+            </div>
+            <button class="drawer-close-btn" (click)="showGenerarInstModal.set(false)">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="1" y1="1" x2="13" y2="13"/><line x1="13" y1="1" x2="1" y2="13"/></svg>
+            </button>
+          </div>
+          <div style="padding:16px 20px 20px;display:flex;flex-direction:column;gap:14px">
+            @if (generarInstResult()) {
+              <div style="padding:12px;border-radius:8px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);text-align:center">
+                <div style="color:var(--accent-emerald);font-weight:600">Factura generada</div>
+                <div class="mono" style="font-size:13px;margin-top:4px">
+                  {{ generarInstResult()!.cantidadMiembrosFacturados }} miembros · \${{ generarInstResult()!.importeTotal | number:'1.0-0' }}
+                </div>
+              </div>
+              <button class="btn btn--ghost btn--sm" (click)="showGenerarInstModal.set(false); generarInstResult.set(null)">Cerrar</button>
+            } @else {
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <label class="eyebrow">ID de Contrato *</label>
+                <input class="form-input" type="number" placeholder="Ej: 12" [(ngModel)]="genInstContratoId" min="1"/>
+              </div>
+              <div style="display:flex;gap:10px">
+                <div style="flex:1;display:flex;flex-direction:column;gap:4px">
+                  <label class="eyebrow">Período desde *</label>
+                  <input class="form-input" type="date" [(ngModel)]="genInstPeriodoDesde"/>
+                </div>
+                <div style="flex:1;display:flex;flex-direction:column;gap:4px">
+                  <label class="eyebrow">Período hasta *</label>
+                  <input class="form-input" type="date" [(ngModel)]="genInstPeriodoHasta"/>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <label class="eyebrow">Observaciones</label>
+                <textarea class="form-input" rows="2" placeholder="Opcional..." [(ngModel)]="genInstObservaciones" style="resize:none"></textarea>
+              </div>
+              @if (generarInstError()) {
+                <div style="font-size:12px;color:var(--accent-red)">{{ generarInstError() }}</div>
+              }
+              <button class="btn btn--primary" (click)="onGenerarFacturaInst()" [disabled]="generandoInst()">
+                @if (generandoInst()) { Generando... } @else { Generar factura }
+              </button>
+            }
+          </div>
+        </div>
+      </div>
+    }
 
     <!-- ═══════════════════════════════════════════════════════
          GENERAR FACTURACIÓN MODAL
@@ -419,15 +536,59 @@ function estadoColor(estado: string): string {
       padding: 12px 14px; border-radius: 10px;
       background: rgba(16,185,129,0.07); border: 1px solid rgba(16,185,129,0.25);
     }
+
+    .ft-tabs {
+      display: flex; gap: 4px; margin-bottom: 12px;
+    }
+    .ft-tab {
+      height: 34px; padding: 0 16px; border-radius: 8px;
+      border: 1px solid var(--border-glass); background: transparent;
+      color: var(--text-muted); font-size: 12px; font-family: var(--font-sans);
+      cursor: pointer; transition: all 0.15s;
+    }
+    .ft-tab:hover { color: var(--text-primary); background: rgba(255,255,255,0.04); }
+    .ft-tab[data-active="true"] { background: rgba(59,130,246,0.12); border-color: rgba(59,130,246,0.4); color: var(--accent-blue); }
+
+    /* ── Inst modal ── */
+    .modal-overlay { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); }
+    .modal-panel { width: 100%; border-radius: 16px; display: flex; flex-direction: column; animation: modal-in 0.18s ease-out; }
+    .drawer-close-btn { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border-glass); background: rgba(255,255,255,0.04); color: var(--text-muted); cursor: pointer; }
+    .drawer-close-btn:hover { background: rgba(255,255,255,0.09); color: var(--text-primary); }
+    .form-input {
+      height: 36px; border-radius: var(--r-btn); border: 1px solid var(--border-glass);
+      background: rgba(255,255,255,0.04); color: var(--text-primary);
+      font-size: 12.5px; font-family: var(--font-sans);
+      padding: 0 10px; outline: none; width: 100%; box-sizing: border-box; transition: border-color 0.15s;
+    }
+    .form-input:focus { border-color: rgba(59,130,246,0.5); }
+    textarea.form-input { height: auto; padding: 8px 10px; }
   `],
 })
 export class FacturacionComponent implements OnInit {
     private destroyRef = inject(DestroyRef);
   private api = inject(FacturacionApiService);
+  private institutionsApi = inject(InstitutionsApiService);
 
   // ── Constants ──
   readonly estadosFiltro = ESTADOS_FILTER;
   readonly meses         = MESES;
+
+  // ── Tab ──
+  readonly tabActivo = signal<'b2c' | 'b2b'>('b2c');
+
+  // ── Facturación institucional ──
+  readonly facturasInstitucionales = signal<FacturacionContratoDTO[]>([]);
+  readonly loadingInstitucionales  = signal(false);
+
+  // ── Generar factura institucional modal ──
+  readonly showGenerarInstModal = signal(false);
+  readonly generandoInst        = signal(false);
+  readonly generarInstError     = signal<string | null>(null);
+  readonly generarInstResult    = signal<FacturacionContratoDTO | null>(null);
+  genInstContratoId      = 0;
+  genInstPeriodoDesde    = '';
+  genInstPeriodoHasta    = '';
+  genInstObservaciones   = '';
 
   // ── Table state ──
   readonly loading       = signal(false);
@@ -489,7 +650,50 @@ export class FacturacionComponent implements OnInit {
   });
 
   // ── Lifecycle ──
-  ngOnInit(): void { this.loadFacturas(); }
+  ngOnInit(): void {
+    this.loadFacturas();
+    this.loadFacturasInstitucionales();
+  }
+
+  loadFacturasInstitucionales(): void {
+    this.loadingInstitucionales.set(true);
+    this.institutionsApi.getAllFacturasInstitucionales().subscribe({
+      next: (list) => {
+        this.facturasInstitucionales.set(list);
+        this.loadingInstitucionales.set(false);
+      },
+      error: () => this.loadingInstitucionales.set(false),
+    });
+  }
+
+  onGenerarFacturaInst(): void {
+    if (!this.genInstContratoId || !this.genInstPeriodoDesde || !this.genInstPeriodoHasta) {
+      this.generarInstError.set('Completá contrato, período desde y período hasta.');
+      return;
+    }
+    this.generarFacturaInstitucional({
+      contratoId: this.genInstContratoId,
+      periodoDesde: this.genInstPeriodoDesde,
+      periodoHasta: this.genInstPeriodoHasta,
+      observaciones: this.genInstObservaciones || undefined,
+    });
+  }
+
+  generarFacturaInstitucional(req: GenerarFacturaContratoRequest): void {
+    this.generandoInst.set(true);
+    this.institutionsApi.generarFacturaInstitucional(req).subscribe({
+      next: (fc) => {
+        this.generandoInst.set(false);
+        this.generarInstResult.set(fc);
+        this.loadFacturasInstitucionales();
+      },
+      error: (err) => {
+        this.generandoInst.set(false);
+        const msg = err?.error?.detail ?? err?.error?.title ?? 'Error al generar factura.';
+        this.generarInstError.set(msg);
+      },
+    });
+  }
 
   private loadFacturas(): void {
     this.loading.set(true);
@@ -509,8 +713,9 @@ export class FacturacionComponent implements OnInit {
 
   @HostListener('document:keydown.escape')
   onEsc(): void {
-    if (this.showPayModal())     { this.closePayModal();     return; }
-    if (this.showGenerarModal()) { this.closeGenerarModal(); return; }
+    if (this.showPayModal())          { this.closePayModal();     return; }
+    if (this.showGenerarModal())      { this.closeGenerarModal(); return; }
+    if (this.showGenerarInstModal())  { this.showGenerarInstModal.set(false); this.generarInstError.set(null); this.generarInstResult.set(null); return; }
   }
 
   // ── Generar modal ──

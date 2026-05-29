@@ -11,7 +11,7 @@ import {
 import { FormsModule } from '@angular/forms';
 import { Subject, from, of } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, switchMap, takeUntil } from 'rxjs';
-import { InstitutionType, InstitutionDTO } from '../../../../data-access/dto/institution.dto';
+import { EstadoInstitucion, InstitutionType, InstitutionDTO } from '../../../../data-access/dto/institution.dto';
 import { GeocodeResult } from '../../../../shared/map/geocoder-provider';
 import { HttpGeocoderProvider } from '../../../../shared/map/providers/http-geocoder.provider';
 import { LocationPolygonMapComponent } from '../../../../shared/components/map/location-polygon-map/location-polygon-map.component';
@@ -31,7 +31,7 @@ export interface InstitutionForm {
   cuit: string;
   type: InstitutionType;
   plan: string;
-  status: 'activa' | 'inactiva';
+  status: EstadoInstitucion;
   email: string;
   phone: string;
   adminContact: string;
@@ -153,24 +153,17 @@ const INSTITUTION_TYPES: { id: InstitutionType; label: string; icon: string }[] 
 
               <div class="qc-field">
                 <label class="eyebrow">Estado</label>
-                <div style="display:flex;align-items:center;gap:10px">
-                  <button type="button" class="toggle-sw"
-                    [attr.data-on]="form().status === 'activa'"
-                    (click)="patchForm({ status: form().status === 'activa' ? 'inactiva' : 'activa' })">
-                    <div class="toggle-sw__track"
-                      [style.background]="form().status === 'activa' ? 'rgba(16,185,129,0.25)' : 'rgba(148,163,184,0.32)'"
-                      [style.border-color]="form().status === 'activa' ? 'rgba(16,185,129,0.55)' : 'rgba(148,163,184,0.32)'"
-                      [style.box-shadow]="form().status === 'activa' ? '0 0 8px rgba(16,185,129,0.35)' : 'none'"
-                    >
-                      <div class="toggle-sw__thumb"
-                        [style.transform]="form().status === 'activa' ? 'translateX(18px)' : 'translateX(0)'"
-                        [style.background]="form().status === 'activa' ? 'var(--accent-emerald)' : 'white'"
-                      ></div>
-                    </div>
-                  </button>
-                  <span style="font-size:12.5px" [style.color]="form().status === 'activa' ? 'var(--accent-emerald)' : 'var(--text-muted)'">
-                    {{ form().status === 'activa' ? 'Activa' : 'Inactiva' }}
-                  </span>
+                <div style="display:flex;gap:6px;flex-wrap:wrap">
+                  @for (opt of statusOpts; track opt.value) {
+                    <button type="button"
+                      style="padding:5px 12px;border-radius:6px;border:1px solid;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s"
+                      [style.background]="form().status === opt.value ? opt.bg : 'rgba(255,255,255,0.04)'"
+                      [style.color]="form().status === opt.value ? opt.color : 'var(--text-muted)'"
+                      [style.border-color]="form().status === opt.value ? opt.color + '88' : 'var(--border-glass)'"
+                      (click)="patchForm({ status: opt.value })">
+                      {{ opt.label }}
+                    </button>
+                  }
                 </div>
               </div>
             </div>
@@ -310,6 +303,13 @@ export class InstitutionFormModalComponent implements OnInit, OnDestroy {
   private geocoder = inject(HttpGeocoderProvider);
 
   readonly institutionTypes = INSTITUTION_TYPES;
+
+  readonly statusOpts = [
+    { value: 'ACTIVA' as EstadoInstitucion,               label: 'Activa',     color: 'var(--accent-emerald)', bg: 'rgba(16,185,129,0.12)' },
+    { value: 'PENDIENTE_ACTIVACION' as EstadoInstitucion, label: 'Pendiente',  color: 'var(--accent-blue)',    bg: 'rgba(59,130,246,0.12)' },
+    { value: 'SUSPENDIDA' as EstadoInstitucion,           label: 'Suspendida', color: 'var(--accent-amber)',   bg: 'rgba(245,158,11,0.12)' },
+    { value: 'BAJA' as EstadoInstitucion,                 label: 'Baja',       color: 'var(--text-muted)',     bg: 'rgba(148,163,184,0.1)' },
+  ];
 
   ngOnInit(): void {
     this.form.set(JSON.parse(JSON.stringify(this.initialForm())));

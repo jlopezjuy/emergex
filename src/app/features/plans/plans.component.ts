@@ -643,6 +643,18 @@ function emptyForm(): PlanForm {
               </div>
             }
 
+          @if (consistencyWarnings().length > 0) {
+            <div style="margin-top:12px;padding:10px 14px;border-radius:8px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3)">
+              <div class="eyebrow" style="color:var(--accent-amber);margin-bottom:6px">⚠ Inconsistencias detectadas</div>
+              @for (w of consistencyWarnings(); track $index) {
+                <div style="font-size:12px;color:var(--text-secondary);margin-bottom:3px">• {{ w }}</div>
+              }
+              <div style="font-size:11px;color:var(--text-muted);margin-top:6px">
+                Revisá los flags del plan vs las Prestaciones configuradas.
+              </div>
+            </div>
+          }
+
           </div><!-- /qc-body -->
 
           <div class="qc-foot">
@@ -1007,6 +1019,7 @@ export class PlansComponent implements OnInit {
 
   // ── State ──
   readonly tab = signal<'particulares' | 'corporativos' | 'zonas'>('particulares');
+  readonly consistencyWarnings = signal<string[]>([]);
   readonly planPrestacionRows = signal<PlanPrestacionRow[]>([]);
   readonly loadingPlanPrestaciones = signal(false);
   readonly loadingSave = signal(false);
@@ -1248,6 +1261,7 @@ export class PlansComponent implements OnInit {
 
   openNewForm(): void {
     this.editingPlan.set(null);
+    this.consistencyWarnings.set([]);
     const aud = this.tab() === 'zonas' ? 'particulares' : this.tab() as 'particulares' | 'corporativos';
     this.form.set({ ...emptyForm(), audience: aud });
     this.formOpen.set(true);
@@ -1255,6 +1269,7 @@ export class PlansComponent implements OnInit {
   }
 
   openEditForm(plan: Plan): void {
+    this.consistencyWarnings.set([]);
     this.editingPlan.set(plan);
     this.form.set({
       name: plan.name,
@@ -1323,11 +1338,20 @@ export class PlansComponent implements OnInit {
     this.loadingSave.set(true);
     const op = editing ? this.api.update(dto) : this.api.create(dto);
     op.pipe(
-      switchMap(savedPlan => this.syncPlanPrestaciones(+savedPlan.id)),
+      switchMap(savedPlan => this.syncPlanPrestaciones(+savedPlan.id).pipe(
+        map(() => savedPlan)
+      )),
       takeUntilDestroyed(this.destroyRef)
     ).subscribe({
-      next: () => {
+      next: (savedPlan) => {
         this.api.getAll().pipe(takeUntilDestroyed(this.destroyRef)).subscribe(data => this.plans.set(data));
+        if (savedPlan.id) {
+          this.api.validarConsistenciaPlan(Number(savedPlan.id)).pipe(
+            catchError(() => of([] as string[]))
+          ).subscribe(warnings => {
+            this.consistencyWarnings.set(warnings);
+          });
+        }
         this.closeForm();
       },
       error: () => { this.loadingSave.set(false); },

@@ -20,6 +20,7 @@ import {
   HospitalDTO,
   EntregaHospitalariaDTO,
   TelemedicinaSalaResponseDTO,
+  CoberturaAsistenciaSnapshotDTO,
 } from '../dto/ticket.dto';
 
 const URGENCIA_MAP: Record<string, TicketAsistenciaDTO['prioridad']> = {
@@ -264,5 +265,10 @@ export class EmergencyApiService {
       `${environment.apiUrl}/api/operador-emergencias/tickets/${ticketId}/iniciar-telemedicina`,
       {}
     );
+  }
+
+  getCoberturaSnapshot(ticketId: number): Observable<CoberturaAsistenciaSnapshotDTO | null> {
+    return this.http.get<CoberturaAsistenciaSnapshotDTO>(`${environment.apiUrl}/api/v2/tickets/${ticketId}/cobertura-snapshot`)
+      .pipe(catchError(() => of(null)));
   }
 }

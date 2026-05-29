@@ -8,6 +8,8 @@ export interface TicketAsistenciaDTO {
   latitud?: number;
   longitud?: number;
   pacienteId?: number;
+  pacienteDni?: string;
+  pacienteNombreSnapshot?: string;
   ambulanciaId?: number;
   empresaId?: number;
   fechaCreacion?: string;
@@ -267,4 +269,21 @@ export interface TelemedicinaSalaResponseDTO {
   urlSala: string;
   expiresAt: string;
   consentimientoRequerido: boolean;
+}
+
+export interface CoberturaAsistenciaSnapshotDTO {
+  id?: number;
+  pacienteNombre?: string;
+  pacienteDni?: string;
+  tipoCobertura?: string;
+  planNombre?: string;
+  institucionNombre?: string;
+  contratoCodigo?: string;
+  requiereAutorizacion?: boolean;
+  requiereCopago?: boolean;
+  montoCopago?: number;
+  esFacturable?: boolean;
+  prestacionesIncluidasSnapshot?: string;
+  topeAtencionesMensuales?: number;
+  snapshotTomadoEl?: string;
 }

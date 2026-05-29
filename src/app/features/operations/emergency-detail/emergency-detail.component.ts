@@ -12,6 +12,7 @@ import {
   HospitalDTO,
   EntregaHospitalariaDTO,
   TelemedicinaSalaResponseDTO,
+  CoberturaAsistenciaSnapshotDTO,
 } from '../../../data-access/dto/ticket.dto';
 import { LoadingStateComponent } from '../../../shared/components/loading-state/loading-state.component';
 import { ErrorStateComponent } from '../../../shared/components/error-state/error-state.component';
@@ -238,6 +239,54 @@ const ALL_STEPS: StatusStep[] = [
                   </p>
                 }
               </emx-glass-card>
+
+              <!-- 2b. Cobertura snapshot -->
+              @if (coberturaSnapshot()) {
+                @let snap = coberturaSnapshot()!;
+                <emx-glass-card>
+                  <div class="info-section" style="margin-top:0">
+                    <div class="eyebrow" style="color:var(--accent-blue);margin-bottom:8px">Cobertura al momento del ticket</div>
+                    <div class="info-grid">
+                      @if (snap.planNombre) {
+                        <div class="info-item">
+                          <div class="info-label">Plan</div>
+                          <div class="info-value">{{ snap.planNombre }}</div>
+                        </div>
+                      }
+                      @if (snap.institucionNombre) {
+                        <div class="info-item">
+                          <div class="info-label">Institución</div>
+                          <div class="info-value">{{ snap.institucionNombre }}</div>
+                        </div>
+                      }
+                      @if (snap.tipoCobertura) {
+                        <div class="info-item">
+                          <div class="info-label">Tipo</div>
+                          <div class="info-value">{{ snap.tipoCobertura }}</div>
+                        </div>
+                      }
+                      <div class="info-item">
+                        <div class="info-label">Copago</div>
+                        <div class="info-value" [style.color]="snap.requiereCopago ? 'var(--accent-amber)' : 'var(--accent-emerald)'">
+                          {{ snap.requiereCopago ? ('$' + snap.montoCopago) : 'Sin copago' }}
+                        </div>
+                      </div>
+                      <div class="info-item">
+                        <div class="info-label">Autorización</div>
+                        <div class="info-value" [style.color]="snap.requiereAutorizacion ? 'var(--accent-amber)' : 'var(--accent-emerald)'">
+                          {{ snap.requiereAutorizacion ? 'Requerida' : 'No requerida' }}
+                        </div>
+                      </div>
+                      @if (snap.prestacionesIncluidasSnapshot) {
+                        <div class="info-item" style="grid-column:1/-1">
+                          <div class="info-label">Prestaciones incluidas</div>
+                          <div class="info-value" style="font-size:11px">{{ snap.prestacionesIncluidasSnapshot }}</div>
+                        </div>
+                      }
+                    </div>
+                  </div>
+                </emx-glass-card>
+              }
 
               <!-- 3. Procedimientos -->
               <emx-glass-card>
@@ -1219,6 +1268,9 @@ export class EmergencyDetailComponent implements OnInit {
   // Hospital catalog
   readonly hospitales = signal<HospitalDTO[]>([]);
 
+  // Cobertura snapshot al momento del ticket
+  readonly coberturaSnapshot = signal<CoberturaAsistenciaSnapshotDTO | null>(null);
+
   // EntregaHospitalaria modal
   readonly showEntregaModal = signal(false);
   readonly entregaReceptorNombre = signal('');
@@ -1486,6 +1538,10 @@ export class EmergencyDetailComponent implements OnInit {
             next: (data) => this.timeline.set(data),
             error: () => this.timeline.set([]),
           });
+
+    this.emergencyApi.getCoberturaSnapshot(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(snap => {
+      this.coberturaSnapshot.set(snap);
+    });
   }
 
   private loadTicketGeo(id: number): void {
