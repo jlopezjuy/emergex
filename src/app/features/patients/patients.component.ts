@@ -8,7 +8,7 @@ import { PatientApiService } from '../../data-access/api/patient.api';
 import { PlanComercialApiService } from '../../data-access/api/plan-comercial.api';
 import { AuthService } from '../../core/auth/auth.service';
 import { SessionStore } from '../../core/stores/session.store';
-import { PacienteDTO, FichaAfiliadoDTO, FacturaDTO, CoberturaFichaDTO, MiembroGrupoFamiliarDTO, ConsumoMensualDTO, OrdenMedicaDTO, AltaAfiliadoCompletaRequest, DependienteAltaRequest } from '../../data-access/dto/patient.dto';
+import { PacienteDTO, FichaAfiliadoDTO, FacturaDTO, CoberturaFichaDTO, MiembroGrupoFamiliarDTO, ConsumoMensualDTO, OrdenMedicaDTO, AltaAfiliadoCompletaRequest, AltaAfiliadoCompletaResponse, DependienteAltaRequest } from '../../data-access/dto/patient.dto';
 import { PlanComercialDTO, PlanCoverages } from '../../data-access/dto/plan-comercial.dto';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
@@ -16,6 +16,7 @@ import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { PatientDetailDrawerComponent } from './components/patient-detail-drawer/patient-detail-drawer.component';
 import { PatientFormModalComponent } from './components/patient-form-modal/patient-form-modal.component';
 import { QuickPaymentModalComponent, QuickPaymentPayload } from './components/quick-payment-modal/quick-payment-modal.component';
+import { PatientWizardComponent } from './components/patient-wizard/patient-wizard.component';
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -137,7 +138,8 @@ function sexoFromGender(g: 'M' | 'F' | 'X'): 'MASCULINO' | 'FEMENINO' | 'OTRO' {
     UpperCasePipe,
     PatientDetailDrawerComponent,
     PatientFormModalComponent,
-    QuickPaymentModalComponent
+    QuickPaymentModalComponent,
+    PatientWizardComponent,
   ],
   templateUrl: './patients.component.html',
   styleUrl: './patients.component.scss'
@@ -227,7 +229,10 @@ export class PatientsComponent implements OnInit {
   readonly traspasoSelectedMiembroId  = signal<number | null>(null);
   readonly traspasoLoading            = signal(false);
 
-  // ── State — form modal ──
+  // ── State — wizard de alta ──
+  readonly wizardOpen = signal(false);
+
+  // ── State — form modal (edición) ──
   readonly formOpen      = signal(false);
   readonly editingRow    = signal<PatientRow | null>(null);
   readonly formTab       = signal<'titular' | 'group'>('titular');
@@ -669,8 +674,19 @@ export class PatientsComponent implements OnInit {
     }
   }
 
-  // ── Form Modal ──
+  // ── Wizard alta (nuevo afiliado) ──
+  openWizard(): void {
+    this.wizardOpen.set(true);
+  }
+
+  onAltaWizardCompleted(_res: AltaAfiliadoCompletaResponse): void {
+    this.wizardOpen.set(false);
+    this.loadPatients(true);
+  }
+
+  // ── Form Modal (edición) ──
   openNewForm(): void {
+    // Mantenido para compatibilidad; el alta usa openWizard()
     this.editingRow.set(null);
     this.form.set(emptyForm());
     this.formTab.set('titular');

@@ -198,6 +198,8 @@ export class SidebarComponent {
     { path: '/patients', label: 'Afiliados', title: 'Afiliados', icon: '🧑‍⚕️' },
     { path: '/institutions', label: 'Instituciones', title: 'Instituciones', icon: '🏥' },
     { path: '/plans', label: 'Planes', title: 'Planes comerciales', icon: '📦' },
+    { path: '/zonas-tarifas', label: 'Zonas/Tarifas', title: 'Zonas de cobertura y tarifas', icon: '🗂️' },
+    { path: '/grupos-familiares', label: 'Grupos familiares', title: 'Grupos familiares', icon: '👨‍👩‍👧' },
     { path: '/facturacion', label: 'Facturación', title: 'Facturación', icon: '🧾' },
     { path: '/events', label: 'Eventos', title: 'Eventos', icon: '📅' },
     { path: '/hospitals', label: 'Hospitales', title: 'Hospitales', icon: '🏨' },

@@ -90,6 +90,28 @@ export const routes: Routes = [
           import('./features/patients/patients.component').then((m) => m.PatientsComponent),
       },
       {
+        path: 'patients/:id',
+        loadComponent: () =>
+          import('./features/patients/patient-detail/patient-detail.component').then(
+            (m) => m.PatientDetailComponent,
+          ),
+      },
+      {
+        path: 'zonas-tarifas',
+        canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_PROPIETARIO', 'ROLE_ADMINISTRADOR')],
+        loadComponent: () =>
+          import('./features/zonas-tarifas/zonas-tarifas.component').then(
+            (m) => m.ZonasTarifasComponent,
+          ),
+      },
+      {
+        path: 'grupos-familiares',
+        loadComponent: () =>
+          import('./features/grupos-familiares/grupos-familiares.component').then(
+            (m) => m.GruposFamiliaresComponent,
+          ),
+      },
+      {
         path: 'institutions',
         canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_PROPIETARIO', 'ROLE_ADMINISTRADOR')],
         loadComponent: () =>

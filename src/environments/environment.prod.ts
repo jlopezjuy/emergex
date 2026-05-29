@@ -1,5 +1,5 @@
 export const environment = {
   production: true,
-  apiUrl: '',
-  wsUrl: '/websocket/tracker',
+  apiUrl: 'https://aliviar.appcanvas.store',
+  wsUrl: 'https://aliviar.appcanvas.store/websocket/tracker',
 };

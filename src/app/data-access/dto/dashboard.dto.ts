@@ -12,13 +12,32 @@ export interface DashboardOperativoDTO {
   cargaPorHora?: Record<string, number>;
 }
 
+export interface CoberturaProximaVencerDTO {
+  coberturaId: number;
+  pacienteId: number;
+  pacienteNombre: string;
+  pacienteApellido: string;
+  pacienteDni: string;
+  vigenciaHasta: string; // ISO date
+  planNombre: string;
+  diasRestantes: number;
+}
+
+export interface AltaMensualDTO {
+  mes: string; // "YYYY-MM"
+  cantidad: number;
+}
+
 export interface DashboardComercialDTO {
   totalAfiliadosActivos: number;
   altasMesActual: number;
   ingresosMesActual: number;
   institucionesActivas: number;
   afiliadosPorPlan: Record<string, number>;
+  afiliadosPorInstitucion: Record<string, number>;
   facturasImpagas: number;
   facturasCobradas: number;
   moraFacturas: number;
+  coberturasPorVencer: CoberturaProximaVencerDTO[];
+  altasMensuales: AltaMensualDTO[];
 }
