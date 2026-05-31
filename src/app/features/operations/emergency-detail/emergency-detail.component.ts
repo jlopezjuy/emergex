@@ -304,7 +304,7 @@ const ALL_STEPS: StatusStep[] = [
                       <li class="text-sm" style="border-top: 1px solid var(--border-glass); padding-top: 0.5rem;">
                         <p style="color: var(--text-primary);">{{ p.descripcion ?? '—' }}</p>
                         <p class="text-xs mt-0.5" style="color: var(--text-muted);">
-                          {{ p.ejecutadoPor ?? '—' }} · {{ formatTime(p.timestamp) }}
+                          {{ p.ejecutadoPor }} · {{ formatTime(p.timestamp) }}
                         </p>
                       </li>
                     }
@@ -328,7 +328,7 @@ const ALL_STEPS: StatusStep[] = [
                       <li class="text-sm" style="border-top: 1px solid var(--border-glass); padding-top: 0.5rem;">
                         <p class="font-semibold" style="color: var(--text-primary);">{{ m.medicamento ?? '—' }}</p>
                         <p class="text-xs mt-0.5" style="color: var(--text-secondary);">
-                          {{ m.dosis ?? '—' }} · {{ m.via ?? '—' }} · por {{ m.administradoPor ?? '—' }}
+                          {{ m.dosis ?? '—' }} · {{ m.via ?? '—' }} · por {{ m.administradoPor }}
                         </p>
                       </li>
                     }

@@ -362,12 +362,12 @@ function emptyForm(): PlanForm {
                   @for (t of tariffs(); track t.id) {
                     <tr style="border-bottom:1px solid var(--border-hairline)">
                       <td style="padding:10px 14px;font-weight:500;color:var(--text-primary)">
-                        {{ t.prestacion?.nombre }} 
-                        <span class="mono micro" style="color:var(--text-muted);margin-left:4px">[{{ t.prestacion?.codigo }}]</span>
+                        {{ t.prestacion.nombre }} 
+                        <span class="mono micro" style="color:var(--text-muted);margin-left:4px">[{{ t.prestacion.codigo }}]</span>
                       </td>
                       <td style="padding:10px 14px;color:var(--text-secondary)">
-                        {{ t.zona?.nombre }} 
-                        <span class="mono micro" style="color:var(--text-muted)">({{ t.zona?.codigoPostal }})</span>
+                        {{ t.zona.nombre }} 
+                        <span class="mono micro" style="color:var(--text-muted)">({{ t.zona.codigoPostal }})</span>
                       </td>
                       <td class="mono" style="padding:10px 14px;text-align:right;color:var(--accent-emerald);font-weight:600">
                         {{ fmtCurrency(t.cargoMinimo) }}

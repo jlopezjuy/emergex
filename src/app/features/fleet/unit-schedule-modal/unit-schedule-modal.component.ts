@@ -57,13 +57,13 @@ const DIA_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
           @if (activeTab() === 'tripulacion') {
             @if (loadingGuardias()) { <emx-loading-state /> } @else {
               <div class="flex items-center justify-between mb-3">
-                <div class="eyebrow">TRIPULACIÓN DEL TURNO · {{ selectedTurno()?.tripulacion?.length ?? 0 }} MIEMBROS</div>
+                <div class="eyebrow">TRIPULACIÓN DEL TURNO · {{ selectedTurno()!.tripulacion.length }} MIEMBROS</div>
                 <button type="button" class="btn btn--ghost btn--sm" (click)="showCrewPicker.update(v => !v)">+ Agregar miembro</button>
               </div>
 
               <div class="mb-3">
                 <label class="eyebrow">Turno configurado</label>
-                <select class="qc-input mt-1" [value]="selectedTurno()?.uiId ?? ''" (change)="seleccionarTurno($event)">
+                <select class="qc-input mt-1" [value]="selectedTurno()!.uiId" (change)="seleccionarTurno($event)">
                   @for (t of turnosUi(); track t.uiId) {
                     <option [value]="t.uiId">{{ t.label }} · {{ t.horaInicio }}–{{ t.horaFin }}</option>
                   }
@@ -84,7 +84,7 @@ const DIA_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
               @if (!selectedTurno()) {
                 <emx-empty-state message="Agregá un turno antes de configurar tripulación" />
-              } @else if ((selectedTurno()!.tripulacion ?? []).length === 0) {
+              } @else if (selectedTurno()!.tripulacion.length === 0) {
                 <emx-empty-state message="Sin tripulación en este turno" />
               } @else {
                 <ul class="flex flex-col gap-2">

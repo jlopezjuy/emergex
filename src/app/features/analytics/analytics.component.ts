@@ -8,7 +8,6 @@ import { localDateYmd } from '../../shared/utils/date-local.util';
 import { DonutChartComponent, DonutSegment } from '../../shared/components/charts/donut-chart/donut-chart.component';
 import { SparklineComponent } from '../../shared/components/charts/sparkline/sparkline.component';
 import { BarsChartComponent } from '../../shared/components/charts/bars-chart/bars-chart.component';
-import { KpiCardComponent } from '../../shared/components/kpi-card/kpi-card.component';
 import { LoadingStateComponent } from '../../shared/components/loading-state/loading-state.component';
 import { ErrorStateComponent } from '../../shared/components/error-state/error-state.component';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
@@ -31,7 +30,6 @@ const EMPTY_HOUR_VALUES: number[] = Array(24).fill(0);
     DonutChartComponent,
     SparklineComponent,
     BarsChartComponent,
-    KpiCardComponent,
     LoadingStateComponent,
     ErrorStateComponent,
     CurrencyPipe,

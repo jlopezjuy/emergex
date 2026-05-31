@@ -6,7 +6,7 @@ import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { catchError, of } from 'rxjs';
 import { InstitutionsApiService } from '../../../../data-access/api/institutions.api';
-import { ContratoCoberturaPlanDTO, EstadoInstitucion, FacturacionContratoDTO, GenerarFacturaContratoRequest, InstitucionMiembroItem, InstitutionType } from '../../../../data-access/dto/institution.dto';
+import { ContratoCoberturaPlanDTO, EstadoInstitucion, FacturacionContratoDTO, GenerarFacturaContratoRequest, InstitucionEstadoCuentaDTO, InstitucionMiembroItem, InstitutionType } from '../../../../data-access/dto/institution.dto';
 import { StatusBadgeComponent } from '../../../../shared/components/status-badge/status-badge.component';
 
 export interface DrawerInstitution {
@@ -66,6 +66,8 @@ export class InstitutionDetailDrawerComponent implements OnChanges {
   readonly loadingPlanes = signal(false);
   readonly facturasContrato = signal<FacturacionContratoDTO[]>([]);
   readonly loadingFacturas = signal(false);
+  readonly estadoCuenta = signal<InstitucionEstadoCuentaDTO | null>(null);
+  readonly loadingEstadoCuenta = signal(false);
   readonly savingEstado = signal(false);
   readonly estadoError = signal<string | null>(null);
   readonly showFacturaForm = signal(false);
@@ -90,6 +92,7 @@ export class InstitutionDetailDrawerComponent implements OnChanges {
       this.miembros.set([]);
       this.planes.set([]);
       this.facturasContrato.set([]);
+      this.estadoCuenta.set(null);
     }
   }
 
@@ -106,7 +109,23 @@ export class InstitutionDetailDrawerComponent implements OnChanges {
       if (contratoId && this.facturasContrato().length === 0) {
         this.loadFacturasContrato(contratoId);
       }
+      if (!this.estadoCuenta()) {
+        this.loadEstadoCuenta();
+      }
     }
+  }
+
+  private loadEstadoCuenta(): void {
+    const id = Number(this.institution().id);
+    if (!id) return;
+    this.loadingEstadoCuenta.set(true);
+    this.api.getEstadoCuentaInstitucion(id).pipe(
+      catchError(() => of(null)),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe(dto => {
+      this.estadoCuenta.set(dto);
+      this.loadingEstadoCuenta.set(false);
+    });
   }
 
   private loadPlanes(contratoId: number): void {
@@ -164,7 +183,7 @@ export class InstitutionDetailDrawerComponent implements OnChanges {
     ).subscribe(res => {
       if (res === null && this.estadoError()) return; // catchError already handled
       this.savingEstado.set(false);
-      this.statusChanged.emit({ id: this.institution().id, nuevoEstado });
+      this.statusChanged.emit({ id: this.institution().id, nuevoEstado: res?.status ?? nuevoEstado });
     });
   }
 
@@ -188,6 +207,7 @@ export class InstitutionDetailDrawerComponent implements OnChanges {
       this.savingFactura.set(false);
       if (result) {
         this.facturasContrato.update(list => [result, ...list]);
+        this.loadEstadoCuenta();
         this.showFacturaForm.set(false);
       }
     });

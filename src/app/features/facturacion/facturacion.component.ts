@@ -3,7 +3,6 @@ import { FormsModule } from '@angular/forms';
 import { DecimalPipe } from '@angular/common';
 import { QuickPaymentModalComponent, QuickPaymentPayload } from '../patients/components/quick-payment-modal/quick-payment-modal.component';
 import { catchError, of } from 'rxjs';
-import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { localDateYmd } from '../../shared/utils/date-local.util';
 import { DateUtils } from '../../core/utils/date.utils';
 import {
@@ -66,7 +65,7 @@ function estadoColor(estado: string): string {
 @Component({
   selector: 'app-facturacion',
   standalone: true,
-  imports: [FormsModule, DecimalPipe, StatusBadgeComponent, QuickPaymentModalComponent],
+  imports: [FormsModule, DecimalPipe, QuickPaymentModalComponent],
   template: `
     <div class="screen">
 

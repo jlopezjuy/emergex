@@ -3,7 +3,20 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
-import { ContractDTO, ContractStatus, EstadoInstitucion, FacturacionContratoDTO, GenerarFacturaContratoRequest, ContratoCoberturaPlanDTO, InstitutionDTO, InstitutionType, InstitucionMiembroItem } from '../dto/institution.dto';
+import {
+  AltaInstitucionCompletaRequest,
+  AltaInstitucionCompletaResponse,
+  ContractDTO,
+  ContractStatus,
+  EstadoInstitucion,
+  FacturacionContratoDTO,
+  GenerarFacturaContratoRequest,
+  ContratoCoberturaPlanDTO,
+  InstitucionEstadoCuentaDTO,
+  InstitutionDTO,
+  InstitutionType,
+  InstitucionMiembroItem,
+} from '../dto/institution.dto';
 
 // ── ContratoCobertura backend types ──────────────────────────────────────────
 
@@ -172,7 +185,8 @@ function toBackend(dto: InstitutionDTO): Omit<InstitucionBackend, 'id' | 'planCo
     razonSocial:           dto.razonSocial || undefined,
     cuit:                  dto.cuit || undefined,
     tipoInstitucion:       mapTipoToBackend(dto.type),
-    activa:                dto.status === 'ACTIVA' || dto.status === 'PENDIENTE_ACTIVACION',
+    activa:                dto.status === 'ACTIVA',
+    estadoInstitucional:   dto.status,
     telefono:              dto.phone || undefined,
     email:                 dto.email || undefined,
     contactoAdministrativo: dto.adminContact || undefined,
@@ -201,6 +215,29 @@ export class InstitutionsApiService {
     );
   }
 
+  altaCompleta(req: AltaInstitucionCompletaRequest): Observable<AltaInstitucionCompletaResponse> {
+    const payload = {
+      institucion: toBackend(req.institucion as InstitutionDTO),
+      contratoInicial: req.contratoInicial
+        ? {
+            ...req.contratoInicial,
+            vigenciaDesde: req.contratoInicial.vigenciaDesde
+              ? `${req.contratoInicial.vigenciaDesde}T00:00:00Z`
+              : req.contratoInicial.vigenciaDesde,
+            vigenciaHasta: req.contratoInicial.vigenciaHasta
+              ? `${req.contratoInicial.vigenciaHasta}T00:00:00Z`
+              : req.contratoInicial.vigenciaHasta,
+          }
+        : undefined,
+    };
+    return this.http.post<any>(`${this.base}/alta-completa`, payload).pipe(
+      map(res => ({
+        institucion: toDTO(res.institucion),
+        contratoCobertura: res.contratoCobertura,
+      }))
+    );
+  }
+
   update(dto: InstitutionDTO): Observable<InstitutionDTO> {
     return this.http.put<InstitucionBackend>(`${this.base}/${dto.id}`, toBackend(dto)).pipe(
       map(toDTO),
@@ -224,8 +261,8 @@ export class InstitutionsApiService {
   /** All active contracts for the current empresa (multi-tenant filtered server-side). */
   getAllContratosActivos(): Observable<ContractDTO[]> {
     return this.http
-      .get<{ content: ContratoBackend[] }>(`${this.contratoBase}?estadoContrato.equals=ACTIVO&size=100`)
-      .pipe(map(page => page.content.map(contratoToDTO)));
+      .get<ContratoBackend[]>(`${this.contratoBase}?estadoContrato.equals=ACTIVO&size=100`)
+      .pipe(map(list => list.map(contratoToDTO)));
   }
 
   getMiembros(institucionId: number, page = 0, size = 50): Observable<InstitucionMiembroItem[]> {
@@ -291,11 +328,15 @@ export class InstitutionsApiService {
 
   // ── Estado institucional ─────────────────────────────────────────────────────
 
-  cambiarEstadoInstitucion(id: number, estado: EstadoInstitucion): Observable<void> {
-    return this.http.patch<void>(
+  cambiarEstadoInstitucion(id: number, estado: EstadoInstitucion): Observable<InstitutionDTO> {
+    return this.http.patch<InstitucionBackend>(
       `${environment.apiUrl}/api/v2/instituciones/${id}/estado`,
       JSON.stringify(estado),
       { headers: { 'Content-Type': 'application/json' } }
-    );
+    ).pipe(map(toDTO));
+  }
+
+  getEstadoCuentaInstitucion(id: number): Observable<InstitucionEstadoCuentaDTO> {
+    return this.http.get<InstitucionEstadoCuentaDTO>(`${this.base}/${id}/estado-cuenta`);
   }
 }

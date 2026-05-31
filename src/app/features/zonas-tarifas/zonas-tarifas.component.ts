@@ -91,8 +91,8 @@ import {
                   <tbody>
                     @for (t of tarifas(); track t.id) {
                       <tr>
-                        <td class="cell-zona">{{ t.zona?.nombre ?? '—' }}</td>
-                        <td>{{ t.prestacion?.nombre ?? '—' }}</td>
+                        <td class="cell-zona">{{ t.zona.nombre }}</td>
+                        <td>{{ t.prestacion.nombre }}</td>
                         <td class="cell-price">&#36;{{ t.cargoMinimo }}</td>
                         <td class="cell-price">&#36;{{ t.costoEspera30Min }}</td>
                       </tr>

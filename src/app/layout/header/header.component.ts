@@ -1,5 +1,4 @@
 import { Component, input, output, inject, signal, computed, OnInit, OnDestroy } from '@angular/core';
-import { NgIf } from '@angular/common';
 import { Router } from '@angular/router';
 import { NotificationStore } from '../../core/stores/notification.store';
 import { AuthService } from '../../core/auth/auth.service';
@@ -9,7 +8,6 @@ import { DateUtils } from '../../core/utils/date.utils';
 @Component({
   selector: 'emx-header',
   standalone: true,
-  imports: [NgIf],
   template: `
     <header
       class="flex items-center justify-between px-3 py-2 border-b flex-shrink-0 relative min-h-14"

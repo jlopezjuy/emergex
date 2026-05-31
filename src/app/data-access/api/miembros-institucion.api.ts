@@ -40,7 +40,7 @@ export class MiembrosInstitucionApiService {
 
   search(query: string, institucionId: number): Observable<MiembroInstitucionDTO[]> {
     return this.http.get<MiembroBackend[]>(`${this.base}/search`, {
-      params: { q: query, institucionId: String(institucionId) },
+      params: { query, institucionId: String(institucionId) },
     }).pipe(map(list => list.map(toDTO)));
   }
 }

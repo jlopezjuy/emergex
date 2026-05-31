@@ -70,9 +70,9 @@ import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
                         type="button"
                         (click)="f[score.key].setValue(v)"
                         class="w-8 h-8 rounded-lg text-xs font-medium transition-all"
-                        [style.background]="(f[score.key].value ?? 0) >= v ? 'var(--accent-emerald)' : 'var(--surface-inset)'"
-                        [style.color]="(f[score.key].value ?? 0) >= v ? '#fff' : 'var(--text-muted)'"
-                        [style.border]="'1px solid ' + ((f[score.key].value ?? 0) >= v ? 'var(--accent-emerald)' : 'var(--border-glass)')"
+                        [style.background]="f[score.key].value >= v ? 'var(--accent-emerald)' : 'var(--surface-inset)'"
+                        [style.color]="f[score.key].value >= v ? '#fff' : 'var(--text-muted)'"
+                        [style.border]="'1px solid ' + (f[score.key].value >= v ? 'var(--accent-emerald)' : 'var(--border-glass)')"
                       >
                         {{ v }}
                       </button>

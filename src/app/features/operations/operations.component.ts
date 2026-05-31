@@ -296,7 +296,7 @@ type FeedTab = 'TODAS' | 'SIN_ASIGNAR' | 'CRITICAS';
                 @for (cob of coberturaVigente(); track $index) {
                   <div style="display:flex;flex-direction:column;gap:3px;padding:8px;border-radius:6px;background:rgba(255,255,255,0.04);border:1px solid var(--border-glass)">
                     <div style="display:flex;align-items:center;justify-content:space-between">
-                      <span class="text-xs font-semibold" style="color:var(--text-primary)">{{ cob.planNombre ?? cob.origen ?? 'Cobertura activa' }}</span>
+                      <span class="text-xs font-semibold" style="color:var(--text-primary)">{{ cob.planNombre || cob.origen || 'Cobertura activa' }}</span>
                       @if (cob.cubierto) {
                         <span style="font-size:10px;color:var(--accent-emerald);font-weight:600">● CUBIERTO</span>
                       } @else {

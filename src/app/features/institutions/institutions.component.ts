@@ -1,7 +1,7 @@
 import { Component, OnInit, signal, computed, HostListener, inject, DestroyRef } from '@angular/core';
 import { SessionStore } from '../../core/stores/session.store';
 import { FormsModule } from '@angular/forms';
-import { catchError, of } from 'rxjs';
+import { catchError, map, of } from 'rxjs';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { InstitutionsApiService } from '../../data-access/api/institutions.api';
 import { PlanComercialApiService } from '../../data-access/api/plan-comercial.api';
@@ -340,6 +340,7 @@ const PAGE_SIZE = 10;
         (close)="drawerInst.set(null)"
         (edit)="drawerInst.set(null); openEditForm($event)"
         (openContract)="drawerInst.set(null); openContract($event)"
+        (statusChanged)="onInstitutionStatusChanged($event)"
       />
     }
 
@@ -1264,7 +1265,14 @@ export class InstitutionsComponent implements OnInit {
     };
 
     this.loadingSave.set(true);
-    const op$ = editing ? this.api.update(dto) : this.api.create(dto);
+    const op$ = editing
+      ? this.api.update(dto)
+      : this.api.altaCompleta({
+          institucion: dto,
+          contratoInicial: this.buildContratoInicial(f),
+        }).pipe(
+          map(res => res.institucion),
+        );
     op$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
         this.closeForm();
@@ -1274,6 +1282,38 @@ export class InstitutionsComponent implements OnInit {
         this.loadingSave.set(false);
       },
     });
+  }
+
+  private buildContratoInicial(f: InstitutionForm): NonNullable<Parameters<InstitutionsApiService['altaCompleta']>[0]['contratoInicial']> {
+    const today = new Date();
+    const from = today.toISOString().split('T')[0];
+    const toDate = new Date(today);
+    toDate.setFullYear(toDate.getFullYear() + 1);
+    const to = toDate.toISOString().split('T')[0];
+
+    const plan = this._commercialPlans().find(p => p.id === f.plan || p.name === f.plan);
+    const defaultCap = plan?.tier === 'premium' ? 50 : plan?.tier === 'medio' ? 30 : 15;
+    const defaultKpi = plan?.tier === 'premium' ? 8 : plan?.tier === 'medio' ? 12 : 15;
+
+    return {
+      modalidadCobertura: 'AREA_PROTEGIDA',
+      vigenciaDesde: from,
+      vigenciaHasta: to,
+      estadoContrato: 'ACTIVO',
+      precioMensualAcordado: plan?.monthlyBase ?? 0,
+      topeAtencionesMensuales: defaultCap,
+      kpiRespuestaMinutos: defaultKpi,
+      planComercialId: plan?.numericId,
+    };
+  }
+
+  onInstitutionStatusChanged(event: { id: string; nuevoEstado: EstadoInstitucion }): void {
+    this.institutions.update(list =>
+      list.map(i => i.id === event.id ? { ...i, status: event.nuevoEstado } : i),
+    );
+    this.drawerInst.update(current =>
+      current && current.id === event.id ? { ...current, status: event.nuevoEstado } : current,
+    );
   }
 
   // ── Mini-map click ──

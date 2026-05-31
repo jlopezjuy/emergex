@@ -37,7 +37,7 @@ type StatusFilter = 'TODOS' | 'DISPONIBLE' | 'LIMITADO' | 'SATURADO';
                 [style.borderRight]="$last ? 'none' : '1px solid var(--border-glass)'">
                 <div style="font-size:10px; font-family:var(--font-mono); color:var(--text-muted); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px;">{{ stat.label }}</div>
                 <div style="font-size:18px; font-weight:700; font-family:var(--font-mono);"
-                  [style.color]="stat.color ?? 'var(--text-primary)'">{{ stat.value }}</div>
+                  [style.color]="stat.color">{{ stat.value }}</div>
               </div>
             }
           </div>
@@ -137,7 +137,7 @@ type StatusFilter = 'TODOS' | 'DISPONIBLE' | 'LIMITADO' | 'SATURADO';
                   <div style="min-width:0;flex:1;">
                     <h2 style="font-size:14px;font-weight:600;color:var(--text-primary);margin:0 0 3px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ h.nombre }}</h2>
                     <p style="font-size:10px;color:var(--text-muted);margin:0;font-family:var(--font-mono);">
-                      {{ h.codigo ?? '' }}{{ h.nivel ? ' · ' + h.nivel.replace('_', ' ') : '' }}{{ h.distanciaKm != null ? ' · ' + h.distanciaKm + ' km' : '' }}
+                      {{ h.codigo }}{{ h.nivel ? ' · ' + h.nivel.replace('_', ' ') : '' }}{{ h.distanciaKm != null ? ' · ' + h.distanciaKm + ' km' : '' }}
                     </p>
                   </div>
                   <button type="button" class="btn btn--ghost" style="padding: 4px; height: 24px; width: 24px; min-width: auto; display: flex; align-items: center; justify-content: center; border-radius: 6px; border: 1px solid var(--border-glass);" (click)="openEditModal(h)">

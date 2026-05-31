@@ -88,3 +88,39 @@ export interface InstitucionMiembroItem {
   vigenciaHasta?: string;
   activo: boolean;
 }
+
+export interface InstitucionEstadoCuentaDTO {
+  institucionId: number;
+  institucionNombre: string;
+  totalFacturado: number;
+  cantidadFacturas: number;
+  facturas: FacturacionContratoDTO[];
+}
+
+export interface AltaInstitucionCompletaRequest {
+  institucion: Omit<InstitutionDTO, 'id'> & { id?: string };
+  contratoInicial?: {
+    codigo?: string;
+    modalidadCobertura?: 'INDIVIDUAL_PLAN' | 'AREA_PROTEGIDA' | 'EVENTO';
+    vigenciaDesde: string;
+    vigenciaHasta?: string;
+    estadoContrato?: 'BORRADOR' | 'ACTIVO' | 'SUSPENDIDO' | 'VENCIDO' | 'RESCINDIDO' | 'EN_RENEGOCIACION' | 'FINALIZADO' | 'ANULADO';
+    precioMensualAcordado?: number;
+    topeAtencionesMensuales?: number;
+    kpiRespuestaMinutos?: number;
+    condicionesParticulares?: string;
+    planComercialId?: number;
+    areaProtegidaId?: number;
+  };
+}
+
+export interface AltaInstitucionCompletaResponse {
+  institucion: InstitutionDTO;
+  contratoCobertura?: {
+    id?: number;
+    codigo?: string;
+    vigenciaDesde?: string;
+    vigenciaHasta?: string;
+    estadoContrato?: string;
+  };
+}

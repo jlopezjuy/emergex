@@ -1,6 +1,5 @@
 import { Component, inject, signal, computed, OnInit, DestroyRef, effect } from '@angular/core';
-import { DatePipe, DecimalPipe } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { InternacionStore } from '../../../core/stores/internacion.store';
 import { InternacionApiService } from '../../../data-access/api/internacion.api';
@@ -10,7 +9,7 @@ import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 @Component({
   selector: 'emx-internacion-list',
   standalone: true,
-  imports: [RouterLink, DatePipe, DecimalPipe, FormsModule],
+  imports: [DecimalPipe, FormsModule],
   template: `
     <div class="h-full flex flex-col overflow-hidden">
       <!-- Main 3-column area -->

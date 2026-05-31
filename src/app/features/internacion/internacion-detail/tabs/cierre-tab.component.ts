@@ -1,7 +1,6 @@
 import { Component, input, inject, signal, computed, DestroyRef } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { DatePipe } from '@angular/common';
 import { InternacionApiService } from '../../../../data-access/api/internacion.api';
 import { InternacionStore } from '../../../../core/stores/internacion.store';
 import {
@@ -15,7 +14,7 @@ import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 @Component({
   selector: 'emx-cierre-tab',
   standalone: true,
-  imports: [ReactiveFormsModule, DatePipe],
+  imports: [ReactiveFormsModule],
   template: `
     <div class="max-w-3xl">
       <h2 class="text-lg font-semibold mb-2" style="color: var(--text-primary)">Cierre de Internación</h2>
