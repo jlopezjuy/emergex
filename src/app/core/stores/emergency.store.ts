@@ -1,5 +1,5 @@
 import { Injectable, inject, signal, computed, OnDestroy } from '@angular/core';
-import { forkJoin, interval, Observable, of, Subscription } from 'rxjs';
+import { forkJoin, interval, Observable, of, Subscription, Subject } from 'rxjs';
 import { catchError, map, switchMap } from 'rxjs/operators';
 import { StompSubscription } from '@stomp/stompjs';
 import { EmergencyApiService } from '../../data-access/api/emergency.api';
@@ -20,6 +20,8 @@ export class EmergencyStore implements OnDestroy {
   private tickerSub: Subscription | null = null;
   private ticketSub: StompSubscription | null = null;
   private asignacionSub: StompSubscription | null = null;
+
+  readonly ticketCreated$ = new Subject<void>();
 
   readonly emergencies = signal<TicketAsistenciaDTO[]>([]);
   readonly loading = signal(false);
@@ -136,6 +138,8 @@ export class EmergencyStore implements OnDestroy {
         }
       });
     }
+
+    this.ticketCreated$.next();
   }
 
   private withLatestGeo(ticket: TicketAsistenciaDTO): Observable<TicketAsistenciaDTO> {

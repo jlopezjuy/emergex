@@ -837,6 +837,7 @@ const ALL_STEPS: StatusStep[] = [
               placeholder="Ej: llamada duplicada, paciente no encontrado..."
               [value]="cancelMotivo()"
               (input)="cancelMotivo.set($any($event.target).value)"
+              (keydown)="onCancelKeydown($event)"
             />
           </div>
           <div class="clinical-modal-footer">
@@ -879,11 +880,19 @@ const ALL_STEPS: StatusStep[] = [
           <div class="grid grid-cols-2 gap-3">
             <label class="flex flex-col gap-1 col-span-2">
               <span class="clinical-field-label">Impresión clínica *</span>
-              <textarea rows="3" class="clinical-input" [value]="closeImpresion()" (input)="closeImpresion.set($any($event.target).value)"></textarea>
+              <textarea rows="3" class="clinical-input"
+                        [value]="closeImpresion()"
+                        (input)="closeImpresion.set($any($event.target).value)"
+                        (keydown)="onCloseKeydown($event)"
+              ></textarea>
             </label>
             <label class="flex flex-col gap-1 col-span-2">
               <span class="clinical-field-label">Procedimientos / tratamiento realizado</span>
-              <textarea rows="3" class="clinical-input" [value]="closeTratamiento()" (input)="closeTratamiento.set($any($event.target).value)"></textarea>
+              <textarea rows="3" class="clinical-input"
+                        [value]="closeTratamiento()"
+                        (input)="closeTratamiento.set($any($event.target).value)"
+                        (keydown)="onCloseKeydown($event)"
+              ></textarea>
             </label>
             <label class="flex flex-col gap-1">
               <span class="clinical-field-label">Tipo resolución</span>
@@ -980,7 +989,11 @@ const ALL_STEPS: StatusStep[] = [
 
           <label class="flex flex-col gap-1">
             <span class="clinical-field-label">Nota de cierre</span>
-            <textarea rows="2" class="clinical-input" [value]="closeNota()" (input)="closeNota.set($any($event.target).value)"></textarea>
+            <textarea rows="2" class="clinical-input"
+                      [value]="closeNota()"
+                      (input)="closeNota.set($any($event.target).value)"
+                      (keydown)="onCloseKeydown($event)"
+            ></textarea>
           </label>
 
           <div class="clinical-modal-footer">
@@ -1997,7 +2010,7 @@ Observación: ${this.clinicalObservacion().trim() || '—'}`,
     this.emergencyApi.cerrar(this.ticketId, req).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
             next: () => {
               this.showCloseDialog.set(false);
-              this.load();
+              this.router.navigate(['/dashboard']);
             },
             error: () => this.error.set('Error al cerrar el ticket'),
           });
@@ -2016,10 +2029,30 @@ Observación: ${this.clinicalObservacion().trim() || '—'}`,
             next: () => {
               this.showCancelDialog.set(false);
               this.cancelMotivo.set('');
-              this.load();
+              this.router.navigate(['/dashboard']);
             },
             error: () => this.error.set('Error al cancelar el ticket'),
           });
+  }
+
+  onCancelKeydown(event: Event): void {
+    const kEvent = event as KeyboardEvent;
+    if (kEvent.key === 'Enter') {
+      kEvent.preventDefault();
+      if (this.cancelMotivo().trim()) {
+        this.confirmarCancelacion();
+      }
+    }
+  }
+
+  onCloseKeydown(event: Event): void {
+    const kEvent = event as KeyboardEvent;
+    if (kEvent.key === 'Enter' && !kEvent.shiftKey) {
+      kEvent.preventDefault();
+      if (this.closeImpresion().trim()) {
+        this.confirmarCierre();
+      }
+    }
   }
 
   timelineColor(estado: string): string {

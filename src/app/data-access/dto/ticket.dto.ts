@@ -50,6 +50,12 @@ export interface AltaRapidaRequest {
   pacienteId?: number;
   observacion?: string;
   coberturaAlMomentoId?: number | null;
+
+  noAfiliado?: boolean;
+  pacienteNombre?: string;
+  pacienteApellido?: string;
+  pacienteDni?: string;
+  pacienteTelefono?: string;
 }
 
 export interface CrearTicketRequest {

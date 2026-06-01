@@ -48,7 +48,7 @@ const NIVELES_URGENCIA: { value: NivelUrgencia; label: string; sublabel: string;
   standalone: true,
   imports: [ReactiveFormsModule, ModalShellComponent, LocationPickerMapComponent],
   template: `
-    <emx-modal-shell title="Nueva Emergencia" (closed)="close()">
+    <emx-modal-shell title="Nueva Emergencia" [closeOnBackdropClick]="false" (closed)="close()">
       <form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-5">
 
         <!-- Tipo de asistencia -->
@@ -364,7 +364,7 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
   private geocode$ = new Subject<string>();
 
   form = this.fb.group({
-    tipoAsistencia:     ['' as TipoAsistencia | '', Validators.required],
+    tipoAsistencia:     ['EMERGENCIA_DOMICILIARIA' as TipoAsistencia | '', Validators.required],
     nivelUrgencia:      ['' as NivelUrgencia  | '', Validators.required],
     descripcionSintomas: ['', [Validators.required, Validators.minLength(1)]],
     direccion:          [''],
@@ -515,8 +515,16 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
       }
     }
 
-    const p = this.selectedPaciente();
-    if (p) req.pacienteId = p.id;
+    if (val.noAfiliado) {
+      req.noAfiliado = true;
+      if (val.pacienteNombre)   req.pacienteNombre   = val.pacienteNombre;
+      if (val.pacienteApellido) req.pacienteApellido = val.pacienteApellido;
+      if (val.pacienteDni)      req.pacienteDni      = val.pacienteDni;
+      if (val.pacienteTelefono) req.pacienteTelefono = val.pacienteTelefono;
+    } else {
+      const p = this.selectedPaciente();
+      if (p) req.pacienteId = p.id;
+    }
 
     if (val.observacion) req.observacion = val.observacion;
 

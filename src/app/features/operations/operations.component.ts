@@ -486,6 +486,13 @@ export class OperationsComponent implements OnInit, OnDestroy {
         this.emergencyStore.startTicketTracking();
       });
     }
+
+    this.emergencyStore.ticketCreated$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        this.emergencyStore.loadActivos();
+        this.refreshDashboardAndFleet();
+      });
   }
 
   ngOnDestroy(): void {

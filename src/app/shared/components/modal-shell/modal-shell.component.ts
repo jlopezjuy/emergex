@@ -49,9 +49,10 @@ import { Component, input, output } from '@angular/core';
 export class ModalShellComponent {
   title = input('');
   closed = output<void>();
+  closeOnBackdropClick = input(true);
 
   onBackdropClick(event: MouseEvent): void {
-    if (event.target === event.currentTarget) {
+    if (this.closeOnBackdropClick() && event.target === event.currentTarget) {
       this.closed.emit();
     }
   }
