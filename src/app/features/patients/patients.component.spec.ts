@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { PatientsComponent } from './patients.component';
+import { provideRouter } from '@angular/router';
 
 describe('PatientsComponent — utility functions', () => {
   let component: PatientsComponent;
@@ -12,6 +13,7 @@ describe('PatientsComponent — utility functions', () => {
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
+        provideRouter([]),
       ],
     }).compileComponents();
 

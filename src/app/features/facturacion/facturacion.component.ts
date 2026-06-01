@@ -136,6 +136,20 @@ function estadoColor(estado: string): string {
                 Generar factura
               </button>
             </div>
+            <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px">
+              <div class="glass" style="padding:10px;border-radius:10px;border:1px solid var(--border-glass)">
+                <div class="eyebrow">Facturas B2B</div>
+                <div class="mono" style="font-size:18px;font-weight:600">{{ facturasInstitucionales().length }}</div>
+              </div>
+              <div class="glass" style="padding:10px;border-radius:10px;border:1px solid var(--border-glass)">
+                <div class="eyebrow">Importe institucional</div>
+                <div class="mono" style="font-size:18px;font-weight:600;color:var(--accent-blue)">{{ fmtCurrency(kpisInstitucionales().totalFacturado) }}</div>
+              </div>
+              <div class="glass" style="padding:10px;border-radius:10px;border:1px solid var(--border-glass)">
+                <div class="eyebrow">Deuda B2C vigente</div>
+                <div class="mono" style="font-size:18px;font-weight:600;color:var(--accent-amber)">{{ fmtCurrency(kpis().pendiente) }}</div>
+              </div>
+            </div>
 
             @if (loadingInstitucionales()) {
               <div style="padding:40px;text-align:center;color:var(--text-muted);font-size:12px">Cargando...</div>
@@ -659,6 +673,13 @@ export class FacturacionComponent implements OnInit {
     const pendiente = list.filter(f => f.estado === 'EMITIDA').reduce((s, f) => s + f.importeTotal, 0);
     const vencidas  = list.filter(f => f.estado === 'VENCIDA').length;
     return { totalFacturado, cobrado, pendiente, vencidas };
+  });
+
+  readonly kpisInstitucionales = computed(() => {
+    const list = this.facturasInstitucionales();
+    return {
+      totalFacturado: list.reduce((acc, f) => acc + (f.importeTotal ?? 0), 0),
+    };
   });
 
   // ── Lifecycle ──

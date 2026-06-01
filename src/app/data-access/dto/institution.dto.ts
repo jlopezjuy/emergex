@@ -65,6 +65,7 @@ export interface FacturacionContratoDTO {
   cantidadMiembrosFacturados: number;
   precioUnitario: number;
   importeTotal: number;
+  saldoPendiente?: number;
   observaciones?: string;
   contratoCobertura?: { id: number; codigo?: string; nombre?: string };
   empresa?: { id: number };
@@ -75,6 +76,43 @@ export interface GenerarFacturaContratoRequest {
   periodoDesde: string;
   periodoHasta: string;
   observaciones?: string;
+}
+
+export interface RegistrarPagoInstitucionalRequest {
+  fechaPago: string;
+  monto: number;
+  metodoPago:
+    | 'EFECTIVO'
+    | 'TRANSFERENCIA'
+    | 'TARJETA_DEBITO'
+    | 'TARJETA_CREDITO'
+    | 'MERCADOPAGO'
+    | 'CHEQUE'
+    | 'OBRA_SOCIAL'
+    | 'PREPAGA'
+    | 'OTRO';
+  numeroReferencia?: string;
+  nota?: string;
+}
+
+export interface PagoInstitucionalResponseDTO {
+  pagoId: number;
+  facturacionContratoId: number;
+  fechaPago?: string;
+  monto?: number;
+  metodoPago?: string;
+  estadoPago?: string;
+  saldoPendienteFactura?: number;
+}
+
+export interface PagoInstitucionalItemDTO {
+  id: number;
+  fechaPago?: string;
+  montoTotal?: number;
+  metodoPago?: string;
+  estado?: string;
+  numeroReferencia?: string;
+  nota?: string;
 }
 
 export interface InstitucionMiembroItem {
@@ -93,7 +131,17 @@ export interface InstitucionEstadoCuentaDTO {
   institucionId: number;
   institucionNombre: string;
   totalFacturado: number;
+  totalPagado?: number;
+  saldoPendiente?: number;
+  deudaEstimada?: boolean;
+  detalleCalculoDeuda?: string;
+  totalVencido?: number;
+  totalPorVencer?: number;
+  totalAlDia?: number;
   cantidadFacturas: number;
+  cantidadVencidas?: number;
+  cantidadPorVencer?: number;
+  cantidadAlDia?: number;
   facturas: FacturacionContratoDTO[];
 }
 

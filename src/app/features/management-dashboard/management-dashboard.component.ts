@@ -328,6 +328,30 @@ import { CurrencyPipe, DecimalPipe } from '@angular/common';
                   </div>
                 </div>
               }
+
+              <div class="flex flex-col gap-2 mt-1">
+                <p class="text-[10px] font-mono uppercase tracking-wider" style="color: var(--text-muted);">Alertas comerciales inmediatas</p>
+                @if ((data()?.coberturasPorVencer?.length ?? 0) === 0) {
+                  <p class="text-[11px]" style="color: var(--text-muted);">No hay coberturas próximas a vencer en los próximos días.</p>
+                } @else {
+                  @for (c of (data()?.coberturasPorVencer ?? []).slice(0, 4); track c.coberturaId) {
+                    <div class="flex items-center justify-between p-2 rounded-lg" style="background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2);">
+                      <div>
+                        <p class="text-[11px] font-semibold" style="color: var(--text-primary);">
+                          {{ c.pacienteApellido }}, {{ c.pacienteNombre }}
+                        </p>
+                        <p class="text-[10px]" style="color: var(--text-muted);">
+                          DNI {{ c.pacienteDni }} · {{ c.planNombre }}
+                        </p>
+                      </div>
+                      <div class="text-right">
+                        <p class="text-[10px] font-mono" style="color: var(--accent-amber);">{{ c.diasRestantes }} días</p>
+                        <p class="text-[10px]" style="color: var(--text-muted);">{{ c.vigenciaHasta }}</p>
+                      </div>
+                    </div>
+                  }
+                }
+              </div>
             </div>
           </emx-glass-card>
         </div>

@@ -10,7 +10,7 @@ import { DateUtils } from '../../core/utils/date.utils';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { InstitutionDetailDrawerComponent, DrawerInstitution } from './components/institution-detail-drawer/institution-detail-drawer.component';
 import { InstitutionFormModalComponent, InstitutionForm } from './components/institution-form-modal/institution-form-modal.component';
-import { EstadoInstitucion, InstitutionType } from '../../data-access/dto/institution.dto';
+import { EstadoInstitucion, FacturacionContratoDTO, InstitutionType } from '../../data-access/dto/institution.dto';
 import { InstitutionContractModalComponent } from './components/institution-contract-modal/institution-contract-modal.component';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 
@@ -171,6 +171,42 @@ const PAGE_SIZE = 10;
         </div>
       </div>
 
+      <div class="glass-strong" style="padding:12px 14px;margin-bottom:12px;border-radius:12px">
+        <div class="eyebrow" style="margin-bottom:10px">RESUMEN OPERATIVO 360</div>
+        <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px">
+          <div class="screen-kpi" style="margin:0">
+            <div class="eyebrow">Contratos activos</div>
+            <div class="mono" style="font-size:16px;font-weight:600">{{ contracts360().active }}</div>
+          </div>
+          <div class="screen-kpi" style="margin:0">
+            <div class="eyebrow">Contratos a vencer (&lt;30d)</div>
+            <div class="mono" style="font-size:16px;font-weight:600;color:var(--accent-amber)">{{ contracts360().expiringSoon }}</div>
+          </div>
+          <div class="screen-kpi" style="margin:0">
+            <div class="eyebrow">Miembros institucionales</div>
+            <div class="mono" style="font-size:16px;font-weight:600;color:var(--accent-blue)">{{ counts().members }}</div>
+          </div>
+          <div class="screen-kpi" style="margin:0">
+            <div class="eyebrow">Facturado institucional</div>
+            <div class="mono" style="font-size:16px;font-weight:600;color:var(--accent-emerald)">
+              @if (loadingEstadoCuenta()) { … } @else { {{ fmtCurrency(totalFacturadoInstitucional()) }} }
+            </div>
+          </div>
+          <div class="screen-kpi" style="margin:0">
+            <div class="eyebrow">Deuda institucional</div>
+            <div class="mono" style="font-size:16px;font-weight:600;color:var(--accent-red)">
+              @if (loadingEstadoCuenta()) { … } @else { {{ fmtCurrency(totalDeudaInstitucional()) }} }
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+          <button class="btn btn--ghost btn--sm" (click)="statusFilter.set('ACTIVA'); page.set(0)">Ver activas</button>
+          <button class="btn btn--ghost btn--sm" (click)="statusFilter.set('SUSPENDIDA'); page.set(0)">Ver suspendidas</button>
+          <button class="btn btn--ghost btn--sm" (click)="showInstitucionesConDeuda()">Con deuda</button>
+          <button class="btn btn--ghost btn--sm" (click)="statusFilter.set('all'); page.set(0); searchQuery.set('')">Limpiar filtros</button>
+        </div>
+      </div>
+
       <!-- ── Table card ── -->
       <div class="glass-strong pt-card">
 
@@ -296,8 +332,23 @@ const PAGE_SIZE = 10;
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.25"/></svg>
                           Renovar contrato
                         </button>
+                        <button class="user-menu__item" (click)="registrarPagoInstitucional(inst); menuOpen.set(null)">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+                          Registrar pago institucional
+                        </button>
                         <div style="height:1px;background:var(--border-hairline);margin:4px 0"></div>
                         @if (canAdmin()) {
+                          @if (inst.status === 'SUSPENDIDA') {
+                            <button class="user-menu__item" (click)="reactivarPorDeuda(inst); menuOpen.set(null)">
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.25"/></svg>
+                              Reactivar cobertura
+                            </button>
+                          } @else {
+                            <button class="user-menu__item user-menu__item--danger" (click)="suspenderPorDeuda(inst); menuOpen.set(null)">
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                              Suspender por deuda
+                            </button>
+                          }
                           <button class="user-menu__item user-menu__item--danger">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
                             Dar de baja
@@ -325,6 +376,47 @@ const PAGE_SIZE = 10;
             }
             <button class="btn btn--ghost btn--sm" [disabled]="page() >= totalPages() - 1" [style.opacity]="page() >= totalPages() - 1 ? '0.4' : '1'" (click)="page.set(page() + 1)">Siguiente ›</button>
           </div>
+        </div>
+      </div>
+
+      <div class="glass-strong pt-card" style="margin-top:12px">
+        <div class="pt-toolbar">
+          <div class="eyebrow">FACTURAS INSTITUCIONALES</div>
+        </div>
+        <div class="data-table-wrap scroll-y">
+          <table class="data-table" style="width:100%;min-width:760px">
+            <thead>
+              <tr>
+                <th>Factura</th>
+                <th>Período</th>
+                <th>Miembros</th>
+                <th>Importe</th>
+                <th>Saldo</th>
+                <th>Observaciones</th>
+                <th style="width:40px"></th>
+              </tr>
+            </thead>
+            <tbody>
+              @if (!facturasInstitucionales().length) {
+                <tr><td colspan="7" style="padding:18px;text-align:center;color:var(--text-muted)">Sin facturas institucionales.</td></tr>
+              }
+              @for (f of facturasInstitucionales(); track f.id) {
+                <tr>
+                  <td class="mono">#{{ f.id }}</td>
+                  <td class="mono">{{ f.periodoDesde }} → {{ f.periodoHasta }}</td>
+                  <td>{{ f.cantidadMiembrosFacturados }}</td>
+                  <td class="mono">{{ fmtCurrency(f.importeTotal ?? 0) }}</td>
+                  <td class="mono" [style.color]="(f.saldoPendiente ?? f.importeTotal ?? 0) > 0 ? 'var(--accent-red)' : 'var(--accent-emerald)'">
+                    {{ fmtCurrency(f.saldoPendiente ?? f.importeTotal ?? 0) }}
+                  </td>
+                  <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ f.observaciones || '—' }}</td>
+                  <td>
+                    <button class="btn btn--ghost btn--sm" (click)="openPaymentFromFactura(f)">Pagar</button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -371,9 +463,82 @@ const PAGE_SIZE = 10;
         (save)="saveFormFromModal($event)"
       />
     }
+
+    @if (paymentInst()) {
+      <div class="qc-modal-overlay" (click)="closePaymentModal()">
+        <div class="qc-modal glass-strong" (click)="$event.stopPropagation()" style="max-width:560px;width:min(92vw,560px);padding:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <h3 style="margin:0;font-size:16px">Registrar pago institucional</h3>
+            <button class="action-icon" (click)="closePaymentModal()">✕</button>
+          </div>
+          <div class="eyebrow" style="margin-bottom:10px">{{ paymentInst()!.name }}</div>
+
+          <label class="eyebrow">Factura institucional</label>
+          <select class="qc-input" [(ngModel)]="paymentFacturaId" (ngModelChange)="onPaymentFacturaChange()" style="width:100%;margin-bottom:10px">
+            @for (f of paymentFacturas(); track f.id) {
+              <option [ngValue]="f.id">#{{ f.id }} · {{ f.periodoDesde }} a {{ f.periodoHasta }} · {{ fmtCurrency(f.importeTotal ?? 0) }}</option>
+            }
+          </select>
+
+          <label class="eyebrow">Monto</label>
+          <input class="qc-input" type="number" min="0" step="0.01" [(ngModel)]="paymentMonto" style="width:100%;margin-bottom:10px" />
+
+          <label class="eyebrow">Método</label>
+          <select class="qc-input" [(ngModel)]="paymentMetodo" style="width:100%;margin-bottom:10px">
+            @for (m of paymentMethods; track m) {
+              <option [value]="m">{{ m }}</option>
+            }
+          </select>
+
+          <label class="eyebrow">Referencia (opcional)</label>
+          <input class="qc-input" [(ngModel)]="paymentReferencia" style="width:100%;margin-bottom:10px" />
+
+          <label class="eyebrow">Nota (opcional)</label>
+          <input class="qc-input" [(ngModel)]="paymentNota" style="width:100%;margin-bottom:14px" />
+
+          <div style="display:flex;justify-content:flex-end;gap:8px">
+            <button class="btn btn--ghost btn--sm" (click)="closePaymentModal()">Cancelar</button>
+            <button class="btn btn--primary btn--sm" [disabled]="loadingPayment()" (click)="submitPaymentModal()">Registrar pago</button>
+          </div>
+
+          <div style="margin-top:14px;border-top:1px solid var(--border-hairline);padding-top:10px">
+            <div class="eyebrow" style="margin-bottom:8px">Pagos de la factura</div>
+            <div style="max-height:180px;overflow:auto;border:1px solid var(--border-hairline);border-radius:8px">
+              <table class="data-table" style="width:100%">
+                <thead>
+                  <tr><th>Fecha</th><th>Método</th><th>Monto</th><th>Ref</th></tr>
+                </thead>
+                <tbody>
+                  @if (!pagosFacturaModal().length) {
+                    <tr><td colspan="4" style="padding:8px;color:var(--text-muted)">Sin pagos registrados.</td></tr>
+                  }
+                  @for (p of pagosFacturaModal(); track p.id) {
+                    <tr>
+                      <td class="mono">{{ p.fechaPago || '—' }}</td>
+                      <td>{{ p.metodoPago || '—' }}</td>
+                      <td class="mono">{{ fmtCurrency(p.montoTotal ?? 0) }}</td>
+                      <td class="mono">{{ p.numeroReferencia || '—' }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
   `,
   styles: [`
     :host { display: block; }
+    .qc-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(10,16,24,0.65);
+      display: grid;
+      place-items: center;
+      z-index: 90;
+      padding: 20px;
+    }
 
     /* ── Table card ── */
     .pt-card {
@@ -866,6 +1031,7 @@ export class InstitutionsComponent implements OnInit {
   ngOnInit(): void {
     this.loadInstitutions();
     this.loadPlans();
+    this.loadFacturasInstitucionales();
   }
 
   private loadPlans(): void {
@@ -922,11 +1088,61 @@ export class InstitutionsComponent implements OnInit {
                 });
               }
             });
+            this.loadEstadoCuentaSummary(mapped);
           });
+  }
+
+  private loadEstadoCuentaSummary(insts: Institution[]): void {
+    if (!insts.length) {
+      this.totalFacturadoInstitucional.set(0);
+      this.totalDeudaInstitucional.set(0);
+      this.institucionesConDeuda.set([]);
+      this.loadingEstadoCuenta.set(false);
+      return;
+    }
+    this.loadingEstadoCuenta.set(true);
+    let remaining = insts.length;
+    let total = 0;
+    let totalDeuda = 0;
+    const deudoras: string[] = [];
+    insts.forEach((inst) => {
+      const id = Number(inst.id);
+      if (!id) {
+        remaining -= 1;
+        if (remaining === 0) {
+          this.totalFacturadoInstitucional.set(total);
+          this.totalDeudaInstitucional.set(totalDeuda);
+          this.institucionesConDeuda.set(deudoras);
+          this.loadingEstadoCuenta.set(false);
+        }
+        return;
+      }
+      this.api.getEstadoDeudaInstitucion(id).pipe(
+        catchError(() => of(null)),
+        takeUntilDestroyed(this.destroyRef),
+      ).subscribe((res) => {
+        if (res) {
+          total += res.totalFacturado ?? 0;
+          totalDeuda += res.saldoPendiente ?? 0;
+          if ((res.saldoPendiente ?? 0) > 0) deudoras.push(inst.id);
+        }
+        remaining -= 1;
+        if (remaining === 0) {
+          this.totalFacturadoInstitucional.set(total);
+          this.totalDeudaInstitucional.set(totalDeuda);
+          this.institucionesConDeuda.set(deudoras);
+          this.loadingEstadoCuenta.set(false);
+        }
+      });
+    });
   }
 
   // ── State ──
   readonly institutions = signal<Institution[]>([]);
+  readonly totalFacturadoInstitucional = signal(0);
+  readonly totalDeudaInstitucional = signal(0);
+  readonly institucionesConDeuda = signal<string[]>([]);
+  readonly loadingEstadoCuenta = signal(false);
   readonly searchQuery = signal('');
   readonly statusFilter = signal('all');
   readonly typeFilter = signal('all');
@@ -948,6 +1164,19 @@ export class InstitutionsComponent implements OnInit {
   readonly form = signal<InstitutionForm>(emptyForm());
   readonly formTouched = signal(false);
   readonly loadingSave = signal(false);
+  readonly facturasInstitucionales = signal<FacturacionContratoDTO[]>([]);
+  readonly paymentInst = signal<Institution | null>(null);
+  readonly paymentFacturas = signal<any[]>([]);
+  readonly pagosFacturaModal = signal<any[]>([]);
+  readonly loadingPayment = signal(false);
+  readonly paymentMethods: Array<'EFECTIVO' | 'TRANSFERENCIA' | 'TARJETA_DEBITO' | 'TARJETA_CREDITO' | 'MERCADOPAGO' | 'CHEQUE' | 'OBRA_SOCIAL' | 'PREPAGA' | 'OTRO'> = [
+    'TRANSFERENCIA', 'EFECTIVO', 'TARJETA_DEBITO', 'TARJETA_CREDITO', 'MERCADOPAGO', 'CHEQUE', 'OBRA_SOCIAL', 'PREPAGA', 'OTRO',
+  ];
+  paymentFacturaId: number | null = null;
+  paymentMonto = 0;
+  paymentMetodo: 'EFECTIVO' | 'TRANSFERENCIA' | 'TARJETA_DEBITO' | 'TARJETA_CREDITO' | 'MERCADOPAGO' | 'CHEQUE' | 'OBRA_SOCIAL' | 'PREPAGA' | 'OTRO' = 'TRANSFERENCIA';
+  paymentReferencia = '';
+  paymentNota = '';
 
   // ── ngModel bridges ──
   get searchQuery_(): string { return this.searchQuery(); }
@@ -985,6 +1214,20 @@ export class InstitutionsComponent implements OnInit {
       activas:  list.filter(i => i.status === 'ACTIVA' || i.status === 'PENDIENTE_ACTIVACION').length,
       inactivas: list.filter(i => i.status === 'SUSPENDIDA' || i.status === 'BAJA').length,
       members:  list.filter(i => i.status === 'ACTIVA' || i.status === 'PENDIENTE_ACTIVACION').reduce((s, i) => s + i.members, 0),
+    };
+  });
+
+  readonly contracts360 = computed(() => {
+    const today = DateUtils.now();
+    const list = this.institutions();
+    return {
+      active: list.filter(i => i.contract?.status === 'active').length,
+      expiringSoon: list.filter(i => {
+        const to = i.contract?.to;
+        if (!to) return false;
+        const days = DateUtils.fromISO(to).diff(today, 'days').days;
+        return days >= 0 && days <= 30;
+      }).length,
     };
   });
 
@@ -1047,6 +1290,174 @@ export class InstitutionsComponent implements OnInit {
   // ── Table menu ──
   toggleMenu(id: string): void {
     this.menuOpen.set(this.menuOpen() === id ? null : id);
+  }
+
+  showInstitucionesConDeuda(): void {
+    const deudoras = new Set(this.institucionesConDeuda());
+    this.statusFilter.set('all');
+    this.page.set(0);
+    this.institutions.update(list => [...list].sort((a, b) => {
+      const aDebt = deudoras.has(a.id) ? 1 : 0;
+      const bDebt = deudoras.has(b.id) ? 1 : 0;
+      return bDebt - aDebt;
+    }));
+  }
+
+  suspenderPorDeuda(inst: Institution): void {
+    const id = Number(inst.id);
+    if (!id) return;
+    const motivo = prompt(`Motivo de suspensión por deuda para ${inst.name}:`, 'Deuda institucional vencida');
+    if (motivo === null || !motivo.trim()) return;
+    this.api.suspenderPorDeuda(id, motivo.trim()).pipe(
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe({
+      next: () => this.loadInstitutions(),
+      error: (err) => alert(err?.error?.detail ?? err?.error?.title ?? 'No se pudo suspender la institución por deuda.'),
+    });
+  }
+
+  reactivarPorDeuda(inst: Institution): void {
+    const id = Number(inst.id);
+    if (!id) return;
+    const motivo = prompt(`Motivo de reactivación para ${inst.name}:`, 'Pago registrado');
+    if (motivo === null || !motivo.trim()) return;
+    this.api.reactivarInstitucion(id, motivo.trim()).pipe(
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe({
+      next: () => this.loadInstitutions(),
+      error: (err) => {
+        const msg = err?.error?.detail ?? err?.error?.title ?? 'La institución mantiene deuda vencida.';
+        if (!confirm(`${msg}\n\n¿Registrar excepción de supervisor y reactivar igual?`)) return;
+        const autorizadoPor = prompt('Autorizado por (supervisor):', '') ?? '';
+        this.api.reactivarInstitucion(id, motivo.trim(), true, autorizadoPor.trim() || undefined).pipe(
+          takeUntilDestroyed(this.destroyRef),
+        ).subscribe({
+          next: () => this.loadInstitutions(),
+          error: (err2) => alert(err2?.error?.detail ?? err2?.error?.title ?? 'No se pudo reactivar la institución.'),
+        });
+      },
+    });
+  }
+
+  registrarPagoInstitucional(inst: Institution): void {
+    const institucionId = Number(inst.id);
+    if (!institucionId) return;
+    this.paymentInst.set(inst);
+    this.paymentFacturas.set([]);
+    this.pagosFacturaModal.set([]);
+    this.paymentFacturaId = null;
+    this.paymentMonto = 0;
+    this.paymentMetodo = 'TRANSFERENCIA';
+    this.paymentReferencia = '';
+    this.paymentNota = `Pago institucional UI (${inst.name})`;
+    this.api.getContratosByInstitucion(institucionId).pipe(
+      catchError(() => of([])),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe((contratos) => {
+      const contrato = contratos[0];
+      if (!contrato?.id) {
+        alert('No hay contrato institucional para registrar pagos.');
+        this.closePaymentModal();
+        return;
+      }
+      this.api.getFacturasByContrato(contrato.id).pipe(
+        catchError(() => of([])),
+        takeUntilDestroyed(this.destroyRef),
+      ).subscribe((facturas) => {
+        if (!facturas.length) {
+          alert('No hay facturas institucionales para este contrato.');
+          this.closePaymentModal();
+          return;
+        }
+        this.paymentFacturas.set(facturas);
+        this.paymentFacturaId = facturas[0]?.id ?? null;
+        this.paymentMonto = facturas[0]?.importeTotal ?? 0;
+        this.onPaymentFacturaChange();
+      });
+    });
+  }
+
+  openPaymentFromFactura(factura: FacturacionContratoDTO): void {
+    this.paymentInst.set({
+      id: '',
+      name: 'Factura institucional',
+      razonSocial: '',
+      cuit: '',
+      type: 'empresa',
+      status: 'ACTIVA',
+      plan: '',
+      email: '',
+      phone: '',
+      adminContact: '',
+      opsContact: '',
+      address: '',
+      city: '',
+      lat: 0,
+      lng: 0,
+      members: 0,
+      sinceMonth: '',
+      contract: { code: '', plan: '', from: '', to: '', status: 'active', monthlyPrice: 0, monthlyCap: 0, kpiMinutes: 0, conditions: '' },
+    });
+    this.paymentFacturas.set([factura]);
+    this.paymentFacturaId = factura.id;
+    this.paymentMonto = factura.saldoPendiente ?? factura.importeTotal ?? 0;
+    this.paymentMetodo = 'TRANSFERENCIA';
+    this.paymentReferencia = '';
+    this.paymentNota = 'Pago institucional desde tabla de facturas';
+    this.onPaymentFacturaChange();
+  }
+
+  closePaymentModal(): void {
+    this.paymentInst.set(null);
+    this.paymentFacturas.set([]);
+    this.pagosFacturaModal.set([]);
+    this.loadingPayment.set(false);
+  }
+
+  onPaymentFacturaChange(): void {
+    if (!this.paymentFacturaId) {
+      this.pagosFacturaModal.set([]);
+      return;
+    }
+    this.api.getPagosFacturaInstitucional(this.paymentFacturaId).pipe(
+      catchError(() => of([])),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe((pagos) => this.pagosFacturaModal.set(pagos));
+  }
+
+  submitPaymentModal(): void {
+    if (!this.paymentFacturaId || this.paymentMonto <= 0) return;
+    this.loadingPayment.set(true);
+    const hoy = new Date().toISOString().slice(0, 10);
+    this.api.registrarPagoFacturaInstitucional(this.paymentFacturaId, {
+      fechaPago: hoy,
+      monto: this.paymentMonto,
+      metodoPago: this.paymentMetodo,
+      numeroReferencia: this.paymentReferencia.trim() || undefined,
+      nota: this.paymentNota.trim() || undefined,
+    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (res) => {
+        this.loadingPayment.set(false);
+        this.closePaymentModal();
+        this.loadInstitutions();
+        this.loadFacturasInstitucionales();
+        this.onPaymentFacturaChange();
+        alert(`Pago registrado. Saldo pendiente factura: ${this.fmtCurrency(res.saldoPendienteFactura ?? 0)}`);
+      },
+      error: (err) => {
+        this.loadingPayment.set(false);
+        alert(err?.error?.detail ?? err?.error?.title ?? 'No se pudo registrar el pago institucional.');
+      },
+    });
+  }
+
+  private loadFacturasInstitucionales(): void {
+    this.api.getAllFacturasInstitucionales(0, 50).pipe(
+      catchError(() => of([])),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe((facturas) => {
+      this.facturasInstitucionales.set(facturas);
+    });
   }
 
   @HostListener('document:click')

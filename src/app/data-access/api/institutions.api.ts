@@ -11,7 +11,10 @@ import {
   EstadoInstitucion,
   FacturacionContratoDTO,
   GenerarFacturaContratoRequest,
+  PagoInstitucionalResponseDTO,
+  PagoInstitucionalItemDTO,
   ContratoCoberturaPlanDTO,
+  RegistrarPagoInstitucionalRequest,
   InstitucionEstadoCuentaDTO,
   InstitutionDTO,
   InstitutionType,
@@ -326,6 +329,14 @@ export class InstitutionsApiService {
     });
   }
 
+  registrarPagoFacturaInstitucional(facturacionContratoId: number, req: RegistrarPagoInstitucionalRequest): Observable<PagoInstitucionalResponseDTO> {
+    return this.http.post<PagoInstitucionalResponseDTO>(`${this.facturacionInstBase}/${facturacionContratoId}/pagos`, req);
+  }
+
+  getPagosFacturaInstitucional(facturacionContratoId: number): Observable<PagoInstitucionalItemDTO[]> {
+    return this.http.get<PagoInstitucionalItemDTO[]>(`${this.facturacionInstBase}/${facturacionContratoId}/pagos`);
+  }
+
   // ── Estado institucional ─────────────────────────────────────────────────────
 
   cambiarEstadoInstitucion(id: number, estado: EstadoInstitucion): Observable<InstitutionDTO> {
@@ -338,5 +349,23 @@ export class InstitutionsApiService {
 
   getEstadoCuentaInstitucion(id: number): Observable<InstitucionEstadoCuentaDTO> {
     return this.http.get<InstitucionEstadoCuentaDTO>(`${this.base}/${id}/estado-cuenta`);
+  }
+
+  getEstadoDeudaInstitucion(id: number): Observable<InstitucionEstadoCuentaDTO> {
+    return this.http.get<InstitucionEstadoCuentaDTO>(`${this.base}/${id}/estado-deuda`);
+  }
+
+  suspenderPorDeuda(id: number, motivo: string, forzarConDeuda = false, autorizadoPor?: string): Observable<InstitutionDTO> {
+    return this.http.post<InstitucionBackend>(
+      `${this.base}/${id}/suspender-por-deuda`,
+      { motivo, forzarConDeuda, autorizadoPor },
+    ).pipe(map(toDTO));
+  }
+
+  reactivarInstitucion(id: number, motivo: string, forzarConDeuda = false, autorizadoPor?: string): Observable<InstitutionDTO> {
+    return this.http.post<InstitucionBackend>(
+      `${this.base}/${id}/reactivar`,
+      { motivo, forzarConDeuda, autorizadoPor },
+    ).pipe(map(toDTO));
   }
 }
