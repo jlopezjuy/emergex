@@ -43,6 +43,12 @@
         <button class="flex-1 sm:flex-initial px-4 py-2 text-xs font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition rounded-xl shadow-sm">
           Exportar CSV
         </button>
+        @if (canAdmin()) {
+          <button class="flex-1 sm:flex-initial px-4 py-2 text-xs font-semibold text-slate-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 transition rounded-xl shadow-sm flex items-center justify-center gap-1.5" (click)="openConsolidacion()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M20 8v6M23 11h-6"/></svg>
+            Fusión clínica
+          </button>
+        }
         @if (canEdit()) {
           <button class="flex-1 sm:flex-initial px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 transition rounded-xl shadow-sm flex items-center justify-center gap-1.5" (click)="openWizard()">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -528,4 +534,132 @@
     (close)="wizardOpen.set(false)"
     (altaCompleted)="onAltaWizardCompleted($event)"
   />
+}
+
+<!-- Modal de Consolidación Clínica (Fusión de Duplicados) -->
+@if (showConsolidacionModal()) {
+  <div class="fixed inset-0 z-[60] bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200" (click)="showConsolidacionModal.set(false)">
+    <div class="w-full max-w-lg bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200" (click)="$event.stopPropagation()">
+      
+      <!-- Header -->
+      <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m16 11 2 2 4-4"/></svg>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-slate-800">Consolidación Clínica (Fusión)</h3>
+            <p class="text-[10.5px] font-mono text-slate-400 mt-0.5 uppercase tracking-wider">Unificación de duplicados con Bitácora Legal</p>
+          </div>
+        </div>
+        <button class="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition" (click)="showConsolidacionModal.set(false)" [disabled]="consolidando()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <!-- Body -->
+      <div class="p-6 flex flex-col gap-4">
+        <div class="p-4 bg-amber-50/50 border border-amber-200/60 rounded-2xl text-xs text-amber-700 leading-normal">
+          <strong>¡IMPORTANTE! Bitácora Legal Activa:</strong> Esta acción unificará las historias clínicas, alergias y antecedentes. El paciente duplicado será desactivado y todo quedará auditado en el registro histórico del paciente principal.
+        </div>
+
+        <!-- Paciente Principal (El que conserva la historia clínica y cuenta) -->
+        <div class="flex flex-col gap-2">
+          <label class="text-[10px] font-mono font-bold tracking-widest text-slate-400 uppercase">Paciente Principal (Conserva Datos)</label>
+          <div class="relative">
+            <input
+              type="text"
+              class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-white text-slate-700 placeholder-slate-400 focus:outline-none"
+              placeholder="Buscar paciente principal por nombre/DNI..."
+              [ngModel]="searchQueryPrincipal()"
+              (ngModelChange)="searchQueryPrincipal.set($event); searchPrincipal($event)"
+            />
+            @if (loadingCandidatosPrincipal()) {
+              <div class="absolute right-3 top-2.5"><svg class="animate-spin h-4 w-4 text-blue-500" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg></div>
+            }
+            
+            @if (candidatosPrincipal().length > 0) {
+              <div class="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 max-h-40 overflow-y-auto">
+                @for (c of candidatosPrincipal(); track c.id) {
+                  <button type="button" class="w-full text-left px-3 py-2 hover:bg-slate-50 text-xs border-b border-slate-100 last:border-0"
+                          (click)="consolidacionPrincipalId.set(c.id); searchQueryPrincipal.set(c.nombre + ' ' + c.apellido + ' (DNI ' + c.dni + ')'); candidatosPrincipal.set([])">
+                    <strong>{{ c.nombre }} {{ c.apellido }}</strong> (DNI {{ c.dni }})
+                  </button>
+                }
+              </div>
+            }
+          </div>
+        </div>
+
+        <!-- Paciente Duplicado (El que se fusiona y desactiva) -->
+        <div class="flex flex-col gap-2">
+          <label class="text-[10px] font-mono font-bold tracking-widest text-slate-400 uppercase">Paciente Duplicado (Se fusiona y desactiva)</label>
+          <div class="relative">
+            <input
+              type="text"
+              class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-white text-slate-700 placeholder-slate-400 focus:outline-none"
+              placeholder="Buscar paciente duplicado por nombre/DNI..."
+              [ngModel]="searchQueryDuplicado()"
+              (ngModelChange)="searchQueryDuplicado.set($event); searchDuplicado($event)"
+            />
+            @if (loadingCandidatosDuplicado()) {
+              <div class="absolute right-3 top-2.5"><svg class="animate-spin h-4 w-4 text-blue-500" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg></div>
+            }
+            
+            @if (candidatosDuplicado().length > 0) {
+              <div class="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 max-h-40 overflow-y-auto">
+                @for (c of candidatosDuplicado(); track c.id) {
+                  <button type="button" class="w-full text-left px-3 py-2 hover:bg-slate-50 text-xs border-b border-slate-100 last:border-0"
+                          (click)="consolidacionDuplicadoId.set(c.id); searchQueryDuplicado.set(c.nombre + ' ' + c.apellido + ' (DNI ' + c.dni + ')'); candidatosDuplicado.set([])">
+                    <strong>{{ c.nombre }} {{ c.apellido }}</strong> (DNI {{ c.dni }})
+                  </button>
+                }
+              </div>
+            }
+          </div>
+        </div>
+
+        <!-- Justificación médica -->
+        <div class="flex flex-col gap-2">
+          <label class="text-[10px] font-mono font-bold tracking-widest text-slate-400 uppercase">Justificación Médica / Motivo *</label>
+          <textarea
+            class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs bg-white text-slate-700 placeholder-slate-400 focus:outline-none resize-none"
+            rows="2"
+            placeholder="Explicación médica de la unificación..."
+            [ngModel]="consolidacionMotivo()"
+            (ngModelChange)="consolidacionMotivo.set($event)"
+          ></textarea>
+        </div>
+
+        @if (consolidacionError()) {
+          <div class="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-600">
+            {{ consolidacionError() }}
+          </div>
+        }
+        @if (consolidacionSuccess()) {
+          <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-600">
+            {{ consolidacionSuccess() }}
+          </div>
+        }
+      </div>
+
+      <!-- Footer -->
+      <div class="p-6 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-2.5">
+        <button class="px-4 py-2 border border-slate-200 text-xs font-semibold text-slate-600 bg-white hover:bg-slate-100 rounded-xl shadow-xs transition"
+                (click)="showConsolidacionModal.set(false)" [disabled]="consolidando()">
+          Cancelar
+        </button>
+        <button class="px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-xl shadow-xs transition flex items-center gap-1.5"
+                [disabled]="!consolidacionPrincipalId() || !consolidacionDuplicadoId() || !consolidacionMotivo() || consolidando()" (click)="ejecutarConsolidacion()">
+          @if (consolidando()) {
+            <svg class="animate-spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+            Consolidando…
+          } @else {
+            Unificar Pacientes
+          }
+        </button>
+      </div>
+
+    </div>
+  </div>
 }

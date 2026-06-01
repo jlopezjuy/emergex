@@ -121,6 +121,9 @@ function estadoColor(estado: string): string {
         <button class="ft-tab" [attr.data-active]="tabActivo() === 'b2b'" (click)="tabActivo.set('b2b')">
           Facturación Institucional
         </button>
+        <button class="ft-tab" [attr.data-active]="tabActivo() === 'debitos'" (click)="tabActivo.set('debitos')">
+          Débitos Automáticos
+        </button>
       </div>
 
       <!-- ── Table card ── -->
@@ -281,6 +284,86 @@ function estadoColor(estado: string): string {
         }
 
         } <!-- end @if b2c -->
+
+        @if (tabActivo() === 'debitos') {
+          <!-- ── Débitos automáticos ── -->
+          <div style="padding:20px; display:flex; flex-direction:column; gap:20px">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px">
+              <div class="eyebrow" style="color:var(--accent-emerald)">DÉBITOS AUTOMÁTICOS B2C</div>
+            </div>
+            
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:20px">
+              <!-- Tarjeta de Generar Lote -->
+              <div class="glass" style="padding:20px; border-radius:12px; border:1px solid var(--border-glass); display:flex; flex-direction:column; justify-content:space-between">
+                <div>
+                  <h4 style="margin:0 0 10px 0; font-size:14px; font-weight:600">Generar Lote Mensual (CBU/Tarjetas)</h4>
+                  <p class="mono micro" style="color:var(--text-muted); margin-bottom:16px; line-height:1.4">
+                    Crea y descarga el archivo plano estructurado para enviar al banco o entidad recaudadora con todas las facturas EMITIDAS en el mes correspondiente.
+                  </p>
+                </div>
+                <div style="display:flex; gap:10px; align-items:flex-end">
+                  <div style="flex:1; display:flex; flex-direction:column; gap:4px">
+                    <label class="eyebrow">Mes</label>
+                    <select class="form-input" [ngModel]="genDebitoMes()" (ngModelChange)="genDebitoMes.set(+$event)">
+                      @for (m of meses; track $index) {
+                        <option [value]="$index + 1">{{ m }}</option>
+                      }
+                    </select>
+                  </div>
+                  <div style="flex:1; display:flex; flex-direction:column; gap:4px">
+                    <label class="eyebrow">Año</label>
+                    <input class="form-input" type="number" min="2020" max="2099" [ngModel]="genDebitoAnio()" (ngModelChange)="genDebitoAnio.set(+$event)"/>
+                  </div>
+                  <button class="btn btn--primary" (click)="onGenerarLoteDebito()" [disabled]="generandoLoteDebito()">
+                    @if (generandoLoteDebito()) { Generando... } @else { Descargar Lote }
+                  </button>
+                </div>
+              </div>
+
+              <!-- Tarjeta de Procesar Rendición -->
+              <div class="glass" style="padding:20px; border-radius:12px; border:1px solid var(--border-glass); display:flex; flex-direction:column; justify-content:space-between">
+                <div>
+                  <h4 style="margin:0 0 10px 0; font-size:14px; font-weight:600">Procesar Rendición Bancaria</h4>
+                  <p class="mono micro" style="color:var(--text-muted); margin-bottom:16px; line-height:1.4">
+                    Sube el archivo de respuesta o rendición enviado por el banco para acreditar los pagos recibidos y registrar automáticamente las suspensiones por mora.
+                  </p>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:10px">
+                  <div style="display:flex; gap:10px; align-items:center">
+                    <label class="btn btn--ghost btn--sm" style="cursor:pointer; display:inline-flex; align-items:center; gap:8px">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                      Seleccionar Archivo
+                      <input type="file" style="display:none" (change)="onFileSelected($event)" accept=".txt,.csv,.dat"/>
+                    </label>
+                    @if (procesandoRendicionDebito()) {
+                      <span class="mono micro" style="color:var(--accent-amber)">Procesando archivo de rendición...</span>
+                    }
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Alertas de estado -->
+            @if (debitoError()) {
+              <div style="padding:12px 14px; border-radius:8px; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); font-size:12.5px; color:var(--accent-red)">
+                {{ debitoError() }}
+              </div>
+            }
+            @if (debitoSuccess()) {
+              <div style="padding:12px 14px; border-radius:8px; background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.3); font-size:12.5px; color:var(--accent-emerald)">
+                {{ debitoSuccess() }}
+              </div>
+            }
+
+            <!-- Reporte de Rendición -->
+            @if (debitoReport()) {
+              <div class="glass-strong" style="padding:20px; border-radius:12px; border:1px solid var(--border-glass)">
+                <div class="eyebrow" style="color:var(--accent-blue); margin-bottom:10px">REPORTE DE AUDITORÍA DE RENDICIÓN</div>
+                <pre class="mono" style="font-size:11.5px; background:rgba(0,0,0,0.2); padding:14px; border-radius:8px; max-height:300px; overflow-y:auto; border:1px solid var(--border-glass); white-space:pre-wrap; margin:0; color:var(--text-secondary)">{{ debitoReport() }}</pre>
+              </div>
+            }
+          </div>
+        }
 
       </div>
     </div>
@@ -598,7 +681,16 @@ export class FacturacionComponent implements OnInit {
   readonly meses         = MESES;
 
   // ── Tab ──
-  readonly tabActivo = signal<'b2c' | 'b2b'>('b2c');
+  readonly tabActivo = signal<'b2c' | 'b2b' | 'debitos'>('b2c');
+
+  // ── Débitos Automáticos ──
+  readonly genDebitoMes = signal<number>(DateUtils.now().month);
+  readonly genDebitoAnio = signal<number>(DateUtils.now().year);
+  readonly generandoLoteDebito = signal(false);
+  readonly procesandoRendicionDebito = signal(false);
+  readonly debitoError = signal<string | null>(null);
+  readonly debitoSuccess = signal<string | null>(null);
+  readonly debitoReport = signal<string | null>(null);
 
   // ── Facturación institucional ──
   readonly facturasInstitucionales = signal<FacturacionContratoDTO[]>([]);
@@ -711,6 +803,70 @@ export class FacturacionComponent implements OnInit {
       if (list.length > 0 && !this.genInstContratoId) {
         this.genInstContratoId = list[0].id ?? 0;
       }
+    });
+  }
+
+  onGenerarLoteDebito(): void {
+    if (this.generandoLoteDebito()) return;
+    this.generandoLoteDebito.set(true);
+    this.debitoError.set(null);
+    this.debitoSuccess.set(null);
+    this.debitoReport.set(null);
+
+    const mes = this.genDebitoMes();
+    const anio = this.genDebitoAnio();
+
+    this.api.generarLoteDebito(mes, anio).pipe(
+      catchError(err => {
+        this.debitoError.set('Error al generar el lote de débitos.');
+        this.generandoLoteDebito.set(false);
+        return of(null);
+      }),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(blob => {
+      this.generandoLoteDebito.set(false);
+      if (!blob) return;
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `lote_debito_${anio}_${mes.toString().padStart(2, '0')}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      this.debitoSuccess.set(`Lote de débito de ${this.meses[mes - 1]} ${anio} generado y descargado con éxito.`);
+    });
+  }
+
+  onFileSelected(event: any): void {
+    const files = event.target?.files;
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    this.procesarRendicion(file);
+  }
+
+  procesarRendicion(file: File): void {
+    if (this.procesandoRendicionDebito()) return;
+    this.procesandoRendicionDebito.set(true);
+    this.debitoError.set(null);
+    this.debitoSuccess.set(null);
+    this.debitoReport.set(null);
+
+    this.api.procesarRendicionDebito(file).pipe(
+      catchError(err => {
+        this.debitoError.set(err?.error?.detail ?? err?.error?.title ?? 'Error al procesar el archivo de rendición.');
+        this.procesandoRendicionDebito.set(false);
+        return of(null);
+      }),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(report => {
+      this.procesandoRendicionDebito.set(false);
+      if (report === null) return;
+      this.debitoSuccess.set('Archivo de rendición procesado correctamente.');
+      this.debitoReport.set(report);
+      this.loadFacturas();
     });
   }
 

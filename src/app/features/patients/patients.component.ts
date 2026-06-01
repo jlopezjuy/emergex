@@ -244,6 +244,21 @@ export class PatientsComponent implements OnInit {
   readonly apiPlans    = signal<PlanComercialDTO[]>([]);
   readonly loadingPlans = signal(false);
 
+  // ── State — Clinical Consolidation ──
+  readonly showConsolidacionModal     = signal(false);
+  readonly consolidacionPrincipalId   = signal<number | null>(null);
+  readonly consolidacionDuplicadoId   = signal<number | null>(null);
+  readonly consolidacionMotivo        = signal<string>('');
+  readonly consolidando               = signal(false);
+  readonly consolidacionError         = signal<string | null>(null);
+  readonly consolidacionSuccess       = signal<string | null>(null);
+  readonly searchQueryPrincipal       = signal<string>('');
+  readonly searchQueryDuplicado       = signal<string>('');
+  readonly candidatosPrincipal       = signal<PacienteDTO[]>([]);
+  readonly candidatosDuplicado       = signal<PacienteDTO[]>([]);
+  readonly loadingCandidatosPrincipal = signal(false);
+  readonly loadingCandidatosDuplicado = signal(false);
+
   // ── Computed ──
   // searchQuery and planFilter are server-side; only statusFilter remains client-side
   readonly filtered = computed(() => {
@@ -1213,6 +1228,95 @@ export class PatientsComponent implements OnInit {
         this.loadFichaAndFacturas(selected.pacienteId);
       }
       this.loadPatients();
+    });
+  }
+
+  searchPrincipal(q: string): void {
+    if (!q || q.trim().length < 2) {
+      this.candidatosPrincipal.set([]);
+      return;
+    }
+    this.loadingCandidatosPrincipal.set(true);
+    this.patientApi.buscarAfiliados({ q, size: 5 }).subscribe({
+      next: res => {
+        this.candidatosPrincipal.set(res.data.map(d => ({
+          id: d.pacienteId,
+          nombre: d.nombreCompleto?.split(' ')[0] ?? '',
+          apellido: d.nombreCompleto?.split(' ').slice(1).join(' ') ?? '',
+          dni: d.dni
+        } as any)));
+        this.loadingCandidatosPrincipal.set(false);
+      },
+      error: () => this.loadingCandidatosPrincipal.set(false)
+    });
+  }
+
+  searchDuplicado(q: string): void {
+    if (!q || q.trim().length < 2) {
+      this.candidatosDuplicado.set([]);
+      return;
+    }
+    this.loadingCandidatosDuplicado.set(true);
+    this.patientApi.buscarAfiliados({ q, size: 5 }).subscribe({
+      next: res => {
+        this.candidatosDuplicado.set(res.data.map(d => ({
+          id: d.pacienteId,
+          nombre: d.nombreCompleto?.split(' ')[0] ?? '',
+          apellido: d.nombreCompleto?.split(' ').slice(1).join(' ') ?? '',
+          dni: d.dni
+        } as any)));
+        this.loadingCandidatosDuplicado.set(false);
+      },
+      error: () => this.loadingCandidatosDuplicado.set(false)
+    });
+  }
+
+  openConsolidacion(): void {
+    this.consolidacionPrincipalId.set(null);
+    this.consolidacionDuplicadoId.set(null);
+    this.consolidacionMotivo.set('');
+    this.consolidacionError.set(null);
+    this.consolidacionSuccess.set(null);
+    this.searchQueryPrincipal.set('');
+    this.searchQueryDuplicado.set('');
+    this.candidatosPrincipal.set([]);
+    this.candidatosDuplicado.set([]);
+    this.showConsolidacionModal.set(true);
+  }
+
+  ejecutarConsolidacion(): void {
+    const principal = this.consolidacionPrincipalId();
+    const duplicado = this.consolidacionDuplicadoId();
+    const motivo = this.consolidacionMotivo();
+
+    if (!principal || !duplicado || !motivo) {
+      this.consolidacionError.set('Debe seleccionar ambos pacientes y especificar una justificación médica.');
+      return;
+    }
+
+    if (principal === duplicado) {
+      this.consolidacionError.set('El paciente principal y el duplicado no pueden ser el mismo.');
+      return;
+    }
+
+    this.consolidando.set(true);
+    this.consolidacionError.set(null);
+    this.consolidacionSuccess.set(null);
+
+    this.patientApi.consolidarPacientes(principal, duplicado, motivo).pipe(
+      catchError(err => {
+        this.consolidacionError.set(err?.error?.detail ?? err?.error?.title ?? 'Error al consolidar historias clínicas.');
+        this.consolidando.set(false);
+        return of(null);
+      }),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(res => {
+      this.consolidando.set(false);
+      if (res) {
+        this.consolidacionSuccess.set('Fusión clínica realizada exitosamente. Las historias clínicas, alergias y antecedentes médicos han sido consolidados.');
+        this.loadPatients();
+        setTimeout(() => this.showConsolidacionModal.set(false), 2000);
+      }
     });
   }
 }

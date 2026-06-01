@@ -368,4 +368,12 @@ export class InstitutionsApiService {
       { motivo, forzarConDeuda, autorizadoPor },
     ).pipe(map(toDTO));
   }
+
+  importarPadron(contratoId: number, file: File): Observable<string> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post(`${environment.apiUrl}/api/v2/contratos-institucionales/${contratoId}/importar-padron`, formData, {
+      responseType: 'text'
+    });
+  }
 }

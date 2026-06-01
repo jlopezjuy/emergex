@@ -73,6 +73,10 @@ export class InstitutionDetailDrawerComponent implements OnChanges {
   readonly showFacturaForm = signal(false);
   readonly savingFactura = signal(false);
 
+  readonly importandoPadron = signal(false);
+  readonly padronError = signal<string | null>(null);
+  readonly padronSuccess = signal<string | null>(null);
+
   readonly estadoOpciones: { value: EstadoInstitucion; label: string }[] = [
     { value: 'ACTIVA',               label: 'Activa' },
     { value: 'PENDIENTE_ACTIVACION', label: 'Pendiente activación' },
@@ -210,6 +214,36 @@ export class InstitutionDetailDrawerComponent implements OnChanges {
         this.loadEstadoCuenta();
         this.showFacturaForm.set(false);
       }
+    });
+  }
+
+  onPadronFileSelected(event: any): void {
+    const files = event.target?.files;
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    this.importarPadron(file);
+  }
+
+  importarPadron(file: File): void {
+    const contratoId = this.institution().contract?.id;
+    if (!contratoId || this.importandoPadron()) return;
+
+    this.importandoPadron.set(true);
+    this.padronError.set(null);
+    this.padronSuccess.set(null);
+
+    this.api.importarPadron(contratoId, file).pipe(
+      catchError(err => {
+        this.padronError.set(err?.error?.detail ?? err?.error?.title ?? 'Error al importar el padrón de beneficiarios B2B.');
+        this.importandoPadron.set(false);
+        return of(null);
+      }),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(res => {
+      this.importandoPadron.set(false);
+      if (res === null) return;
+      this.padronSuccess.set('Padrón de beneficiarios importado y procesado exitosamente.');
+      this.loadMiembros(); // Recargar miembros del padrón corporativo
     });
   }
 

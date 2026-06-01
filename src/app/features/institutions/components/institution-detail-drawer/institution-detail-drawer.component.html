@@ -288,6 +288,33 @@
 
       <!-- Tab: Miembros -->
       @if (activeTab() === 'miembros') {
+        <!-- Carga Masiva de Padrón Nominativo (B2B) -->
+        <div style="margin-bottom:16px; padding:14px; border-radius:12px; background:rgba(255,255,255,0.02); border:1px solid var(--border-glass)">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
+            <div class="eyebrow" style="color:var(--accent-blue)">Cargar padrón nominativo</div>
+            @if (importandoPadron()) {
+              <span class="mono micro" style="color:var(--accent-amber)">Importando...</span>
+            }
+          </div>
+          <p class="mono micro" style="color:var(--text-muted); margin-bottom:12px; line-height:1.4">
+            Suba un archivo CSV con las columnas correspondientes para importar o actualizar los beneficiarios de este contrato.
+          </p>
+          <div style="display:flex; flex-direction:column; gap:8px">
+            <label class="btn btn--ghost btn--sm" style="cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:8px; width:100%">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+              Seleccionar CSV
+              <input type="file" style="display:none" (change)="onPadronFileSelected($event)" accept=".csv"/>
+            </label>
+            
+            @if (padronError()) {
+              <div style="font-size:11px; color:var(--accent-red); margin-top:4px">⚠ {{ padronError() }}</div>
+            }
+            @if (padronSuccess()) {
+              <div style="font-size:11px; color:var(--accent-emerald); margin-top:4px">✓ {{ padronSuccess() }}</div>
+            }
+          </div>
+        </div>
+
         @if (loadingMiembros()) {
           <div style="display:flex;align-items:center;justify-content:center;padding:40px;gap:10px;color:var(--text-muted)">
             <div style="width:16px;height:16px;border:2px solid var(--accent-blue);border-top-color:transparent;border-radius:50%;animation:spin 0.65s linear infinite"></div>

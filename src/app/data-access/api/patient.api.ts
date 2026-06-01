@@ -198,4 +198,12 @@ export class PatientApiService {
       params: { dni }
     });
   }
+
+  consolidarPacientes(principalId: number, duplicadoId: number, motivo: string): Observable<PacienteDTO> {
+    return this.http.post<PacienteDTO>(`${environment.apiUrl}/api/v2/pacientes/consolidar`, {
+      principalId,
+      duplicadoId,
+      motivo
+    });
+  }
 }

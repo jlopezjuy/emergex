@@ -162,6 +162,22 @@ export class FacturacionApiService {
       .pipe(map(toGenerarDTO));
   }
 
+  generarLoteDebito(mes: number, anio: number): Observable<Blob> {
+    const params = new HttpParams().set('mes', mes).set('anio', anio);
+    return this.http.get(`${environment.apiUrl}/api/v2/debitos/generar-lote`, {
+      params,
+      responseType: 'blob'
+    });
+  }
+
+  procesarRendicionDebito(file: File): Observable<string> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post(`${environment.apiUrl}/api/v2/debitos/procesar-rendicion`, formData, {
+      responseType: 'text'
+    });
+  }
+
   private isAnual(desde: string, hasta: string): boolean {
     const d = new Date(desde + 'T00:00:00');
     const h = new Date(hasta + 'T00:00:00');
