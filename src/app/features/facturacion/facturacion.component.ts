@@ -1,6 +1,7 @@
 import { Component, signal, computed, HostListener, inject, OnInit, DestroyRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DecimalPipe } from '@angular/common';
+import { ServiciosParticularesComponent } from './servicios-particulares.component';
 import { QuickPaymentModalComponent, QuickPaymentPayload } from '../patients/components/quick-payment-modal/quick-payment-modal.component';
 import { catchError, of } from 'rxjs';
 import { localDateYmd } from '../../shared/utils/date-local.util';
@@ -65,7 +66,7 @@ function estadoColor(estado: string): string {
 @Component({
   selector: 'app-facturacion',
   standalone: true,
-  imports: [FormsModule, DecimalPipe, QuickPaymentModalComponent],
+  imports: [FormsModule, DecimalPipe, QuickPaymentModalComponent, ServiciosParticularesComponent],
   template: `
     <div class="screen">
 
@@ -123,6 +124,9 @@ function estadoColor(estado: string): string {
         </button>
         <button class="ft-tab" [attr.data-active]="tabActivo() === 'debitos'" (click)="tabActivo.set('debitos')">
           Débitos Automáticos
+        </button>
+        <button class="ft-tab" [attr.data-active]="tabActivo() === 'particulares'" (click)="tabActivo.set('particulares')">
+          Particulares
         </button>
       </div>
 
@@ -284,6 +288,10 @@ function estadoColor(estado: string): string {
         }
 
         } <!-- end @if b2c -->
+
+        @if (tabActivo() === 'particulares') {
+          <app-servicios-particulares />
+        }
 
         @if (tabActivo() === 'debitos') {
           <!-- ── Débitos automáticos ── -->
@@ -681,7 +689,7 @@ export class FacturacionComponent implements OnInit {
   readonly meses         = MESES;
 
   // ── Tab ──
-  readonly tabActivo = signal<'b2c' | 'b2b' | 'debitos'>('b2c');
+  readonly tabActivo = signal<'b2c' | 'b2b' | 'debitos' | 'particulares'>('b2c');
 
   // ── Débitos Automáticos ──
   readonly genDebitoMes = signal<number>(DateUtils.now().month);
