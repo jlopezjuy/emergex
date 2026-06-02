@@ -166,7 +166,7 @@ const TIPO_FACTURA_OPTIONS = [
             <div style="padding:12px 14px;border-radius:8px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3)">
               <div style="font-size:13px;font-weight:600;color:var(--accent-emerald)">Servicio registrado</div>
               <div class="mono micro" style="color:var(--text-muted);margin-top:4px">
-                Factura: {{ lastResult()!.numeroFactura }} · ${{ lastResult()!.importe }} · {{ lastResult()!.estado }}
+                Factura: {{ lastResult()!.numeroFactura }} · {{ '$' + lastResult()!.importe }} · {{ lastResult()!.estado }}
               </div>
             </div>
           }
