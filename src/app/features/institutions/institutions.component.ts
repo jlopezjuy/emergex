@@ -31,6 +31,7 @@ export interface InstitutionContract {
   to: string;
   status: 'active' | 'suspended' | 'ended' | 'draft';
   monthlyPrice: number;
+  eventPrice?: number;
   monthlyCap: number;
   kpiMinutes: number;
   conditions: string;
@@ -111,6 +112,23 @@ function diffMonths(from: string, to: string): number {
   const a = DateUtils.fromISO(from);
   const b = DateUtils.fromISO(to);
   return Math.max(0, Math.floor(b.diff(a, 'months').months));
+}
+
+function buildDefaultCircle(lat?: number, lng?: number): { x: number; y: number }[] {
+  const cx = lat ?? 50;
+  const cy = lng ?? 50;
+  const points: { x: number; y: number }[] = [];
+  const steps = 12;
+  const radius = 8;
+  for (let i = 0; i < steps; i++) {
+    const angle = (i / steps) * 2 * Math.PI;
+    points.push({
+      x: Math.round((cx + radius * Math.cos(angle)) * 10) / 10,
+      y: Math.round((cy + radius * Math.sin(angle)) * 10) / 10,
+    });
+  }
+  points.push({ ...points[0] });
+  return points;
 }
 
 const PAGE_SIZE = 10;
@@ -762,7 +780,7 @@ const PAGE_SIZE = 10;
       overflow: hidden;
     }
     .qc-modal--wide { width: 680px; }
-    .qc-modal--contract { width: 560px; }
+    .qc-modal--contract { width: 640px; }
     .qc-head {
       display: flex;
       align-items: flex-start;
@@ -1037,7 +1055,7 @@ export class InstitutionsComponent implements OnInit {
   private loadPlans(): void {
     this.plansApi.getAll().pipe(takeUntilDestroyed(this.destroyRef)).subscribe(plans => {
       this._commercialPlans.set(plans.map(p => ({
-        id:          p.id,
+        id:          String(p.id),
         numericId:   Number(p.id),
         name:        p.name,
         color:       planTierColor(p.tier),
@@ -1506,20 +1524,22 @@ export class InstitutionsComponent implements OnInit {
     }
 
     if (!draft.polygonPoints || draft.polygonPoints.length === 0) {
-      const cx = inst.lat ?? 50;
-      const cy = inst.lng ?? 50;
-      const points = [];
-      const steps = 12;
-      const radius = 8;
-      for (let i = 0; i < steps; i++) {
-        const angle = (i / steps) * 2 * Math.PI;
-        points.push({
-          x: Math.round((cx + radius * Math.cos(angle)) * 10) / 10,
-          y: Math.round((cy + radius * Math.sin(angle)) * 10) / 10,
-        });
+      // If institution already has a persisted polygon (from a previous contract save),
+      // parse and restore it into the contract modal drawing
+      const savedPolygon = inst.polygon;
+      if (savedPolygon && savedPolygon.length > 0) {
+        // perimetroJson saved from contract modal is {x,y}[] (SVG %). Try to detect format:
+        // if elements are plain objects with x/y it came from contract modal, otherwise it's lat/lng pairs
+        const firstEl = (savedPolygon as any)[0];
+        if (firstEl && typeof firstEl === 'object' && 'x' in firstEl && 'y' in firstEl) {
+          draft.polygonPoints = savedPolygon as unknown as { x: number; y: number }[];
+        } else {
+          // lat/lng pairs from form modal — generate default circle instead
+          draft.polygonPoints = buildDefaultCircle(inst.lat, inst.lng);
+        }
+      } else {
+        draft.polygonPoints = buildDefaultCircle(inst.lat, inst.lng);
       }
-      points.push({ ...points[0] });
-      draft.polygonPoints = points;
     }
 
     this.contractDraft.set(draft);
@@ -1551,6 +1571,7 @@ export class InstitutionsComponent implements OnInit {
           to:           c.to   || d.to,
           status:       c.status,
           monthlyPrice: c.monthlyPrice || d.monthlyPrice,
+          eventPrice:   c.eventPrice ?? d.eventPrice,
           monthlyCap:   c.monthlyCap   || d.monthlyCap,
           kpiMinutes:   c.kpiMinutes   || d.kpiMinutes,
           conditions:   c.conditions   ?? d.conditions,
@@ -1582,33 +1603,38 @@ export class InstitutionsComponent implements OnInit {
 
     this.loadingContract.set(true);
 
-    this.api.saveContrato(
-      { ...draft, conditions: draft.conditions ?? '' },
+    const contractOp$ = this.api.saveContrato(
+      { ...draft, conditions: draft.conditions ?? '', eventPrice: draft.eventPrice },
       institucionId,
       planNumericId,
-    )
-      .pipe(
-        catchError(err => {
-          console.error('Error saving contract', err);
-          return of(null);
-        }),
-        takeUntilDestroyed(this.destroyRef),
-      )
-      .subscribe(saved => {
+    ).pipe(
+      catchError(err => {
+        console.error('Error saving contract', err);
+        return of(null);
+      }),
+    );
+
+    contractOp$.pipe(
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe(saved => {
+      if (!saved) {
         this.loadingContract.set(false);
-        if (!saved) return;
+        return;
+      }
 
-        const updatedDraft: InstitutionContract = { ...draft, id: saved.id, code: saved.code };
+      const updatedDraft: InstitutionContract = { ...draft, id: saved.id, code: saved.code };
 
-        this.institutions.update(list =>
-          list.map(i =>
-            i.id === inst.id
-              ? { ...i, plan: planItem?.id ?? i.plan, contract: updatedDraft }
-              : i,
-          ),
-        );
-        this.contractInst.set(null);
-      });
+      this.institutions.update(list =>
+        list.map(i =>
+          i.id === inst.id
+            ? { ...i, plan: planItem?.id ?? i.plan, contract: updatedDraft }
+            : i,
+        ),
+      );
+
+      this.loadingContract.set(false);
+      this.contractInst.set(null);
+    });
   }
 
   // ── Form modal ──

@@ -1,6 +1,6 @@
 import { Component, output, inject, HostListener, signal, computed, OnDestroy, DestroyRef } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Subject, debounceTime, distinctUntilChanged, switchMap, catchError, of } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { ModalShellComponent } from '../../modal-shell/modal-shell.component';
@@ -13,6 +13,7 @@ import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { EmergencyApiService } from '../../../../data-access/api/emergency.api';
 import { EmergencyStore } from '../../../../core/stores/emergency.store';
 import { EmergencyModalService } from '../emergency-modal.service';
+import { UserFeedbackService } from '../../../../core/notifications/user-feedback.service';
 
 type TipoAsistencia = AltaRapidaRequest['tipoAsistencia'];
 type NivelUrgencia  = AltaRapidaRequest['nivelUrgencia'];
@@ -150,6 +151,9 @@ const NIVELES_URGENCIA: { value: NivelUrgencia; label: string; sublabel: string;
                 }
               }
             </div>
+            @if (f['pacienteId'].invalid && f['pacienteId'].touched) {
+              <span class="text-xs" style="color: var(--accent-red);">Seleccioná un paciente registrado</span>
+            }
           } @else {
             <!-- Datos de paciente no afiliado -->
             <div class="grid grid-cols-2 gap-2">
@@ -181,6 +185,14 @@ const NIVELES_URGENCIA: { value: NivelUrgencia; label: string; sublabel: string;
                 class="rounded-btn px-3 py-2 text-sm"
                 style="background: var(--surface-glass); border: 1px solid var(--border-strong); color: var(--text-primary);"
               />
+            </div>
+            <div class="flex flex-col gap-1">
+              @if (f['pacienteNombre'].invalid && f['pacienteNombre'].touched) {
+                <span class="text-xs" style="color: var(--accent-red);">El nombre es obligatorio para paciente no registrado</span>
+              }
+              @if (f['pacienteTelefono'].invalid && f['pacienteTelefono'].touched) {
+                <span class="text-xs" style="color: var(--accent-red);">El teléfono es obligatorio para paciente no registrado</span>
+              }
             </div>
           }
         </div>
@@ -343,6 +355,7 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
   private emergencyApi   = inject(EmergencyApiService);
   private emergencyStore = inject(EmergencyStore);
   private modalService   = inject(EmergencyModalService);
+  private feedback       = inject(UserFeedbackService);
 
   readonly submitting = signal(false);
 
@@ -372,6 +385,7 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
     telefonoContacto:   [''],
     noAfiliado:         [false],
     pacienteBusqueda:   [''],
+    pacienteId:         [null as number | null],
     pacienteNombre:     [''],
     pacienteApellido:   [''],
     pacienteDni:        [''],
@@ -380,6 +394,8 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
   });
 
   constructor() {
+    this.applyConditionalValidators();
+
     this.search$.pipe(
       debounceTime(300),
       distinctUntilChanged(),
@@ -404,6 +420,10 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
       .pipe(takeUntil(this.destroy$), takeUntilDestroyed(this.destroyRef))
       .subscribe(v => this.search$.next(v ?? ''));
 
+    this.f['noAfiliado'].valueChanges
+      .pipe(takeUntil(this.destroy$), takeUntilDestroyed(this.destroyRef))
+      .subscribe(value => this.handleNoAfiliadoToggle(Boolean(value)));
+
     this.geocode$.pipe(
       debounceTime(650),
       distinctUntilChanged(),
@@ -427,6 +447,10 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
     this.f['direccion'].valueChanges
       .pipe(takeUntil(this.destroy$), takeUntilDestroyed(this.destroyRef))
       .subscribe(v => this.geocode$.next(v ?? ''));
+
+    this.f['tipoAsistencia'].valueChanges
+      .pipe(takeUntil(this.destroy$), takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.applyConditionalValidators());
   }
 
   ngOnDestroy(): void {
@@ -441,16 +465,24 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
     this.dropdownOpen.set(false);
     this.searchResults.set([]);
     this.f['pacienteBusqueda'].setValue('', { emitEvent: false });
+    this.f['pacienteId'].setValue(p.id);
+    this.f['pacienteId'].markAsTouched();
 
     if (p.direccion) {
       const dir = p.ciudad ? `${p.direccion}, ${p.ciudad}` : p.direccion;
       this.f['direccion'].setValue(dir);
+    }
+
+    if (!this.f['telefonoContacto'].value && p.telefono) {
+      this.f['telefonoContacto'].setValue(p.telefono);
     }
   }
 
   clearPaciente(): void {
     this.selectedPaciente.set(null);
     this.searchResults.set([]);
+    this.f['pacienteId'].setValue(null);
+    this.f['pacienteBusqueda'].setValue('', { emitEvent: false });
   }
 
   selectGeocode(result: GeocodeResult): void {
@@ -486,6 +518,8 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
   }
 
   submit(): void {
+    this.applyConditionalValidators();
+
     if (this.form.invalid || this.submitting()) {
       this.form.markAllAsTouched();
       return;
@@ -534,13 +568,71 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
         next: (ticket) => {
           this.emergencyStore.addOrUpdate(ticket);
           this.created.emit(req);
+          this.feedback.push({
+            type: 'success',
+            title: 'Emergencia registrada',
+            message: `Ticket ${ticket.codigo ?? 'generado'} creado correctamente.`,
+          });
           this.submitting.set(false);
           this.close();
         },
         error: (err) => {
           console.error('[EmergencyQuickCreateModal] error creating quick ticket:', err);
+          if (err instanceof HttpErrorResponse) {
+            this.feedback.fromHttpError(err);
+          } else {
+            this.feedback.push({
+              type: 'error',
+              title: 'No se pudo registrar la emergencia',
+              message: 'Ocurrió un error inesperado al crear el ticket.',
+            });
+          }
           this.submitting.set(false);
         }
       });
+  }
+
+  private handleNoAfiliadoToggle(noAfiliado: boolean): void {
+    if (noAfiliado) {
+      this.clearPaciente();
+      this.dropdownOpen.set(false);
+      this.searchResults.set([]);
+    } else {
+      this.form.patchValue(
+        {
+          pacienteNombre: '',
+          pacienteApellido: '',
+          pacienteDni: '',
+          pacienteTelefono: '',
+        },
+        { emitEvent: false }
+      );
+    }
+
+    this.applyConditionalValidators();
+  }
+
+  private applyConditionalValidators(): void {
+    const noAfiliado = Boolean(this.f['noAfiliado'].value);
+    const tipoAsistencia = this.f['tipoAsistencia'].value;
+    const direccionValidators =
+      tipoAsistencia === 'ORIENTACION_TELEFONICA' ? [] : [Validators.required];
+
+    this.f['direccion'].setValidators(direccionValidators);
+    this.f['direccion'].updateValueAndValidity({ emitEvent: false });
+
+    if (noAfiliado) {
+      this.f['pacienteId'].clearValidators();
+      this.f['pacienteNombre'].setValidators([Validators.required]);
+      this.f['pacienteTelefono'].setValidators([Validators.required]);
+    } else {
+      this.f['pacienteId'].setValidators([Validators.required]);
+      this.f['pacienteNombre'].clearValidators();
+      this.f['pacienteTelefono'].clearValidators();
+    }
+
+    this.f['pacienteId'].updateValueAndValidity({ emitEvent: false });
+    this.f['pacienteNombre'].updateValueAndValidity({ emitEvent: false });
+    this.f['pacienteTelefono'].updateValueAndValidity({ emitEvent: false });
   }
 }

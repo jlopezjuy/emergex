@@ -33,6 +33,7 @@ interface ContratoBackend {
   vigenciaHasta: string;
   estadoContrato: EstadoContrato;
   precioMensualAcordado: number;
+  precioEventoAcordado?: number;
   topeAtencionesMensuales: number;
   kpiRespuestaMinutos: number;
   condicionesParticulares?: string;
@@ -72,6 +73,7 @@ function contratoToDTO(b: ContratoBackend): ContractDTO {
     to:           b.vigenciaHasta ? b.vigenciaHasta.split('T')[0] : '',
     status:       STATUS_FROM_BACKEND[b.estadoContrato] ?? 'draft',
     monthlyPrice: b.precioMensualAcordado ?? 0,
+    eventPrice:   b.precioEventoAcordado ?? undefined,
     monthlyCap:   b.topeAtencionesMensuales ?? 0,
     kpiMinutes:   b.kpiRespuestaMinutos ?? 0,
     conditions:   b.condicionesParticulares,
@@ -87,6 +89,7 @@ function contratoToBackend(dto: ContractDTO, institucionId: number, planNumericI
     vigenciaHasta:           dto.to   ? dto.to   + 'T00:00:00Z' : '',
     estadoContrato:          STATUS_TO_BACKEND[dto.status],
     precioMensualAcordado:   dto.monthlyPrice,
+    precioEventoAcordado:    dto.eventPrice ?? undefined,
     topeAtencionesMensuales: dto.monthlyCap,
     kpiRespuestaMinutos:     dto.kpiMinutes,
     condicionesParticulares: dto.conditions || undefined,
@@ -249,6 +252,10 @@ export class InstitutionsApiService {
 
   delete(id: string): Observable<void> {
     return this.http.delete<void>(`${this.base}/${id}`);
+  }
+
+  patchInstitucion(id: number, patch: Partial<Pick<InstitucionBackend, 'perimetroJson'>>): Observable<InstitutionDTO> {
+    return this.http.patch<InstitucionBackend>(`${this.base}/${id}`, { id, ...patch }).pipe(map(toDTO));
   }
 
   // ── ContratoCobertura ────────────────────────────────────────────────────────

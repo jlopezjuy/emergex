@@ -20,6 +20,7 @@ export interface ContractDTO {
   to: string;
   status: ContractStatus;
   monthlyPrice: number;
+  eventPrice?: number;
   monthlyCap: number;
   kpiMinutes: number;
   conditions?: string;
@@ -154,6 +155,7 @@ export interface AltaInstitucionCompletaRequest {
     vigenciaHasta?: string;
     estadoContrato?: 'BORRADOR' | 'ACTIVO' | 'SUSPENDIDO' | 'VENCIDO' | 'RESCINDIDO' | 'EN_RENEGOCIACION' | 'FINALIZADO' | 'ANULADO';
     precioMensualAcordado?: number;
+    precioEventoAcordado?: number;
     topeAtencionesMensuales?: number;
     kpiRespuestaMinutos?: number;
     condicionesParticulares?: string;

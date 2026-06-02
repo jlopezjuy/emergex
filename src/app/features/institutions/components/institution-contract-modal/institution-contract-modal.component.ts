@@ -15,6 +15,62 @@ interface CommercialPlanItem {
   selector: 'app-institution-contract-modal',
   standalone: true,
   imports: [FormsModule],
+  styles: [`
+    :host { display: block; }
+    .qc-overlay {
+      position: fixed; inset: 0; z-index: 300;
+      background: rgba(0,0,0,0.55); backdrop-filter: blur(3px);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .qc-modal {
+      width: 640px; max-width: 95vw; max-height: 90vh;
+      border-radius: var(--r-card);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .qc-head {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      padding: 20px 20px 0; flex-shrink: 0;
+    }
+    .qc-body { overflow-y: auto; }
+    .qc-foot {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 20px; border-top: 1px solid var(--border-glass); flex-shrink: 0;
+    }
+    .qc-close-btn {
+      width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--border-glass);
+      background: rgba(255,255,255,0.04); color: var(--text-muted);
+      display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0;
+    }
+    .qc-close-btn:hover { background: rgba(255,255,255,0.09); color: var(--text-primary); }
+    .qc-field { display: flex; flex-direction: column; gap: 5px; }
+    .qc-input {
+      background: rgba(255,255,255,0.05); border: 1px solid var(--border-glass);
+      border-radius: var(--r-btn); padding: 7px 10px; font-size: 13px;
+      color: var(--text-primary); width: 100%; box-sizing: border-box;
+    }
+    .qc-input:focus { outline: none; border-color: var(--accent-blue); }
+    .qc-hint { font-size: 11.5px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+    .contract-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .numeric-input { display: flex; align-items: stretch; }
+    .ctr-status-pill {
+      padding: 3px 10px; border-radius: 20px; font-size: 11.5px; font-weight: 500;
+      cursor: pointer; border: 1px solid transparent; background: rgba(255,255,255,0.04);
+    }
+    .wiz-summary {
+      display: grid; gap: 12px;
+      padding: 14px 16px; border-radius: 12px;
+      background: rgba(255,255,255,0.02); border: 1px solid var(--border-glass);
+    }
+    .kbd {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 1px 5px; border-radius: 4px; font-size: 10.5px; font-family: monospace;
+      background: rgba(255,255,255,0.07); border: 1px solid var(--border-glass); color: var(--text-muted);
+    }
+    .institution-avatar {
+      border-radius: 10px; display: flex; align-items: center; justify-content: center;
+      font-weight: 700; border: 1px solid; flex-shrink: 0;
+    }
+  `],
   template: `
     <div class="qc-overlay" (click)="onClose()" role="presentation">
       <div class="qc-modal qc-modal--contract glass-strong" style="position:relative" (click)="$event.stopPropagation()">
@@ -68,87 +124,6 @@ interface CommercialPlanItem {
             </div>
           </div>
 
-          <!-- Geocerca (Polígono de Cobertura - Sprint 4 Nuevo) -->
-          <div style="padding:14px 16px;border-radius:12px;background:rgba(255,255,255,0.03);border:1px solid var(--border-glass);margin-bottom:14px">
-            <label class="eyebrow" style="color: var(--accent-cyan); display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-              <span>Zona de Cobertura del Plan (Polígono)</span>
-              <span class="mono" style="font-size: 9.5px; color: var(--text-muted)">Hacé clicks en el mapa para trazar el perímetro</span>
-            </label>
-            
-            <div style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 14px;">
-              <!-- Interactive Drawing Map (SVG) -->
-              <div class="mini-map" style="aspect-ratio: 1 / 1; height: 160px; width: 160px; margin: 0 auto;">
-                <svg viewBox="0 0 100 100" (click)="onContractMapClick($event)">
-                  <!-- Background -->
-                  <rect width="100" height="100" fill="rgba(2,6,23,0.92)"/>
-                  
-                  <!-- Grid lines for visual quality -->
-                  <line x1="25" y1="0" x2="25" y2="100" stroke="rgba(255,255,255,0.05)" stroke-width="0.5"/>
-                  <line x1="50" y1="0" x2="50" y2="100" stroke="rgba(255,255,255,0.05)" stroke-width="0.5"/>
-                  <line x1="75" y1="0" x2="75" y2="100" stroke="rgba(255,255,255,0.05)" stroke-width="0.5"/>
-                  <line x1="0" y1="25" x2="100" y2="25" stroke="rgba(255,255,255,0.05)" stroke-width="0.5"/>
-                  <line x1="0" y1="50" x2="100" y2="50" stroke="rgba(255,255,255,0.05)" stroke-width="0.5"/>
-                  <line x1="0" y1="75" x2="100" y2="75" stroke="rgba(255,255,255,0.05)" stroke-width="0.5"/>
-
-                  <!-- Drawn Polygon Area -->
-                  @if (ctr().polygonPoints && ctr().polygonPoints!.length > 0) {
-                    <polygon 
-                      [attr.points]="getPointsString(ctr().polygonPoints)" 
-                      fill="rgba(59,130,246,0.22)" 
-                      stroke="var(--accent-blue)" 
-                      stroke-width="1.5" 
-                      stroke-linejoin="round"
-                    />
-                    @for (pt of ctr().polygonPoints!; track pt; let idx = $index) {
-                      <circle [attr.cx]="pt.x" [attr.cy]="pt.y" r="2.5" fill="var(--accent-cyan)" stroke="white" stroke-width="0.5"/>
-                    }
-                  }
-                </svg>
-                <div class="mini-map__hint" style="background: rgba(59,130,246,0.6); font-size: 8px; padding: 2px 4px;">DIBUJAR</div>
-              </div>
-
-              <!-- Actions & Vertex List -->
-              <div style="display: flex; flex-direction: column; justify-content: space-between; background: rgba(255,255,255,0.02); border: 1px solid var(--border-glass); border-radius: 12px; padding: 10px;">
-                <div style="flex: 1; overflow-y: auto; max-height: 90px;">
-                  <span class="eyebrow" style="margin-bottom: 4px; display: block;">Perímetro Cobertura</span>
-                  @if (!ctr().polygonPoints || ctr().polygonPoints!.length === 0) {
-                    <div class="font-sans text-[10.5px]" style="color: var(--text-muted); line-height: 1.3;">
-                      Sin cobertura. Usá los botones de abajo o clickeá a la izquierda.
-                    </div>
-                  } @else {
-                    <div style="display: flex; flex-direction: column; gap: 4px;">
-                      @for (pt of ctr().polygonPoints!; track pt; let idx = $index) {
-                        <div class="font-mono text-[9px] flex items-center justify-between px-2 py-0.5 rounded bg-white/5" style="color: var(--text-secondary)">
-                          <span>Vértice {{ idx + 1 }}: ({{ pt.x.toFixed(0) }}%, {{ pt.y.toFixed(0) }}%)</span>
-                          <button type="button" class="text-red-400 hover:text-red-300 font-bold" (click)="removeVertex(idx)">✕</button>
-                        </div>
-                      }
-                    </div>
-                  }
-                </div>
-                
-                <!-- Circular Presets (Sprint 4) -->
-                <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border-glass);">
-                  <span class="eyebrow" style="font-size: 8.5px; margin-bottom: 2px;">Autogenerar Radio</span>
-                  <div style="display: flex; gap: 3px;">
-                    <button type="button" class="filter-chip" style="flex: 1; height: 20px; font-size: 9px; padding: 0; justify-content: center; display: inline-flex; align-items: center;" (click)="generateCircularGeofence(5)">Cercano (5%)</button>
-                    <button type="button" class="filter-chip" style="flex: 1; height: 20px; font-size: 9px; padding: 0; justify-content: center; display: inline-flex; align-items: center;" (click)="generateCircularGeofence(12)">Medio (12%)</button>
-                    <button type="button" class="filter-chip" style="flex: 1; height: 20px; font-size: 9px; padding: 0; justify-content: center; display: inline-flex; align-items: center;" (click)="generateCircularGeofence(22)">Amplio (22%)</button>
-                  </div>
-                </div>
-
-                <div style="display: flex; gap: 4px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border-glass);">
-                  <button type="button" class="filter-chip" style="flex: 1; height: 22px; font-size: 10px; text-align: center; justify-content: center; display: inline-flex; align-items: center;" [disabled]="!ctr().polygonPoints || ctr().polygonPoints!.length === 0" (click)="clearPolygon()">
-                    Reset
-                  </button>
-                  <button type="button" class="filter-chip" style="flex: 1; height: 22px; font-size: 10px; text-align: center; justify-content: center; display: inline-flex; align-items: center;" [disabled]="!ctr().polygonPoints || ctr().polygonPoints!.length < 3" (click)="autoClosePolygon()">
-                    Cerrar
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
           <!-- Condiciones: fila 1 -->
           <div class="contract-grid" style="margin-bottom:12px">
             <div class="qc-field">
@@ -194,6 +169,16 @@ interface CommercialPlanItem {
               </div>
             </div>
             <div class="qc-field">
+              <label class="eyebrow">Precio por evento</label>
+              <div class="numeric-input">
+                <span style="display:flex;align-items:center;padding:0 8px;background:rgba(255,255,255,0.04);border:1px solid var(--border-glass);border-right:none;border-radius:var(--r-btn) 0 0 var(--r-btn);font-size:12px;color:var(--text-muted)">$</span>
+                <input class="qc-input" type="number" min="0" style="border-radius:0;flex:1;border-left:none"
+                  placeholder="Opcional"
+                  [ngModel]="ctr().eventPrice ?? null" (ngModelChange)="patchContract({ eventPrice: $event !== null && $event !== '' ? +$event : undefined })"/>
+                <span style="display:flex;align-items:center;padding:0 8px;background:rgba(255,255,255,0.04);border:1px solid var(--border-glass);border-left:none;border-radius:0 var(--r-btn) var(--r-btn) 0;font-size:11px;color:var(--text-muted);white-space:nowrap">ARS/ev.</span>
+              </div>
+            </div>
+            <div class="qc-field">
               <label class="eyebrow">Tope mensual</label>
               <div class="numeric-input">
                 <input class="qc-input" type="number" style="flex:1;border-radius:var(--r-btn) 0 0 var(--r-btn);border-right:none"
@@ -209,12 +194,6 @@ interface CommercialPlanItem {
                 <span style="display:flex;align-items:center;padding:0 8px;background:rgba(255,255,255,0.04);border:1px solid var(--border-glass);border-left:none;border-radius:0 var(--r-btn) var(--r-btn) 0;font-size:11px;color:var(--text-muted);white-space:nowrap">min. máx.</span>
               </div>
             </div>
-            <div class="qc-field">
-              <label class="eyebrow">Costo unitario</label>
-              <div class="qc-input mono" style="background:rgba(255,255,255,0.02);color:var(--accent-cyan);cursor:default">
-                {{ ctr().monthlyCap > 0 ? fmtCurrency(Math.round(ctr().monthlyPrice / ctr().monthlyCap)) : '—' }}
-              </div>
-            </div>
           </div>
 
           <!-- Condiciones particulares -->
@@ -225,10 +204,16 @@ interface CommercialPlanItem {
           </div>
 
           <!-- Resumen comercial -->
-          <div class="wiz-summary">
+          <div class="wiz-summary" style="grid-template-columns:repeat(5,1fr)">
             <div>
               <div class="eyebrow">Anual estimado</div>
               <div class="mono" style="font-size:15px;font-weight:600;color:var(--accent-emerald);margin-top:4px">{{ fmtCurrency(ctr().monthlyPrice * 12) }}</div>
+            </div>
+            <div>
+              <div class="eyebrow">Precio por evento</div>
+              <div class="mono" style="font-size:15px;font-weight:600;color:var(--accent-cyan);margin-top:4px">
+                {{ ctr().eventPrice != null ? fmtCurrency(ctr().eventPrice!) : '—' }}
+              </div>
             </div>
             <div>
               <div class="eyebrow">Atenciones máx/año</div>
@@ -346,59 +331,4 @@ export class InstitutionContractModalComponent implements OnInit {
     return Math.max(0, Math.round(diff / (1000 * 60 * 60 * 24)));
   }
 
-  // ── Sprint 4 Contract Polygon Drawing ──
-  getPointsString(pts?: { x: number; y: number }[]): string {
-    if (!pts) return '';
-    return pts.map(p => `${p.x},${p.y}`).join(' ');
-  }
-
-  onContractMapClick(event: MouseEvent): void {
-    const target = event.currentTarget as SVGElement;
-    const rect = target.getBoundingClientRect();
-    const x = ((event.clientX - rect.left) / rect.width) * 100;
-    const y = ((event.clientY - rect.top) / rect.height) * 100;
-    
-    const currentPoints = this.ctr().polygonPoints ? [...this.ctr().polygonPoints!] : [];
-    currentPoints.push({ x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 });
-    this.patchContract({ polygonPoints: currentPoints });
-  }
-
-  removeVertex(index: number): void {
-    const currentPoints = this.ctr().polygonPoints ? [...this.ctr().polygonPoints!] : [];
-    currentPoints.splice(index, 1);
-    this.patchContract({ polygonPoints: currentPoints });
-  }
-
-  clearPolygon(): void {
-    this.patchContract({ polygonPoints: [] });
-  }
-
-  autoClosePolygon(): void {
-    const pts = this.ctr().polygonPoints ? [...this.ctr().polygonPoints!] : [];
-    if (pts.length > 2) {
-      const first = pts[0];
-      const last = pts[pts.length - 1];
-      const dist = Math.sqrt(Math.pow(last.x - first.x, 2) + Math.pow(last.y - first.y, 2));
-      if (dist > 1) {
-        pts.push({ ...first });
-        this.patchContract({ polygonPoints: pts });
-      }
-    }
-  }
-
-  generateCircularGeofence(radius: number): void {
-    const cx = this.institution().lat ?? 50;
-    const cy = this.institution().lng ?? 50;
-    const points = [];
-    const steps = 12;
-    for (let i = 0; i < steps; i++) {
-      const angle = (i / steps) * 2 * Math.PI;
-      points.push({
-        x: Math.round((cx + radius * Math.cos(angle)) * 10) / 10,
-        y: Math.round((cy + radius * Math.sin(angle)) * 10) / 10
-      });
-    }
-    points.push({ ...points[0] });
-    this.patchContract({ polygonPoints: points });
-  }
 }
