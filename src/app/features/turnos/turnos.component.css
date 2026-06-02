@@ -521,6 +521,9 @@
   position: relative;
   min-width: 900px;
 }
+.tp-grid__head {
+  display: contents;
+}
 .tp-grid__corner {
   background: var(--tp-elev-2);
   border-bottom: 1px solid var(--tp-border);

@@ -67,63 +67,16 @@ export class TurnosComponent implements OnInit, OnDestroy {
   // ============================================================
   // CONSTANTS & SEED DATA
   // ============================================================
-  readonly specialties = [
-    { id: 'cardio',  l: 'Cardiología Adultos' },
-    { id: 'pedia',   l: 'Pediatría' },
-    { id: 'trauma',  l: 'Traumatología' },
-    { id: 'clinica', l: 'Clínica Médica' },
-    { id: 'gineco',  l: 'Ginecología' },
-    { id: 'neumo',   l: 'Neumonología' },
-  ];
+  readonly specialties = signal<{ id: string; l: string }[]>([]);
 
-  // Backup seed data in case API is empty or down to ensure graceful degradation
-  private readonly defaultAppointments: Appointment[] = [
-    // 18 Mon
-    { d: 18, h: 9, m: 0,  dur: 30, name: 'Marcos Vignola',      doc: 'Dr. Alejandro Gómez',     room: 'Box 3', os: 'OSDE 310',     money: '$ 4.500',  prio: 'blue',    state: 'CONFIRMADO', tags: [{ k:'amber', l:'Ayuno 8 h' }] },
-    { d: 18, h: 10, m: 30, dur: 30, name: 'Eva Catalán',         doc: 'Dr. Rodrigo Cano',      room: 'Box 1', os: 'Galeno 220',   money: '$ 2.800',  prio: 'blue',    state: 'CONFIRMADO', tags: [] },
-    { d: 18, h: 12, m: 0,  dur: 30, name: 'Bruno Acevedo',       doc: 'Dr. Alejandro Gómez',     room: 'Box 3', os: 'Particular',   money: '$ 18.500', prio: 'blue',    state: 'CONFIRMADO', tags: [] },
-    // 19 Tue
-    { d: 19, h: 8,  m: 15, dur: 45, name: 'Camilo Sosa Hernández', doc: 'Dra. Cecilia Marcoval', room: 'Box 2', os: 'Swiss Medical', money: '$ 3.200', prio: 'blue',    state: 'CONFIRMADO', tags: [] },
-    { d: 19, h: 10, m: 15, dur: 30, name: 'Sofía Larreta',       doc: 'Dra. Lucía Fernández', room: 'Box 3', os: 'Swiss Medical', money: '$ 4.500', prio: 'emerald', state: 'EN_SESION',  tags: [{ k:'blue', l:'Acompañante' }] },
-    { d: 19, h: 13, m: 0,  dur: 30, name: 'Mario Donato',        doc: 'Dr. Rodrigo del Castillo', room: 'Box 4', os: 'OSDE 510',  money: '$ 5.100', prio: 'blue',    state: 'CONFIRMADO', tags: [] },
-    // 20 Wed (con colisión)
-    { d: 20, h: 9,  m: 30, dur: 30, name: 'Adriana Ponce',       doc: 'Dr. Rodrigo Cano',      room: 'Box 1', os: 'OSDE 410',     money: '$ 2.400',  prio: 'blue',    state: 'CONFIRMADO', tags: [] },
-    { d: 20, h: 11, m: 30, dur: 30, name: 'Hugo Berecochea',     doc: 'Dr. Alejandro Gómez',     room: 'Box 3', os: 'OSDE 310',     money: '$ 4.500',  prio: 'red',     state: 'OVERLAP',    tags: [{ k:'red', l:'Doble agenda' }] },
-    { d: 20, h: 11, m: 30, dur: 30, name: 'Norma Iribarne',      doc: 'Dr. Alejandro Gómez',     room: 'Box 3', os: 'Galeno Azul',  money: '$ 3.900',  prio: 'red',     state: 'OVERLAP',    tags: [{ k:'red', l:'Over-turn' }] },
-    { d: 20, h: 13, m: 0,  dur: 30, name: 'Ezequiel Vives',      doc: 'Dr. Alejandro Gómez',     room: 'Box 3', os: 'Medifé Plata', money: '$ 3.800',  prio: 'blue',    state: 'CONFIRMADO', tags: [] },
-    // 21 Thu
-    { d: 21, h: 9,  m: 0,  dur: 30, name: 'Lucrecia Mansilla',   doc: 'Dra. Cecilia Marcoval', room: 'Box 2', os: 'OSDE 210',     money: '$ 2.400',  prio: 'blue',    state: 'CONFIRMADO', tags: [] },
-    { d: 21, h: 11, m: 0,  dur: 30, name: 'Esteban Pellegrino',  doc: 'Dr. Rodrigo del Castillo', room: 'Box 4', os: 'Particular', money: '$ 19.800', prio: 'blue', state: 'CONFIRMADO', tags: [{ k:'cyan', l:'Tele-consulta' }] },
-    { d: 21, h: 12, m: 30, dur: 30, name: 'María Inés Roca',     doc: 'Dr. Alejandro Gómez',     room: 'Box 3', os: 'OSDE 310',     money: '$ 4.500',  prio: 'blue',    state: 'CONFIRMADO', tags: [] },
-    // 22 Fri (hoy)
-    { d: 22, h: 8,  m: 30, dur: 30, name: 'Ramón Felipe Ávila',  doc: 'Dr. Alejandro Gómez',     room: 'Box 3', os: 'OSDE 410',     money: '$ 4.500',  prio: 'blue',    state: 'CONFIRMADO', tags: [{ k:'amber', l:'Ayuno 8 h' }] },
-    { d: 22, h: 10, m: 0,  dur: 30, name: 'Verónica Aldecoa',    doc: 'Dr. Alejandro Gómez',     room: 'Box 3', os: 'Swiss Medical', money: '$ 4.500', prio: 'emerald', state: 'EN_SESION',  tags: [] },
-    { d: 22, h: 11, m: 0,  dur: 30, name: 'Isabel Manso',        doc: 'Dr. Alejandro Gómez',     room: 'Box 3', os: 'OSDE 310',     money: '$ 4.500',  prio: 'blue',    state: 'CONFIRMADO', tags: [] },
-    { d: 22, h: 11, m: 30, dur: 30, name: 'Marcos Vignola',      doc: 'Dr. Alejandro Gómez',     room: 'Box 3', os: 'OSDE 310',     money: '$ 4.500',  prio: 'blue',    state: 'CONFIRMADO', tags: [{ k:'amber', l:'Ayuno 8 h' }] },
-    { d: 22, h: 12, m: 0,  dur: 30, name: 'Tomás Vergara',       doc: 'Dr. Alejandro Gómez',     room: 'Box 3', os: 'OSDE 310',     money: '$ 4.500',  prio: 'blue',    state: 'CONFIRMADO', tags: [] },
-    { d: 22, h: 12, m: 30, dur: 30, name: 'Camila Bartolacci',   doc: 'Dr. Alejandro Gómez',     room: 'Box 3', os: 'Particular',   money: '$ 19.800', prio: 'blue',    state: 'CONFIRMADO', tags: [{ k:'cyan', l:'Tele-consulta' }] },
-    { d: 22, h: 13, m: 0,  dur: 30, name: 'Patricia Olmedo',     doc: 'Dr. Alejandro Gómez',     room: 'Box 3', os: 'Particular',   money: '$ 19.800', prio: 'blue',    state: 'CONFIRMADO', tags: [] },
-    // 25-29
-    { d: 25, h: 9,  m: 0, dur: 30, name: 'Aurelia Llanos', doc: 'Dr. Alejandro Gómez',   room: 'Box 3', os: 'OSDE 310', money: '$ 4.500', prio: 'blue',    state: 'CONFIRMADO', tags: [] },
-    { d: 25, h: 11, m: 30, dur: 30, name: 'Lautaro Reyes', doc: 'Dr. Alejandro Gómez',   room: 'Box 3', os: 'Particular', money:'$ 19.800',prio: 'red',    state: 'CONFIRMADO', tags: [{ k:'red', l:'Urgencia' }] },
-    { d: 26, h: 8,  m: 30, dur: 30, name: 'Federica Yacuzzi', doc: 'Dr. Alejandro Gómez', room: 'Box 3', os: 'OSDE 410', money: '$ 4.500',prio: 'blue',    state: 'CONFIRMADO', tags: [] },
-    { d: 27, h: 9,  m: 0, dur: 30, name: 'Pilar Schroeder', doc: 'Dr. Alejandro Gómez',  room: 'Box 3', os: 'OSDE 310', money: '$ 4.500', prio: 'blue',    state: 'CONFIRMADO', tags: [] },
-  ];
+  readonly hoursRange = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
 
-  // Week configuration for Week View
-  readonly weekDays = [
-    { l: 'Lun', d: 18, today: false },
-    { l: 'Mar', d: 19, today: false },
-    { l: 'Mié', d: 20, today: false },
-    { l: 'Jue', d: 21, today: false },
-    { l: 'Vie', d: 22, today: true  },
-  ];
 
   // ============================================================
   // SIGNALS & STATE
   // ============================================================
   readonly activeView = signal<'dia' | 'semana' | 'mes'>('semana');
-  readonly selectedDay = signal<number>(22);
+  readonly selectedDay = signal<number>(new Date().getDate());
   readonly selectedSpecialty = signal<string | null>(null);
   readonly selectedBox = signal<string | null>(null);
   
@@ -131,10 +84,55 @@ export class TurnosComponent implements OnInit, OnDestroy {
   readonly appointments = signal<Appointment[]>([]);
 
   // Mini Calendar Navigation Cursor
-  readonly cursorDate = signal<Date>(new Date(2026, 4, 1)); // May 2026
+  readonly cursorDate = signal<Date>(new Date());
 
   // Clock
-  readonly timeClock = signal<Date>(new Date(2026, 4, 22, 10, 15, 30));
+  readonly timeClock = signal<Date>(new Date());
+
+  // Week configuration for Week View - computed dynamically based on cursorDate
+  readonly weekDays = computed(() => {
+    const currentCursor = this.cursorDate();
+    const today = new Date();
+    
+    // Find the Monday of the week that contains the cursorDate (or the selectedDay inside cursorDate)
+    const year = currentCursor.getFullYear();
+    const month = currentCursor.getMonth();
+    const dayVal = this.selectedDay();
+    
+    // Create target date ensuring it's valid for this month
+    const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
+    const targetDay = Math.min(dayVal, lastDayOfMonth);
+    const targetDate = new Date(year, month, targetDay);
+    
+    // Calculate Monday of that week
+    const dayOfWeek = targetDate.getDay(); // 0 = Sun, 1 = Mon, ...
+    const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    
+    const monday = new Date(targetDate);
+    monday.setDate(targetDate.getDate() + diffToMonday);
+    
+    const days = [];
+    const dayLabels = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie'];
+    
+    for (let i = 0; i < 5; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      
+      const isToday = d.getDate() === today.getDate() &&
+                      d.getMonth() === today.getMonth() &&
+                      d.getFullYear() === today.getFullYear();
+                      
+      days.push({
+        l: dayLabels[i],
+        d: d.getDate(),
+        month: d.getMonth(),
+        year: d.getFullYear(),
+        today: isToday
+      });
+    }
+    
+    return days;
+  });
 
   // Modals state
   readonly showNewTurnoModal = signal<boolean>(false);
@@ -144,7 +142,7 @@ export class TurnosComponent implements OnInit, OnDestroy {
     os: '',
     specialty: '',
     professional: '',
-    fecha: '2026-05-22',
+    fecha: new Date().toISOString().split('T')[0],
     hora: '10',
     minuto: '15',
   };
@@ -167,7 +165,7 @@ export class TurnosComponent implements OnInit, OnDestroy {
   // Reagendación
   readonly showReagendarModal = signal<boolean>(false);
   reagendarTurnoForm = {
-    fecha: '2026-05-22',
+    fecha: new Date().toISOString().split('T')[0],
     hora: '10',
     minuto: '15'
   };
@@ -183,10 +181,8 @@ export class TurnosComponent implements OnInit, OnDestroy {
       this.timeClock.update(d => new Date(d.getTime() + 1000));
     }, 1000);
 
-    // Initialize Appointments signal with seed data first
-    this.appointments.set(this.defaultAppointments);
-
     // Fetch real data from backend
+    this.loadSpecialties();
     this.loadProfessionals();
     this.loadPatients();
     this.loadAppointmentsForMonth(this.cursorDate());
@@ -201,8 +197,23 @@ export class TurnosComponent implements OnInit, OnDestroy {
   // ============================================================
   // BACKEND INTEGRATION METHODS
   // ============================================================
+  loadSpecialties(): void {
+    this.staffApiService.getSubespecialidadesCatalog().subscribe({
+      next: (items) => {
+        const mapped = (items || []).map(item => ({
+          id: String(item.id),
+          l: item.nombre
+        }));
+        this.specialties.set(mapped);
+      },
+      error: (err) => {
+        console.error('Error al cargar especialidades del backend', err);
+      }
+    });
+  }
+
   loadProfessionals(): void {
-    this.staffApiService.getProfesionales().subscribe({
+    this.staffApiService.getDisponibles().subscribe({
       next: (profs) => {
         if (profs && profs.length > 0) {
           const mapped = profs.map(p => ({
@@ -215,24 +226,12 @@ export class TurnosComponent implements OnInit, OnDestroy {
           }));
           this.professionals.set(mapped);
         } else {
-          // Fallback to static professionals if database is empty
-          this.professionals.set([
-            { id: 'lf', name: 'Dra. Lucía Fernández',   spec: 'clinica',   hours: '08:00 a 14:00', active: true,  initials: 'LF' },
-            { id: 'ag', name: 'Dr. Alejandro Gómez',    spec: 'cardio',    hours: '08:00 a 13:00', active: true,  initials: 'AG' },
-            { id: 'cm', name: 'Dra. Cecilia Marcoval',  spec: 'pedia',     hours: '10:00 a 16:00', active: true,  initials: 'CM' },
-            { id: 'rd', name: 'Dr. Rodrigo del Castillo', spec: 'trauma',  hours: '08:00 a 12:00', active: false, initials: 'RC' },
-          ]);
+          this.professionals.set([]);
         }
       },
       error: (err) => {
         console.error('Error al cargar profesionales del backend', err);
-        // Fallback static list
-        this.professionals.set([
-          { id: 'lf', name: 'Dra. Lucía Fernández',   spec: 'clinica',   hours: '08:00 a 14:00', active: true,  initials: 'LF' },
-          { id: 'ag', name: 'Dr. Alejandro Gómez',    spec: 'cardio',    hours: '08:00 a 13:00', active: true,  initials: 'AG' },
-          { id: 'cm', name: 'Dra. Cecilia Marcoval',  spec: 'pedia',     hours: '10:00 a 16:00', active: true,  initials: 'CM' },
-          { id: 'rd', name: 'Dr. Rodrigo del Castillo', spec: 'trauma',  hours: '08:00 a 12:00', active: false, initials: 'RC' },
-        ]);
+        this.professionals.set([]);
       }
     });
   }
@@ -262,14 +261,12 @@ export class TurnosComponent implements OnInit, OnDestroy {
           const mapped = dtos.map(dto => this.mapDtoToAppointment(dto));
           this.appointments.set(this.checkLocalCollisions(mapped));
         } else {
-          // If no turnos in database, keep the beautiful seed data so the UI looks active
-          this.appointments.set(this.checkLocalCollisions(this.defaultAppointments));
+          this.appointments.set([]);
         }
       },
       error: (err) => {
         console.error('Error al cargar turnos del rango', err);
-        // Graceful degradation: keep seed appointments
-        this.appointments.set(this.checkLocalCollisions(this.defaultAppointments));
+        this.appointments.set([]);
       }
     });
   }
@@ -834,7 +831,7 @@ export class TurnosComponent implements OnInit, OnDestroy {
       profesionalId: parseInt(this.newTurno.professional),
       fechaHora: fechaHoraIso,
       tipoTurno: 'PRESENCIAL',
-      motivo: this.specialties.find(s => s.id === this.newTurno.specialty)?.l || this.newTurno.specialty,
+      motivo: this.specialties().find(s => s.id === this.newTurno.specialty)?.l || this.newTurno.specialty,
       notaAdicional: 'Reservado desde la Consola Táctica de Turnos',
       confirmacionDirecta: true
     };

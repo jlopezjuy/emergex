@@ -62,7 +62,7 @@
             <button
               class="tp-cal__day"
               [class.tp-cal__day--out]="cell.out"
-              [class.tp-cal__day--today]="!cell.out && cell.d === 22"
+              [class.tp-cal__day--today]="!cell.out && cell.d === timeClock().getDate() && cursorDate().getMonth() === timeClock().getMonth() && cursorDate().getFullYear() === timeClock().getFullYear()"
               [class.tp-cal__day--sel]="!cell.out && cell.d === selectedDay()"
               [class.tp-cal__day--dot]="!cell.out && hasDots(cell.d)"
               [disabled]="cell.out"
@@ -105,7 +105,7 @@
           <button class="tp-btn tp-btn--ghost" style="height: 24px; padding: 0 6px; font-size: 11px;" (click)="clearFilters()">Limpiar</button>
         </div>
         <div class="tp-filt">
-          @for (s of specialties; track s.id) {
+          @for (s of specialties(); track s.id) {
             <button
               class="tp-chip"
               [attr.data-on]="selectedSpecialty() === s.id"
@@ -145,14 +145,18 @@
             <div class="tp-card__title" style="margin-top: 2px;">Agenda activa</div>
           </div>
         </div>
-        <div class="tp-prof">
-          <div class="tp-prof__av">LF</div>
-          <div style="flex: 1; min-width: 0;">
-            <div class="tp-prof__name">Dra. Lucía Fernández</div>
-            <div class="tp-prof__sub">Emergentóloga · MN-32145</div>
-            <div class="tp-prof__active">Horario · 08:00 a 14:00 · Activa</div>
+        @if (professionals().length > 0) {
+          <div class="tp-prof">
+            <div class="tp-prof__av">{{ professionals()[0].initials }}</div>
+            <div style="flex: 1; min-width: 0;">
+              <div class="tp-prof__name">{{ professionals()[0].name }}</div>
+              <div class="tp-prof__sub" style="text-transform: capitalize;">{{ professionals()[0].spec }}</div>
+              <div class="tp-prof__active">Horario · {{ professionals()[0].hours }} · {{ professionals()[0].active ? 'Activa' : 'Inactiva' }}</div>
+            </div>
           </div>
-        </div>
+        } @else {
+          <div class="text-xs text-slate-400 p-2 text-center">No hay profesionales disponibles</div>
+        }
       </div>
 
       <!-- CTA -->
@@ -166,13 +170,13 @@
           <div>
             <div class="tp-eyebrow">Turnos hoy</div>
             <div class="font-mono" style="font-size: 18px; font-weight: 500; margin-top: 2px;">
-              27<span style="font-size: 11px; color: var(--tp-ink-4); margin-left: 6px;">/ 34 cap.</span>
+              {{ getAppointmentsForDay(timeClock().getDate()).length }}<span style="font-size: 11px; color: var(--tp-ink-4); margin-left: 6px;">/ 34 cap.</span>
             </div>
           </div>
           <div style="text-align: right;">
             <div class="tp-eyebrow">Confirmados</div>
             <div class="font-mono" style="font-size: 18px; font-weight: 500; margin-top: 2px; color: var(--tp-emerald);">
-              21
+              {{ getAppointmentsWithState(timeClock().getDate(), 'CONFIRMADO') }}
             </div>
           </div>
         </div>
@@ -190,29 +194,29 @@
               <div class="tp-day__head-l">
                 <div class="tp-day__date">
                   {{ selectedDay() | number:'2.0-0' }}
-                  <small>MAY · 2026</small>
+                  <small>{{ cursorDate() | date:'MMM · yyyy' | uppercase }}</small>
                 </div>
                 <div>
                   <div class="tp-day__title" style="text-transform: capitalize;">{{ selectedDayName() }}</div>
-                  <div class="tp-day__sub">AGENDA · CARDIOLOGÍA · BOX 3</div>
+                  <div class="tp-day__sub">CONSOLA TÁCTICA DE TURNOS</div>
                 </div>
               </div>
               <div class="tp-day__nav">
                 <button class="tp-cal__navbtn" (click)="offsetDay(-1)">‹</button>
-                <button class="tp-btn tp-btn--ghost" style="height: 28px; padding: 0 10px; font-size: 11.5px;" (click)="selectedDay.set(22)">Hoy</button>
+                <button class="tp-btn tp-btn--ghost" style="height: 28px; padding: 0 10px; font-size: 11.5px;" (click)="selectedDay.set(timeClock().getDate())">Hoy</button>
                 <button class="tp-cal__navbtn" (click)="offsetDay(1)">›</button>
               </div>
             </div>
 
             <div class="tp-day__body">
               <!-- Grid slots -->
-              @for (h of [8, 9, 10, 11, 12, 13]; track h) {
+              @for (h of hoursRange; track h) {
                 <div class="tp-day__t">
                   {{ h | number:'2.0-0' }}:00
                   <small>{{ getAppointmentsForHour(h).length }} TURNO{{ getAppointmentsForHour(h).length !== 1 ? 'S' : '' }}</small>
                 </div>
                 <div class="tp-day__slot">
-                  @if (selectedDay() === 22 && h === 10) {
+                  @if (selectedDay() === timeClock().getDate() && cursorDate().getMonth() === timeClock().getMonth() && cursorDate().getFullYear() === timeClock().getFullYear() && h === timeClock().getHours()) {
                     <div class="tp-day__nowbar"></div>
                   }
                   @if (getAppointmentsForHour(h).length === 0) {
@@ -281,7 +285,7 @@
               <div>
                 <div class="tp-eyebrow" style="margin-bottom: 6px;">Densidad por hora</div>
                 <div class="tp-day__hour-bars">
-                  @for (h of [8, 9, 10, 11, 12, 13]; track h) {
+                  @for (h of hoursRange; track h) {
                     <div class="tp-day__hour-bars-col">
                       <div class="bar" [style.height.%]="getHourDensityHeight(h)" [style.background]="getHourDensityColor(h)"></div>
                       <div class="lbl">{{ h | number:'2.0-0' }}</div>
@@ -314,22 +318,22 @@
         <div class="tp-grid-wrap">
           <div class="tp-grid">
             <div class="tp-grid__head">
-              <div class="tp-grid__corner">SEM 21</div>
-              @for (day of weekDays; track day.d) {
+              <div class="tp-grid__corner">SEM</div>
+              @for (day of weekDays(); track day.d) {
                 <div class="tp-grid__day" [class.tp-grid__day--today]="day.today">
                   <div class="tp-grid__day-name">{{ day.l }}</div>
                   <div class="tp-grid__day-num">
                     {{ day.d | number:'2.0-0' }}
-                    <small>MAY</small>
+                    <small>{{ cursorDate() | date:'MMM' }}</small>
                   </div>
                 </div>
               }
             </div>
 
             <!-- Hour rows -->
-            @for (h of [8, 9, 10, 11, 12, 13]; track h) {
+            @for (h of hoursRange; track h) {
               <div class="tp-grid__time">{{ h | number:'2.0-0' }}:00</div>
-              @for (day of weekDays; track day.d) {
+              @for (day of weekDays(); track day.d) {
                 <div class="tp-grid__cell">
                   <!-- Absolute events inside this day column and hour slot -->
                   @for (a of getAppointmentsForDayAndHour(day.d, h); track $index) {
@@ -375,9 +379,9 @@
           <div class="tp-month__head">
             <div>
               <span class="tp-eyebrow">Vista mensual · agenda completa</span>
-              <h2 class="tp-month__title">Mayo · 2026</h2>
+              <h2 class="tp-month__title" style="text-transform: capitalize;">{{ cursorDate() | date:'MMMM · yyyy' }}</h2>
               <div class="tp-month__sub">
-                {{ getAppointmentsForMonth().length }} TURNOS · {{ getAppointmentsWithState(0, 'OVERLAP', true) }} COLISIONES · CAPACIDAD MENSUAL 372
+                {{ getAppointmentsForMonth().length }} TURNOS · {{ getAppointmentsWithState(0, 'OVERLAP', true) }} COLISIONES
               </div>
             </div>
           </div>
@@ -390,7 +394,7 @@
               <div
                 class="tp-month__cell"
                 [attr.data-out]="c.out"
-                [attr.data-today]="!c.out && c.dayNum === 22"
+                [attr.data-today]="!c.out && c.dayNum === timeClock().getDate() && cursorDate().getMonth() === timeClock().getMonth() && cursorDate().getFullYear() === timeClock().getFullYear()"
                 [attr.data-selected]="!c.out && c.dayNum === selectedDay()"
                 [attr.data-off]="!c.out && isWeekend(c.dayNum) && getAppointmentsForDay(c.dayNum).length === 0"
                 (click)="!c.out && selectedDay.set(c.dayNum)"
@@ -490,7 +494,7 @@
             <label class="tp-eyebrow">Especialidad</label>
             <select class="tp-input" [(ngModel)]="newTurno.specialty" (change)="onSpecialtyChange()">
               <option value="">— Seleccioná —</option>
-              @for (s of specialties; track s.id) {
+              @for (s of specialties(); track s.id) {
                 <option [value]="s.id">{{ s.l }}</option>
               }
             </select>
