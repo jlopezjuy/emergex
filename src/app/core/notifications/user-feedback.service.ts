@@ -75,10 +75,12 @@ export class UserFeedbackService {
       return;
     }
 
+    const semanticMessage = this.mapProblemMessage(body?.message ?? body?.properties?.message, body?.params ?? body?.properties?.params);
     const message =
+      semanticMessage ||
       backendHeaderError ||
       backendHeaderAlert ||
-      body?.detail ||
+      (typeof body?.detail === 'string' && body.detail !== 'null' ? body.detail : null) ||
       body?.title ||
       body?.message ||
       error.message ||
@@ -122,6 +124,23 @@ export class UserFeedbackService {
       .replace(/[._-]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
+  }
+
+  private mapProblemMessage(code?: string, params?: string): string | null {
+    const key = String(code ?? '').trim();
+    if (!key) return null;
+
+    const map: Record<string, string> = {
+      'error.dniDuplicado': 'Ya existe un afiliado o paciente con ese DNI en esta empresa.',
+      'error.dniDuplicadoInstitucional': 'Ese DNI ya existe como beneficiario institucional activo en esta empresa.',
+      'error.dniDuplicadoGrupo': 'Hay DNI repetidos dentro del grupo familiar cargado.',
+      'error.planNotFound': 'El plan comercial seleccionado no está disponible.',
+      'error.sujetoRequerido': 'Debés informar un paciente o una persona asistida transitoria antes de continuar.',
+    };
+
+    if (map[key]) return map[key];
+    if (key === 'error.dniDuplicado' && params === 'paciente') return 'Ya existe un afiliado o paciente con ese DNI en esta empresa.';
+    return null;
   }
 
   private buildValidationMessage(fieldErrors: Array<{ field?: string; message?: string }>): string {

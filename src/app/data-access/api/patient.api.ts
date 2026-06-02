@@ -20,6 +20,7 @@ import {
   AltaAfiliadoCompletaResponse,
   AfiliadoSearchResult,
   CoberturaVigenteDTO,
+  ValidacionDniAfiliadoDTO,
 } from '../dto/patient.dto';
 
 @Injectable({ providedIn: 'root' })
@@ -161,6 +162,10 @@ export class PatientApiService {
 
   altaCompleta(req: AltaAfiliadoCompletaRequest): Observable<AltaAfiliadoCompletaResponse> {
     return this.http.post<AltaAfiliadoCompletaResponse>(`${this.afiliadosBase}/alta-completa`, req);
+  }
+
+  validarDniAfiliado(dni: string): Observable<ValidacionDniAfiliadoDTO> {
+    return this.http.get<ValidacionDniAfiliadoDTO>(`${this.afiliadosBase}/validar-dni/${encodeURIComponent(dni)}`);
   }
 
   buscarAfiliados(params: {

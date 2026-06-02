@@ -1,0 +1,724 @@
+<div class="pc-app">
+
+  <!-- HEADER -->
+  <header class="tp-header flex items-center justify-between px-6 py-3 border-b border-[var(--border-glass)] bg-[var(--bg-elevated)]">
+    <div class="tp-logo flex items-center gap-2">
+      <div class="tp-logo__mark w-6 h-6 rounded flex items-center justify-center bg-[var(--accent-blue)] text-white">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <path d="M12 4v16M4 12h16"/>
+        </svg>
+      </div>
+      <div class="tp-logo__wm text-sm font-semibold tracking-wider text-[var(--text-primary)]">
+        EMERGEX <span class="text-xs font-normal text-[var(--text-muted)]">PORTAL CLÍNICO</span>
+      </div>
+    </div>
+
+    <div class="tp-tenant hidden md:flex items-center gap-3 px-3 py-1 bg-[var(--surface-inset)] rounded-lg border border-[var(--border-hairline)]">
+      <div class="tp-tenant__icon text-[var(--text-muted)]">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="4" y="3" width="16" height="18" rx="1"/>
+          <line x1="9" y1="9" x2="9" y2="9.01"/>
+          <line x1="15" y1="9" x2="15" y2="9.01"/>
+          <line x1="9" y1="13" x2="9" y2="13.01"/>
+          <line x1="15" y1="13" x2="15" y2="13.01"/>
+          <line x1="9" y1="17" x2="15" y2="17"/>
+        </svg>
+      </div>
+      <div class="tp-tenant__lbls text-left">
+        <div class="text-[9px] uppercase tracking-wider text-[var(--text-muted)]">Centro médico · Consultorio</div>
+        <div class="text-xs font-medium text-[var(--text-secondary)]">Clínica Médica Central · Consultorio 3</div>
+      </div>
+    </div>
+
+    <div class="tp-header__right flex items-center gap-4">
+      <div class="tp-clock flex items-center gap-2 text-xs font-mono text-[var(--text-secondary)]">
+        <span class="w-1.5 h-1.5 rounded-full bg-[var(--accent-emerald)] animate-pulse"></span>
+        <span>{{ hh() }}:{{ mm() }}:{{ ss() }}</span>
+        <span class="text-[var(--text-muted)]">· {{ dd() }}/{{ MM() }}/{{ yyyy() }}</span>
+      </div>
+      <div class="tp-user flex items-center gap-3 border-l border-[var(--border-glass)] pl-4">
+        <div class="w-8 h-8 rounded-full bg-[var(--accent-blue-dim)] text-[var(--accent-blue)] flex items-center justify-center font-bold text-xs">
+          CA
+        </div>
+        <div class="text-left hidden sm:block">
+          <div class="text-xs font-semibold text-[var(--text-primary)]">Dra. Carolina Altieri</div>
+          <div class="text-[9px] font-mono text-[var(--text-muted)]">M.N. 119.827 · CARDIO</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- SUB-BAR -->
+  <div class="pc-subbar">
+    <div class="pc-bc">
+      <strong>Portal Clínico</strong>
+      <span class="pc-bc-sep"></span>
+      <span>Atención ambulatoria</span>
+      <span class="pc-bc-sep"></span>
+
+      @if (mode() === 'A') {
+        <span class="pc-bc__mode">
+          <span class="tp-dot"></span>
+          Modo · Panel del médico
+        </span>
+      } @else {
+        <span><strong>{{ activeEpisode()?.pacienteNombre }}</strong> · DNI {{ activeEpisode()?.pacienteDni }}</span>
+        <span class="pc-bc-sep"></span>
+        <span class="pc-bc__mode pc-bc__mode--active">
+          <span class="tp-dot"></span>
+          Atención clínica en curso
+        </span>
+      }
+    </div>
+
+    @if (mode() === 'B') {
+      <div class="pc-sess-timer">
+        <span class="pc-sess-dot"></span>
+        <span class="pc-sess-lbl">CONSULTA</span>
+        {{ sessionTimeStr() }}
+      </div>
+    } @else {
+      <div class="pc-sess-timer">
+        <span class="pc-sess-lbl">TURNO</span>
+        Viernes · 08:00 – 14:00
+      </div>
+    }
+  </div>
+
+  <!-- MODE A: DASHBOARD -->
+  @if (mode() === 'A') {
+    <main class="pc-mode-a" aria-label="Tablero de control clínico">
+      <!-- Telemetry KPIs -->
+      <div class="pc-telemetry">
+        <div class="pc-kpi">
+          <div class="pc-kpi__lbl">Pacientes atendidos</div>
+          <div class="pc-kpi__val text-[var(--accent-blue)]">
+            8 <span class="pc-kpi__unit">/ 27 hoy</span>
+          </div>
+          <span class="pc-kpi__delta pc-kpi__delta--up">▲ 2 vs ayer</span>
+        </div>
+        <div class="pc-kpi">
+          <div class="pc-kpi__lbl">En espera en sala</div>
+          <div class="pc-kpi__val text-[var(--accent-amber)]">
+            {{ waitlistCounts().all }} <span class="pc-kpi__unit">pacientes</span>
+          </div>
+          <span class="pc-kpi__delta">Sala 3 · Box 3</span>
+        </div>
+        <div class="pc-kpi">
+          <div class="pc-kpi__lbl">Demora promedio</div>
+          <div class="pc-kpi__val text-[var(--accent-emerald)]">
+            14 <span class="pc-kpi__unit">min</span>
+          </div>
+          <span class="pc-kpi__delta pc-kpi__delta--up">▼ 2 min vs. sem</span>
+        </div>
+        <div class="pc-kpi">
+          <div class="pc-kpi__lbl">Recetas firmadas</div>
+          <div class="pc-kpi__val text-[var(--accent-cyan)]">
+            12 <span class="pc-kpi__unit">hoy</span>
+          </div>
+          <span class="pc-kpi__delta">4 con firma criptográfica</span>
+        </div>
+      </div>
+
+      <!-- Body columns -->
+      <div class="pc-body-a">
+        <!-- Waitlist -->
+        <div>
+          <div class="pc-waitlist__head border-b border-[var(--border-glass)]">
+            <div>
+              <div class="text-[10px] uppercase font-mono tracking-widest text-[var(--text-muted)]">Sala de espera</div>
+              <div class="text-sm font-semibold text-[var(--text-primary)] mt-0.5">Pacientes en triage</div>
+            </div>
+            <span class="text-[10.5px] font-mono font-medium text-[var(--text-muted)]">{{ waitlistCounts().all }} EN ESPERA</span>
+          </div>
+          <div class="pc-waitlist__tabs mt-2">
+            <button class="pc-wtab" [attr.data-on]="waitlistTab() === 'all'" (click)="waitlistTab.set('all')">
+              Todos <span class="pc-wtab__num">{{ waitlistCounts().all }}</span>
+            </button>
+            <button class="pc-wtab" [attr.data-on]="waitlistTab() === 'red'" (click)="waitlistTab.set('red')">
+              <span class="w-1.5 h-1.5 rounded-full bg-[var(--accent-red)]"></span> Crítico <span class="pc-wtab__num">{{ waitlistCounts().red }}</span>
+            </button>
+            <button class="pc-wtab" [attr.data-on]="waitlistTab() === 'amber'" (click)="waitlistTab.set('amber')">
+              <span class="w-1.5 h-1.5 rounded-full bg-[var(--accent-amber)]"></span> Urgente <span class="pc-wtab__num">{{ waitlistCounts().amber }}</span>
+            </button>
+            <button class="pc-wtab" [attr.data-on]="waitlistTab() === 'green'" (click)="waitlistTab.set('green')">
+              <span class="w-1.5 h-1.5 rounded-full bg-[var(--accent-emerald)]"></span> Estable <span class="pc-wtab__num">{{ waitlistCounts().green }}</span>
+            </button>
+          </div>
+
+          <div class="pc-waitlist__list">
+            @for (p of filteredWaitlist(); track p.id) {
+              <div class="pc-pat" [attr.data-tri]="p.tri" [attr.data-active]="p.primary">
+                <div class="pc-pat__head">
+                  <div class="pc-pat__avatar">{{ p.avatar }}</div>
+                  <div class="flex-1 min-w-0 text-left">
+                    <div class="pc-pat__name text-[var(--text-primary)]">
+                      {{ p.name }} <span class="text-[var(--text-muted)] font-normal text-[11px]">· {{ p.age }}a</span>
+                    </div>
+                    <div class="pc-pat__sub">{{ p.id }} · {{ p.os }}</div>
+                  </div>
+                  <span class="badge text-[9px] font-mono px-2 py-0.5 rounded"
+                    [class.badge--critical]="p.tri === 'red'"
+                    [class.badge--urgent]="p.tri === 'amber'"
+                    [class.badge--stable]="p.tri === 'green'">
+                    Triage {{ p.tri === 'red' ? 'Rojo' : p.tri === 'amber' ? 'Ámbar' : 'Verde' }}
+                  </span>
+                </div>
+                <div class="pc-pat__meta">
+                  <span class="pc-pat__time">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                    Turno {{ p.time }}
+                  </span>
+                  <span class="pc-pat__elapsed"
+                    [style.color]="p.wait > 25 ? 'var(--accent-red)' : p.wait > 12 ? 'var(--accent-amber)' : 'var(--accent-emerald)'">
+                    Espera · {{ p.wait }} min
+                  </span>
+                </div>
+                <div class="pc-pat__tags">
+                  <span class="badge badge--info text-[9px]">{{ p.spec }}</span>
+                </div>
+                <div class="pc-pat__cta">
+                  @if (p.primary) {
+                    <button class="btn btn--primary w-full" (click)="startConsultation(9877)">
+                      Iniciar atención clínica
+                    </button>
+                  } @else {
+                    <button class="btn btn--ghost w-full">
+                      Ver detalle
+                    </button>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+
+        <!-- Schedule Today -->
+        <div class="pc-sched">
+          <div class="pc-sched__head">
+            <div class="text-left">
+              <div class="text-[10px] uppercase font-mono tracking-widest text-[var(--text-muted)]">Agenda del día</div>
+              <div class="pc-sched__title text-[var(--text-primary)] mt-0.5">Viernes 22 · Mayo 2026 · Consultorio 3</div>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-[10.5px] font-mono text-[var(--text-muted)] mr-2">8 / 11 atendidos</span>
+            </div>
+          </div>
+          <div class="pc-sched__body">
+            @for (s of schedule(); track s.name) {
+              <div class="pc-sched__row">
+                <div class="pc-sched__t text-left">
+                  {{ s.time }}
+                  <small>{{ s.state === 'past' ? 'CONCLUIDO' : s.state === 'active' ? 'EN SESIÓN' : s.state === 'next' ? 'SIGUIENTE' : 'PROGRAMADO' }}</small>
+                </div>
+                <div class="pc-sched__card text-left" [attr.data-state]="s.state">
+                  <div>
+                    <div class="pc-sched__name text-[var(--text-primary)]">{{ s.name }}</div>
+                    <div class="pc-sched__sub">{{ s.sub }}</div>
+                  </div>
+                  <span class="pc-sched__state"
+                    [class.pc-sched__state--past]="s.state === 'past'"
+                    [class.pc-sched__state--active]="s.state === 'active'"
+                    [class.pc-sched__state--next]="s.state === 'next'">
+                    @if (s.state === 'active') {
+                      <span class="w-1.5 h-1.5 rounded-full bg-[var(--accent-emerald)] inline-block mr-1 animate-pulse"></span>
+                    }
+                    {{ s.state === 'past' ? '✓ Receta firmada' : s.state === 'active' ? 'EN SESIÓN' : s.state === 'next' ? 'En 28 min' : 'Programado' }}
+                  </span>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    </main>
+  }
+
+  <!-- MODE B: ACTIVE CONSULTATION -->
+  @if (mode() === 'B' && activeEpisode()) {
+    <main class="pc-mode-b" aria-label="Consulta clínica activa">
+      <div class="pc-ehr">
+        <!-- LEFT COLUMN: Patient Profile, Allergies, Vitals -->
+        <section>
+          <!-- Patient Details -->
+          <div class="pc-pat-card text-left">
+            <div class="pc-pat-card__top">
+              <div class="pc-pat-card__avatar">SL</div>
+              <div class="flex-1 min-w-0">
+                <div class="pc-pat-card__name text-[var(--text-primary)]">{{ activeEpisode()?.pacienteNombre }}</div>
+                <div class="pc-pat-card__demo">{{ activeEpisode()?.pacienteSexo }} · {{ activeEpisode()?.pacienteEdad }} años · DNI {{ activeEpisode()?.pacienteDni }}</div>
+                <div class="flex items-center gap-1.5 mt-1.5">
+                  <span class="badge badge--info text-[9px]">{{ activeEpisode()?.cobertura }}</span>
+                  <span class="badge text-[9px] font-mono">P-09877</span>
+                </div>
+              </div>
+            </div>
+            <div class="pc-pat-card__grid">
+              <div>
+                <div class="text-[9px] uppercase font-mono tracking-widest text-[var(--text-muted)]">Grupo sanguíneo</div>
+                <div class="v">{{ activeEpisode()?.grupoSanguineo }}</div>
+              </div>
+              <div>
+                <div class="text-[9px] uppercase font-mono tracking-widest text-[var(--text-muted)]">Última atención</div>
+                <div class="v">{{ activeEpisode()?.ultimaAtencion }}</div>
+              </div>
+              <div>
+                <div class="text-[9px] uppercase font-mono tracking-widest text-[var(--text-muted)]">Talla / Peso</div>
+                <div class="v">{{ activeEpisode()?.tallaPeso }}</div>
+              </div>
+              <div>
+                <div class="text-[9px] uppercase font-mono tracking-widest text-[var(--text-muted)]">IMC</div>
+                <div class="v text-[var(--accent-emerald)]">{{ activeEpisode()?.imc }} · {{ activeEpisode()?.imcEstado }}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Allergy Warnings -->
+          <div class="pc-alert-critical text-left">
+            <div class="pc-alert-critical__icon">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12" y2="17"/>
+              </svg>
+            </div>
+            <div class="flex-1">
+              <div class="pc-alert-critical__title">⚠ ALERGIAS DECLARADAS · CRÍTICO</div>
+              <div class="pc-alert-critical__body">Penicilina · Ibuprofeno</div>
+              <div class="font-mono text-[10px] text-[var(--accent-red)] tracking-wider mt-1 uppercase">
+                Reacción previa · ANGIOEDEMA + URTICARIA · 11/2019
+              </div>
+            </div>
+          </div>
+
+          <!-- Antecedents -->
+          <div class="pc-antecedents text-left">
+            <div class="text-[9px] uppercase font-mono tracking-widest text-[var(--text-muted)]">Antecedentes médicos</div>
+            <div class="pc-antecedents__body">{{ activeEpisode()?.antecedentes }}</div>
+          </div>
+
+          <!-- Vitals -->
+          <div class="pc-vitals">
+            <div class="pc-vitals__head">
+              <div class="text-sm font-semibold text-[var(--text-primary)]">Signos vitales</div>
+              <div class="pc-vitals__live">
+                <span class="tp-dot"></span>
+                LIVE · 4 SEG
+              </div>
+            </div>
+            <div class="pc-vitals__grid">
+              <div class="pc-vital text-left">
+                <div class="pc-vital__name">FC</div>
+                <div class="pc-vital__val pc-vital__val--ok">
+                  {{ activeEpisode()?.vitals?.fc }} <span class="pc-vital__unit">bpm</span>
+                </div>
+              </div>
+              <div class="pc-vital text-left">
+                <div class="pc-vital__name">TA</div>
+                <div class="pc-vital__val pc-vital__val--ok">
+                  {{ activeEpisode()?.vitals?.ta }} <span class="pc-vital__unit">mmHg</span>
+                </div>
+              </div>
+              <div class="pc-vital text-left">
+                <div class="pc-vital__name">Temp</div>
+                <div class="pc-vital__val">
+                  {{ activeEpisode()?.vitals?.temp }} <span class="pc-vital__unit">°C</span>
+                </div>
+              </div>
+              <div class="pc-vital text-left">
+                <div class="pc-vital__name">SpO₂</div>
+                <div class="pc-vital__val pc-vital__val--ok">
+                  {{ activeEpisode()?.vitals?.spo2 }} <span class="pc-vital__unit">%</span>
+                </div>
+              </div>
+              <div class="pc-vital text-left">
+                <div class="pc-vital__name">Glucemia</div>
+                <div class="pc-vital__val">
+                  {{ activeEpisode()?.vitals?.glucemia }} <span class="pc-vital__unit">mg/dL</span>
+                </div>
+              </div>
+              <div class="pc-vital text-left">
+                <div class="pc-vital__name">Dolor</div>
+                <div class="pc-vital__val">
+                  {{ activeEpisode()?.vitals?.dolor }} <span class="pc-vital__unit">/10</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- CENTER COLUMN: Evolution Notes, Triage, CIE-10 Diagnostics -->
+        <section>
+          <!-- Notes Editor -->
+          <div class="pc-section text-left">
+            <div class="pc-section__head">
+              <div class="pc-section__title text-[var(--text-primary)]">Evolución y notas de examen físico</div>
+              <span class="text-[9.5px] font-mono tracking-wider text-[var(--text-muted)] uppercase">{{ autoSaveTime() }}</span>
+            </div>
+            <div class="pc-editor">
+              <div class="pc-editor__bar">
+                <button class="pc-editor__tool" [disabled]="firmado()">
+                  <strong>B</strong>
+                </button>
+                <button class="pc-editor__tool" [disabled]="firmado()">
+                  <i>I</i>
+                </button>
+                <div class="pc-editor__sep"></div>
+                <button class="pc-editor__tool font-mono text-[10.5px] w-auto px-2" [disabled]="firmado()">SOAP</button>
+                <button class="pc-editor__tool font-mono text-[10.5px] w-auto px-2" [disabled]="firmado()">CARDIO</button>
+              </div>
+              <textarea [value]="notes()" (input)="updateNotes($event)" [disabled]="firmado()"></textarea>
+            </div>
+          </div>
+
+          <!-- Triage section -->
+          <div class="pc-section text-left">
+            <div class="pc-section__head">
+              <div class="pc-section__title text-[var(--text-primary)]">Triage neurológico</div>
+              <span class="text-[9.5px] font-mono tracking-widest text-[var(--text-muted)] uppercase">AVPU · GLASGOW</span>
+            </div>
+            <div class="pc-tri-grid">
+              <!-- AVPU -->
+              <div>
+                <div class="text-[9.5px] uppercase font-mono tracking-widest text-[var(--text-muted)] mb-2" id="avpu-group-label">Escala AVPU</div>
+                <div class="pc-avpu" role="radiogroup" aria-labelledby="avpu-group-label">
+                  @for (opt of avpuOptions; track opt.v) {
+                    <button class="pc-avpu__btn" 
+                      role="radio"
+                      [attr.aria-checked]="avpu() === opt.v"
+                      [attr.aria-label]="opt.l + ' (' + opt.v + ')'"
+                      [attr.data-on]="avpu() === opt.v" 
+                      (click)="setAvpu(opt.v)" 
+                      [disabled]="firmado()">
+                      <span class="pc-avpu__letter" aria-hidden="true">{{ opt.v }}</span>
+                      <span class="pc-avpu__lbl" aria-hidden="true">{{ opt.l }}</span>
+                    </button>
+                  }
+                </div>
+                <div class="font-mono text-[10px] text-[var(--text-muted)] mt-2 uppercase tracking-wide">
+                  Estado · <span class="text-[var(--accent-emerald)] font-semibold" aria-live="polite">{{ avpuStateText() }}</span>
+                </div>
+              </div>
+
+              <!-- Glasgow -->
+              <div>
+                <div class="text-[9.5px] uppercase font-mono tracking-widest text-[var(--text-muted)] mb-2" id="glasgow-group-label">Escala de Glasgow</div>
+                <div class="pc-glasgow" role="group" aria-labelledby="glasgow-group-label">
+                  <!-- Ocular -->
+                  <div class="pc-glasgow__row">
+                    <div class="pc-glasgow__name" id="glasgow-ocular-lbl">Ocular</div>
+                    <div class="pc-glasgow__opts" role="radiogroup" aria-labelledby="glasgow-ocular-lbl">
+                      @for (n of [4, 3, 2, 1]; track n) {
+                        <button class="pc-glasgow__opt" 
+                          role="radio"
+                          [attr.aria-checked]="glasgow().o === n"
+                          [attr.aria-label]="'Puntaje Ocular ' + n"
+                          [attr.data-on]="glasgow().o === n" 
+                          (click)="updateGlasgow('o', n)" 
+                          [disabled]="firmado()">
+                          <span class="pc-glasgow__opt__num" aria-hidden="true">{{ n }}</span>
+                        </button>
+                      }
+                    </div>
+                  </div>
+                  <!-- Verbal -->
+                  <div class="pc-glasgow__row">
+                    <div class="pc-glasgow__name" id="glasgow-verbal-lbl">Verbal</div>
+                    <div class="pc-glasgow__opts" role="radiogroup" aria-labelledby="glasgow-verbal-lbl">
+                      @for (n of [5, 4, 3, 2, 1]; track n) {
+                        <button class="pc-glasgow__opt" 
+                          role="radio"
+                          [attr.aria-checked]="glasgow().v === n"
+                          [attr.aria-label]="'Puntaje Verbal ' + n"
+                          [attr.data-on]="glasgow().v === n" 
+                          (click)="updateGlasgow('v', n)" 
+                          [disabled]="firmado()">
+                          <span class="pc-glasgow__opt__num" aria-hidden="true">{{ n }}</span>
+                        </button>
+                      }
+                    </div>
+                  </div>
+                  <!-- Motor -->
+                  <div class="pc-glasgow__row">
+                    <div class="pc-glasgow__name" id="glasgow-motor-lbl">Motor</div>
+                    <div class="pc-glasgow__opts" role="radiogroup" aria-labelledby="glasgow-motor-lbl">
+                      @for (n of [6, 5, 4, 3, 2, 1]; track n) {
+                        <button class="pc-glasgow__opt" 
+                          role="radio"
+                          [attr.aria-checked]="glasgow().m === n"
+                          [attr.aria-label]="'Puntaje Motor ' + n"
+                          [attr.data-on]="glasgow().m === n" 
+                          (click)="updateGlasgow('m', n)" 
+                          [disabled]="firmado()">
+                          <span class="pc-glasgow__opt__num" aria-hidden="true">{{ n }}</span>
+                        </button>
+                      }
+                    </div>
+                  </div>
+                </div>
+                <div class="pc-glasgow__total" [attr.data-state]="glasgowSeverityClass()" aria-live="polite">
+                  <span class="lbl">Glasgow total</span>
+                  <span class="val">{{ glasgowTotal() }} / 15 · {{ glasgowSeverity() }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- CIE-10 Diagnostics -->
+          <div class="pc-section text-left">
+            <div class="pc-section__head">
+              <div class="pc-section__title text-[var(--text-primary)]">Diagnóstico · CIE-10</div>
+              <span class="text-[9.5px] font-mono tracking-widest text-[var(--text-muted)] uppercase">Códigos OMS · ARG-2024</span>
+            </div>
+            <div class="pc-cie">
+              <div class="pc-cie__search">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="text-[var(--accent-cyan)]">
+                  <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <input placeholder="Buscar diagnóstico CIE-10..." value="asma" [disabled]="firmado()"/>
+                <span class="font-mono text-[9.5px] text-[var(--text-muted)] tracking-wider">3 RESULTADOS</span>
+              </div>
+              <div class="pc-cie__chips">
+                @for (d of diagnosticos(); track d.code) {
+                  <span class="pc-cie__chip text-[var(--text-primary)]">
+                    <span class="code">{{ d.code }}</span>
+                    {{ d.l }}
+                    <button class="pc-cie__close" (click)="removeCieDiagnostico(d.code)" [disabled]="firmado()">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                  </span>
+                }
+                <button class="pc-rx-add w-auto !inline-flex !mt-0" (click)="addCieDiagnostico('R05', 'Tos')" [disabled]="firmado()">
+                  + Agregar Tos (R05)
+                </button>
+              </div>
+              <div class="pc-cie__suggest">
+                Sugerencias · <code>J44.9</code> EPOC no especificada · <code>R06.0</code> Disnea
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- RIGHT COLUMN: Prescription digital & PDF preview -->
+        <section>
+          <div class="pc-rx text-left">
+            <div class="pc-section__head mb-2">
+              <div class="pc-section__title text-[var(--text-primary)]">Receta médica digital</div>
+              <span class="text-[9.5px] font-mono tracking-widest text-[var(--text-muted)] uppercase">Rx · signed</span>
+            </div>
+
+            <div class="pc-rx__list">
+              @for (item of receta(); track item.nombre) {
+                <div class="pc-rx-item" [attr.data-danger]="item.riesgoAlergia && !allergySwap()">
+                  <div class="pc-rx-item__name text-[var(--text-primary)]">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
+                      [style.color]="item.riesgoAlergia && !allergySwap() ? 'var(--accent-red)' : 'var(--accent-blue)'" class="mr-1 inline-block">
+                      <path d="M10.5 20.5a7 7 0 1 1 10-10l-10 10z"/><line x1="8.5" y1="8.5" x2="15.5" y2="15.5"/>
+                    </svg>
+                    {{ item.nombre }}
+                    @if (item.riesgoAlergia && !allergySwap()) {
+                      <span class="badge badge--critical text-[8px] ml-auto">Riesgo · Alergia</span>
+                    } @else if (allergySwap() && item.nombre.includes('Claritromicina')) {
+                      <span class="badge badge--stable text-[8px] ml-auto">Reemplazo OK</span>
+                    }
+                  </div>
+                  <div class="pc-rx-item__sub">{{ item.sub }}</div>
+                  <div class="pc-rx-item__row">
+                    <div class="pc-rx-item__field">
+                      <span class="text-[8px] uppercase tracking-wider text-[var(--text-muted)]">Dosis</span>
+                      <input [value]="item.dosis" [disabled]="firmado()"/>
+                    </div>
+                    <div class="pc-rx-item__field">
+                      <span class="text-[8px] uppercase tracking-wider text-[var(--text-muted)]">Duración</span>
+                      <input [value]="item.duracion || '7 días'" [disabled]="firmado()"/>
+                    </div>
+                  </div>
+                </div>
+              }
+
+              <button class="pc-rx-add" (click)="addMedicamento()" [disabled]="firmado()">
+                Añadir medicamento
+              </button>
+            </div>
+
+            <!-- Allergy swap auditor widget -->
+            <div class="pc-rx-audit">
+              @if (!allergySwap()) {
+                <div class="bg-[rgba(239,68,68,0.08)] border border-[var(--accent-red)] rounded-lg p-3 flex gap-2">
+                  <div class="text-[var(--accent-red)]">⚠</div>
+                  <div class="text-xs text-[var(--text-primary)]">
+                    <strong>Amoxicilina</strong> pertenece a la familia de los <strong>Beta-lactámicos (Penicilina)</strong>. La paciente declara alergia activa.
+                    <button (click)="setAllergySwap(true)" class="underline font-semibold block text-[var(--accent-red)] hover:text-red-400 mt-1 bg-none border-none cursor-pointer">
+                      Reemplazar por Claritromicina 500 mg →
+                    </button>
+                  </div>
+                </div>
+              } @else {
+                <div class="bg-[rgba(16,185,129,0.08)] border border-[var(--accent-emerald)] rounded-lg p-3 flex gap-2">
+                  <div class="text-[var(--accent-emerald)]">✓</div>
+                  <div class="text-xs text-[var(--text-primary)]">
+                    Se reemplazó <strong>Amoxicilina</strong> por <strong>Claritromicina 500 mg</strong>. Verificación de alérgenos beta-lactámicos · OK.
+                  </div>
+                </div>
+              }
+            </div>
+
+            <!-- Signature Card -->
+            @if (firmado()) {
+              <div class="pc-sign-card mt-3">
+                <div class="pc-sign-card__main">
+                  <div class="pc-sign-card__icon bg-[rgba(16,185,129,0.1)] text-[var(--accent-emerald)] w-8 h-8 rounded flex items-center justify-center">
+                    ✓
+                  </div>
+                  <div class="text-left">
+                    <div class="pc-sign-card__t1 text-[var(--text-primary)]">Firma digital criptográfica</div>
+                    <div class="pc-sign-card__t2">Dra. Carolina Altieri · M.N. 119.827</div>
+                  </div>
+                </div>
+                <div class="pc-sign-card__check bg-[var(--accent-emerald)] text-white w-6 h-6 rounded flex items-center justify-center">
+                  ✓
+                </div>
+              </div>
+            } @else {
+              <button class="btn btn--primary w-full mt-3" (click)="signRecipe()">
+                Firmar prescripción digitalmente
+              </button>
+            }
+          </div>
+
+          <!-- PDF PREVIEW -->
+          <div class="pc-pdf-wrap">
+            <div class="pc-pdf-wrap__head text-xs font-mono">
+              <span class="text-[9.5px] tracking-widest text-[var(--text-muted)] uppercase">Vista previa · PDF</span>
+              <span class="text-[var(--text-dim)]">RX-2026-08291-S</span>
+            </div>
+            <div class="pc-pdf text-left">
+              <div class="pc-pdf__corner"></div>
+              <div class="pc-pdf__head">
+                <div class="pc-pdf__brand">
+                  <div class="pc-pdf__logo">
+                    +
+                  </div>
+                  <div>
+                    <div class="pc-pdf__brand-name">CM CENTRAL</div>
+                    <div class="pc-pdf__brand-sub">SUCURSAL PALERMO</div>
+                  </div>
+                </div>
+                <div class="pc-pdf__meta">
+                  <div>22/05/2026 · 10:27 AR</div>
+                  <div>FOLIO · 002847-A</div>
+                </div>
+              </div>
+
+              <div class="pc-pdf__title">Prescripción médica electrónica</div>
+
+              <div class="pc-pdf__row"><span class="lbl">Paciente</span><span>Sofía Larreta</span></div>
+              <div class="pc-pdf__row"><span class="lbl">DNI</span><span>{{ activeEpisode()?.pacienteDni }}</span></div>
+              <div class="pc-pdf__row"><span class="lbl">O. Social</span><span>{{ activeEpisode()?.cobertura }}</span></div>
+              <div class="pc-pdf__row">
+                <span class="lbl">CIE-10</span>
+                <span>
+                  @for (diag of diagnosticos(); track diag.code) {
+                    {{ diag.code }} ({{ diag.l }}) &nbsp;
+                  }
+                </span>
+              </div>
+
+              <div class="pc-pdf__sect-title">Medicamentos prescritos</div>
+              @for (item of receta(); track item.nombre) {
+                <div class="pc-pdf__med">
+                  <div class="pc-pdf__med-name">{{ item.nombre }}</div>
+                  <div class="pc-pdf__med-info">{{ item.dosis }} · {{ item.duracion || '7 días' }} · Vía oral/inhalatoria</div>
+                </div>
+              }
+
+              <div class="pc-pdf__foot">
+                <div class="pc-pdf__sig">
+                  <span class="name">C. Altieri</span>
+                  Dra. Carolina Altieri · M.N. 119.827
+                  @if (firmado()) {
+                    <div class="mt-1 font-mono text-[7px] text-gray-500">
+                      HASH · <span class="hash bg-gray-100 px-1 rounded">{{ firmaHash() }}</span>
+                    </div>
+                  }
+                </div>
+                <div>
+                  <div class="pc-pdf__qr">
+                    @for (n of [1,2,3,4,5,6,7,8,9,10,11]; track n) {
+                      <span></span><span class="b"></span><span></span><span class="b"></span><span></span><span></span><span class="b"></span><span></span><span class="b"></span><span></span><span></span>
+                    }
+                  </div>
+                </div>
+                <div>
+                  <div class="pc-pdf__barcode"></div>
+                  <div class="pc-pdf__barcode-lbl">RX·002847·A</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- FOOTER ACTIONS -->
+      <div class="pc-footer">
+        <div class="pc-footer__left">
+          <button class="btn btn--ghost" (click)="pauseConsultation()">
+            Pausar consulta
+          </button>
+        </div>
+        <div class="pc-footer__center">
+          <button class="btn tp-btn--amber">
+            Derivar a internación de emergencia
+          </button>
+        </div>
+        <div class="pc-footer__right">
+          <button class="btn btn--ghost" (click)="requestStudy()">
+            Solicitar Rx de tórax
+          </button>
+          <button class="btn btn--primary" (click)="finalizeConsultation()">
+            Finalizar consulta y emitir receta
+          </button>
+        </div>
+      </div>
+    </main>
+  }
+
+  <!-- TWEAK OVERLAY FOR INTERACTIVE SWITCHING -->
+  @if (showTweaks()) {
+    <div class="tp-tweak">
+      <div class="tp-tweak__head">
+        <span class="tp-tweak__title">Consola de Control (Tweaks)</span>
+        <button class="tp-tweak__close" (click)="showTweaks.set(false)">×</button>
+      </div>
+      <div class="tp-tweak__sect">
+        <span class="text-[9px] uppercase font-mono tracking-widest text-[var(--text-muted)]">Modo de pantalla</span>
+        <div class="tp-tweak__opts">
+          <button class="tp-tweak__opt" [attr.data-on]="mode() === 'A'" (click)="setMode('A')">
+            <span class="tp-tweak__dot"></span>
+            A · Dashboard del médico
+          </button>
+          <button class="tp-tweak__opt" [attr.data-on]="mode() === 'B'" (click)="setMode('B')">
+            <span class="tp-tweak__dot"></span>
+            B · Consulta activa (EHR)
+          </button>
+        </div>
+      </div>
+      @if (mode() === 'B') {
+        <div class="tp-tweak__sect">
+          <span class="text-[9px] uppercase font-mono tracking-widest text-[var(--text-muted)] font-semibold text-[var(--accent-red)]">Alerta alergia activa</span>
+          <div class="tp-tweak__opts">
+            <button class="tp-tweak__opt" [attr.data-on]="!allergySwap()" (click)="setAllergySwap(false)" [disabled]="firmado()">
+              <span class="tp-tweak__dot"></span>
+              Alerta activa (Amoxicilina)
+            </button>
+            <button class="tp-tweak__opt" [attr.data-on]="allergySwap()" (click)="setAllergySwap(true)" [disabled]="firmado()">
+              <span class="tp-tweak__dot"></span>
+              Aplicar reemplazo seguro
+            </button>
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+</div>

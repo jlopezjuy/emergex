@@ -149,10 +149,28 @@ export class TurnosComponent implements OnInit, OnDestroy {
     minuto: '15',
   };
 
+  // Validaciones de slots
+  readonly slotsDisponibles = signal<any[]>([]);
+  readonly loadingSlots = signal<boolean>(false);
+
   searchPacienteQuery = '';
   readonly searchPacienteResults = signal<PatientSeed[]>([]);
   private allPatients: PacienteDTO[] = [];
   selectedPacienteId: number | null = null;
+
+  // Acciones sobre turnos individuales
+  readonly selectedTurnoForActions = signal<Appointment | null>(null);
+  readonly showActionMenu = signal<boolean>(false);
+  readonly showCancelConfirm = signal<boolean>(false);
+  cancelMotivo = '';
+
+  // Reagendación
+  readonly showReagendarModal = signal<boolean>(false);
+  reagendarTurnoForm = {
+    fecha: '2026-05-22',
+    hora: '10',
+    minuto: '15'
+  };
 
   private clockInterval: any;
 
@@ -242,17 +260,39 @@ export class TurnosComponent implements OnInit, OnDestroy {
       next: (dtos) => {
         if (dtos && dtos.length > 0) {
           const mapped = dtos.map(dto => this.mapDtoToAppointment(dto));
-          this.appointments.set(mapped);
+          this.appointments.set(this.checkLocalCollisions(mapped));
         } else {
           // If no turnos in database, keep the beautiful seed data so the UI looks active
-          this.appointments.set(this.defaultAppointments);
+          this.appointments.set(this.checkLocalCollisions(this.defaultAppointments));
         }
       },
       error: (err) => {
         console.error('Error al cargar turnos del rango', err);
         // Graceful degradation: keep seed appointments
-        this.appointments.set(this.defaultAppointments);
+        this.appointments.set(this.checkLocalCollisions(this.defaultAppointments));
       }
+    });
+  }
+
+  private checkLocalCollisions(list: Appointment[]): Appointment[] {
+    // Si dos turnos para el mismo doctor coinciden en el mismo día, hora y minutos, los marcamos como OVERLAP
+    return list.map((appt, i) => {
+      const collision = list.some((other, j) => 
+        i !== j && 
+        appt.d === other.d && 
+        appt.h === other.h && 
+        appt.m === other.m && 
+        appt.doc === other.doc
+      );
+      if (collision) {
+        return {
+          ...appt,
+          state: 'OVERLAP',
+          prio: 'red',
+          tags: appt.tags.some(t => t.l === 'Doble agenda') ? appt.tags : [...appt.tags, { k: 'red', l: 'Doble agenda' }]
+        };
+      }
+      return appt;
     });
   }
 
@@ -534,12 +574,140 @@ export class TurnosComponent implements OnInit, OnDestroy {
   }
 
   // ============================================================
+  // TURNO ACTION MENU
+  // ============================================================
+  openTurnoActionMenu(appt: Appointment, event: MouseEvent): void {
+    event.stopPropagation();
+    this.selectedTurnoForActions.set(appt);
+    this.showActionMenu.set(true);
+  }
+
+  closeTurnoActionMenu(): void {
+    this.showActionMenu.set(false);
+  }
+
+  confirmarTurnoActual(): void {
+    const appt = this.selectedTurnoForActions();
+    if (!appt || !appt.id) return;
+
+    this.turnoApiService.confirmar(appt.id).subscribe({
+      next: () => {
+        this.loadAppointmentsForMonth(this.cursorDate());
+        this.closeTurnoActionMenu();
+      },
+      error: (err) => {
+        console.error('Error confirming turno', err);
+        // Fallback local
+        this.appointments.update(list => list.map(a => a.id === appt.id ? { ...a, state: 'CONFIRMADO', prio: 'blue' } : a));
+        this.closeTurnoActionMenu();
+      }
+    });
+  }
+
+  checkInTurnoActual(): void {
+    const appt = this.selectedTurnoForActions();
+    if (!appt || !appt.id) return;
+
+    this.turnoApiService.checkIn(appt.id).subscribe({
+      next: () => {
+        this.loadAppointmentsForMonth(this.cursorDate());
+        this.closeTurnoActionMenu();
+      },
+      error: (err) => {
+        console.error('Error performing check-in', err);
+        // Fallback local
+        this.appointments.update(list => list.map(a => a.id === appt.id ? { ...a, state: 'EN_SESION', prio: 'emerald' } : a));
+        this.closeTurnoActionMenu();
+      }
+    });
+  }
+
+  iniciarCancelacion(): void {
+    this.cancelMotivo = 'Cancelado por solicitud del paciente';
+    this.showCancelConfirm.set(true);
+  }
+
+  confirmarCancelacion(): void {
+    const appt = this.selectedTurnoForActions();
+    if (!appt || !appt.id) return;
+
+    this.turnoApiService.cancelar(appt.id, { motivo: this.cancelMotivo }).subscribe({
+      next: () => {
+        this.loadAppointmentsForMonth(this.cursorDate());
+        this.showCancelConfirm.set(false);
+        this.closeTurnoActionMenu();
+      },
+      error: (err) => {
+        console.error('Error cancelling turno', err);
+        // Fallback local removal
+        this.appointments.update(list => list.filter(a => a.id !== appt.id));
+        this.showCancelConfirm.set(false);
+        this.closeTurnoActionMenu();
+      }
+    });
+  }
+
+  cancelarCancelacion(): void {
+    this.showCancelConfirm.set(false);
+  }
+
+  iniciarReagendacion(): void {
+    const appt = this.selectedTurnoForActions();
+    if (!appt) return;
+    const cur = this.cursorDate();
+    const yearStr = cur.getFullYear();
+    const monthStr = String(cur.getMonth() + 1).padStart(2, '0');
+    const dayStr = String(appt.d).padStart(2, '0');
+
+    this.reagendarTurnoForm = {
+      fecha: `${yearStr}-${monthStr}-${dayStr}`,
+      hora: String(appt.h),
+      minuto: String(appt.m)
+    };
+    this.showReagendarModal.set(true);
+  }
+
+  cerrarReagendacion(): void {
+    this.showReagendarModal.set(false);
+  }
+
+  confirmarReagendacion(): void {
+    const appt = this.selectedTurnoForActions();
+    if (!appt || !appt.id) return;
+
+    const dateStr = `${this.reagendarTurnoForm.fecha}T${this.reagendarTurnoForm.hora.padStart(2, '0')}:${this.reagendarTurnoForm.minuto.padStart(2, '0')}:00`;
+    const localDate = new Date(dateStr);
+    const fechaHoraIso = localDate.toISOString();
+
+    this.turnoApiService.reagendar(appt.id, { nuevaFechaHora: fechaHoraIso, motivo: 'Reagendación desde Consola' }).subscribe({
+      next: () => {
+        this.loadAppointmentsForMonth(this.cursorDate());
+        this.showReagendarModal.set(false);
+        this.closeTurnoActionMenu();
+      },
+      error: (err) => {
+        console.error('Error rescheduling turno', err);
+        // Fallback local
+        this.appointments.update(list => list.map(a => a.id === appt.id ? {
+          ...a,
+          d: localDate.getDate(),
+          h: localDate.getHours(),
+          m: localDate.getMinutes()
+        } : a));
+        this.showReagendarModal.set(false);
+        this.closeTurnoActionMenu();
+      }
+    });
+  }
+
+  // ============================================================
   // NEW TURNO MODAL
   // ============================================================
   openNewTurnoModal(): void {
     this.searchPacienteQuery = '';
     this.searchPacienteResults.set([]);
     this.selectedPacienteId = null;
+    this.slotsDisponibles.set([]);
 
     const cur = this.cursorDate();
     const yearStr = cur.getFullYear();
@@ -567,6 +735,9 @@ export class TurnosComponent implements OnInit, OnDestroy {
   onEscapeKey(): void {
     if (this.showNewTurnoModal()) {
       this.closeNewTurnoModal();
+    }
+    if (this.showActionMenu()) {
+      this.closeTurnoActionMenu();
     }
   }
 
@@ -604,6 +775,37 @@ export class TurnosComponent implements OnInit, OnDestroy {
   onSpecialtyChange(): void {
     // Reset professional selection when changing specialty
     this.newTurno.professional = '';
+    this.slotsDisponibles.set([]);
+  }
+
+  onProfessionalOrDateChange(): void {
+    const profId = parseInt(this.newTurno.professional);
+    const date = this.newTurno.fecha;
+
+    if (!profId || !date) {
+      this.slotsDisponibles.set([]);
+      return;
+    }
+
+    this.loadingSlots.set(true);
+    this.turnoApiService.getSlotsDisponibles(profId, date).subscribe({
+      next: (slots) => {
+        this.slotsDisponibles.set(slots || []);
+        this.loadingSlots.set(false);
+      },
+      error: (err) => {
+        console.error('Error fetching available slots', err);
+        this.slotsDisponibles.set([]);
+        this.loadingSlots.set(false);
+      }
+    });
+  }
+
+  selectSlot(slot: any): void {
+    if (!slot.disponible) return;
+    const dateObj = new Date(slot.horaInicio);
+    this.newTurno.hora = String(dateObj.getHours());
+    this.newTurno.minuto = String(dateObj.getMinutes());
   }
 
   isNewTurnoValid(): boolean {

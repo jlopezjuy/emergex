@@ -226,6 +226,14 @@ export interface DependienteAltaRequest {
   rolFamiliar: 'TITULAR' | 'CO_TITULAR' | 'DEPENDIENTE';
 }
 
+export interface ValidacionDniAfiliadoDTO {
+  dni?: string;
+  disponible: boolean;
+  duplicadoPaciente: boolean;
+  duplicadoInstitucional: boolean;
+  mensaje?: string;
+}
+
 export interface AltaAfiliadoCompletaResponse {
   pacienteId: number;
   grupoFamiliarId: number;
@@ -253,4 +261,5 @@ export interface AfiliadoSearchResult {
   createdAt?: string;
   contextoCoberturaId?: number;
   coberturaVigente?: CoberturaVigenteDTO;
+  rolFamiliar?: 'TITULAR' | 'CO_TITULAR' | 'DEPENDIENTE';
 }

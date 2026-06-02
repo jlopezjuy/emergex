@@ -59,6 +59,12 @@ export const routes: Routes = [
           import('./features/turnos/turnos.component').then((m) => m.TurnosComponent),
       },
       {
+        path: 'clinico',
+        canActivate: [roleGuard('ROLE_MEDICO', 'ROLE_PROFESIONAL', 'ROLE_ADMIN', 'ROLE_ADMINISTRADOR')],
+        loadComponent: () =>
+          import('./features/clinico/clinico.component').then((m) => m.ClinicoComponent),
+      },
+      {
         path: 'map',
         loadComponent: () =>
           import('./features/map/map.component').then((m) => m.MapComponent),
@@ -171,6 +177,11 @@ export const routes: Routes = [
           import('./features/asistencias-historial/asistencias-historial.component').then(
             (m) => m.AsistenciasHistorialComponent,
           ),
+      },
+      {
+        path: 'paciente',
+        loadComponent: () =>
+          import('./features/paciente/paciente.component').then((m) => m.PacienteComponent),
       },
       {
         path: 'settings',

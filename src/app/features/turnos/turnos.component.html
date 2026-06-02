@@ -242,7 +242,7 @@
                           <span class="tp-dot"></span>
                           {{ a.state === 'EN_SESION' ? 'En sesión' : a.state === 'OVERLAP' ? 'Colisión' : 'Confirmado' }}
                         </span>
-                        <button class="tp-btn tp-btn--ghost" style="height: 28px; padding: 0 8px; font-size: 11px;">···</button>
+                        <button class="tp-btn tp-btn--ghost" style="height: 28px; padding: 0 8px; font-size: 11px;" (click)="openTurnoActionMenu(a, $event)">···</button>
                       </div>
                     </div>
                   }
@@ -340,6 +340,7 @@
                       [style.height.px]="getEventHeight(a.dur)"
                       [style.width]="a.state === 'OVERLAP' ? 'calc(50% - 8px)' : 'calc(100% - 12px)'"
                       [style.left]="a.state === 'OVERLAP' && $index === 1 ? 'calc(50% + 2px)' : '6px'"
+                      (click)="openTurnoActionMenu(a, $event)"
                     >
                       <div class="tp-evt__top">
                         <span class="tp-evt__t"><strong>{{ formatTime(a.h, a.m) }}</strong> – {{ formatTime(a.h, a.m + a.dur) }}</span>
@@ -496,7 +497,7 @@
           </div>
           <div class="tp-field">
             <label class="tp-eyebrow">Profesional</label>
-            <select class="tp-input" [(ngModel)]="newTurno.professional">
+            <select class="tp-input" [(ngModel)]="newTurno.professional" (change)="onProfessionalOrDateChange()">
               <option value="">— Seleccioná —</option>
               @for (p of filteredProfessionals(); track p.id) {
                 <option [value]="p.id">{{ p.name }}</option>
@@ -505,11 +506,39 @@
           </div>
         </div>
 
+        <!-- Slots disponibles en tiempo real -->
+        @if (newTurno.professional && newTurno.fecha) {
+          <div class="tp-field mt-2">
+            <label class="tp-eyebrow">Slots de Agenda Disponibles (Tiempo Real)</label>
+            @if (loadingSlots()) {
+              <div class="text-xs text-slate-400 py-1">Consultando disponibilidad...</div>
+            } @else if (slotsDisponibles().length === 0) {
+              <div class="text-xs text-amber-600 py-1">No hay slots configurados o disponibles para este profesional en este día.</div>
+            } @else {
+              <div class="flex flex-wrap gap-1 mt-1 max-h-24 overflow-y-auto">
+                @for (s of slotsDisponibles(); track s.horaInicio) {
+                  <button
+                    type="button"
+                    class="px-2 py-1 text-[10px] rounded font-mono transition-colors border"
+                    [style.background]="s.disponible ? 'var(--tp-primary-dim)' : 'var(--tp-red-dim)'"
+                    [style.color]="s.disponible ? 'var(--tp-primary)' : 'var(--tp-red)'"
+                    [style.border-color]="s.disponible ? 'var(--tp-primary-tint)' : 'transparent'"
+                    [disabled]="!s.disponible"
+                    (click)="selectSlot(s)"
+                  >
+                    {{ s.horaInicio | date:'HH:mm' }}
+                  </button>
+                }
+              </div>
+            }
+          </div>
+        }
+
         <!-- Fecha y hora -->
         <div class="grid grid-cols-3 gap-3">
           <div class="tp-field">
             <label class="tp-eyebrow">Fecha</label>
-            <input type="date" class="tp-input" [(ngModel)]="newTurno.fecha" />
+            <input type="date" class="tp-input" [(ngModel)]="newTurno.fecha" (change)="onProfessionalOrDateChange()" />
           </div>
           <div class="tp-field">
             <label class="tp-eyebrow">Hora</label>
@@ -545,3 +574,105 @@
     </div>
   </div>
 @}
+
+<!-- ================= ACTION MENU OVERLAY ================= -->
+@if (showActionMenu()) {
+  <div class="tp-overlay" style="z-index: 40;" (click)="closeTurnoActionMenu()">
+    <div class="tp-modal" style="max-width: 320px;" (click)="$event.stopPropagation()">
+      <div class="tp-modal__head">
+        <div>
+          <div class="tp-eyebrow">Acciones de Turno</div>
+          <h3 style="margin: 4px 0 0; font-size: 14px; font-weight: 600;">{{ selectedTurnoForActions()?.name }}</h3>
+        </div>
+        <button class="tp-close-btn" (click)="closeTurnoActionMenu()">×</button>
+      </div>
+      <div class="tp-modal__body flex flex-col gap-2 p-4">
+        @if (selectedTurnoForActions()?.state === 'CONFIRMADO' || selectedTurnoForActions()?.state === 'OVERLAP') {
+          <button class="tp-btn tp-btn--primary tp-btn--block" (click)="checkInTurnoActual()">
+            📥 Recepcionar (Check-In)
+          </button>
+        }
+        <button class="tp-btn tp-btn--outline tp-btn--block" (click)="confirmarTurnoActual()">
+          ✓ Marcar Confirmado
+        </button>
+        <button class="tp-btn tp-btn--outline tp-btn--block" (click)="iniciarReagendacion()">
+          📅 Reagendar Turno
+        </button>
+        <button class="tp-btn tp-btn--danger tp-btn--block" (click)="iniciarCancelacion()">
+          ✕ Cancelar Turno
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ================= CANCEL CONFIRMATION OVERLAY ================= -->
+@if (showCancelConfirm()) {
+  <div class="tp-overlay" style="z-index: 50;" (click)="cancelarCancelacion()">
+    <div class="tp-modal" style="max-width: 400px;" (click)="$event.stopPropagation()">
+      <div class="tp-modal__head">
+        <h3 style="margin: 0; font-size: 16px; font-weight: 600;">Confirmar Cancelación</h3>
+        <button class="tp-close-btn" (click)="cancelarCancelacion()">×</button>
+      </div>
+      <div class="tp-modal__body p-4">
+        <p class="text-xs text-slate-600 mb-3">¿Estás seguro de que deseas cancelar este turno? Esta operación es definitiva en el sistema.</p>
+        <div class="tp-field">
+          <label class="tp-eyebrow">Motivo de Cancelación</label>
+          <input type="text" class="tp-input" [(ngModel)]="cancelMotivo" />
+        </div>
+      </div>
+      <div class="tp-modal__foot justify-end gap-2">
+        <button class="tp-btn tp-btn--ghost" (click)="cancelarCancelacion()">Volver</button>
+        <button class="tp-btn tp-btn--danger" (click)="confirmarCancelacion()">Confirmar Cancelación</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ================= REAGENDAR OVERLAY ================= -->
+@if (showReagendarModal()) {
+  <div class="tp-overlay" style="z-index: 45;" (click)="cerrarReagendacion()">
+    <div class="tp-modal" style="max-width: 400px;" (click)="$event.stopPropagation()">
+      <div class="tp-modal__head">
+        <h3 style="margin: 0; font-size: 16px; font-weight: 600;">Reagendar Turno</h3>
+        <button class="tp-close-btn" (click)="cerrarReagendacion()">×</button>
+      </div>
+      <div class="tp-modal__body p-4">
+        <div class="grid grid-cols-1 gap-3">
+          <div class="tp-field">
+            <label class="tp-eyebrow">Nueva Fecha</label>
+            <input type="date" class="tp-input" [(ngModel)]="reagendarTurnoForm.fecha" />
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div class="tp-field">
+              <label class="tp-eyebrow">Hora</label>
+              <select class="tp-input" [(ngModel)]="reagendarTurnoForm.hora">
+                <option value="8">08:00</option>
+                <option value="9">09:00</option>
+                <option value="10">10:00</option>
+                <option value="11">11:00</option>
+                <option value="12">12:00</option>
+                <option value="13">13:00</option>
+              </select>
+            </div>
+            <div class="tp-field">
+              <label class="tp-eyebrow">Minutos</label>
+              <select class="tp-input" [(ngModel)]="reagendarTurnoForm.minuto">
+                <option value="0">:00</option>
+                <option value="15">:15</option>
+                <option value="30">:30</option>
+                <option value="45">:45</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tp-modal__foot justify-end gap-2">
+        <button class="tp-btn tp-btn--ghost" (click)="cerrarReagendacion()">Cancelar</button>
+        <button class="tp-btn tp-btn--primary" (click)="confirmarReagendacion()">Guardar Cambios</button>
+      </div>
+    </div>
+  </div>
+}
+
+

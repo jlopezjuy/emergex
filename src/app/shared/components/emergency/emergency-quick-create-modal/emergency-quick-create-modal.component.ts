@@ -471,6 +471,7 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
     if (p.direccion) {
       const dir = p.ciudad ? `${p.direccion}, ${p.ciudad}` : p.direccion;
       this.f['direccion'].setValue(dir);
+      this.resolvePacienteAddress(dir);
     }
 
     if (!this.f['telefonoContacto'].value && p.telefono) {
@@ -483,6 +484,22 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
     this.searchResults.set([]);
     this.f['pacienteId'].setValue(null);
     this.f['pacienteBusqueda'].setValue('', { emitEvent: false });
+  }
+
+  private resolvePacienteAddress(address: string): void {
+    const query = address.trim();
+    if (query.length < 4) return;
+
+    this.geocodeSearching.set(true);
+    this.geocoder.search(query).then((results) => {
+      this.geocodeSearching.set(false);
+      this.geocodeResults.set(results);
+      if (results.length === 1) {
+        this.selectGeocode(results[0]);
+      }
+    }).catch(() => {
+      this.geocodeSearching.set(false);
+    });
   }
 
   selectGeocode(result: GeocodeResult): void {

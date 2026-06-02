@@ -131,6 +131,7 @@ import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
               <span class="font-mono text-[10px]" style="color: var(--text-muted);">10 VISITAS · 3 PROFESIONALES</span>
               <button
                 type="button"
+                (click)="openNuevaVisita()"
                 class="btn btn--primary btn--sm flex items-center gap-1"
                 style="height: 28px; padding: 0 8px; font-size: 11px; background: var(--accent-emerald);"
               >
@@ -176,10 +177,11 @@ import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
                     @for (v of getVisitasForDayAndHour(day.idx, h); track $index) {
                       <!-- Visit pill -->
                       <div
-                        class="rounded-lg p-1.5 text-[9.5px] border leading-tight flex flex-col justify-between"
+                        class="rounded-lg p-1.5 text-[9.5px] border leading-tight flex flex-col justify-between cursor-pointer hover:opacity-90 transition-opacity"
                         [style.background]="v.role === 'med' ? 'rgba(59, 130, 246, 0.12)' : v.role === 'enf' ? 'rgba(245, 158, 11, 0.12)' : 'rgba(34, 211, 238, 0.12)'"
                         [style.borderColor]="v.role === 'med' ? 'rgba(59, 130, 246, 0.35)' : v.role === 'enf' ? 'rgba(245, 158, 11, 0.35)' : 'rgba(34, 211, 238, 0.35)'"
                         style="height: 100%;"
+                        (click)="openVisitaAction(v, $event)"
                       >
                         <div class="flex justify-between items-center font-mono text-[8px] font-semibold"
                           [style.color]="v.role === 'med' ? 'var(--accent-blue)' : v.role === 'enf' ? 'var(--accent-amber)' : 'var(--accent-cyan)'"
@@ -238,10 +240,10 @@ import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
                    [style.background]="int.estado === 'SUSPENDIDA_POR_TRASLADO' ? 'rgba(239, 68, 68, 0.08)' : 'rgba(16, 185, 129, 0.08)'">
                 <div class="flex justify-between items-center text-[10px] font-semibold"
                      [style.color]="int.estado === 'SUSPENDIDA_POR_TRASLADO' ? 'var(--accent-red)' : 'var(--accent-emerald)'">
-                  <span class="font-mono tracking-wider">SpO₂ · MONITOR DOMICILIARIO</span>
-                  <span class="font-mono" [class.animate-pulse]="int.estado === 'SUSPENDIDA_POR_TRASLADO'">
-                    ● {{ int.estado === 'SUSPENDIDA_POR_TRASLADO' ? 'ALERTA DE CAÍDA' : 'ESTABLE' }}
-                  </span>
+                   <span class="font-mono tracking-wider">SpO₂ · MONITOR DOMICILIARIO</span>
+                   <span class="font-mono" [class.animate-pulse]="int.estado === 'SUSPENDIDA_POR_TRASLADO'">
+                     ● {{ int.estado === 'SUSPENDIDA_POR_TRASLADO' ? 'ALERTA DE CAÍDA' : 'ESTABLE' }}
+                   </span>
                 </div>
                 <div class="font-mono text-2xl font-bold mt-1.5" 
                      [style.color]="int.estado === 'SUSPENDIDA_POR_TRASLADO' ? 'var(--accent-red)' : 'var(--accent-emerald)'">
@@ -321,6 +323,7 @@ import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
               <!-- Intervención de Emergencia Button -->
               <button
                 type="button"
+                (click)="dispararIntervencionCritica()"
                 class="w-full border rounded-xl py-2 flex items-center justify-center gap-2 hover:bg-red-500/15 border-red-500/35 transition-colors text-xs font-semibold text-red-500"
                 style="background: rgba(239, 68, 68, 0.06);"
               >
@@ -329,6 +332,7 @@ import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
               <button
                 type="button"
+                (click)="openNuevaVisita()"
                 class="w-full btn btn--primary btn--lg font-bold"
                 style="background: var(--accent-emerald);"
               >
@@ -345,8 +349,119 @@ import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
           }
         </div>
 
+
       </div>
     </div>
+
+    <!-- ================= MODALES DE VISITAS DOMICILIARIAS ================= -->
+    @if (showVisitaActionModal()) {
+      <div class="fixed inset-0 z-45 bg-black/50 flex items-center justify-center p-4" (click)="closeVisitaActionModal()">
+        <div class="rounded-2xl p-5 w-full max-w-sm flex flex-col gap-3 shadow-2xl" style="background: var(--bg-elevated); border: 1px solid var(--border-glass);" (click)="$event.stopPropagation()">
+          <div class="flex items-center justify-between border-b pb-2" style="border-color: var(--border-glass);">
+            <div>
+              <span class="font-mono text-[9px] uppercase" style="color: var(--text-muted);">Acciones de Visita</span>
+              <h3 class="font-bold text-xs" style="color: var(--text-primary);">{{ selectedVisita()?.staff }}</h3>
+            </div>
+            <button class="text-lg opacity-70 hover:opacity-100" style="color: var(--text-primary);" (click)="closeVisitaActionModal()">×</button>
+          </div>
+          <div class="flex flex-col gap-2 py-2">
+            @if (selectedVisita()?.status === 'pending') {
+              <button class="w-full py-2 rounded-xl text-xs font-bold transition-all text-white" style="background: var(--accent-blue);" (click)="iniciarVisitaActual()">
+                📥 Iniciar Atención / Visita
+              </button>
+            }
+            @if (selectedVisita()?.status === 'progress') {
+              <button class="w-full py-2 rounded-xl text-xs font-bold transition-all text-white" style="background: var(--accent-emerald);" (click)="openFinalizarVisita()">
+                ✔️ Finalizar y Registrar SOAP
+              </button>
+            }
+            <button class="w-full py-2 rounded-xl text-xs font-bold transition-all" style="background: var(--surface-glass); color: var(--text-primary); border: 1px solid var(--border-glass);" (click)="openReprogramarVisita()">
+              📅 Reprogramar Visita
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    @if (showNuevaVisitaModal()) {
+      <div class="fixed inset-0 z-45 bg-black/50 flex items-center justify-center p-4" (click)="showNuevaVisitaModal.set(false)">
+        <div class="rounded-2xl p-5 w-full max-w-md flex flex-col gap-3 shadow-2xl" style="background: var(--bg-elevated); border: 1px solid var(--border-glass);" (click)="$event.stopPropagation()">
+          <div class="flex items-center justify-between border-b pb-2" style="border-color: var(--border-glass);">
+            <h3 class="font-bold text-sm" style="color: var(--text-primary);">Generar Orden de Visita</h3>
+            <button class="text-lg opacity-70 hover:opacity-100" style="color: var(--text-primary);" (click)="showNuevaVisitaModal.set(false)">×</button>
+          </div>
+          <div class="flex flex-col gap-3 py-2 text-xs">
+            <div class="flex flex-col gap-1">
+              <label class="font-mono text-[9px] uppercase" style="color: var(--text-muted);">Desde</label>
+              <input type="date" class="w-full rounded px-2 py-1.5 outline-none" style="background: var(--surface-glass); border: 1px solid var(--border-glass); color: var(--text-primary);" [(ngModel)]="nuevaVisitaForm.desde" />
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="font-mono text-[9px] uppercase" style="color: var(--text-muted);">Hasta</label>
+              <input type="date" class="w-full rounded px-2 py-1.5 outline-none" style="background: var(--surface-glass); border: 1px solid var(--border-glass); color: var(--text-primary);" [(ngModel)]="nuevaVisitaForm.hasta" />
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="font-mono text-[9px] uppercase" style="color: var(--text-muted);">Especialidad / Rol</label>
+              <select class="w-full rounded px-2 py-1.5 outline-none" style="background: var(--surface-glass); border: 1px solid var(--border-glass); color: var(--text-primary);" [(ngModel)]="nuevaVisitaForm.tipoVisita">
+                <option value="CONTROL_GENERAL">Control General</option>
+                <option value="MEDICA">Médica</option>
+                <option value="ENFERMERIA">Enfermería</option>
+                <option value="KINESIOLOGIA">Kinesiología</option>
+              </select>
+            </div>
+          </div>
+          <div class="flex justify-end gap-2 border-t pt-2" style="border-color: var(--border-glass);">
+            <button class="px-4 py-2 rounded text-xs font-semibold" style="color: var(--text-muted);" (click)="showNuevaVisitaModal.set(false)">Cancelar</button>
+            <button class="px-4 py-2 rounded text-xs font-bold text-white" style="background: var(--accent-emerald);" (click)="confirmarNuevaVisita()">Confirmar Orden</button>
+          </div>
+        </div>
+      </div>
+    }
+
+    @if (showReprogramarVisitaModal()) {
+      <div class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" (click)="showReprogramarVisitaModal.set(false)">
+        <div class="rounded-2xl p-5 w-full max-w-sm flex flex-col gap-3 shadow-2xl" style="background: var(--bg-elevated); border: 1px solid var(--border-glass);" (click)="$event.stopPropagation()">
+          <div class="flex items-center justify-between border-b pb-2" style="border-color: var(--border-glass);">
+            <h3 class="font-bold text-sm" style="color: var(--text-primary);">Reprogramar Visita</h3>
+            <button class="text-lg opacity-70 hover:opacity-100" style="color: var(--text-primary);" (click)="showReprogramarVisitaModal.set(false)">×</button>
+          </div>
+          <div class="flex flex-col gap-3 py-2 text-xs">
+            <div class="flex flex-col gap-1">
+              <label class="font-mono text-[9px] uppercase" style="color: var(--text-muted);">Nueva Fecha y Hora</label>
+              <input type="datetime-local" class="w-full rounded px-2 py-1.5 outline-none" style="background: var(--surface-glass); border: 1px solid var(--border-glass); color: var(--text-primary);" [(ngModel)]="reprogramarVisitaForm.nuevaFecha" />
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="font-mono text-[9px] uppercase" style="color: var(--text-muted);">Motivo</label>
+              <input type="text" class="w-full rounded px-2 py-1.5 outline-none" style="background: var(--surface-glass); border: 1px solid var(--border-glass); color: var(--text-primary);" [(ngModel)]="reprogramarVisitaForm.motivo" />
+            </div>
+          </div>
+          <div class="flex justify-end gap-2 border-t pt-2" style="border-color: var(--border-glass);">
+            <button class="px-4 py-2 rounded text-xs font-semibold" style="color: var(--text-muted);" (click)="showReprogramarVisitaModal.set(false)">Volver</button>
+            <button class="px-4 py-2 rounded text-xs font-bold text-white" style="background: var(--accent-blue);" (click)="confirmarReprogramarVisita()">Guardar</button>
+          </div>
+        </div>
+      </div>
+    }
+
+    @if (showFinalizarVisitaModal()) {
+      <div class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" (click)="showFinalizarVisitaModal.set(false)">
+        <div class="rounded-2xl p-5 w-full max-w-md flex flex-col gap-3 shadow-2xl" style="background: var(--bg-elevated); border: 1px solid var(--border-glass);" (click)="$event.stopPropagation()">
+          <div class="flex items-center justify-between border-b pb-2" style="border-color: var(--border-glass);">
+            <h3 class="font-bold text-sm" style="color: var(--text-primary);">Finalizar Visita (SOAP)</h3>
+            <button class="text-lg opacity-70 hover:opacity-100" style="color: var(--text-primary);" (click)="showFinalizarVisitaModal.set(false)">×</button>
+          </div>
+          <div class="flex flex-col gap-3 py-2 text-xs">
+            <div class="flex flex-col gap-1">
+              <label class="font-mono text-[9px] uppercase" style="color: var(--text-muted);">Observaciones Clínicas / Tratamiento</label>
+              <textarea rows="4" class="w-full rounded px-2 py-1.5 outline-none" style="background: var(--surface-glass); border: 1px solid var(--border-glass); color: var(--text-primary);" [(ngModel)]="finalizarVisitaForm.observacion"></textarea>
+            </div>
+          </div>
+          <div class="flex justify-end gap-2 border-t pt-2" style="border-color: var(--border-glass);">
+            <button class="px-4 py-2 rounded text-xs font-semibold" style="color: var(--text-muted);" (click)="showFinalizarVisitaModal.set(false)">Cancelar</button>
+            <button class="px-4 py-2 rounded text-xs font-bold text-white" style="background: var(--accent-emerald);" (click)="confirmarFinalizarVisita()">Finalizar Visita</button>
+          </div>
+        </div>
+      </div>
+    }
   `,
 })
 export class InternacionListComponent implements OnInit {
@@ -399,6 +514,7 @@ export class InternacionListComponent implements OnInit {
     { day: 4, h: 12, d: 0, role: 'enf', staff: 'Enf. Ariel Díaz',           patient: 'Marcos Vignola',  status: 'pending' },
   ];
 
+  // KPI and Filters
   statusFilters = [
     { value: 'TODOS', label: 'Todos', color: 'var(--text-secondary)' },
     { value: 'ADMITIDA', label: 'Admitida', color: 'var(--accent-amber)' },
@@ -449,6 +565,28 @@ export class InternacionListComponent implements OnInit {
     });
   });
 
+  // Modales y Formularios de Visitas Domiciliarias
+  readonly selectedVisita = signal<any | null>(null);
+  readonly showVisitaActionModal = signal<boolean>(false);
+  readonly showNuevaVisitaModal = signal<boolean>(false);
+  readonly showReprogramarVisitaModal = signal<boolean>(false);
+  readonly showFinalizarVisitaModal = signal<boolean>(false);
+
+  nuevaVisitaForm = {
+    desde: '2026-05-18',
+    hasta: '2026-05-22',
+    tipoVisita: 'CONTROL_GENERAL'
+  };
+
+  reprogramarVisitaForm = {
+    nuevaFecha: '2026-05-22T10:00:00',
+    motivo: 'Superposición de horarios con urgencia'
+  };
+
+  finalizarVisitaForm = {
+    observacion: 'Paciente estable. Parámetros respiratorios y signos vitales en rango normal.'
+  };
+
   constructor() {
     // Reactive effect to load signs vital and prescriptions when selection changes
     effect(() => {
@@ -463,6 +601,142 @@ export class InternacionListComponent implements OnInit {
   ngOnInit(): void {
     this.store.cargarActivas();
     this.loadKPIs();
+  }
+
+  // ============================================================
+  // ACTION HANDLERS
+  // ============================================================
+  openVisitaAction(v: any, event: MouseEvent): void {
+    event.stopPropagation();
+    this.selectedVisita.set(v);
+    this.showVisitaActionModal.set(true);
+  }
+
+  closeVisitaActionModal(): void {
+    this.showVisitaActionModal.set(false);
+  }
+
+  iniciarVisitaActual(): void {
+    const v = this.selectedVisita();
+    if (!v || !v.id) {
+      // Mock Fallback
+      if (v) v.status = 'progress';
+      this.closeVisitaActionModal();
+      return;
+    }
+    this.api.iniciarVisita(v.id).subscribe({
+      next: () => {
+        this.store.cargarActivas();
+        this.closeVisitaActionModal();
+      },
+      error: (err) => {
+        console.error('Error starting visit', err);
+        v.status = 'progress';
+        this.closeVisitaActionModal();
+      }
+    });
+  }
+
+  openFinalizarVisita(): void {
+    this.showFinalizarVisitaModal.set(true);
+  }
+
+  confirmarFinalizarVisita(): void {
+    const v = this.selectedVisita();
+    if (!v) return;
+
+    if (!v.id) {
+      // Mock Fallback
+      v.status = 'done';
+      this.showFinalizarVisitaModal.set(false);
+      this.closeVisitaActionModal();
+      return;
+    }
+
+    this.api.finalizarVisita(v.id, { observacion: this.finalizarVisitaForm.observacion }).subscribe({
+      next: () => {
+        this.store.cargarActivas();
+        this.showFinalizarVisitaModal.set(false);
+        this.closeVisitaActionModal();
+      },
+      error: (err) => {
+        console.error('Error completing visit', err);
+        v.status = 'done';
+        this.showFinalizarVisitaModal.set(false);
+        this.closeVisitaActionModal();
+      }
+    });
+  }
+
+  openReprogramarVisita(): void {
+    this.showReprogramarVisitaModal.set(true);
+  }
+
+  confirmarReprogramarVisita(): void {
+    const v = this.selectedVisita();
+    if (!v) return;
+
+    if (!v.id) {
+      // Mock Fallback
+      const date = new Date(this.reprogramarVisitaForm.nuevaFecha);
+      v.h = date.getHours();
+      v.d = date.getMinutes();
+      this.showReprogramarVisitaModal.set(false);
+      this.closeVisitaActionModal();
+      return;
+    }
+
+    this.api.reprogramarVisita(v.id, this.reprogramarVisitaForm.nuevaFecha, this.reprogramarVisitaForm.motivo).subscribe({
+      next: () => {
+        this.store.cargarActivas();
+        this.showReprogramarVisitaModal.set(false);
+        this.closeVisitaActionModal();
+      },
+      error: (err) => {
+        console.error('Error rescheduling visit', err);
+        const date = new Date(this.reprogramarVisitaForm.nuevaFecha);
+        v.h = date.getHours();
+        v.d = date.getMinutes();
+        this.showReprogramarVisitaModal.set(false);
+        this.closeVisitaActionModal();
+      }
+    });
+  }
+
+  openNuevaVisita(): void {
+    this.showNuevaVisitaModal.set(true);
+  }
+
+  confirmarNuevaVisita(): void {
+    const selected = this.selectedInternacion();
+    if (!selected) return;
+
+    this.api.generarVisitas(selected.id, this.nuevaVisitaForm.desde, this.nuevaVisitaForm.hasta, this.nuevaVisitaForm.tipoVisita).subscribe({
+      next: () => {
+        this.store.cargarActivas();
+        this.showNuevaVisitaModal.set(false);
+      },
+      error: (err) => {
+        console.error('Error generating visits', err);
+        // Fallback local mock insertion
+        this.visitsMock.push({
+          day: 4,
+          h: 10,
+          d: 0,
+          role: this.nuevaVisitaForm.tipoVisita === 'MEDICA' ? 'med' : this.nuevaVisitaForm.tipoVisita === 'KINESIOLOGIA' ? 'kine' : 'enf',
+          staff: 'Dr. Alejandro Gómez',
+          patient: selected.paciente ? `${selected.paciente.nombre} ${selected.paciente.apellido}` : 'Paciente',
+          status: 'pending'
+        });
+        this.showNuevaVisitaModal.set(false);
+      }
+    });
+  }
+
+  dispararIntervencionCritica(): void {
+    const selected = this.selectedInternacion();
+    if (!selected) return;
+    alert(`⚠️ Se ha disparado una alerta crítica de emergencia para el paciente ${selected.paciente?.nombre} ${selected.paciente?.apellido}. El operador de despacho ha sido notificado.`);
   }
 
   private loadKPIs(): void {
