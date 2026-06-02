@@ -492,10 +492,29 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
 
     this.geocodeSearching.set(true);
     this.geocoder.search(query).then((results) => {
-      this.geocodeSearching.set(false);
-      this.geocodeResults.set(results);
-      if (results.length === 1) {
+      if (results && results.length > 0) {
+        this.geocodeSearching.set(false);
+        this.geocodeResults.set(results);
         this.selectGeocode(results[0]);
+      } else {
+        // Fallback: si no hay resultados y es una dirección compleja con comas,
+        // tomamos el primer segmento (calle y número) y buscamos en San Salvador de Jujuy.
+        const parts = query.split(',');
+        if (parts.length > 1) {
+          const streetPart = parts[0].trim();
+          const fallbackQuery = `${streetPart}, San Salvador de Jujuy`;
+          this.geocoder.search(fallbackQuery).then((fallbackResults) => {
+            this.geocodeSearching.set(false);
+            if (fallbackResults && fallbackResults.length > 0) {
+              this.geocodeResults.set(fallbackResults);
+              this.selectGeocode(fallbackResults[0]);
+            }
+          }).catch(() => {
+            this.geocodeSearching.set(false);
+          });
+        } else {
+          this.geocodeSearching.set(false);
+        }
       }
     }).catch(() => {
       this.geocodeSearching.set(false);
