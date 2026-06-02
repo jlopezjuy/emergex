@@ -1,23 +1,31 @@
 import {
-  Component, signal, computed, output, inject, OnInit
+  Component, signal, computed, output, inject, OnInit, DestroyRef
 } from '@angular/core';
-import { ReactiveFormsModule, FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
+import { HttpErrorResponse } from '@angular/common/http';
+import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { DecimalPipe } from '@angular/common';
+import { catchError, debounceTime, distinctUntilChanged, firstValueFrom, of, switchMap } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { PlanComercialDTO } from '../../../../data-access/dto/plan-comercial.dto';
 import { PlanComercialApiService } from '../../../../data-access/api/plan-comercial.api';
 import { PatientApiService } from '../../../../data-access/api/patient.api';
 import {
   AltaAfiliadoCompletaRequest,
   AltaAfiliadoCompletaResponse,
+  ValidacionDniAfiliadoDTO,
 } from '../../../../data-access/dto/patient.dto';
 import { PlanCardComponent } from '../../../../shared/components/plan-card/plan-card.component';
+import { LocationPickerMapComponent } from '../../../../shared/components/map/location-picker-map/location-picker-map.component';
+import { GeocodeResult } from '../../../../shared/map/geocoder-provider';
+import { HttpGeocoderProvider } from '../../../../shared/map/providers/http-geocoder.provider';
+import { UserFeedbackService } from '../../../../core/notifications/user-feedback.service';
 
 type WizardStep = 'datos' | 'plan' | 'grupo' | 'confirmacion';
 
 @Component({
   selector: 'emx-patient-wizard',
   standalone: true,
-  imports: [ReactiveFormsModule, DecimalPipe, PlanCardComponent],
+  imports: [ReactiveFormsModule, DecimalPipe, PlanCardComponent, LocationPickerMapComponent],
   template: `
     <div class="wizard-overlay" (click)="onOverlayClick($event)">
       <div class="wizard-modal" role="dialog" aria-modal="true" aria-labelledby="wiz-title">
@@ -50,9 +58,15 @@ type WizardStep = 'datos' | 'plan' | 'grupo' | 'confirmacion';
                 <div class="row2">
                   <div class="ff">
                     <label>DNI *</label>
-                    <input type="text" formControlName="dni" placeholder="30123456" />
+                    <input type="text" formControlName="dni" placeholder="30123456" (blur)="onTitularDniBlur()" />
                     @if (datosForm.get('dni')?.invalid && datosForm.get('dni')?.touched) {
                       <span class="ferr">DNI inválido (mínimo 7 caracteres)</span>
+                    }
+                    @if (validatingTitularDni()) {
+                      <span class="finfo">Validando DNI…</span>
+                    }
+                    @if (titularDniError()) {
+                      <span class="ferr">{{ titularDniError() }}</span>
                     }
                   </div>
                   <div class="ff">
@@ -108,9 +122,41 @@ type WizardStep = 'datos' | 'plan' | 'grupo' | 'confirmacion';
                     }
                   </div>
                 </div>
-                <div class="ff full">
+                <div class="ff full address-field">
                   <label>Dirección</label>
-                  <input type="text" formControlName="direccion" placeholder="Calle, número, ciudad" />
+                  <input type="text" formControlName="direccion" placeholder="Calle, número, barrio o ciudad" />
+                  @if (geocodeSearching()) {
+                    <span class="geo-hint">Buscando ubicación…</span>
+                  }
+                  @if (geocodeResults().length > 0) {
+                    <div class="geo-results">
+                      @for (result of geocodeResults(); track result.address) {
+                        <button
+                          type="button"
+                          class="geo-result"
+                          (click)="selectGeocode(result)">
+                          <span class="geo-result__title">{{ result.label }}</span>
+                          <span class="geo-result__coords">{{ result.lat.toFixed(5) }}, {{ result.lng.toFixed(5) }}</span>
+                        </button>
+                      }
+                    </div>
+                  }
+                  <div class="geo-map">
+                    <emx-location-picker-map
+                      [lat]="selectedLocation()?.lat ?? null"
+                      [lng]="selectedLocation()?.lng ?? null"
+                      (pointChanged)="setManualLocation($event)"
+                    />
+                  </div>
+                  @if (selectedLocation(); as location) {
+                    <span class="geo-hint geo-hint--ok">
+                      Ubicación confirmada · {{ location.lat.toFixed(5) }}, {{ location.lng.toFixed(5) }}
+                    </span>
+                  } @else {
+                    <span class="geo-hint geo-hint--warn">
+                      Sin ubicación confirmada. Podés registrar igual, pero la próxima emergencia no va a arrancar con punto exacto.
+                    </span>
+                  }
                 </div>
               </form>
             }
@@ -160,7 +206,13 @@ type WizardStep = 'datos' | 'plan' | 'grupo' | 'confirmacion';
                     <div class="row3">
                       <div class="ff">
                         <label>DNI</label>
-                        <input type="text" formControlName="dni" placeholder="DNI" />
+                        <input type="text" formControlName="dni" placeholder="DNI" (blur)="onDependienteDniBlur(i)" />
+                        @if (validatingDependienteDni()[i]) {
+                          <span class="finfo">Validando DNI…</span>
+                        }
+                        @if (dependienteDniErrors()[i]) {
+                          <span class="ferr">{{ dependienteDniErrors()[i] }}</span>
+                        }
                       </div>
                       <div class="ff">
                         <label>Nombre *</label>
@@ -205,6 +257,12 @@ type WizardStep = 'datos' | 'plan' | 'grupo' | 'confirmacion';
                     }
                   </div>
                 </div>
+                @if (datosForm.value.direccion) {
+                  <div class="confirm-block">
+                    <div class="cl">Domicilio de atención sugerido</div>
+                    <div class="cv">{{ normalizedAddressPreview() }}</div>
+                  </div>
+                }
                 @if (dependientesForm.controls.length > 0) {
                   <div class="confirm-block">
                     <div class="cl">Dependientes ({{ dependientesForm.controls.length }})</div>
@@ -317,6 +375,7 @@ type WizardStep = 'datos' | 'plan' | 'grupo' | 'confirmacion';
     }
     input:focus, select:focus { border-color: var(--accent-blue); }
     .ferr { font-size: 11px; color: #ef4444; }
+    .finfo { font-size: 11px; color: #64748b; }
     .hint { font-size: 13px; color: var(--text-muted); margin-bottom: 14px; }
     .plan-step { }
     .plans-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(175px, 1fr)); gap: 10px; }
@@ -340,12 +399,37 @@ type WizardStep = 'datos' | 'plan' | 'grupo' | 'confirmacion';
       color: #ef4444; border-radius: 8px; padding: 10px 13px;
       font-size: 13px; margin-top: 12px;
     }
+    .address-field { gap: 8px; }
+    .geo-hint { font-size: 11px; color: var(--text-muted); }
+    .geo-hint--ok { color: #059669; }
+    .geo-hint--warn { color: #d97706; }
+    .geo-results {
+      display: flex; flex-direction: column; overflow: hidden;
+      border: 1px solid rgba(148,163,184,.35); border-radius: 10px; background: #fff;
+    }
+    .geo-result {
+      display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+      width: 100%; text-align: left; padding: 10px 12px; cursor: pointer;
+      border: none; border-bottom: 1px solid rgba(148,163,184,.18); background: #fff;
+    }
+    .geo-result:last-child { border-bottom: none; }
+    .geo-result:hover { background: rgba(59,130,246,.08); }
+    .geo-result__title { font-size: 12px; font-weight: 600; color: #0f172a; }
+    .geo-result__coords { font-size: 11px; color: #64748b; }
+    .geo-map {
+      overflow: hidden; border-radius: 12px;
+      border: 1px solid rgba(148,163,184,.35); background: #f8fafc;
+      min-height: 210px;
+    }
   `],
 })
 export class PatientWizardComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly patientApi = inject(PatientApiService);
   private readonly planApi = inject(PlanComercialApiService);
+  private readonly geocoder = inject(HttpGeocoderProvider);
+  private readonly feedback = inject(UserFeedbackService);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly close = output<void>();
   readonly altaCompleted = output<AltaAfiliadoCompletaResponse>();
@@ -366,7 +450,15 @@ export class PatientWizardComponent implements OnInit {
   readonly submitting = signal(false);
   readonly submitError = signal<string | null>(null);
   readonly planError = signal(false);
+  readonly geocodeResults = signal<GeocodeResult[]>([]);
+  readonly titularDniError = signal<string | null>(null);
+  readonly validatingTitularDni = signal(false);
+  readonly dependienteDniErrors = signal<Record<number, string>>({});
+  readonly validatingDependienteDni = signal<Record<number, boolean>>({});
+  readonly geocodeSearching = signal(false);
+  readonly selectedLocation = signal<GeocodeResult | null>(null);
   readonly today = new Date().toISOString().slice(0, 10);
+  readonly normalizedAddressPreview = computed(() => this.selectedLocation()?.address || this.datosForm?.value?.direccion || '—');
 
   datosForm!: FormGroup;
   readonly dependientesForm = this.fb.array<FormGroup>([]);
@@ -382,6 +474,26 @@ export class PatientWizardComponent implements OnInit {
       telefono:        [''],
       email:           ['', Validators.email],
       direccion:       [''],
+    });
+
+    this.datosForm.get('direccion')?.valueChanges.pipe(
+      debounceTime(500),
+      distinctUntilChanged(),
+      switchMap((value) => {
+        const query = String(value ?? '').trim();
+        this.selectedLocation.set(null);
+        if (query.length < 4) {
+          this.geocodeSearching.set(false);
+          this.geocodeResults.set([]);
+          return of([] as GeocodeResult[]);
+        }
+        this.geocodeSearching.set(true);
+        return this.geocoder.search(query).then((results) => results).catch(() => [] as GeocodeResult[]);
+      }),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe((results) => {
+      this.geocodeResults.set(results);
+      this.geocodeSearching.set(false);
     });
 
     this.loadingPlans.set(true);
@@ -415,21 +527,169 @@ export class PatientWizardComponent implements OnInit {
 
   removeDependiente(i: number): void {
     this.dependientesForm.removeAt(i);
+    this.rebuildDependienteValidationState();
   }
 
   getDepGroup(i: number): FormGroup {
     return this.dependientesForm.at(i) as FormGroup;
   }
 
-  nextStep(): void {
+  selectGeocode(result: GeocodeResult): void {
+    this.selectedLocation.set(result);
+    this.geocodeResults.set([]);
+    this.datosForm.get('direccion')?.setValue(result.address || result.label, { emitEvent: false });
+  }
+
+  setManualLocation(point: { lat: number; lng: number }): void {
+    const currentAddress = String(this.datosForm.get('direccion')?.value ?? '').trim();
+    this.selectedLocation.set({
+      label: currentAddress || 'Ubicación manual',
+      address: currentAddress || 'Ubicación manual',
+      lat: point.lat,
+      lng: point.lng,
+      provider: 'manual',
+    });
+  }
+
+  onTitularDniBlur(): void {
+    void this.validateTitularDni();
+  }
+
+  onDependienteDniBlur(index: number): void {
+    void this.validateDependienteDni(index);
+  }
+
+  private normalizeDni(value: unknown): string {
+    return String(value ?? '').replace(/\D/g, '').trim();
+  }
+
+  private setDependienteError(index: number, message: string | null): void {
+    this.dependienteDniErrors.update(current => {
+      const next = { ...current };
+      if (message) next[index] = message;
+      else delete next[index];
+      return next;
+    });
+  }
+
+  private setDependienteValidating(index: number, validating: boolean): void {
+    this.validatingDependienteDni.update(current => ({ ...current, [index]: validating }));
+  }
+
+  private rebuildDependienteValidationState(): void {
+    const errors = this.dependienteDniErrors();
+    const validating = this.validatingDependienteDni();
+    const nextErrors: Record<number, string> = {};
+    const nextValidating: Record<number, boolean> = {};
+    this.dependientesForm.controls.forEach((_, idx) => {
+      if (errors[idx]) nextErrors[idx] = errors[idx];
+      if (validating[idx]) nextValidating[idx] = validating[idx];
+    });
+    this.dependienteDniErrors.set(nextErrors);
+    this.validatingDependienteDni.set(nextValidating);
+  }
+
+  private async validateTitularDni(): Promise<boolean> {
+    const dni = this.normalizeDni(this.datosForm.get('dni')?.value);
+    this.titularDniError.set(null);
+
+    if (!dni) return true;
+    if (dni.length < 7) {
+      this.titularDniError.set('Ingresá un DNI válido de 7 u 8 dígitos.');
+      return false;
+    }
+
+    const duplicateInGroup = this.dependientesForm.controls.some(dep => this.normalizeDni(dep.get('dni')?.value) === dni);
+    if (duplicateInGroup) {
+      this.titularDniError.set('El DNI del titular está repetido dentro del grupo familiar.');
+      return false;
+    }
+
+    this.validatingTitularDni.set(true);
+    const result = await firstValueFrom(
+      this.patientApi.validarDniAfiliado(dni).pipe(
+        catchError(() => of(this.unavailableValidationResult(dni, 'No pudimos validar el DNI en este momento. Intentá nuevamente.')))
+      )
+    );
+    this.validatingTitularDni.set(false);
+
+    if (!result.disponible) {
+      this.titularDniError.set(result.mensaje || 'Ese DNI ya existe en esta empresa.');
+      return false;
+    }
+    return true;
+  }
+
+  private async validateDependienteDni(index: number): Promise<boolean> {
+    const control = this.getDepGroup(index).get('dni');
+    const dni = this.normalizeDni(control?.value);
+    this.setDependienteError(index, null);
+
+    if (!dni) return true;
+    if (dni.length < 7) {
+      this.setDependienteError(index, 'Ingresá un DNI válido de 7 u 8 dígitos.');
+      return false;
+    }
+
+    const titularDni = this.normalizeDni(this.datosForm.get('dni')?.value);
+    if (titularDni && titularDni === dni) {
+      this.setDependienteError(index, 'Ese DNI coincide con el del titular.');
+      return false;
+    }
+
+    const duplicateIndex = this.dependientesForm.controls.findIndex((dep, idx) => idx !== index && this.normalizeDni(dep.get('dni')?.value) === dni);
+    if (duplicateIndex >= 0) {
+      this.setDependienteError(index, 'Ese DNI ya fue cargado en otro familiar del grupo.');
+      return false;
+    }
+
+    this.setDependienteValidating(index, true);
+    const result = await firstValueFrom(
+      this.patientApi.validarDniAfiliado(dni).pipe(
+        catchError(() => of(this.unavailableValidationResult(dni, 'No pudimos validar el DNI del familiar en este momento. Intentá nuevamente.')))
+      )
+    );
+    this.setDependienteValidating(index, false);
+
+    if (!result.disponible) {
+      this.setDependienteError(index, result.mensaje || 'Ese DNI ya existe en esta empresa.');
+      return false;
+    }
+    return true;
+  }
+
+  private unavailableValidationResult(dni: string, mensaje: string): ValidacionDniAfiliadoDTO {
+    return { dni, disponible: false, duplicadoPaciente: false, duplicadoInstitucional: false, mensaje };
+  }
+
+  private async validateGrupoDnis(): Promise<boolean> {
+    const titularOk = await this.validateTitularDni();
+    if (!titularOk) return false;
+
+    for (let i = 0; i < this.dependientesForm.controls.length; i += 1) {
+      const ok = await this.validateDependienteDni(i);
+      if (!ok) return false;
+    }
+
+    return true;
+  }
+
+  async nextStep(): Promise<void> {
     const idx = this.stepIndex();
     if (idx === 0) {
       this.datosForm.markAllAsTouched();
       if (this.datosForm.invalid) return;
+      const titularOk = await this.validateTitularDni();
+      if (!titularOk) return;
     }
     if (idx === 1 && !this.selectedPlanId()) {
       this.planError.set(true);
       return;
+    }
+    if (idx === 2) {
+      this.dependientesForm.markAllAsTouched();
+      const depsOk = await this.validateGrupoDnis();
+      if (!depsOk) return;
     }
     if (idx < this.steps.length - 1) {
       this.currentStep.set(this.steps[idx + 1].key);
@@ -441,8 +701,19 @@ export class PatientWizardComponent implements OnInit {
     if (idx > 0) this.currentStep.set(this.steps[idx - 1].key);
   }
 
-  submit(): void {
+  async submit(): Promise<void> {
     if (this.submitting()) return;
+
+    this.datosForm.markAllAsTouched();
+    this.dependientesForm.markAllAsTouched();
+    if (this.datosForm.invalid) return;
+
+    const dnisOk = await this.validateGrupoDnis();
+    if (!dnisOk) {
+      this.submitError.set('Revisá los DNI cargados. Hay duplicados o conflictos con registros existentes.');
+      return;
+    }
+
     this.submitting.set(true);
     this.submitError.set(null);
 
@@ -451,18 +722,18 @@ export class PatientWizardComponent implements OnInit {
     const req: AltaAfiliadoCompletaRequest = {
       nombre:          v.nombre,
       apellido:        v.apellido,
-      dni:             v.dni,
+      dni:             this.normalizeDni(v.dni),
       tipoDocumento:   v.tipoDocumento ?? 'DNI',
       sexo:            v.sexo ?? 'MASCULINO',
       fechaNacimiento: v.fechaNacimiento || undefined,
       email:           v.email || undefined,
       telefono:        v.telefono || undefined,
-      direccion:       v.direccion || undefined,
+      direccion:       this.selectedLocation()?.address || v.direccion || undefined,
       planComercialId: Number(this.selectedPlanId()),
       dependientes:    this.dependientesForm.value.map((d: any) => ({
         nombre:          d.nombre,
         apellido:        d.apellido,
-        dni:             d.dni || '',
+        dni:             this.normalizeDni(d.dni || ''),
         tipoDocumento:   d.tipoDocumento ?? 'DNI',
         sexo:            d.sexo ?? 'MASCULINO',
         fechaNacimiento: d.fechaNacimiento || undefined,
@@ -478,13 +749,42 @@ export class PatientWizardComponent implements OnInit {
       },
       error: err => {
         this.submitting.set(false);
-        const msg =
-          err?.error?.title ??
-          err?.error?.message ??
-          'Error al registrar el afiliado. Verificá los datos e intentá de nuevo.';
+        const msg = this.mapAltaError(err);
         this.submitError.set(msg);
+        this.feedback.push({
+          type: 'warning',
+          title: 'Validación del alta',
+          message: msg,
+          ttlMs: 7000,
+        });
       },
     });
+  }
+
+  private mapAltaError(err: unknown): string {
+    const http = err as HttpErrorResponse | undefined;
+    const body = http?.error;
+    const code = body?.message ?? body?.properties?.message;
+    const detail = body?.detail;
+
+    if (code === 'error.dniDuplicado') {
+      return 'Ya existe un afiliado o paciente con ese DNI en esta empresa.';
+    }
+    if (code === 'error.dniDuplicadoInstitucional') {
+      return 'Ese DNI ya existe como beneficiario institucional activo en esta empresa.';
+    }
+    if (code === 'error.dniDuplicadoGrupo') {
+      return 'Hay DNI repetidos dentro del grupo familiar que estás intentando crear.';
+    }
+    if (code === 'error.planNotFound') {
+      return 'El plan comercial seleccionado no está disponible o ya no se encuentra activo.';
+    }
+
+    if (typeof detail === 'string' && detail && detail !== 'null') {
+      return detail;
+    }
+
+    return 'No se pudo completar el alta. Revisá DNI, plan y grupo familiar antes de volver a intentar.';
   }
 
   onOverlayClick(event: MouseEvent): void {

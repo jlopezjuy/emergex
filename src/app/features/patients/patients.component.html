@@ -259,7 +259,7 @@
         <strong class="text-slate-700 font-bold">{{ filtered().length }}</strong> afiliados
       </div>
       <div class="flex items-center gap-1.5 font-semibold">
-        <button class="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 disabled:opacity-40 disabled:hover:bg-transparent transition" [disabled]="page() === 0" (click)="page.set(page() - 1)">‹ Anterior</button>
+        <button class="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 disabled:opacity-40 disabled:hover:bg-transparent transition" [disabled]="page() === 0" (click)="setPage(page() - 1)">‹ Anterior</button>
         @for (i of pageRange(); track i) {
           <button class="w-8 h-8 rounded-lg flex items-center justify-center border font-mono font-medium text-xs transition"
             [class.bg-blue-50]="page() === i"
@@ -268,9 +268,9 @@
             [class.border-slate-200]="page() !== i"
             [class.text-slate-500]="page() !== i"
             [class.hover:bg-slate-50]="page() !== i"
-            (click)="page.set(i)">{{ i + 1 }}</button>
+            (click)="setPage(i)">{{ i + 1 }}</button>
         }
-        <button class="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 disabled:opacity-40 disabled:hover:bg-transparent transition" [disabled]="page() >= totalPages() - 1" (click)="page.set(page() + 1)">Siguiente ›</button>
+        <button class="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 disabled:opacity-40 disabled:hover:bg-transparent transition" [disabled]="page() >= totalPages() - 1" (click)="setPage(page() + 1)">Siguiente ›</button>
       </div>
     </div>
   </div>

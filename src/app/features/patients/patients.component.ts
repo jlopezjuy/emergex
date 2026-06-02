@@ -267,11 +267,10 @@ export class PatientsComponent implements OnInit {
     return this.patients().filter(p => p.status === s);
   });
 
-  readonly totalPages = computed(() => Math.max(1, Math.ceil(this.filtered().length / PAGE_SIZE)));
+  readonly totalPages = computed(() => Math.max(1, Math.ceil(this.serverTotal() / PAGE_SIZE)));
 
   readonly paged = computed(() => {
-    const pg = Math.min(this.page(), this.totalPages() - 1);
-    return this.filtered().slice(pg * PAGE_SIZE, (pg + 1) * PAGE_SIZE);
+    return this.filtered();
   });
 
   readonly pageRange = computed(() => Array.from({ length: this.totalPages() }, (_, i) => i));
@@ -313,7 +312,7 @@ export class PatientsComponent implements OnInit {
   }
 
   private loadPatients(resetPage = false): void {
-    if (resetPage) this.serverPage.set(0);
+    if (resetPage) this.page.set(0);
     const editId = Number(this.route.snapshot.queryParams['edit']) || null;
     this.loading.set(true);
 
@@ -321,33 +320,36 @@ export class PatientsComponent implements OnInit {
       q: this.searchQuery() || undefined,
       planId: this.planFilter() !== 'all' ? Number(this.planFilter()) : undefined,
       page: this.serverPage(),
-      size: 20,
+      size: 500,
     }).pipe(
       catchError(() => of({ data: [], total: 0, totalPages: 1 })),
       takeUntilDestroyed(this.destroyRef)
     ).subscribe(({ data, total, totalPages }) => {
-      const rows = data.map(r => ({
-        pacienteId: r.pacienteId,
-        id: r.numeroAfiliado ?? `AF-${r.pacienteId}`,
-        name: r.nombreCompleto ?? '',
-        dni: r.dni,
-        type: 'titular' as const,
-        status: (r.activo !== false ? 'al-dia' : 'deuda') as 'al-dia' | 'deuda',
-        sinceMonth: r.createdAt ? sinceMonthFromISO(r.createdAt) : '—',
-        planNombre: r.coberturaActiva ?? 'Sin plan',
-        planColor: this.getPlanColor((r.planNivel ?? 'basico').toLowerCase()),
-        depCount: r.depCount ?? 0,
-        _raw: {
-          id: r.pacienteId,
-          nombre: r.nombreCompleto?.split(' ')[0] ?? '',
-          apellido: r.nombreCompleto?.split(' ').slice(1).join(' ') ?? '',
+      const rows = data.map(r => {
+        console.log('PATIENT ROLE MAP:', r.nombreCompleto, 'rolFamiliar:', r.rolFamiliar);
+        return {
+          pacienteId: r.pacienteId,
+          id: r.numeroAfiliado ?? `AF-${r.pacienteId}`,
+          name: r.nombreCompleto ?? '',
           dni: r.dni,
-          telefono: r.telefono,
-          numeroAfiliado: r.numeroAfiliado,
-          activo: r.activo,
-          createdAt: r.createdAt,
-        } as any,
-      }));
+          type: (r.rolFamiliar === 'TITULAR' ? 'titular' : 'dependiente') as 'titular' | 'dependiente',
+          status: (r.activo !== false ? 'al-dia' : 'deuda') as 'al-dia' | 'deuda',
+          sinceMonth: r.createdAt ? sinceMonthFromISO(r.createdAt) : '—',
+          planNombre: r.coberturaActiva ?? 'Sin plan',
+          planColor: this.getPlanColor((r.planNivel ?? 'basico').toLowerCase()),
+          depCount: r.depCount ?? 0,
+          _raw: {
+            id: r.pacienteId,
+            nombre: r.nombreCompleto?.split(' ')[0] ?? '',
+            apellido: r.nombreCompleto?.split(' ').slice(1).join(' ') ?? '',
+            dni: r.dni,
+            telefono: r.telefono,
+            numeroAfiliado: r.numeroAfiliado,
+            activo: r.activo,
+            createdAt: r.createdAt,
+          } as any,
+        };
+      });
 
       this.patients.set(rows);
       this.serverTotal.set(total);
@@ -490,6 +492,11 @@ export class PatientsComponent implements OnInit {
   setStatus(v: string): void {
     this.statusFilter.set(v);
     this.page.set(0);
+  }
+
+  setPage(i: number): void {
+    this.page.set(i);
+    this.loadPatients();
   }
 
   reloadPatients(resetPage = false): void {
