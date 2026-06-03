@@ -48,6 +48,7 @@ export const routes: Routes = [
     children: [
       {
         path: 'dashboard',
+        canActivate: [roleGuard('ROLE_DESPACHANTE', 'ROLE_OPERADOR', 'ROLE_ADMIN', 'ROLE_ADMINISTRADOR', 'ROLE_PROPIETARIO')],
         loadComponent: () =>
           import('./features/operations/operations.component').then(
             (m) => m.OperationsComponent,
@@ -205,6 +206,7 @@ export const routes: Routes = [
       },
       {
         path: 'dashboard/emergency/:id',
+        canActivate: [roleGuard('ROLE_DESPACHANTE', 'ROLE_OPERADOR', 'ROLE_ADMIN', 'ROLE_ADMINISTRADOR', 'ROLE_PROPIETARIO')],
         loadComponent: () =>
           import('./features/operations/emergency-detail/emergency-detail.component').then(
             (m) => m.EmergencyDetailComponent,

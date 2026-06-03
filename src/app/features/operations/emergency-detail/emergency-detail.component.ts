@@ -23,6 +23,7 @@ import { SparklineComponent } from '../../../shared/components/charts/sparkline/
 import { OperationsMapComponent } from '../../../shared/components/map/operations-map/operations-map.component';
 import { UnidadMovilDTO } from '../../../data-access/dto/ambulancia.dto';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
+import { SessionStore } from '../../../core/stores/session.store';
 
 interface StatusStep {
   id: string;
@@ -1224,6 +1225,7 @@ export class EmergencyDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private emergencyApi = inject(EmergencyApiService);
+  private session = inject(SessionStore);
 
   // ── Core signals ──────────────────────────────────────────────
   readonly loading = signal(false);
@@ -1411,7 +1413,8 @@ export class EmergencyDetailComponent implements OnInit {
   // ── Action guards ─────────────────────────────────────────────
   readonly canDispatch = computed(() => {
     const t = this.ticket();
-    return !t?.ambulanciaId && (t?.estado === 'RECIBIDO' || t?.estado === 'EN_ESPERA');
+    const canByRole = this.session.isDespachante() || this.session.isOperador() || this.session.isAdministrador() || this.session.isPropietario() || this.session.isAdmin();
+    return canByRole && !t?.ambulanciaId && (t?.estado === 'RECIBIDO' || t?.estado === 'EN_ESPERA');
   });
 
   readonly canMarkEnCamino = computed(() => {
@@ -1446,7 +1449,8 @@ export class EmergencyDetailComponent implements OnInit {
 
   readonly canEditClinical = computed(() => {
     const estado = this.ticket()?.estado;
-    return estado === 'EN_SITIO' || estado === 'EN_CAMINO' || estado === 'DESPACHADO';
+    const canByRole = this.session.isMedicoCampo() || this.session.isProfesional() || this.session.isDespachante() || this.session.isAdministrador() || this.session.isAdmin();
+    return canByRole && (estado === 'EN_SITIO' || estado === 'EN_CAMINO' || estado === 'DESPACHADO');
   });
 
   // ── Priority helpers ──────────────────────────────────────────

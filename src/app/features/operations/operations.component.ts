@@ -316,6 +316,15 @@ type FeedTab = 'TODAS' | 'SIN_ASIGNAR' | 'CRITICAS';
                       @if (cob.esFacturable) {
                         <span style="font-size:10px;color:var(--accent-blue)">📋 Facturable</span>
                       }
+                      @if (cob.estadoCobertura) {
+                        @if (cob.estadoCobertura === 'SUSPENDIDO' || cob.estadoCobertura === 'BLOQUEADO') {
+                          <span style="font-size:10px;font-weight:700;color:#fff;background:var(--accent-red);border-radius:4px;padding:1px 6px;letter-spacing:.4px">{{ cob.estadoCobertura }}</span>
+                        } @else if (cob.estadoCobertura === 'ACTIVA') {
+                          <span style="font-size:10px;font-weight:700;color:#fff;background:var(--accent-emerald);border-radius:4px;padding:1px 6px;letter-spacing:.4px">{{ cob.estadoCobertura }}</span>
+                        } @else {
+                          <span style="font-size:10px;font-weight:700;color:var(--text-primary);background:var(--border-glass);border-radius:4px;padding:1px 6px;letter-spacing:.4px">{{ cob.estadoCobertura }}</span>
+                        }
+                      }
                     </div>
                   </div>
                 }
