@@ -50,6 +50,18 @@ export class AuthService {
       );
   }
 
+  switchEnterprise(empresaId: number): Observable<Account> {
+    return this.http
+      .post<JwtResponse>(`${environment.apiUrl}/api/account/switch-enterprise/${empresaId}`, {})
+      .pipe(
+        tap((res) => {
+          saveSecureToken(res.id_token);
+          this._isAuthenticated.set(true);
+        }),
+        switchMap(() => this.fetchAccount()),
+      );
+  }
+
   fetchAccount(): Observable<Account> {
     return this.http.get<Account>(`${environment.apiUrl}/api/account/me`).pipe(
       tap((account) => this._account.set(account)),

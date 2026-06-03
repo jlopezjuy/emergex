@@ -53,4 +53,13 @@ export class EmpresaApiService {
   delete(id: number): Observable<void> {
     return this.http.delete<void>(`${this.base}/${id}`);
   }
+
+  getMenuConfig(empresaId: number): Observable<Record<string, string[]>> {
+    return this.http.get<Record<string, string[]>>(`${environment.apiUrl}/api/admin/empresas/${empresaId}/menu-config`);
+  }
+
+  saveMenuConfig(empresaId: number, config: Record<string, string[]>): Observable<void> {
+    return this.http.post<void>(`${environment.apiUrl}/api/admin/empresas/${empresaId}/menu-config`, config);
+  }
 }
+

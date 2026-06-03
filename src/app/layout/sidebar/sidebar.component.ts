@@ -4,15 +4,10 @@ import { FleetStore } from '../../core/stores/fleet.store';
 import { SessionStore } from '../../core/stores/session.store';
 import { ThemeService } from '../../core/theme/theme.service';
 import { SafeHtmlPipe } from '../../shared/pipes/safe-html.pipe';
-
-type NavItem = {
-  path: string;
-  label: string;
-  title: string;
-  icon: string;
-  alert?: 'fleet';
-  adminOnly?: boolean;
-};
+import { toObservable, takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { switchMap, of } from 'rxjs';
+import { AuthService } from '../../core/auth/auth.service';
+import { MenuService, IMenuItem } from '../../core/menu/menu.service';
 
 @Component({
   selector: 'emx-sidebar',
@@ -61,9 +56,9 @@ type NavItem = {
       </div>
 
       <div class="flex-1 overflow-y-auto px-2 py-2 space-y-1">
-        @for (item of visibleItems(); track item.path) {
+        @for (item of visibleItems(); track item.id) {
           <a
-            [routerLink]="item.path"
+            [routerLink]="item.route || ''"
             routerLinkActive="nav-active"
             class="nav-item"
             [title]="item.title"
@@ -72,7 +67,7 @@ type NavItem = {
             @if (expanded()) {
               <span class="label">{{ item.label }}</span>
             }
-            @if (item.alert === 'fleet' && fleetAlert()) {
+            @if ((item.id === 'fleet' || item.id === 'ambulancias') && fleetAlert()) {
               <span class="alert-dot"></span>
             }
           </a>
@@ -175,7 +170,8 @@ type NavItem = {
 export class SidebarComponent {
   readonly theme = inject(ThemeService);
   private readonly fleet = inject(FleetStore);
-  private readonly session = inject(SessionStore);
+  private readonly menuService = inject(MenuService);
+  private readonly authService = inject(AuthService);
 
   readonly expanded = signal(false);
   readonly fleetAlert = computed(() =>
@@ -184,27 +180,26 @@ export class SidebarComponent {
     ),
   );
 
-  readonly visibleItems = computed(() =>
-    this.mainItems.filter(item => !item.adminOnly || this.session.isGlobalAdmin()),
-  );
+  readonly menuItems = signal<IMenuItem[]>([]);
+  readonly visibleItems = computed(() => this.menuItems());
 
-  readonly mainItems: NavItem[] = [
-    { path: '/dashboard', label: 'Operaciones', title: 'Operaciones', icon: '🏠' },
-    { path: '/turnos', label: 'Turnos', title: 'Consola de turnos', icon: '📅' },
-    { path: '/map', label: 'Mapa', title: 'Mapa', icon: '🗺️' },
-    { path: '/asistencias/historial', label: 'Historial', title: 'Historial asistencias', icon: '🕓' },
-    { path: '/fleet', label: 'Flota', title: 'Flota', icon: '🚑', alert: 'fleet' },
-    { path: '/staff', label: 'Personal', title: 'Personal', icon: '👥' },
-    { path: '/patients', label: 'Afiliados', title: 'Afiliados', icon: '🧑‍⚕️' },
-    { path: '/institutions', label: 'Instituciones', title: 'Instituciones', icon: '🏥' },
-    { path: '/plans', label: 'Planes', title: 'Planes comerciales', icon: '📦' },
-    { path: '/facturacion', label: 'Facturación', title: 'Facturación', icon: '🧾' },
-    { path: '/events', label: 'Eventos', title: 'Eventos', icon: '📅' },
-    { path: '/hospitals', label: 'Hospitales', title: 'Hospitales', icon: '🏨' },
-    { path: '/communications', label: 'Comunicaciones', title: 'Comunicaciones', icon: '📡' },
-    { path: '/internacion', label: 'Internación', title: 'Internación domiciliaria', icon: '🛏️' },
-    { path: '/management', label: 'Gerencial', title: 'Gestión Gerencial', icon: '💼' },
-    { path: '/analytics', label: 'Analítica', title: 'Analítica', icon: '📊' },
-    { path: '/admin/global', label: 'Admin global', title: 'Administración global', icon: '🏢', adminOnly: true },
-  ];
+  constructor() {
+    toObservable(this.authService.currentAccount)
+      .pipe(
+        switchMap(account => {
+          if (account) {
+            return this.menuService.getMenu();
+          }
+          return of([]);
+        }),
+        takeUntilDestroyed()
+      )
+      .subscribe({
+        next: (items) => this.menuItems.set(items),
+        error: (err) => {
+          console.error('Error fetching menu:', err);
+          this.menuItems.set([]);
+        }
+      });
+  }
 }

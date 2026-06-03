@@ -41,6 +41,58 @@ const ALL_ROLES: RolCentro[] = [
   'CONTADOR',
 ];
 
+export interface MenuConfigItem {
+  id: string;
+  label: string;
+  icon: string;
+}
+
+const CONFIGURABLE_MENU_ITEMS: MenuConfigItem[] = [
+  { id: 'dashboard', label: 'Operaciones', icon: '🏠' },
+  { id: 'turnos', label: 'Turnos', icon: '📅' },
+  { id: 'map', label: 'Mapa', icon: '🗺️' },
+  { id: 'historial', label: 'Historial', icon: '🕓' },
+  { id: 'fleet', label: 'Flota', icon: '🚑' },
+  { id: 'staff', label: 'Personal', icon: '👥' },
+  { id: 'patients', label: 'Afiliados', icon: '🧑‍⚕️' },
+  { id: 'institutions', label: 'Instituciones', icon: '🏥' },
+  { id: 'plans', label: 'Planes', icon: '📦' },
+  { id: 'facturacion', label: 'Facturación', icon: '🧾' },
+  { id: 'events', label: 'Eventos', icon: '📅' },
+  { id: 'hospitals', label: 'Hospitales', icon: '🏨' },
+  { id: 'communications', label: 'Comunicaciones', icon: '📡' },
+  { id: 'internacion', label: 'Internación', icon: '🛏️' },
+  { id: 'management', label: 'Gerencial', icon: '💼' },
+  { id: 'analytics', label: 'Analítica', icon: '📊' }
+];
+
+const DEFAULT_MENU_FALLBACKS: Record<RolCentro, string[]> = {
+  PROPIETARIO: [
+    'dashboard', 'turnos', 'map', 'historial', 'fleet', 'staff',
+    'patients', 'institutions', 'plans', 'facturacion', 'events',
+    'hospitals', 'communications', 'internacion', 'management', 'analytics'
+  ],
+  ADMINISTRADOR: [
+    'dashboard', 'turnos', 'map', 'historial', 'fleet', 'staff',
+    'patients', 'institutions', 'plans', 'facturacion', 'events',
+    'hospitals', 'communications', 'internacion', 'management', 'analytics'
+  ],
+  DESPACHANTE: [
+    'dashboard', 'turnos', 'map', 'historial', 'fleet', 'staff',
+    'patients', 'events', 'hospitals', 'communications'
+  ],
+  OPERADOR: [
+    'dashboard', 'turnos', 'map', 'historial', 'fleet', 'staff',
+    'patients', 'events', 'hospitals', 'communications'
+  ],
+  PROFESIONAL: [
+    'dashboard', 'turnos', 'historial', 'staff', 'patients', 'internacion'
+  ],
+  CONTADOR: [
+    'institutions', 'plans', 'facturacion'
+  ]
+};
+
 @Component({
   selector: 'emx-admin-global',
   standalone: true,
@@ -58,6 +110,9 @@ const ALL_ROLES: RolCentro[] = [
 export class AdminGlobalComponent implements OnInit {
   protected readonly PAGE_SIZE = PAGE_SIZE;
   protected readonly ALL_ROLES = ALL_ROLES;
+  readonly menuConfig = signal<Record<string, string[]>>({});
+  readonly selectedConfigRol = signal<RolCentro>('OPERADOR');
+  protected readonly CONFIGURABLE_MENU_ITEMS = CONFIGURABLE_MENU_ITEMS;
 
   private readonly empresaApi = inject(EmpresaApiService);
   private readonly adminUserApi = inject(AdminUserApiService);
@@ -218,6 +273,26 @@ export class AdminGlobalComponent implements OnInit {
       puntoDeVenta: empresa.puntoDeVenta ?? 1,
       zonaHoraria: empresa.zonaHoraria || 'America/Argentina/Buenos_Aires',
     };
+    this.selectedConfigRol.set('OPERADOR');
+    this.empresaApi.getMenuConfig(empresa.id).subscribe({
+      next: (config) => {
+        const mergedConfig = { ...config };
+        this.ALL_ROLES.forEach(rol => {
+          if (!mergedConfig[rol] || mergedConfig[rol].length === 0) {
+            mergedConfig[rol] = [...(DEFAULT_MENU_FALLBACKS[rol] || [])];
+          }
+        });
+        this.menuConfig.set(mergedConfig);
+      },
+      error: (err) => {
+        this.feedback.fromHttpError(err);
+        const mergedConfig: Record<string, string[]> = {};
+        this.ALL_ROLES.forEach(rol => {
+          mergedConfig[rol] = [...(DEFAULT_MENU_FALLBACKS[rol] || [])];
+        });
+        this.menuConfig.set(mergedConfig);
+      }
+    });
     this.showEditEmpresa.set(empresa);
   }
 
@@ -234,23 +309,48 @@ export class AdminGlobalComponent implements OnInit {
 
     this.empresaApi.update(original.id, payload).subscribe({
       next: (res) => {
-        this.saving.set(false);
-        this.showEditEmpresa.set(null);
-        this.empresas.update(list => list.map(e => e.id === original.id ? res : e));
-        
-        // Si la empresa editada es la seleccionada actualmente, actualizar su info de cabecera
-        const current = this.selectedEmpresa();
-        if (current && current.id === original.id) {
-          this.selectedEmpresa.set(res);
-        }
+        this.empresaApi.saveMenuConfig(original.id, this.menuConfig()).subscribe({
+          next: () => {
+            this.saving.set(false);
+            this.showEditEmpresa.set(null);
+            this.empresas.update(list => list.map(e => e.id === original.id ? res : e));
+            
+            const current = this.selectedEmpresa();
+            if (current && current.id === original.id) {
+              this.selectedEmpresa.set(res);
+            }
 
-        this.feedback.push({ type: 'success', title: 'Empresa actualizada', message: res.nombre });
+            this.feedback.push({ type: 'success', title: 'Empresa y menú actualizados', message: res.nombre });
+          },
+          error: (err) => {
+            this.saving.set(false);
+            this.feedback.fromHttpError(err);
+          }
+        });
       },
       error: (err) => {
         this.saving.set(false);
         this.feedback.fromHttpError(err);
       }
     });
+  }
+
+  isMenuItemChecked(itemId: string): boolean {
+    const rol = this.selectedConfigRol();
+    const items = this.menuConfig()[rol] || [];
+    return items.includes(itemId);
+  }
+
+  toggleMenuItem(itemId: string): void {
+    const rol = this.selectedConfigRol();
+    const currentConfig = { ...this.menuConfig() };
+    const items = currentConfig[rol] ? [...currentConfig[rol]] : [];
+    if (items.includes(itemId)) {
+      currentConfig[rol] = items.filter(id => id !== itemId);
+    } else {
+      currentConfig[rol] = [...items, itemId];
+    }
+    this.menuConfig.set(currentConfig);
   }
 
   changeEmpresaEstado(empresa: EmpresaDTO, nuevoEstado: EstadoEmpresa): void {
