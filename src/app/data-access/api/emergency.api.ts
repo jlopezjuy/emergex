@@ -21,6 +21,8 @@ import {
   EntregaHospitalariaDTO,
   TelemedicinaSalaResponseDTO,
   CoberturaAsistenciaSnapshotDTO,
+  ContactoDespachoRequestDTO,
+  ConsentimientoInformadoDTO,
 } from '../dto/ticket.dto';
 
 const URGENCIA_MAP: Record<string, TicketAsistenciaDTO['prioridad']> = {
@@ -34,17 +36,14 @@ export class EmergencyApiService {
   private http = inject(HttpClient);
   private base = `${environment.apiUrl}/api/v1/asistencias`;
 
-  private normalizeEstado(rawEstado?: string): string | undefined {
-    return rawEstado === 'COMPLETADO' ? 'CERRADO' : rawEstado;
-  }
-
   private mapTicket(raw: any): TicketAsistenciaDTO {
     return {
       id:                 raw.id,
       codigo:             raw.numeroTicket,
       tipoEmergencia:     raw.descripcionSintomas,
-      estado:             this.normalizeEstado(raw.estadoActual),
+      estado:             raw.estadoActual,
       prioridad:          URGENCIA_MAP[raw.nivelUrgencia] ?? undefined,
+      nivelUrgencia:      raw.nivelUrgencia,
       direccion:          raw.direccion,
       ambulanciaId:       raw.ambulancia?.id,
       unidadAsignada:     raw.ambulancia?.codigo,
@@ -57,6 +56,8 @@ export class EmergencyApiService {
       horaInicioTraslado: raw.horaInicioTraslado,
       horaFinTraslado:    raw.horaFinTraslado,
       horaCierre:         raw.horaCierre,
+      enTraslado:         raw.enTraslado,
+      trasladoFinalizado: raw.trasladoFinalizado,
       elapsedSeconds:     raw.horaLlamada
         ? Math.floor((Date.now() - new Date(raw.horaLlamada).getTime()) / 1000)
         : raw.esperaMinutos != null ? raw.esperaMinutos * 60 : undefined,
@@ -66,6 +67,8 @@ export class EmergencyApiService {
       canal:              raw.canal,
       empresaHabilitaTelemedicina: raw.empresa?.habilitaTelemedicina,
       empresaUrlTelemedicina: raw.empresa?.urlTelemedicina,
+      contextoCobertura:  raw.contextoCobertura,
+      coberturaNombreSnapshot: raw.coberturaNombreSnapshot,
     };
   }
 
@@ -98,6 +101,12 @@ export class EmergencyApiService {
     );
   }
 
+  getHistorial(): Observable<TicketAsistenciaDTO[]> {
+    return this.http.get<any[]>(`${this.base}/historial`).pipe(
+      map((items) => (items ?? []).map((r) => this.mapTicket(r))),
+    );
+  }
+
   getById(id: number): Observable<TicketAsistenciaDTO> {
     return this.http.get<any>(`${this.base}/${id}`).pipe(
       map((r) => this.mapTicket(r)),
@@ -115,6 +124,7 @@ export class EmergencyApiService {
           rol:    m.rolEnTicket ?? m.rol,
         })),
         signos:        this.mapResolucionSignos(raw.resolucion),
+        resolucion:    raw.resolucion,
         procedimientos: [],
         medicacion:    [],
       })),
@@ -270,5 +280,25 @@ export class EmergencyApiService {
   getCoberturaSnapshot(ticketId: number): Observable<CoberturaAsistenciaSnapshotDTO | null> {
     return this.http.get<CoberturaAsistenciaSnapshotDTO>(`${environment.apiUrl}/api/v2/tickets/${ticketId}/cobertura-snapshot`)
       .pipe(catchError(() => of(null)));
+  }
+
+  registrarContactoDespacho(ticketId: number, req: ContactoDespachoRequestDTO): Observable<void> {
+    return this.http.post<void>(
+      `${environment.apiUrl}/api/operador-emergencias/tickets/${ticketId}/contactos-despacho`,
+      req
+    );
+  }
+
+  getConsentimientos(pacienteId?: number): Observable<ConsentimientoInformadoDTO[]> {
+    return this.http.get<any[]>(`${environment.apiUrl}/api/consentimiento-informados?size=1000`).pipe(
+      map(list => {
+        if (!list) return [];
+        if (pacienteId) {
+          return list.filter(c => c.paciente?.id === pacienteId);
+        }
+        return list;
+      }),
+      catchError(() => of([]))
+    );
   }
 }

@@ -1,7 +1,7 @@
 import { Component, output, inject, HostListener, signal, computed, OnDestroy, DestroyRef } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Subject, debounceTime, distinctUntilChanged, switchMap, catchError, of } from 'rxjs';
+import { Subject, debounceTime, distinctUntilChanged, switchMap, catchError, of, map } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { ModalShellComponent } from '../../modal-shell/modal-shell.component';
 import { LocationPickerMapComponent } from '../../map/location-picker-map/location-picker-map.component';
@@ -26,6 +26,9 @@ interface PacienteResult {
   direccion?: string;
   ciudad?: string;
   telefono?: string;
+  estadoComercial?: string;
+  coberturaEstado?: string;
+  puedeRecibirEmergencia?: boolean;
 }
 
 const TIPOS_ASISTENCIA: { value: TipoAsistencia; label: string }[] = [
@@ -54,12 +57,14 @@ const NIVELES_URGENCIA: { value: NivelUrgencia; label: string; sublabel: string;
 
         <!-- Tipo de asistencia -->
         <div class="flex flex-col gap-2">
-          <label class="eyebrow">Tipo de asistencia *</label>
-          <div class="flex flex-wrap gap-1.5">
+          <span id="tipoAsistenciaLabel" class="eyebrow">Tipo de asistencia *</span>
+          <div class="flex flex-wrap gap-1.5" role="radiogroup" aria-labelledby="tipoAsistenciaLabel">
             @for (t of tiposAsistencia; track t.value) {
               <button
                 type="button"
-                class="px-2.5 py-1 rounded-btn text-xs font-medium transition-all"
+                role="radio"
+                [attr.aria-checked]="f['tipoAsistencia'].value === t.value"
+                class="px-2.5 py-1 rounded-btn text-xs font-medium transition-all focus:ring-2 focus:ring-[var(--accent-cyan)] focus:outline-none"
                 [style.border]="f['tipoAsistencia'].value === t.value
                   ? '1px solid var(--accent-cyan)'
                   : '1px solid var(--border-glass)'"
@@ -74,18 +79,33 @@ const NIVELES_URGENCIA: { value: NivelUrgencia; label: string; sublabel: string;
             }
           </div>
           @if (f['tipoAsistencia'].invalid && f['tipoAsistencia'].touched) {
-            <span class="text-xs" style="color: var(--accent-red);">Seleccioná un tipo</span>
+            <span role="alert" class="text-xs" style="color: var(--error-text);">Seleccioná un tipo</span>
           }
         </div>
 
         <!-- Paciente -->
         <div class="flex flex-col gap-2">
-          <label class="eyebrow">Paciente</label>
+          <span id="pacienteSeccionLabel" class="eyebrow">Paciente</span>
 
-          <label class="flex items-center gap-2 text-sm cursor-pointer" style="color: var(--text-secondary);">
-            <input type="checkbox" formControlName="noAfiliado" class="rounded" />
-            Paciente no registrado
-          </label>
+          <div class="flex flex-wrap items-center gap-4">
+            <label class="flex items-center gap-2 text-sm cursor-pointer" style="color: var(--text-secondary);">
+              <input type="checkbox" formControlName="noAfiliado" class="rounded focus:ring-2 focus:ring-[var(--accent-cyan)]" />
+              Paciente no registrado
+            </label>
+
+            @if (f['noAfiliado'].value) {
+              <div class="flex gap-3 text-xs font-medium" style="color: var(--text-secondary);" role="radiogroup" aria-label="Tipo de paciente no registrado">
+                <label class="flex items-center gap-1.5 cursor-pointer">
+                  <input type="radio" formControlName="tipoNoAfiliado" value="particular" class="focus:ring-2 focus:ring-[var(--accent-cyan)]" />
+                  Particular
+                </label>
+                <label class="flex items-center gap-1.5 cursor-pointer">
+                  <input type="radio" formControlName="tipoNoAfiliado" value="nn" class="focus:ring-2 focus:ring-[var(--accent-cyan)]" />
+                  NN (Desconocido)
+                </label>
+              </div>
+            }
+          </div>
 
           @if (!f['noAfiliado'].value) {
             <!-- Autocomplete de paciente registrado -->
@@ -96,16 +116,23 @@ const NIVELES_URGENCIA: { value: NivelUrgencia; label: string; sublabel: string;
                   class="flex items-center justify-between rounded-btn px-3 py-2 text-sm"
                   style="background: rgba(6,182,212,0.08); border: 1px solid rgba(6,182,212,0.4); color: var(--text-primary);"
                 >
-                  <span>
+                  <span class="flex items-center gap-2 flex-wrap">
                     <span class="font-medium">{{ selectedPaciente()!.apellido }}, {{ selectedPaciente()!.nombre }}</span>
                     @if (selectedPaciente()!.dni) {
-                      <span class="ml-2 text-xs" style="color: var(--text-muted);">DNI {{ selectedPaciente()!.dni }}</span>
+                      <span style="color: var(--text-muted);">DNI {{ selectedPaciente()!.dni }}</span>
                     }
+                    <span class="text-xs px-2 py-0.5 rounded font-semibold"
+                      [style.background]="getCommercialStatusBg(selectedPaciente()!.estadoComercial)"
+                      [style.color]="getCommercialStatusColor(selectedPaciente()!.estadoComercial)"
+                    >
+                      {{ selectedPaciente()!.estadoComercial || 'INACTIVO' }}
+                    </span>
                   </span>
                   <button
                     type="button"
-                    class="ml-2 text-xs px-1.5 py-0.5 rounded"
+                    class="ml-2 text-xs px-1.5 py-0.5 rounded focus:ring-2 focus:ring-[var(--accent-cyan)] focus:outline-none"
                     style="color: var(--text-muted); background: var(--surface-glass);"
+                    aria-label="Quitar paciente seleccionado"
                     (click)="clearPaciente()"
                   >✕</button>
                 </div>
@@ -113,10 +140,16 @@ const NIVELES_URGENCIA: { value: NivelUrgencia; label: string; sublabel: string;
                 <!-- Input de búsqueda -->
                 <input
                   type="text"
+                  id="pacienteBusquedaInput"
                   formControlName="pacienteBusqueda"
                   placeholder="Buscar por nombre, apellido o DNI..."
                   autocomplete="off"
-                  class="rounded-btn px-3 py-2 text-sm w-full"
+                  role="combobox"
+                  [attr.aria-expanded]="dropdownOpen()"
+                  aria-autocomplete="list"
+                  aria-controls="patient-search-results"
+                  aria-label="Buscar paciente registrado"
+                  class="rounded-btn px-3 py-2 text-sm w-full focus:ring-2 focus:ring-[var(--accent-cyan)] focus:outline-none"
                   style="background: var(--surface-glass); border: 1px solid var(--border-strong); color: var(--text-primary);"
                   (focus)="dropdownOpen.set(true)"
                 />
@@ -124,26 +157,38 @@ const NIVELES_URGENCIA: { value: NivelUrgencia; label: string; sublabel: string;
                 <!-- Dropdown de resultados -->
                 @if (dropdownOpen() && (searchResults().length > 0 || searching())) {
                   <div
+                    id="patient-search-results"
+                    role="listbox"
                     class="absolute left-0 right-0 top-full mt-1 rounded-btn z-[200]"
                     style="background: #ffffff; border: 1px solid rgba(148,163,184,0.45); box-shadow: 0 14px 34px rgba(15,23,42,0.18); overflow: hidden;"
                   >
                     @if (searching()) {
-                      <div class="px-3 py-2.5 text-xs" style="color: #64748b;">Buscando...</div>
+                      <div class="px-3 py-2.5 text-xs" style="color: #64748b;" role="status">Buscando...</div>
                     } @else {
                       @for (p of searchResults(); track p.id) {
                         <button
                           type="button"
-                          class="w-full text-left px-3 py-2.5 text-sm"
+                          role="option"
+                          [attr.aria-selected]="hoveredId() === p.id"
+                          class="w-full text-left px-3 py-2.5 text-sm flex justify-between items-center focus:outline-none focus:bg-slate-100"
                           style="color: #0f172a; border-bottom: 1px solid rgba(148,163,184,0.22);"
                           [style.background]="hoveredId() === p.id ? 'rgba(59,130,246,0.10)' : '#ffffff'"
                           (mouseenter)="hoveredId.set(p.id)"
                           (mouseleave)="hoveredId.set(null)"
                           (click)="selectPaciente(p)"
                         >
-                          <span class="font-medium">{{ p.apellido }}, {{ p.nombre }}</span>
-                          @if (p.dni) {
-                            <span class="ml-2 text-xs" style="color: #64748b;">DNI {{ p.dni }}</span>
-                          }
+                          <div>
+                            <span class="font-medium">{{ p.apellido }}, {{ p.nombre }}</span>
+                            @if (p.dni) {
+                              <span class="ml-2 text-xs" style="color: #64748b;">DNI {{ p.dni }}</span>
+                            }
+                          </div>
+                          <span class="text-xs px-2 py-0.5 rounded font-semibold"
+                            [style.background]="getCommercialStatusBg(p.estadoComercial)"
+                            [style.color]="getCommercialStatusColor(p.estadoComercial)"
+                          >
+                            {{ p.estadoComercial || 'INACTIVO' }}
+                          </span>
                         </button>
                       }
                     }
@@ -152,46 +197,73 @@ const NIVELES_URGENCIA: { value: NivelUrgencia; label: string; sublabel: string;
               }
             </div>
             @if (f['pacienteId'].invalid && f['pacienteId'].touched) {
-              <span class="text-xs" style="color: var(--accent-red);">Seleccioná un paciente registrado</span>
+              <span role="alert" class="text-xs" style="color: var(--error-text);">Seleccioná un paciente registrado</span>
+            }
+
+            <!-- Motivo de Excepción si el afiliado no cuenta con cobertura vigente -->
+            @if (!tieneCoberturaVigente() && selectedPaciente()) {
+              <div role="alert" class="flex flex-col gap-1.5 p-3 rounded-btn mt-2" style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.45);">
+                <label for="motivoExcepcionInput" class="eyebrow font-bold" style="color: var(--error-text);">Motivo de Excepción *</label>
+                <span class="text-xs mb-1" style="color: var(--text-secondary);">El afiliado no cuenta con cobertura vigente. Para autorizar el despacho, debe justificar el motivo de excepción.</span>
+                <input
+                  type="text"
+                  id="motivoExcepcionInput"
+                  formControlName="motivoExcepcion"
+                  placeholder="Ej: Autorizado por director médico / Emergencia extrema"
+                  class="rounded-btn px-3 py-2 text-sm w-full focus:ring-2 focus:ring-[var(--accent-cyan)] focus:outline-none"
+                  style="background: #ffffff; border: 1px solid var(--error-text); color: #0f172a;"
+                />
+                @if (f['motivoExcepcion'].invalid && f['motivoExcepcion'].touched) {
+                  <span class="text-xs" style="color: var(--error-text);">El motivo de excepción es obligatorio (mínimo 3 caracteres).</span>
+                }
+              </div>
             }
           } @else {
             <!-- Datos de paciente no afiliado -->
-            <div class="grid grid-cols-2 gap-2">
+            <div class="grid grid-cols-2 gap-2" role="group" aria-label="Datos del paciente no registrado">
               <input
                 type="text"
                 formControlName="pacienteNombre"
                 placeholder="Nombre"
-                class="rounded-btn px-3 py-2 text-sm"
+                aria-label="Nombre del paciente"
+                [readonly]="f['tipoNoAfiliado'].value === 'nn'"
+                class="rounded-btn px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--accent-cyan)] focus:outline-none"
                 style="background: var(--surface-glass); border: 1px solid var(--border-strong); color: var(--text-primary);"
               />
               <input
                 type="text"
                 formControlName="pacienteApellido"
                 placeholder="Apellido"
-                class="rounded-btn px-3 py-2 text-sm"
+                aria-label="Apellido del paciente"
+                [readonly]="f['tipoNoAfiliado'].value === 'nn'"
+                class="rounded-btn px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--accent-cyan)] focus:outline-none"
                 style="background: var(--surface-glass); border: 1px solid var(--border-strong); color: var(--text-primary);"
               />
               <input
                 type="text"
                 formControlName="pacienteDni"
                 placeholder="DNI"
-                class="rounded-btn px-3 py-2 text-sm"
+                aria-label="DNI del paciente"
+                [readonly]="f['tipoNoAfiliado'].value === 'nn'"
+                class="rounded-btn px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--accent-cyan)] focus:outline-none"
                 style="background: var(--surface-glass); border: 1px solid var(--border-strong); color: var(--text-primary);"
               />
               <input
                 type="tel"
                 formControlName="pacienteTelefono"
                 placeholder="Teléfono"
-                class="rounded-btn px-3 py-2 text-sm"
+                aria-label="Teléfono del paciente"
+                [readonly]="f['tipoNoAfiliado'].value === 'nn'"
+                class="rounded-btn px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--accent-cyan)] focus:outline-none"
                 style="background: var(--surface-glass); border: 1px solid var(--border-strong); color: var(--text-primary);"
               />
             </div>
             <div class="flex flex-col gap-1">
               @if (f['pacienteNombre'].invalid && f['pacienteNombre'].touched) {
-                <span class="text-xs" style="color: var(--accent-red);">El nombre es obligatorio para paciente no registrado</span>
+                <span role="alert" class="text-xs" style="color: var(--error-text);">El nombre es obligatorio para paciente no registrado</span>
               }
               @if (f['pacienteTelefono'].invalid && f['pacienteTelefono'].touched) {
-                <span class="text-xs" style="color: var(--accent-red);">El teléfono es obligatorio para paciente no registrado</span>
+                <span role="alert" class="text-xs" style="color: var(--error-text);">El teléfono es obligatorio para paciente no registrado</span>
               }
             </div>
           }
@@ -200,26 +272,32 @@ const NIVELES_URGENCIA: { value: NivelUrgencia; label: string; sublabel: string;
         <!-- Dirección (oculta para ORIENTACION_TELEFONICA) -->
         @if (f['tipoAsistencia'].value !== 'ORIENTACION_TELEFONICA') {
           <div class="flex flex-col gap-1.5">
-            <label class="eyebrow">Dirección *</label>
+            <label for="direccionInput" class="eyebrow">Dirección *</label>
             <input
               type="text"
+              id="direccionInput"
               formControlName="direccion"
               placeholder="Av. Independencia 842, Centro"
-              class="rounded-btn px-3 py-2 text-sm w-full"
+              role="combobox"
+              [attr.aria-expanded]="geocodeResults().length > 0"
+              aria-autocomplete="list"
+              aria-controls="geocode-results"
+              class="rounded-btn px-3 py-2 text-sm w-full focus:ring-2 focus:ring-[var(--accent-cyan)] focus:outline-none"
               style="background: var(--surface-glass); border: 1px solid var(--border-strong); color: var(--text-primary);"
             />
             @if (f['direccion'].invalid && f['direccion'].touched) {
-              <span class="text-xs" style="color: var(--accent-red);">Campo requerido</span>
+              <span role="alert" class="text-xs" style="color: var(--error-text);">Campo requerido</span>
             }
             @if (geocodeSearching()) {
-              <span class="text-xs" style="color: var(--text-muted);">Buscando ubicación...</span>
+              <span class="text-xs" style="color: var(--text-muted);" role="status">Buscando ubicación...</span>
             }
             @if (geocodeResults().length > 0) {
-              <div class="flex flex-col rounded-btn overflow-hidden" style="border:1px solid rgba(148,163,184,.35); background:#fff;">
+              <div id="geocode-results" role="listbox" class="flex flex-col rounded-btn overflow-hidden" style="border:1px solid rgba(148,163,184,.35); background:#fff;">
                 @for (result of geocodeResults(); track result.address) {
                   <button
                     type="button"
-                    class="text-left px-3 py-2 text-xs"
+                    role="option"
+                    class="text-left px-3 py-2 text-xs focus:bg-slate-100 focus:outline-none"
                     style="color:#0f172a; border-bottom:1px solid rgba(148,163,184,.18);"
                     (click)="selectGeocode(result)"
                   >
@@ -237,32 +315,34 @@ const NIVELES_URGENCIA: { value: NivelUrgencia; label: string; sublabel: string;
               />
             </div>
             @if (selectedLocation()) {
-              <span class="text-xs" style="color: var(--accent-emerald);">
+              <span class="text-xs font-semibold" style="color: var(--accent-emerald);">
                 Ubicación confirmada · {{ selectedLocation()!.lat.toFixed(5) }}, {{ selectedLocation()!.lng.toFixed(5) }}
               </span>
             } @else {
-              <span class="text-xs" style="color: var(--accent-amber);">Sin ubicación confirmada. Podés registrar igual, pero el mapa no tendrá punto exacto.</span>
+              <span class="text-xs" style="color: var(--warning-text);">Sin ubicación confirmada. Podés registrar igual, pero el mapa no tendrá punto exacto.</span>
             }
           </div>
 
           <div class="flex flex-col gap-1.5">
-            <label class="eyebrow">Nota de dirección</label>
+            <label for="notaDireccionInput" class="eyebrow">Nota de dirección</label>
             <input
               type="text"
+              id="notaDireccionInput"
               formControlName="notaDireccion"
               placeholder="Piso, depto, referencia..."
-              class="rounded-btn px-3 py-2 text-sm w-full"
+              class="rounded-btn px-3 py-2 text-sm w-full focus:ring-2 focus:ring-[var(--accent-cyan)] focus:outline-none"
               style="background: var(--surface-glass); border: 1px solid var(--border-strong); color: var(--text-primary);"
             />
           </div>
 
           <div class="flex flex-col gap-1.5">
-            <label class="eyebrow">Teléfono de contacto</label>
+            <label for="telefonoContactoInput" class="eyebrow">Teléfono de contacto</label>
             <input
               type="tel"
+              id="telefonoContactoInput"
               formControlName="telefonoContacto"
               placeholder="Ej: 0388-15912345"
-              class="rounded-btn px-3 py-2 text-sm w-full"
+              class="rounded-btn px-3 py-2 text-sm w-full focus:ring-2 focus:ring-[var(--accent-cyan)] focus:outline-none"
               style="background: var(--surface-glass); border: 1px solid var(--border-strong); color: var(--text-primary);"
             />
           </div>
@@ -270,12 +350,14 @@ const NIVELES_URGENCIA: { value: NivelUrgencia; label: string; sublabel: string;
 
         <!-- Nivel de urgencia -->
         <div class="flex flex-col gap-2">
-          <label class="eyebrow">Nivel de urgencia *</label>
-          <div class="flex gap-2">
+          <span id="nivelUrgenciaLabel" class="eyebrow">Nivel de urgencia *</span>
+          <div class="flex gap-2" role="radiogroup" aria-labelledby="nivelUrgenciaLabel">
             @for (opt of nivelesUrgencia; track opt.value) {
               <button
                 type="button"
-                class="flex-1 flex flex-col items-center gap-0.5 px-3 py-3 rounded-btn border transition-all"
+                role="radio"
+                [attr.aria-checked]="f['nivelUrgencia'].value === opt.value"
+                class="flex-1 flex flex-col items-center gap-0.5 px-3 py-3 rounded-btn border transition-all focus:ring-2 focus:ring-[var(--accent-cyan)] focus:outline-none"
                 [style.border-color]="f['nivelUrgencia'].value === opt.value ? opt.color : 'var(--border-glass)'"
                 [style.background]="f['nivelUrgencia'].value === opt.value ? opt.bg : 'transparent'"
                 (click)="f['nivelUrgencia'].setValue(opt.value)"
@@ -287,33 +369,35 @@ const NIVELES_URGENCIA: { value: NivelUrgencia; label: string; sublabel: string;
             }
           </div>
           @if (f['nivelUrgencia'].invalid && f['nivelUrgencia'].touched) {
-            <span class="text-xs" style="color: var(--accent-red);">Seleccioná un nivel</span>
+            <span role="alert" class="text-xs" style="color: var(--error-text);">Seleccioná un nivel</span>
           }
         </div>
 
         <!-- Descripción / síntomas -->
         <div class="flex flex-col gap-1.5">
-          <label class="eyebrow">Descripción / síntomas *</label>
+          <label for="descripcionSintomasInput" class="eyebrow">Descripción / síntomas *</label>
           <textarea
+            id="descripcionSintomasInput"
             formControlName="descripcionSintomas"
             rows="2"
             placeholder="Describí los síntomas o motivo de la llamada..."
-            class="rounded-btn px-3 py-2 text-sm w-full resize-none"
+            class="rounded-btn px-3 py-2 text-sm w-full resize-none focus:ring-2 focus:ring-[var(--accent-cyan)] focus:outline-none"
             style="background: var(--surface-glass); border: 1px solid var(--border-strong); color: var(--text-primary);"
           ></textarea>
           @if (f['descripcionSintomas'].invalid && f['descripcionSintomas'].touched) {
-            <span class="text-xs" style="color: var(--accent-red);">Campo requerido</span>
+            <span role="alert" class="text-xs" style="color: var(--error-text);">Campo requerido</span>
           }
         </div>
 
         <!-- Observación -->
         <div class="flex flex-col gap-1.5">
-          <label class="eyebrow">Observación</label>
+          <label for="observacionInput" class="eyebrow">Observación</label>
           <textarea
+            id="observacionInput"
             formControlName="observacion"
             rows="2"
             placeholder="Información adicional para el equipo..."
-            class="rounded-btn px-3 py-2 text-sm w-full resize-none"
+            class="rounded-btn px-3 py-2 text-sm w-full resize-none focus:ring-2 focus:ring-[var(--accent-cyan)] focus:outline-none"
             style="background: var(--surface-glass); border: 1px solid var(--border-strong); color: var(--text-primary);"
           ></textarea>
         </div>
@@ -327,11 +411,12 @@ const NIVELES_URGENCIA: { value: NivelUrgencia; label: string; sublabel: string;
           <span class="font-mono px-1 rounded ml-2" style="background: var(--surface-glass); border: 1px solid var(--border-glass);">Enter</span>
           registrar
         </span>
-        <button type="button" class="btn btn--ghost btn--sm" (click)="close()">Cancelar</button>
+        <button type="button" class="btn btn--ghost btn--sm" aria-label="Cancelar creación de emergencia" (click)="close()">Cancelar</button>
         <button
           type="button"
           class="btn btn--primary btn--sm"
           [disabled]="form.invalid || submitting()"
+          aria-label="Registrar y despachar emergencia"
           (click)="submit()"
         >
           @if (submitting()) {
@@ -376,6 +461,38 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
   private search$  = new Subject<string>();
   private geocode$ = new Subject<string>();
 
+  tieneCoberturaVigente = computed(() => {
+    const p = this.selectedPaciente();
+    if (!p) return true;
+    return p.estadoComercial === 'ACTIVO' && p.coberturaEstado === 'ACTIVA' && p.puedeRecibirEmergencia === true;
+  });
+
+  getCommercialStatusBg(status?: string): string {
+    if (!status) return 'rgba(239, 68, 68, 0.12)';
+    switch (status.toUpperCase()) {
+      case 'ACTIVO':
+        return 'rgba(16, 185, 129, 0.12)';
+      case 'CON_DEUDA':
+      case 'SUSPENDIDO_DEUDA':
+        return 'rgba(245, 158, 11, 0.12)';
+      default:
+        return 'rgba(239, 68, 68, 0.12)';
+    }
+  }
+
+  getCommercialStatusColor(status?: string): string {
+    if (!status) return '#EF4444';
+    switch (status.toUpperCase()) {
+      case 'ACTIVO':
+        return '#10B981';
+      case 'CON_DEUDA':
+      case 'SUSPENDIDO_DEUDA':
+        return '#D97706';
+      default:
+        return '#EF4444';
+    }
+  }
+
   form = this.fb.group({
     tipoAsistencia:     ['EMERGENCIA_DOMICILIARIA' as TipoAsistencia | '', Validators.required],
     nivelUrgencia:      ['' as NivelUrgencia  | '', Validators.required],
@@ -384,12 +501,14 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
     notaDireccion:      [''],
     telefonoContacto:   [''],
     noAfiliado:         [false],
+    tipoNoAfiliado:     ['particular'],
     pacienteBusqueda:   [''],
     pacienteId:         [null as number | null],
     pacienteNombre:     [''],
     pacienteApellido:   [''],
     pacienteDni:        [''],
     pacienteTelefono:   [''],
+    motivoExcepcion:    [''],
     observacion:        [''],
   });
 
@@ -407,8 +526,30 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
         }
         this.searching.set(true);
         return this.http
-          .get<PacienteResult[]>(`${environment.apiUrl}/api/pacientes/search`, { params: { query } })
-          .pipe(catchError(() => of([])));
+          .get<any[]>(`${environment.apiUrl}/api/operador-emergencias/buscar-afiliado`, { params: { q: query } })
+          .pipe(
+            map(items => items.map(item => {
+              let apellido = '';
+              let nombre = item.nombreCompleto || '';
+              if (item.nombreCompleto && item.nombreCompleto.includes(',')) {
+                const parts = item.nombreCompleto.split(',');
+                apellido = parts[0].trim();
+                nombre = parts[1].trim();
+              }
+              return {
+                id: item.pacienteId,
+                nombre: nombre,
+                apellido: apellido,
+                dni: item.dni,
+                direccion: item.direccion,
+                telefono: item.telefono,
+                estadoComercial: item.estadoGrupo || 'INACTIVO',
+                coberturaEstado: item.coberturaEstado,
+                puedeRecibirEmergencia: item.puedeRecibirEmergencia
+              };
+            })),
+            catchError(() => of([]))
+          );
       }),
       takeUntil(this.destroy$), takeUntilDestroyed(this.destroyRef)
     ).subscribe(results => {
@@ -423,6 +564,27 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
     this.f['noAfiliado'].valueChanges
       .pipe(takeUntil(this.destroy$), takeUntilDestroyed(this.destroyRef))
       .subscribe(value => this.handleNoAfiliadoToggle(Boolean(value)));
+
+    this.f['tipoNoAfiliado'].valueChanges
+      .pipe(takeUntil(this.destroy$), takeUntilDestroyed(this.destroyRef))
+      .subscribe(val => {
+        if (val === 'nn') {
+          this.form.patchValue({
+            pacienteNombre: 'NN',
+            pacienteApellido: 'NN',
+            pacienteDni: 'NO INFORMADO',
+            pacienteTelefono: 'NO INFORMADO'
+          }, { emitEvent: false });
+        } else {
+          this.form.patchValue({
+            pacienteNombre: '',
+            pacienteApellido: '',
+            pacienteDni: '',
+            pacienteTelefono: ''
+          }, { emitEvent: false });
+        }
+        this.applyConditionalValidators();
+      });
 
     this.geocode$.pipe(
       debounceTime(650),
@@ -477,6 +639,8 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
     if (!this.f['telefonoContacto'].value && p.telefono) {
       this.f['telefonoContacto'].setValue(p.telefono);
     }
+
+    this.applyConditionalValidators();
   }
 
   clearPaciente(): void {
@@ -484,6 +648,7 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
     this.searchResults.set([]);
     this.f['pacienteId'].setValue(null);
     this.f['pacienteBusqueda'].setValue('', { emitEvent: false });
+    this.applyConditionalValidators();
   }
 
   private resolvePacienteAddress(address: string): void {
@@ -543,8 +708,17 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
     this.dropdownOpen.set(false);
   }
 
-  @HostListener('document:keydown.enter')
-  onEnter(): void {
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    this.close();
+  }
+
+  @HostListener('document:keydown.enter', ['$event'])
+  onEnter(event: Event): void {
+    const target = event.target as HTMLElement;
+    if (target && (target.tagName === 'TEXTAREA' || target.getAttribute('role') === 'combobox')) {
+      return;
+    }
     this.submit();
   }
 
@@ -587,16 +761,30 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
 
     if (val.noAfiliado) {
       req.noAfiliado = true;
-      if (val.pacienteNombre)   req.pacienteNombre   = val.pacienteNombre;
-      if (val.pacienteApellido) req.pacienteApellido = val.pacienteApellido;
-      if (val.pacienteDni)      req.pacienteDni      = val.pacienteDni;
-      if (val.pacienteTelefono) req.pacienteTelefono = val.pacienteTelefono;
+      if (val.tipoNoAfiliado === 'nn') {
+        req.pacienteNombre = val.pacienteNombre || 'NN';
+        req.pacienteApellido = val.pacienteApellido || 'NN';
+        req.pacienteDni = val.pacienteDni || 'NO INFORMADO';
+        req.pacienteTelefono = val.pacienteTelefono || val.telefonoContacto || 'NO INFORMADO';
+      } else {
+        if (val.pacienteNombre)   req.pacienteNombre   = val.pacienteNombre;
+        if (val.pacienteApellido) req.pacienteApellido = val.pacienteApellido;
+        if (val.pacienteDni)      req.pacienteDni      = val.pacienteDni;
+        if (val.pacienteTelefono) req.pacienteTelefono = val.pacienteTelefono;
+      }
     } else {
       const p = this.selectedPaciente();
       if (p) req.pacienteId = p.id;
     }
 
-    if (val.observacion) req.observacion = val.observacion;
+    const motivo = val.motivoExcepcion;
+    if (motivo) {
+      req.observacion = val.observacion
+        ? `[Motivo de Excepción: ${motivo}] ${val.observacion}`
+        : `[Motivo de Excepción: ${motivo}]`;
+    } else if (val.observacion) {
+      req.observacion = val.observacion;
+    }
 
     this.emergencyApi.altaRapida(req)
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -650,6 +838,7 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
 
   private applyConditionalValidators(): void {
     const noAfiliado = Boolean(this.f['noAfiliado'].value);
+    const tipoNoAfiliado = this.f['tipoNoAfiliado']?.value || 'particular';
     const tipoAsistencia = this.f['tipoAsistencia'].value;
     const direccionValidators =
       tipoAsistencia === 'ORIENTACION_TELEFONICA' ? [] : [Validators.required];
@@ -657,10 +846,23 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
     this.f['direccion'].setValidators(direccionValidators);
     this.f['direccion'].updateValueAndValidity({ emitEvent: false });
 
+    const hasActiveCoverage = this.tieneCoberturaVigente();
+    if (!hasActiveCoverage && !noAfiliado && this.f['pacienteId'].value) {
+      this.f['motivoExcepcion'].setValidators([Validators.required, Validators.minLength(3)]);
+    } else {
+      this.f['motivoExcepcion'].clearValidators();
+    }
+    this.f['motivoExcepcion'].updateValueAndValidity({ emitEvent: false });
+
     if (noAfiliado) {
       this.f['pacienteId'].clearValidators();
-      this.f['pacienteNombre'].setValidators([Validators.required]);
-      this.f['pacienteTelefono'].setValidators([Validators.required]);
+      if (tipoNoAfiliado === 'nn') {
+        this.f['pacienteNombre'].clearValidators();
+        this.f['pacienteTelefono'].clearValidators();
+      } else {
+        this.f['pacienteNombre'].setValidators([Validators.required]);
+        this.f['pacienteTelefono'].setValidators([Validators.required]);
+      }
     } else {
       this.f['pacienteId'].setValidators([Validators.required]);
       this.f['pacienteNombre'].clearValidators();

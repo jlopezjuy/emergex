@@ -3,6 +3,7 @@ export interface TicketAsistenciaDTO {
   codigo?: string;
   tipoEmergencia?: string;
   prioridad?: 'CRITICA' | 'URGENTE' | 'NORMAL';
+  nivelUrgencia?: 'ROJO' | 'AMARILLO' | 'VERDE' | 'AZUL';
   estado?: string;
   direccion?: string;
   latitud?: number;
@@ -34,6 +35,11 @@ export interface TicketAsistenciaDTO {
   presupuestoAceptado?: number;
   esperaMinutos?: number;
   costoEspera?: number;
+
+  enTraslado?: boolean;
+  trasladoFinalizado?: boolean;
+  contextoCobertura?: any;
+  coberturaNombreSnapshot?: string;
 }
 
 export interface AltaRapidaRequest {
@@ -166,6 +172,19 @@ export interface MedicacionDTO {
   timestamp?: string;
 }
 
+export interface ConsentimientoInformadoDTO {
+  id?: number;
+  tipoConsentimiento: 'TRASLADO_A_HOSPITAL' | 'RECHAZO_TRASLADO' | 'TELEMEDICINA' | 'USO_DATOS_PERSONALES' | string;
+  fechaFirma: string;
+  documentoFirmado?: string;
+  estado: 'PENDIENTE' | 'FIRMADO' | 'REVOCADO' | 'VENCIDO' | 'RENOVADO' | string;
+  profesionalResponsable: string;
+  observacion?: string;
+  firmaDigital?: string;
+  testigo?: string;
+  numeroActo: string;
+}
+
 export interface TicketDetalleDTO {
   ticket?: TicketAsistenciaDTO;
   timeline?: LogEstadoTicketDTO[];
@@ -173,6 +192,7 @@ export interface TicketDetalleDTO {
   signos?: SignosVitalesDTO[];
   procedimientos?: ProcedimientoDTO[];
   medicacion?: MedicacionDTO[];
+  resolucion?: any;
 }
 
 export interface TripulacionDetalleDTO {
@@ -293,3 +313,13 @@ export interface CoberturaAsistenciaSnapshotDTO {
   topeAtencionesMensuales?: number;
   snapshotTomadoEl?: string;
 }
+
+export interface ContactoDespachoRequestDTO {
+  profesionalId?: number;
+  ambulanciaId?: number;
+  telefono: string;
+  canal: string;
+  resultado: string;
+  observacion?: string;
+}
+

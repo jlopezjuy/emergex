@@ -41,6 +41,9 @@
     --accent-cyan: #22D3EE;
     --accent-cyan-dim: rgba(34, 211, 238, 0.16);
 
+    --warning-text: #FBBF24;
+    --error-text: #F87171;
+
     /* Glow halos */
     --glow-red: 0 0 24px rgba(239, 68, 68, 0.55);
     --glow-emerald: 0 0 18px rgba(16, 185, 129, 0.45);
@@ -85,6 +88,9 @@
     --accent-emerald-dim: rgba(16, 185, 129, 0.14);
     --accent-blue-dim: rgba(59, 130, 246, 0.14);
     --accent-cyan-dim: rgba(34, 211, 238, 0.16);
+
+    --warning-text: #B45309;
+    --error-text: #B91C1C;
 
     --glow-red: 0 0 18px rgba(239, 68, 68, 0.32);
     --glow-emerald: 0 0 14px rgba(16, 185, 129, 0.28);

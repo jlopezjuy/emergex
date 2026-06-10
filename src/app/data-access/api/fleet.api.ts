@@ -36,6 +36,7 @@ export class FleetApiService {
       bateria:             raw.bateriaPct ?? 75,
       combustible:         raw.combustiblePct ?? 65,
       tripulacion:         (raw.tripulacionActual ?? []).map((m: any) => m.profesionalNombre).join(', '),
+      tripulacionActual:   raw.tripulacionActual ?? [],
       eta:                 raw.objetivoEta ?? null,
       patente:             raw.patente,
       latitud:             raw.latitud != null ? Number(raw.latitud) : undefined,
@@ -50,8 +51,11 @@ export class FleetApiService {
       // operativa
       kmHoy:               raw.kmHoy,
       serviciosHoy:        raw.serviciosHoy,
+      ultimaConexionSegundos: raw.ultimaConexionSegundos,
+      ultimaPosicionTimestamp: raw.ultimaPosicionTimestamp,
     };
   }
+
 
   dashboard(): Observable<FlotaDashboardDTO> {
     return this.http.get<any>(`${this.base}/dashboard`).pipe(

@@ -13,6 +13,7 @@ import {
   EntregaHospitalariaDTO,
   TelemedicinaSalaResponseDTO,
   CoberturaAsistenciaSnapshotDTO,
+  ConsentimientoInformadoDTO,
 } from '../../../data-access/dto/ticket.dto';
 import { LoadingStateComponent } from '../../../shared/components/loading-state/loading-state.component';
 import { ErrorStateComponent } from '../../../shared/components/error-state/error-state.component';
@@ -136,8 +137,32 @@ const ALL_STEPS: StatusStep[] = [
           <emx-error-state [message]="error()!" (retry)="load()" />
         } @else if (detalle()) {
 
-          <!-- 3-column grid -->
-          <div class="grid gap-5 h-full" style="grid-template-columns: 340px 1fr 300px; align-items: start;">
+          <!-- ── TABS NAVIGATION ── -->
+          <div class="flex items-center gap-4 mb-5 pb-3" style="border-bottom: 1px solid var(--border-glass, rgba(255,255,255,0.1));">
+            <button type="button" 
+                    class="px-4 py-2 text-sm font-semibold rounded-lg transition-all"
+                    [style.background]="activeTab() === 'general' ? 'var(--bg-glass, rgba(255,255,255,0.05))' : 'transparent'"
+                    [style.color]="activeTab() === 'general' ? 'var(--text-primary, #f8fafc)' : 'var(--text-muted, #94a3b8)'"
+                    [style.border]="activeTab() === 'general' ? '1px solid var(--border-glass, rgba(255,255,255,0.1))' : '1px solid transparent'"
+                    (click)="activeTab.set('general')">
+              Información General
+            </button>
+            <button type="button" 
+                    class="px-4 py-2 text-sm font-semibold rounded-lg transition-all flex items-center gap-2"
+                    [style.background]="activeTab() === 'clinico' ? 'var(--bg-glass, rgba(255,255,255,0.05))' : 'transparent'"
+                    [style.color]="activeTab() === 'clinico' ? 'var(--text-primary, #f8fafc)' : 'var(--text-muted, #94a3b8)'"
+                    [style.border]="activeTab() === 'clinico' ? '1px solid var(--border-glass, rgba(255,255,255,0.1))' : '1px solid transparent'"
+                    (click)="activeTab.set('clinico')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+              </svg>
+              Historial Clínico
+            </button>
+          </div>
+
+          @if (activeTab() === 'general') {
+            <!-- 3-column grid -->
+            <div id="general-tab-grid" class="grid gap-5 h-full" style="grid-template-columns: 340px 1fr 300px; align-items: start;">
 
             <!-- ══════════════════════════════════
                  COLUMNA LEFT — Paciente + Clínica
@@ -736,6 +761,212 @@ const ALL_STEPS: StatusStep[] = [
             </div>
 
           </div>
+          } @else {
+            <!-- Dedicated clinical history tab view -->
+            <div class="grid gap-5 h-full" style="grid-template-columns: 340px 1fr; align-items: start;">
+              <!-- Columna izquierda: Mini Paciente, Signos Vitales, Procedimientos y Medicación -->
+              <div class="flex flex-col gap-4">
+                <!-- Mini Paciente Card -->
+                <emx-glass-card>
+                  <h2 class="section-label">Paciente</h2>
+                  <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 font-mono font-bold text-xs text-white"
+                         style="background: linear-gradient(135deg, var(--accent-red, #ef4444), #b91c1c);">
+                      {{ patientInitials() }}
+                    </div>
+                    <div>
+                      <p class="font-semibold text-sm" style="color: var(--text-primary, #f8fafc);">
+                        {{ ticket()?.pacienteDescripcion ?? 'Paciente no identificado' }}
+                      </p>
+                      <p class="text-xs font-mono mt-0.5" style="color: var(--text-muted, #94a3b8);">
+                        DNI {{ ticket()?.pacienteDni ?? '—' }} | ID {{ ticket()?.pacienteId ?? '—' }}
+                      </p>
+                    </div>
+                  </div>
+                </emx-glass-card>
+
+                <!-- Signos Vitales Card -->
+                <emx-glass-card>
+                  <div class="flex items-center justify-between mb-4">
+                    <h2 class="section-label" style="margin: 0;">Signos Vitales</h2>
+                    @if (canEditClinical()) {
+                      <button type="button" class="btn btn--primary btn--sm" (click)="openClinicalModal('SIGNOS')">Cargar</button>
+                    }
+                  </div>
+                  
+                  <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div class="rounded-lg p-3" style="background: var(--bg-glass, rgba(255,255,255,0.05));">
+                      <p class="text-xs" style="color: var(--text-muted, #94a3b8);">Frecuencia Cardíaca</p>
+                      <p class="text-lg font-bold mt-1" [style.color]="vitalColor(lastSigno()?.frecuenciaCardiaca, 60, 100)">
+                        {{ lastSigno()?.frecuenciaCardiaca ?? '—' }} <span class="text-xs font-normal" style="color: var(--text-muted, #94a3b8);">bpm</span>
+                      </p>
+                    </div>
+                    <div class="rounded-lg p-3" style="background: var(--bg-glass, rgba(255,255,255,0.05));">
+                      <p class="text-xs" style="color: var(--text-muted, #94a3b8);">Saturación O₂</p>
+                      <p class="text-lg font-bold mt-1" [style.color]="vitalColor(lastSigno()?.saturacionO2, 95, 100)">
+                        {{ lastSigno()?.saturacionO2 ?? '—' }} <span class="text-xs font-normal" style="color: var(--text-muted, #94a3b8);">%</span>
+                      </p>
+                    </div>
+                    <div class="rounded-lg p-3" style="background: var(--bg-glass, rgba(255,255,255,0.05));">
+                      <p class="text-xs" style="color: var(--text-muted, #94a3b8);">Presión Arterial</p>
+                      <p class="text-lg font-bold mt-1" [style.color]="vitalColor(lastSigno()?.presionSistolica, 90, 140)">
+                        {{ lastSigno()?.presionSistolica != null && lastSigno()?.presionDiastolica != null ? lastSigno()?.presionSistolica + '/' + lastSigno()?.presionDiastolica : '—' }} <span class="text-xs font-normal" style="color: var(--text-muted, #94a3b8);">mmHg</span>
+                      </p>
+                    </div>
+                    <div class="rounded-lg p-3" style="background: var(--bg-glass, rgba(255,255,255,0.05));">
+                      <p class="text-xs" style="color: var(--text-muted, #94a3b8);">Temperatura</p>
+                      <p class="text-lg font-bold mt-1" [style.color]="vitalColor(lastSigno()?.temperatura, 36, 37.5)">
+                        {{ lastSigno()?.temperatura ?? '—' }} <span class="text-xs font-normal" style="color: var(--text-muted, #94a3b8);">°C</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  @if (signos().length === 0) {
+                    <p class="text-xs text-center py-2" style="color: var(--text-muted, #94a3b8);">Sin registros de signos vitales</p>
+                  } @else {
+                    <div class="mt-3">
+                      <p class="text-xs font-semibold mb-2" style="color: var(--text-primary, #f8fafc);">Historial de Mediciones (Fases)</p>
+                      <div class="flex flex-col gap-2 max-h-[200px] overflow-y-auto pr-1">
+                        @for (s of signos(); track s.timestamp || s.fechaHora) {
+                          <div class="text-xs p-2 rounded flex flex-col gap-1" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-glass, rgba(255,255,255,0.1));">
+                            <div class="flex justify-between font-mono" style="color: var(--text-muted, #94a3b8);">
+                              <span>{{ formatTime(s.timestamp || s.fechaHora) }}</span>
+                              <span>{{ formatDate(s.timestamp || s.fechaHora) }}</span>
+                            </div>
+                            <div class="flex flex-wrap gap-x-2 gap-y-1 font-semibold">
+                              @if (s.frecuenciaCardiaca) { <span>FC: {{ s.frecuenciaCardiaca }} bpm</span> }
+                              @if (s.saturacionO2) { <span>SpO₂: {{ s.saturacionO2 }}%</span> }
+                              @if (s.presionSistolica) { <span>PA: {{ s.presionSistolica }}/{{ s.presionDiastolica }}</span> }
+                              @if (s.temperatura) { <span>T: {{ s.temperatura }}°C</span> }
+                              @if (s.frecuenciaRespiratoria) { <span>FR: {{ s.frecuenciaRespiratoria }} rpm</span> }
+                              @if (s.glucemia) { <span>Glu: {{ s.glucemia }} mg/dL</span> }
+                            </div>
+                            @if (s.observacion || s.observaciones) {
+                              <p class="text-xs italic mt-0.5" style="color: var(--text-muted, #94a3b8);">Obs: {{ s.observacion || s.observaciones }}</p>
+                            }
+                          </div>
+                        }
+                      </div>
+                    </div>
+                  }
+                </emx-glass-card>
+
+                <!-- Procedimientos Card -->
+                <emx-glass-card>
+                  <div class="flex items-center justify-between mb-3">
+                    <h2 class="section-label" style="margin: 0;">Procedimientos</h2>
+                    @if (canEditClinical()) {
+                      <button type="button" class="btn btn--primary btn--sm" (click)="openClinicalModal('PROCEDIMIENTO')">Agregar</button>
+                    }
+                  </div>
+                  @if (procedimientos().length === 0) {
+                    <p class="text-xs" style="color: var(--text-muted, #94a3b8);">Sin procedimientos registrados</p>
+                  } @else {
+                    <ul class="flex flex-col gap-2 max-h-[150px] overflow-y-auto">
+                      @for (p of procedimientos(); track p.id) {
+                        <li class="p-2 rounded" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-glass, rgba(255,255,255,0.1));">
+                          <p class="text-xs font-semibold" style="color: var(--text-primary, #f8fafc);">{{ p.descripcion }}</p>
+                          <p class="text-[10px] font-mono mt-1" style="color: var(--text-muted, #94a3b8);">
+                            {{ p.ejecutadoPor }} · {{ formatTime(p.timestamp) }}
+                          </p>
+                        </li>
+                      }
+                    </ul>
+                  }
+                </emx-glass-card>
+
+                <!-- Medicación Card -->
+                <emx-glass-card>
+                  <div class="flex items-center justify-between mb-3">
+                    <h2 class="section-label" style="margin: 0;">Medicación</h2>
+                    @if (canEditClinical()) {
+                      <button type="button" class="btn btn--primary btn--sm" (click)="openClinicalModal('MEDICACION')">Agregar</button>
+                    }
+                  </div>
+                  @if (medicacion().length === 0) {
+                    <p class="text-xs" style="color: var(--text-muted, #94a3b8);">Sin medicación registrada</p>
+                  } @else {
+                    <ul class="flex flex-col gap-2 max-h-[150px] overflow-y-auto">
+                      @for (m of medicacion(); track m.id) {
+                        <li class="p-2 rounded" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-glass, rgba(255,255,255,0.1));">
+                          <p class="text-xs font-semibold" style="color: var(--text-primary, #f8fafc);">{{ m.medicamento }}</p>
+                          <p class="text-[10px] font-mono mt-1" style="color: var(--text-muted, #94a3b8);">
+                            Dosis: {{ m.dosis }} · Vía: {{ m.via }} · Por: {{ m.administradoPor }}
+                          </p>
+                        </li>
+                      }
+                    </ul>
+                  }
+                </emx-glass-card>
+              </div>
+
+              <!-- Columna central/derecha: Evolución Clínica Cronológica -->
+              <div class="flex flex-col gap-4">
+                <emx-glass-card>
+                  <h2 class="section-label mb-4">Evolución Clínica del Paciente (Historial Cronológico)</h2>
+                  
+                  @if (clinicalEvolution().length === 0) {
+                    <div class="text-center py-8">
+                      <p class="text-sm" style="color: var(--text-muted, #94a3b8);">No se registran eventos clínicos para este paciente.</p>
+                    </div>
+                  } @else {
+                    <div class="relative pl-6 border-l" style="border-color: var(--border-glass, rgba(255,255,255,0.1));">
+                      @for (ev of clinicalEvolution(); track ev.date + ev.type) {
+                        <div class="relative mb-6">
+                          <!-- Timeline Dot icon/color -->
+                          <span class="absolute -left-[31px] top-1.5 w-3 h-3 rounded-full border-2" 
+                                [style.background]="ev.type === 'SIGNOS' ? 'var(--accent-emerald, #10b981)' : ev.type === 'CONSENTIMIENTO' ? 'var(--accent-blue, #3b82f6)' : ev.type === 'RESOLUCION' ? 'var(--accent-cyan, #06b6d4)' : 'var(--accent-amber, #f59e0b)'"
+                                [style.border-color]="'var(--bg-elevated, #0f172a)'"></span>
+                          
+                          <div class="p-3 rounded-lg flex flex-col gap-1.5" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-glass, rgba(255,255,255,0.1));">
+                            <div class="flex items-center justify-between gap-2 flex-wrap">
+                              <span class="text-xs font-mono font-semibold uppercase tracking-wider px-2 py-0.5 rounded"
+                                    [style.background]="ev.type === 'SIGNOS' ? 'rgba(16,185,129,0.1)' : ev.type === 'CONSENTIMIENTO' ? 'rgba(59,130,246,0.1)' : ev.type === 'RESOLUCION' ? 'rgba(6,182,212,0.1)' : 'rgba(245,158,11,0.1)'"
+                                    [style.color]="ev.type === 'SIGNOS' ? 'var(--accent-emerald, #10b981)' : ev.type === 'CONSENTIMIENTO' ? 'var(--accent-blue, #3b82f6)' : ev.type === 'RESOLUCION' ? 'var(--accent-cyan, #06b6d4)' : 'var(--accent-amber, #f59e0b)'">
+                                {{ ev.type }}
+                              </span>
+                              <span class="text-[10px] font-mono" style="color: var(--text-muted, #94a3b8);">
+                                {{ formatDate(ev.date) }} {{ formatTime(ev.date) }} hs
+                              </span>
+                            </div>
+
+                            <h3 class="text-sm font-bold mt-1" style="color: var(--text-primary, #f8fafc);">{{ ev.title }}</h3>
+                            
+                            @if (ev.description) {
+                              <p class="text-xs leading-relaxed" style="color: var(--text-secondary, #cbd5e1);">{{ ev.description }}</p>
+                            }
+
+                            @if (ev.details && ev.details.length > 0) {
+                              <div class="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-[11px] font-mono" style="color: var(--text-muted, #94a3b8);">
+                                @for (detail of ev.details; track detail) {
+                                  @if (detail) {
+                                    <span class="bg-black bg-opacity-20 px-1.5 py-0.5 rounded">{{ detail }}</span>
+                                  }
+                                }
+                              </div>
+                            }
+
+                            <!-- Consent form Base64 display option if exists -->
+                            @if (ev.type === 'CONSENTIMIENTO' && ev.rawData?.documentoFirmado) {
+                              <div class="mt-2 p-2 rounded bg-black bg-opacity-30 border border-dashed border-gray-700 flex items-center justify-between">
+                                <span class="text-xs text-emerald-400 flex items-center gap-1 font-mono">
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M20 6L9 17l-5-5"/>
+                                  </svg>
+                                  Consentimiento firmado transmitido
+                                </span>
+                                <button type="button" class="btn btn--ghost btn--xs" (click)="descargarDocumento(ev.rawData)">Ver Documento</button>
+                              </div>
+                            }
+                          </div>
+                        </div>
+                      }
+                    </div>
+                  }
+                </emx-glass-card>
+              </div>
+            </div>
+          }
         }
       </div>
     </div>
@@ -1301,6 +1532,144 @@ export class EmergencyDetailComponent implements OnInit {
   readonly entregaError = signal<string | null>(null);
 
   // ── Derived data ──────────────────────────────────────────────
+  readonly activeTab = signal<'general' | 'clinico'>('general');
+  readonly consentimientos = signal<ConsentimientoInformadoDTO[]>([]);
+
+  readonly clinicalEvolution = computed(() => {
+    const events: {
+      type: string;
+      date: string;
+      title: string;
+      description?: string;
+      details?: string[];
+      badgeClass?: string;
+      rawData?: any;
+    }[] = [];
+
+    // 1. Signos vitales
+    const svList = this.signos();
+    for (const sv of svList) {
+      const date = sv.timestamp || sv.fechaHora;
+      if (date) {
+        const details = [];
+        if (sv.presionSistolica != null && sv.presionDiastolica != null) details.push(`PA: ${sv.presionSistolica}/${sv.presionDiastolica} mmHg`);
+        if (sv.frecuenciaCardiaca != null) details.push(`FC: ${sv.frecuenciaCardiaca} bpm`);
+        if (sv.frecuenciaRespiratoria != null) details.push(`FR: ${sv.frecuenciaRespiratoria} rpm`);
+        if (sv.saturacionO2 != null) details.push(`SpO₂: ${sv.saturacionO2}%`);
+        if (sv.temperatura != null) details.push(`Temp: ${sv.temperatura}°C`);
+        if (sv.glucemia != null) details.push(`Glucemia: ${sv.glucemia} mg/dL`);
+        if (sv.glasgowTotal != null) details.push(`Glasgow: ${sv.glasgowTotal}/15 (O:${sv.glasgowOcular} V:${sv.glasgowVerbal} M:${sv.glasgowMotor})`);
+        if (sv.avpu) details.push(`AVPU: ${sv.avpu}`);
+        
+        events.push({
+          type: 'SIGNOS',
+          date: date,
+          title: 'Control de Signos Vitales',
+          details: details,
+          description: sv.observacion || sv.observaciones,
+          badgeClass: 'badge--stable',
+          rawData: sv
+        });
+      }
+    }
+
+    // 2. Procedimientos
+    for (const p of this.procedimientos()) {
+      const date = p.timestamp;
+      if (date) {
+        events.push({
+          type: 'PROCEDIMIENTO',
+          date: date,
+          title: 'Procedimiento Clínico',
+          description: p.descripcion,
+          details: [`Ejecutado por: ${p.ejecutadoPor}`],
+          badgeClass: 'badge--urgent'
+        });
+      }
+    }
+
+    // 3. Medicación
+    for (const m of this.medicacion()) {
+      const date = m.timestamp;
+      if (date) {
+        events.push({
+          type: 'MEDICACION',
+          date: date,
+          title: 'Administración de Medicación',
+          description: m.medicamento,
+          details: [`Dosis: ${m.dosis}`, `Vía: ${m.via}`, `Administrado por: ${m.administradoPor}`],
+          badgeClass: 'badge--critical'
+        });
+      }
+    }
+
+    // 4. Consentimientos
+    for (const c of this.consentimientos()) {
+      const date = c.fechaFirma;
+      if (date) {
+        events.push({
+          type: 'CONSENTIMIENTO',
+          date: date,
+          title: `Consentimiento: ${c.tipoConsentimiento.replace(/_/g, ' ')}`,
+          description: `Profesional Responsable: ${c.profesionalResponsable}`,
+          details: [
+            `Estado: ${c.estado}`,
+            `Número Acto: ${c.numeroActo}`,
+            c.firmaDigital ? `Firma Digital: ${c.firmaDigital}` : 'Firma transmitida desde app móvil',
+            `Testigo: ${c.testigo || 'No requerido'}`,
+            `Observación: ${c.observacion || 'Ninguna'}`
+          ],
+          badgeClass: 'badge--stable',
+          rawData: c
+        });
+      }
+    }
+
+    // 5. Resolución Médica (Cierre)
+    const resolucion = this.detalle()?.resolucion;
+    if (resolucion) {
+      const date = resolucion.fechaResolucion || this.ticket()?.horaCierre;
+      if (date) {
+        events.push({
+          type: 'RESOLUCION',
+          date: date,
+          title: `Resolución del Caso: ${resolucion.tipoResolucion?.replace(/_/g, ' ') || 'Finalizado'}`,
+          description: resolucion.impresionClinica,
+          details: [
+            resolucion.tratamientoRealizado ? `Tratamiento: ${resolucion.tratamientoRealizado}` : '',
+            resolucion.requiereTraslado ? `Traslado requerido a: ${resolucion.hospitalDestino || 'Por determinar'}` : 'No requiere traslado'
+          ].filter(Boolean),
+          badgeClass: 'badge--stable'
+        });
+      }
+    }
+
+    // Sort chronologically (ascending)
+    return events.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  });
+
+  descargarDocumento(consentimiento: any): void {
+    if (!consentimiento?.documentoFirmado) return;
+    try {
+      const base64Content = consentimiento.documentoFirmado;
+      const cleanBase64 = base64Content.includes('base64,') ? base64Content.split('base64,')[1] : base64Content;
+      const contentType = base64Content.includes('data:') ? base64Content.split(';')[0].replace('data:', '') : 'application/pdf';
+      
+      const byteCharacters = atob(cleanBase64);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: contentType });
+      const fileURL = URL.createObjectURL(blob);
+      window.open(fileURL, '_blank');
+    } catch (e) {
+      console.error('Error opening signed document:', e);
+      alert('No se pudo abrir el documento firmado.');
+    }
+  }
+
   readonly ticket = computed(() => this.detalle()?.ticket ?? null);
   readonly signos = computed(() => {
     const clinical = this.clinicalAtencion()?.signos ?? [];
@@ -1543,6 +1912,15 @@ export class EmergencyDetailComponent implements OnInit {
               this.loadClinicalAtencion();
               this.loadTicketGeo(id);
               this.loadTracking(id);
+              
+              const pacId = data.ticket?.pacienteId;
+              if (pacId) {
+                this.emergencyApi.getConsentimientos(pacId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+                  next: (list) => this.consentimientos.set(list),
+                  error: () => this.consentimientos.set([])
+                });
+              }
+              
               this.loading.set(false);
             },
             error: () => {

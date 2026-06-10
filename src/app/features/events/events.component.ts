@@ -1,5 +1,5 @@
-import { Component, signal, computed, inject, OnInit, DestroyRef } from '@angular/core';
-import { catchError, of } from 'rxjs';
+import { Component, signal, computed, inject, OnInit, DestroyRef, effect } from '@angular/core';
+import { catchError, of, forkJoin } from 'rxjs';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import type { BadgeVariant } from '../../shared/components/status-badge/status-badge.component';
 import { EventsApiService } from '../../data-access/api/events.api';
@@ -8,6 +8,8 @@ import { FleetApiService } from '../../data-access/api/fleet.api';
 import { DateUtils } from '../../core/utils/date.utils';
 import { DateTime } from 'luxon';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
+import { EmergencyApiService } from '../../data-access/api/emergency.api';
+import { TicketAsistenciaDTO } from '../../data-access/dto/ticket.dto';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -108,12 +110,14 @@ function initialForm(): NewEventForm {
   };
 }
 
+import { DatePipe } from '@angular/common';
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 @Component({
   selector: 'app-events',
   standalone: true,
-  imports: [StatusBadgeComponent],
+  imports: [StatusBadgeComponent, DatePipe],
   template: `
     <div class="h-full flex flex-col overflow-hidden">
 
@@ -420,13 +424,56 @@ function initialForm(): NewEventForm {
             </div>
 
             <!-- Units list -->
-            <div style="padding:12px 20px 16px;max-height:160px;overflow-y:auto;">
-              <div class="font-mono uppercase" style="font-size:9px;color:var(--text-muted);margin-bottom:8px;letter-spacing:0.08em;">Móviles asignados</div>
+            <div style="padding:12px 20px 16px;max-height:150px;overflow-y:auto;">
+              <div class="font-mono uppercase" style="font-size:9px;color:var(--text-muted);margin-bottom:8px;letter-spacing:0.08em;">Móviles y dotaciones asignadas temporalmente</div>
               @for (uid of ev.units; track uid) {
                 <div style="display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:8px;background:rgba(52,211,153,0.06);border:1px solid rgba(52,211,153,0.15);margin-bottom:5px;">
                   <span class="font-mono font-bold" style="font-size:12px;color:var(--accent-emerald);">{{ uid }}</span>
                   <span style="font-size:12px;color:var(--text-secondary);">{{ getUnitCrew(uid) }}</span>
                   <span class="font-mono" style="font-size:10px;color:var(--text-muted);">· {{ getUnitType(uid) }}</span>
+                </div>
+              }
+              @if (ev.units.length === 0) {
+                <div style="font-size:12px;color:var(--text-muted);text-align:center;padding:10px;">No hay móviles asignados.</div>
+              }
+            </div>
+
+            <!-- Incidents list -->
+            <div style="padding:12px 20px 16px;max-height:200px;overflow-y:auto;border-top:1px solid var(--border-glass);">
+              <div class="font-mono uppercase" style="font-size:9px;color:var(--text-muted);margin-bottom:8px;letter-spacing:0.08em;">Incidentes derivados del evento (Cronológico)</div>
+              
+              @if (loadingIncidents()) {
+                <div style="display:flex;align-items:center;justify-content:center;padding:20px;color:var(--text-muted);font-size:12px;">
+                  <span>Cargando incidentes...</span>
+                </div>
+              } @else if (eventIncidents().length === 0) {
+                <div style="padding:15px;text-align:center;color:var(--text-muted);font-size:12px;background:rgba(255,255,255,0.02);border-radius:8px;border:1px dashed var(--border-glass);">
+                  No hay incidentes registrados para este evento.
+                </div>
+              } @else {
+                <div style="display:flex;flex-direction:column;gap:6px;">
+                  @for (inc of eventIncidents(); track inc.id) {
+                    <div style="display:flex;flex-direction:column;gap:4px;padding:8px 12px;border-radius:8px;background:rgba(255,255,255,0.02);border:1px solid var(--border-glass);">
+                      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                        <span class="font-mono font-bold" style="font-size:11px;color:var(--accent-blue);">{{ inc.codigo || '#' + inc.id }}</span>
+                        <div style="display:flex;align-items:center;gap:6px;">
+                          @if (inc.nivelUrgencia) {
+                            <span class="font-mono font-bold" style="font-size:9px;padding:1px 5px;border-radius:4px;background:rgba(239,68,68,0.1);color:var(--accent-red);">{{ inc.nivelUrgencia }}</span>
+                          }
+                          <span style="font-size:10px;padding:1px 5px;border-radius:4px;background:rgba(255,255,255,0.05);color:var(--text-secondary);">{{ inc.estado }}</span>
+                        </div>
+                      </div>
+                      @if (inc.tipoEmergencia) {
+                        <div style="font-size:12px;color:var(--text-primary);">{{ inc.tipoEmergencia }}</div>
+                      }
+                      <div style="display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--text-muted);margin-top:2px;">
+                        <span>{{ inc.direccion }}</span>
+                        @if (inc.fechaCreacion) {
+                          <span class="font-mono">{{ inc.fechaCreacion | date:'dd/MM/yyyy HH:mm' }}</span>
+                        }
+                      </div>
+                    </div>
+                  }
                 </div>
               }
             </div>
@@ -437,6 +484,9 @@ function initialForm(): NewEventForm {
               <div class="flex gap-2">
                 <button type="button" class="btn btn--ghost btn--sm">Editar</button>
                 <button type="button" class="btn btn--ghost btn--sm">Generar parte</button>
+                @if (ev.status !== 'closed') {
+                  <button type="button" class="btn btn--danger btn--sm" (click)="finalizeEvent(ev)">Finalizar Evento</button>
+                }
                 <button type="button" class="btn btn--primary btn--sm" (click)="selectedEvent.set(null)">Cerrar</button>
               </div>
             </div>
@@ -716,9 +766,10 @@ function initialForm(): NewEventForm {
   `,
 })
 export class EventsComponent implements OnInit {
-    private destroyRef = inject(DestroyRef);
+  private destroyRef = inject(DestroyRef);
   private eventsApi = inject(EventsApiService);
   private fleetApi = inject(FleetApiService);
+  private emergencyApi = inject(EmergencyApiService);
 
   // ── Ambulances signal (populated from backend on init) ────────────────────
   readonly ambulances = signal<AmbUnit[]>([]);
@@ -727,7 +778,20 @@ export class EventsComponent implements OnInit {
   readonly view = signal<'list' | 'calendar'>('list');
   readonly events = signal<EventItem[]>([]);
   readonly selectedEvent = signal<EventItem | null>(null);
+  readonly eventIncidents = signal<TicketAsistenciaDTO[]>([]);
+  readonly loadingIncidents = signal(false);
   readonly newEventOpen = signal(false);
+
+  constructor() {
+    effect(() => {
+      const ev = this.selectedEvent();
+      if (ev) {
+        this.loadIncidents(ev.id, ev.name);
+      } else {
+        this.eventIncidents.set([]);
+      }
+    });
+  }
 
   // List filters
   readonly searchQuery = signal('');
@@ -1020,5 +1084,81 @@ export class EventsComponent implements OnInit {
 
   getUnitType(id: string): string {
     return this.ambulances().find(a => a.id === id)?.type ?? '—';
+  }
+
+  loadIncidents(eventId: string, eventName: string): void {
+    this.loadingIncidents.set(true);
+    forkJoin({
+      active: this.emergencyApi.getActivos().pipe(catchError(() => of([]))),
+      history: this.emergencyApi.getHistorial().pipe(catchError(() => of([])))
+    }).pipe(
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe(({ active, history }) => {
+      const allTicketsMap = new Map<number, TicketAsistenciaDTO>();
+      active.forEach(t => allTicketsMap.set(t.id, t));
+      history.forEach(t => allTicketsMap.set(t.id, t));
+
+      const allTickets = Array.from(allTicketsMap.values());
+      const filtered = allTickets.filter(t => {
+        const evId = t.contextoCobertura?.eventoCoberturaId;
+        const evName = t.coberturaNombreSnapshot;
+        return (evId && String(evId) === eventId) ||
+               (evName && evName.toUpperCase().includes(`EVENTO: ${eventName.toUpperCase()}`)) ||
+               (evName && evName.toUpperCase().includes(eventName.toUpperCase()));
+      });
+
+      filtered.sort((a, b) => {
+        const dateA = a.fechaCreacion ? new Date(a.fechaCreacion).getTime() : 0;
+        const dateB = b.fechaCreacion ? new Date(b.fechaCreacion).getTime() : 0;
+        return dateA - dateB;
+      });
+
+      this.eventIncidents.set(filtered);
+      this.loadingIncidents.set(false);
+    });
+  }
+
+  finalizeEvent(ev: EventItem): void {
+    const activeIncidents = this.eventIncidents().filter(
+      (incident) => !['COMPLETADO', 'CERRADO', 'CANCELADO'].includes((incident.estado ?? '').toUpperCase())
+    );
+
+    if (activeIncidents.length > 0) {
+      alert(`No se puede finalizar el evento "${ev.name}". Existen ${activeIncidents.length} atenciones activas pendientes:\n` +
+        activeIncidents.map(i => `- Ticket ${i.codigo || i.id}: ${i.tipoEmergencia || 'Asistencia'} (${i.estado})`).join('\n')
+      );
+      return;
+    }
+
+    const updated: FrontendEvento = {
+      id: ev.id,
+      name: ev.name,
+      type: ev.type as any,
+      org: ev.org,
+      responsible: ev.responsible,
+      attendees: ev.attendees,
+      address: ev.address,
+      dateFrom: ev.dateFrom,
+      timeFrom: ev.timeFrom,
+      dateTo: ev.dateTo,
+      timeTo: ev.timeTo,
+      units: ev.units,
+      status: 'closed'
+    };
+
+    this.eventsApi.update(ev.id, updated).pipe(
+      catchError((error) => {
+        console.error('Error al finalizar el evento:', error);
+        const errorMsg = error?.error?.detail || error?.error?.message || error?.message || 'Error desconocido del servidor';
+        alert(`Error al finalizar el evento: ${errorMsg}`);
+        return of(null);
+      }),
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe((res) => {
+      if (res) {
+        this.loadEvents();
+        this.selectedEvent.set(null);
+      }
+    });
   }
 }

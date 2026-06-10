@@ -15,6 +15,7 @@ export interface UnidadMovilDTO {
   motivoNoDisponible?: string | null;
   turnoActual?: string | null;
   tripulacion?: string;
+  tripulacionActual?: TripulacionMovilDTO[];
   bateria?: number;
   combustible?: number;
   latitud?: number;
@@ -33,7 +34,10 @@ export interface UnidadMovilDTO {
   // operativa del backend
   kmHoy?: number | null;
   serviciosHoy?: number | null;
+  ultimaConexionSegundos?: number | null;
+  ultimaPosicionTimestamp?: string | null;
 }
+
 
 export interface FlotaDashboardDTO {
   disponibles: number;
@@ -71,6 +75,7 @@ export interface TripulacionMovilDTO {
   profesionalId: number;
   rol?: string;
   nombre?: string;
+  profesionalNombre?: string;
 }
 
 export interface GeoPosicionDTO {

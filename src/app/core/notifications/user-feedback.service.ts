@@ -136,6 +136,10 @@ export class UserFeedbackService {
       'error.dniDuplicadoGrupo': 'Hay DNI repetidos dentro del grupo familiar cargado.',
       'error.planNotFound': 'El plan comercial seleccionado no está disponible.',
       'error.sujetoRequerido': 'Debés informar un paciente o una persona asistida transitoria antes de continuar.',
+      'error.tripulacionSinMedico': 'La tripulación activa de la ambulancia no cuenta con un médico asignado.',
+      'error.ambulanciaOcupadaActiva': 'La ambulancia seleccionada ya tiene un ticket activo asignado.',
+      'tripulacionSinMedico': 'La tripulación activa de la ambulancia no cuenta con un médico asignado.',
+      'ambulanciaOcupadaActiva': 'La ambulancia seleccionada ya tiene un ticket activo asignado.',
     };
 
     if (map[key]) return map[key];
