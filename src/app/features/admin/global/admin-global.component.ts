@@ -60,7 +60,7 @@ const CONFIGURABLE_MENU_ITEMS: MenuConfigItem[] = [
   { id: 'facturacion', label: 'Facturación', icon: '🧾' },
   { id: 'events', label: 'Eventos', icon: '📅' },
   { id: 'hospitals', label: 'Hospitales', icon: '🏨' },
-  { id: 'communications', label: 'Comunicaciones', icon: '📡' },
+  // { id: 'communications', label: 'Comunicaciones', icon: '📡' },
   { id: 'internacion', label: 'Internación', icon: '🛏️' },
   { id: 'management', label: 'Gerencial', icon: '💼' },
   { id: 'analytics', label: 'Analítica', icon: '📊' }
@@ -70,20 +70,20 @@ const DEFAULT_MENU_FALLBACKS: Record<RolCentro, string[]> = {
   PROPIETARIO: [
     'dashboard', 'turnos', 'map', 'historial', 'fleet', 'staff',
     'patients', 'institutions', 'plans', 'facturacion', 'events',
-    'hospitals', 'communications', 'internacion', 'management', 'analytics'
+    'hospitals', 'internacion', 'management', 'analytics'
   ],
   ADMINISTRADOR: [
     'dashboard', 'turnos', 'map', 'historial', 'fleet', 'staff',
     'patients', 'institutions', 'plans', 'facturacion', 'events',
-    'hospitals', 'communications', 'internacion', 'management', 'analytics'
+    'hospitals', 'internacion', 'management', 'analytics'
   ],
   DESPACHANTE: [
     'dashboard', 'turnos', 'map', 'historial', 'fleet', 'staff',
-    'patients', 'events', 'hospitals', 'communications'
+    'patients', 'events', 'hospitals'
   ],
   OPERADOR: [
     'dashboard', 'turnos', 'map', 'historial', 'fleet', 'staff',
-    'patients', 'events', 'hospitals', 'communications'
+    'patients', 'events', 'hospitals'
   ],
   PROFESIONAL: [
     'dashboard', 'turnos', 'historial', 'staff', 'patients', 'internacion'
@@ -314,7 +314,7 @@ export class AdminGlobalComponent implements OnInit {
             this.saving.set(false);
             this.showEditEmpresa.set(null);
             this.empresas.update(list => list.map(e => e.id === original.id ? res : e));
-            
+
             const current = this.selectedEmpresa();
             if (current && current.id === original.id) {
               this.selectedEmpresa.set(res);
@@ -357,7 +357,7 @@ export class AdminGlobalComponent implements OnInit {
     this.empresaApi.partialUpdate(empresa.id, { estado: nuevoEstado }).subscribe({
       next: (res) => {
         this.empresas.update(list => list.map(e => e.id === empresa.id ? { ...e, estado: nuevoEstado } : e));
-        
+
         const current = this.selectedEmpresa();
         if (current && current.id === empresa.id) {
           this.selectedEmpresa.set({ ...current, estado: nuevoEstado });
