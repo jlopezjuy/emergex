@@ -98,6 +98,13 @@ export class FleetApiService {
     );
   }
 
+  crearAmbulanciaWizard(req: any): Observable<UnidadMovilDTO> {
+    return this.http.post<any>(`${this.base}/ambulancias/wizard`, req).pipe(
+      map((r) => this.mapAmbu(r)),
+    );
+  }
+
+
   getAmbulancia(id: number): Observable<UnidadMovilDTO> {
     return this.http.get<any>(`${this.base}/ambulancias/${id}`).pipe(
       map((r) => this.mapAmbu(r)),

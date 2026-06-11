@@ -13,7 +13,7 @@ import { FleetTableComponent } from '../../shared/components/fleet/fleet-table/f
 import { KpiCardComponent } from '../../shared/components/kpi-card/kpi-card.component';
 import { GlassCardComponent } from '../../shared/components/glass-card/glass-card.component';
 import { LoadingStateComponent } from '../../shared/components/loading-state/loading-state.component';
-import { NewUnitModalComponent } from './new-unit-modal/new-unit-modal.component';
+import { NewUnitWizardModalComponent } from './new-unit-wizard-modal/new-unit-wizard-modal.component';
 import { UnitScheduleModalComponent } from './unit-schedule-modal/unit-schedule-modal.component';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
@@ -28,7 +28,7 @@ type FleetTab = 'TODAS' | 'DISPONIBLE' | 'SIN_COBERTURA' | 'EN_SERVICIO' | 'MANT
     KpiCardComponent,
     GlassCardComponent,
     LoadingStateComponent,
-    NewUnitModalComponent,
+    NewUnitWizardModalComponent,
     UnitScheduleModalComponent,
   ],
   template: `
@@ -364,7 +364,7 @@ type FleetTab = 'TODAS' | 'DISPONIBLE' | 'SIN_COBERTURA' | 'EN_SERVICIO' | 'MANT
 
     <!-- New unit modal -->
     @if (showNewUnit()) {
-      <emx-new-unit-modal
+      <emx-new-unit-wizard-modal
         (created)="onUnitCreated()"
         (closed)="showNewUnit.set(false)"
       />
