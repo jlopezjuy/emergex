@@ -1,4 +1,4 @@
-import { Component, input, output, signal, computed, OnInit } from '@angular/core';
+import { Component, input, output, signal, computed, OnInit, effect, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Institution, InstitutionContract } from '../../institutions.component';
 
@@ -248,7 +248,7 @@ interface CommercialPlanItem {
     </div>
   `,
 })
-export class InstitutionContractModalComponent implements OnInit {
+export class InstitutionContractModalComponent {
   readonly institution     = input.required<Institution>();
   readonly commercialPlans = input<CommercialPlanItem[]>([]);
   readonly loadingContract  = input<boolean>(false);
@@ -268,8 +268,13 @@ export class InstitutionContractModalComponent implements OnInit {
 
   readonly Math = Math;
 
-  ngOnInit(): void {
-    this.ctr.set(JSON.parse(JSON.stringify(this.initialContract())));
+  constructor() {
+    effect(() => {
+      const initial = this.initialContract();
+      untracked(() => {
+        this.ctr.set(JSON.parse(JSON.stringify(initial)));
+      });
+    });
   }
 
   onClose(): void {
