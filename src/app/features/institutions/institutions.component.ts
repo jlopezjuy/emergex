@@ -94,7 +94,7 @@ function avatarOf(name: string): string {
 
 function emptyForm(): InstitutionForm {
   return {
-    name: '', razonSocial: '', cuit: '', type: 'empresa', plan: 'corp-medio', status: 'ACTIVA',
+    name: '', razonSocial: '', cuit: '', type: 'empresa', plan: 'Plan Empresa Básico', status: 'ACTIVA',
     email: '', phone: '', adminContact: '', opsContact: '', address: '', city: 'San Salvador de Jujuy',
     lat: 0, lng: 0,
   };
@@ -1055,7 +1055,7 @@ export class InstitutionsComponent implements OnInit {
   private loadPlans(): void {
     this.plansApi.getAll().pipe(takeUntilDestroyed(this.destroyRef)).subscribe(plans => {
       this._commercialPlans.set(plans.map(p => ({
-        id:          String(p.id),
+        id:          p.name,
         numericId:   Number(p.id),
         name:        p.name,
         color:       planTierColor(p.tier),

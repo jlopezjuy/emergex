@@ -184,7 +184,7 @@ function toDTO(b: InstitucionBackend): InstitutionDTO {
   };
 }
 
-function toBackend(dto: InstitutionDTO): Omit<InstitucionBackend, 'id' | 'planComercialNombre'> & { id?: number } {
+function toBackend(dto: InstitutionDTO): Omit<InstitucionBackend, 'id'> & { id?: number } {
   return {
     ...(dto.id ? { id: Number(dto.id) } : {}),
     nombreFantasia:        dto.name,
@@ -201,6 +201,7 @@ function toBackend(dto: InstitutionDTO): Omit<InstitucionBackend, 'id' | 'planCo
     latitud:               dto.lat,
     longitud:              dto.lng,
     perimetroJson:         dto.polygon?.length ? JSON.stringify(dto.polygon) : undefined,
+    planComercialNombre:   dto.plan || undefined,
   };
 }
 
