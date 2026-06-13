@@ -86,14 +86,19 @@ import { DateUtils } from '../../core/utils/date.utils';
         <!-- Institucional -->
         <button
           type="button"
-          class="btn btn--ghost btn--sm hide-below-2xl"
+          class="btn btn--ghost btn--sm"
           (click)="createInstitutional.emit()"
           style="border-color: rgba(59,130,246,0.35); color: var(--accent-blue);"
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
           </svg>
-          Institucional
+          <span class="hide-below-md">Institucional</span>
+          <span class="show-below-md">Inst.</span>
+          <span
+            class="font-mono text-xs ml-1 px-1 rounded"
+            style="background: rgba(59,130,246,0.1); opacity: 0.8;"
+          >I</span>
         </button>
 
         <!-- Nueva emergencia -->

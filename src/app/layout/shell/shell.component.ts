@@ -80,8 +80,13 @@ export class ShellComponent implements OnInit {
       event.preventDefault();
       this.emergencyModalService.open();
     }
+    if (event.key === 'i' || event.key === 'I') {
+      event.preventDefault();
+      this.showInstitutionalModal.set(true);
+    }
     if (event.key === 'Escape') {
       this.emergencyModalService.close();
+      this.showInstitutionalModal.set(false);
     }
   }
 
