@@ -1,25 +1,28 @@
 import { Component, signal, computed, HostListener, OnInit, inject, DestroyRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+
+// Components & Services
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
-import { StaffApiService, SubespecialidadCatalogItem, IProfesionalOnboardingRequest } from '../../data-access/api/staff.api';
+import { StaffApiService } from '../../data-access/api/staff.api';
+import { SpecialtiesModalComponent } from './components/specialties-modal/specialties-modal.component';
+import { StaffFormModalComponent } from './components/staff-form-modal/staff-form-modal.component';
+
+// Models, helpers & types
+import {
+  SpecialtyGroup,
+  CatalogItem,
+  StaffMember,
+  SPEC_GROUP_COLOR,
+  PREFIX_OPTIONS,
+  specById
+} from './models/staff.interfaces';
 import { ProfesionalSaludDTO } from '../../data-access/dto/staff.dto';
-import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
-// ─── Catalogs ─────────────────────────────────────────────────────────────────
+const PAGE_SIZE = 10;
 
-type SpecialtyGroup = 'Médica' | 'Enfermería';
-
-interface CatalogItem {
-  id: string;
-  name: string;
-  group: SpecialtyGroup;
-  descripcion?: string;
-  requiereCertificacion?: boolean;
-  aniosFormacion?: number;
-}
-
-function toCatalogItem(s: SubespecialidadCatalogItem): CatalogItem {
+function toCatalogItem(s: any): CatalogItem {
   return {
     id:    String(s.id),
     name:  s.nombre,
@@ -30,1264 +33,99 @@ function toCatalogItem(s: SubespecialidadCatalogItem): CatalogItem {
   };
 }
 
-const SPEC_GROUP_COLOR: Record<SpecialtyGroup, { bg: string; fg: string; border: string }> = {
-  'Médica':     { bg: 'rgba(59,130,246,0.16)',  fg: 'var(--accent-blue)',    border: 'rgba(59,130,246,0.30)' },
-  'Enfermería': { bg: 'rgba(16,185,129,0.16)',  fg: 'var(--accent-emerald)', border: 'rgba(16,185,129,0.30)' },
-};
-
-// ─── Interfaces ───────────────────────────────────────────────────────────────
-
-interface StaffMember {
-  id: string;
-  firstName: string;
-  lastName: string;
-  prefix: string;
-  matricula: string;
-  phone: string;
-  email: string;
-  documento?: string | null;
-  linkedUser: boolean;
-  role: string;
-  unit: string;
-  shift: string;
-  exp: number;
-  avatar: string;
-  specialties: string[];
-  domiciliary: boolean;
-  emergency: boolean;
-  active: boolean;
-  photoUrl?: string | null;
-  empresaId?: number;
-  userId?: number | null;
-  userLogin?: string | null;
-  createdAt?: string;
-  especialidadPrincipalId?: number | null;
-  authorities?: string[];
-}
-
-interface StaffForm {
-  prefix: string;
-  firstName: string;
-  lastName: string;
-  matricula: string;
-  documento: string;
-  phone: string;
-  email: string;
-  linkedUser: boolean;
-  specialties: string[];
-  domiciliary: boolean;
-  emergency: boolean;
-  active: boolean;
-  username: string;
-  passwordTemporal: string;
-  authorities: string[];
-  especialidadPrincipalId: number | null;
-}
-
-// ─── Seed data ────────────────────────────────────────────────────────────────
-
-const STAFF_SEED: StaffMember[] = [
-  { id:'P-004', firstName:'Mariana',  lastName:'Soto',      prefix:'Dra.', matricula:'MP 14887', phone:'+54 388 4123-7754', email:'m.soto@emergex.com.ar',      linkedUser:true,  role:'Médico ALS',   unit:'U-04', shift:'06:00–18:00', exp:12, avatar:'MS', specialties:['clinico','emerg','cardio','acls','bls','pals'], domiciliary:true,  emergency:true,  active:true  },
-  { id:'P-007', firstName:'Pablo',    lastName:'Lara',      prefix:'Lic.', matricula:'PM 7741',  phone:'+54 388 4221-1100', email:'p.lara@emergex.com.ar',      linkedUser:true,  role:'Paramédico',   unit:'U-07', shift:'06:00–18:00', exp:8,  avatar:'PL', specialties:['paramedico','tecnico','acls','bls'], domiciliary:false, emergency:true,  active:true  },
-  { id:'P-009', firstName:'Andrea',   lastName:'Mora',      prefix:'Dra.', matricula:'MP 15992', phone:'+54 388 4554-3200', email:'a.mora@emergex.com.ar',      linkedUser:true,  role:'Médico ALS',   unit:'U-09', shift:'06:00–18:00', exp:14, avatar:'AM', specialties:['clinico','emerg','acls','bls'], domiciliary:true,  emergency:true,  active:true  },
-  { id:'P-012', firstName:'Tomás',    lastName:'Ortega',    prefix:'Enf.', matricula:'MN 8821',  phone:'+54 388 4112-9000', email:'t.ortega@emergex.com.ar',    linkedUser:true,  role:'Enfermero',    unit:'U-12', shift:'00:00–12:00', exp:6,  avatar:'TO', specialties:['enfermeria','enf-uti','acls','bls','nrp'], domiciliary:true,  emergency:true,  active:true  },
-  { id:'P-014', firstName:'Sofía',    lastName:'Bello',     prefix:'Dra.', matricula:'MP 12110', phone:'+54 388 4998-2200', email:'s.bello@emergex.com.ar',     linkedUser:true,  role:'Médico ALS',   unit:'U-14', shift:'06:00–18:00', exp:19, avatar:'SB', specialties:['clinico','pediatria','trauma','acls','pals','bls','atls'], domiciliary:false, emergency:true, active:true  },
-  { id:'P-018', firstName:'Roberto',  lastName:'Téllez',    prefix:'Lic.', matricula:'PM 9012',  phone:'+54 388 4334-8800', email:'r.tellez@emergex.com.ar',    linkedUser:true,  role:'Paramédico',   unit:'U-18', shift:'06:00–18:00', exp:5,  avatar:'RT', specialties:['paramedico','tecnico','acls','bls'], domiciliary:false, emergency:true,  active:true  },
-  { id:'P-021', firstName:'Camila',   lastName:'Gil',       prefix:'Enf.', matricula:'MN 9210',  phone:'+54 388 4445-5544', email:'c.gil@emergex.com.ar',       linkedUser:false, role:'Enfermera',    unit:'U-21', shift:'06:00–18:00', exp:3,  avatar:'CG', specialties:['enfermeria','bls'], domiciliary:true,  emergency:false, active:true  },
-  { id:'P-022', firstName:'Daniel',   lastName:'Aro',       prefix:'Lic.', matricula:'PM 8430',  phone:'+54 388 4778-1133', email:'d.aro@emergex.com.ar',       linkedUser:true,  role:'Paramédico',   unit:'U-22', shift:'06:00–18:00', exp:7,  avatar:'DA', specialties:['paramedico','acls','bls'], domiciliary:false, emergency:true,  active:true  },
-  { id:'P-025', firstName:'Ignacio',  lastName:'Pino',      prefix:'Dr.',  matricula:'MP 13550', phone:'+54 388 4221-7765', email:'i.pino@emergex.com.ar',      linkedUser:true,  role:'Médico ALS',   unit:'U-25', shift:'06:00–18:00', exp:11, avatar:'IP', specialties:['clinico','familiar','acls','bls'], domiciliary:true,  emergency:true,  active:true  },
-  { id:'P-031', firstName:'Helena',   lastName:'Rojas',     prefix:'Lic.', matricula:'PM 9985',  phone:'+54 388 4998-7700', email:'h.rojas@emergex.com.ar',     linkedUser:false, role:'Paramédico',   unit:'U-31', shift:'06:00–18:00', exp:9,  avatar:'HR', specialties:['paramedico','tecnico','acls','bls','pals'], domiciliary:false, emergency:true, active:true  },
-  { id:'P-033', firstName:'Marco',    lastName:'Ávila',     prefix:'Enf.', matricula:'MN 7234',  phone:'+54 388 4332-9988', email:'m.avila@emergex.com.ar',     linkedUser:true,  role:'Enfermero',    unit:'U-33', shift:'06:00–18:00', exp:4,  avatar:'MA', specialties:['enfermeria','bls'], domiciliary:true,  emergency:false, active:true  },
-  { id:'P-040', firstName:'Lorena',   lastName:'Quintero',  prefix:'Dra.', matricula:'MP 11108', phone:'+54 388 4221-3344', email:'l.quintero@emergex.com.ar',  linkedUser:true,  role:'Despachadora', unit:'—',    shift:'06:00–18:00', exp:15, avatar:'LQ', specialties:['despacho','emd','bls'], domiciliary:false, emergency:false, active:true  },
-  { id:'P-041', firstName:'Karla',    lastName:'Hernández', prefix:'Op.',  matricula:'OP 4421',  phone:'+54 388 4112-7733', email:'k.hernandez@emergex.com.ar', linkedUser:true,  role:'Despachadora', unit:'—',    shift:'06:00–18:00', exp:6,  avatar:'KH', specialties:['despacho','emd'], domiciliary:false, emergency:false, active:true  },
-  { id:'P-050', firstName:'Felipe',   lastName:'Mendoza',   prefix:'Dr.',  matricula:'MP 10220', phone:'+54 388 4332-1100', email:'f.mendoza@emergex.com.ar',   linkedUser:true,  role:'Médico Jefe',  unit:'—',    shift:'—',           exp:22, avatar:'FM', specialties:['clinico','emerg','cardio','acls','pals','bls','atls'], domiciliary:true, emergency:true, active:false },
-];
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const PAGE_SIZE = 10;
-
-const PREFIX_OPTIONS = ['Dr.', 'Dra.', 'Lic.', 'Enf.', 'Tec.', 'Op.'];
-
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function emptyForm(): StaffForm {
-  return {
-    prefix: 'Dr.',
-    firstName: '',
-    lastName: '',
-    matricula: '',
-    documento: '',
-    phone: '',
-    email: '',
-    linkedUser: false,
-    specialties: [],
-    domiciliary: false,
-    emergency: false,
-    active: true,
-    username: '',
-    passwordTemporal: '',
-    authorities: ['ROLE_USER'],
-    especialidadPrincipalId: null,
-  };
-}
-
-function specById(catalog: CatalogItem[], id: string): CatalogItem | undefined {
-  return catalog.find(s => s.id === id);
-}
-
-// ─── Component ────────────────────────────────────────────────────────────────
-
 @Component({
   selector: 'app-staff',
   standalone: true,
-  imports: [FormsModule, StatusBadgeComponent],
-  template: `
-    <div class="screen">
-
-      <!-- ── Header ── -->
-      <div class="screen-head">
-        <div class="screen-head__title">
-          <div class="screen-head__icon" style="background:rgba(34,211,238,0.12);border-color:rgba(34,211,238,0.25)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-              <circle cx="9" cy="7" r="4"/>
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-            </svg>
-          </div>
-          <div>
-            <h2>Personal Operativo</h2>
-            <div class="eyebrow">MÉDICOS · PARAMÉDICOS · ENFERMERÍA · DESPACHO</div>
-          </div>
-        </div>
-
-        <div class="screen-head__kpis">
-          <div class="screen-kpi">
-            <div class="eyebrow">Plantilla</div>
-            <div class="mono" style="font-size:18px;font-weight:500">{{ counts().total }}</div>
-          </div>
-          <div class="screen-kpi">
-            <div class="eyebrow">Activos</div>
-            <div class="mono" style="font-size:18px;font-weight:500;color:var(--accent-emerald)">{{ counts().active }}</div>
-          </div>
-          <div class="screen-kpi">
-            <div class="eyebrow">Domiciliaria</div>
-            <div class="mono" style="font-size:18px;font-weight:500;color:var(--accent-blue)">{{ counts().domiciliary }}</div>
-          </div>
-          <div class="screen-kpi">
-            <div class="eyebrow">Emergencias</div>
-            <div class="mono" style="font-size:18px;font-weight:500;color:var(--accent-red)">{{ counts().emergency }}</div>
-          </div>
-        </div>
-
-        <div class="screen-head__actions">
-          <button class="btn btn--ghost btn--sm" (click)="openSpecialtiesModal()">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-            Especialidades
-          </button>
-          <button class="btn btn--ghost btn--sm">Reporte de turnos</button>
-          <button class="btn btn--primary btn--sm" (click)="openNewForm()">
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="1" x2="6" y2="11"/><line x1="1" y1="6" x2="11" y2="6"/></svg>
-            Alta de profesional
-          </button>
-        </div>
-      </div>
-
-      <!-- ── Table card ── -->
-      <div class="glass-strong pt-card ml-4 mr-4">
-
-        <!-- Toolbar -->
-        <div class="pt-toolbar">
-          <div class="pt-search">
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-linecap="round"><circle cx="6" cy="6" r="4"/><path d="M9.5 9.5l3 3"/></svg>
-            <input
-              class="pt-search__input"
-              placeholder="Buscar por nombre, matrícula o ID (P-xxx)…"
-              [(ngModel)]="searchQueryValue"
-              (ngModelChange)="page.set(0)"
-            />
-          </div>
-
-          <div class="pt-filters">
-            <span class="eyebrow" style="white-space:nowrap">Estado:</span>
-            @for (s of statusOptions; track s.value) {
-              <button
-                class="filter-chip"
-                [attr.data-on]="statusFilter() === s.value"
-                (click)="setStatus(s.value)"
-              >{{ s.label }}</button>
-            }
-          </div>
-
-          <div class="pt-filters">
-            <span class="eyebrow" style="white-space:nowrap">Habilitación:</span>
-            @for (h of habOptions; track h.value) {
-              <button
-                class="filter-chip"
-                [attr.data-on]="habFilter() === h.value"
-                (click)="setHab(h.value)"
-              >{{ h.label }}</button>
-            }
-          </div>
-        </div>
-
-        <!-- Table -->
-        <div class="data-table-wrap scroll-y ml">
-          <table class="data-table" style="width:100%;min-width:820px">
-            <thead>
-              <tr>
-                <th>Profesional</th>
-                <th>Especialidades / Certificaciones</th>
-                <th>Habilitaciones</th>
-                <th>Estado</th>
-                <th style="width:40px"></th>
-              </tr>
-            </thead>
-            <tbody>
-              @if (paged().length === 0) {
-                <tr>
-                  <td colspan="5" style="padding:40px;text-align:center;color:var(--text-muted);font-size:12px">Sin resultados</td>
-                </tr>
-              }
-              @for (s of paged(); track s.id) {
-                <tr (click)="openEditForm(s)" style="cursor:pointer">
-                  <!-- Col 1: Profesional -->
-                  <td>
-                    <div style="display:flex;align-items:center;gap:10px">
-                      <div class="staff-avatar">{{ s.avatar }}</div>
-                      <div>
-                        <div style="font-size:13px;font-weight:500">{{ s.prefix }} {{ s.firstName }} {{ s.lastName }}</div>
-                        <div class="mono micro" style="color:var(--text-muted)">{{ s.matricula }} · {{ s.id }}</div>
-                      </div>
-                    </div>
-                  </td>
-
-                  <!-- Col 2: Especialidades -->
-                  <td (click)="$event.stopPropagation()">
-                    <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center">
-                      @for (specId of s.specialties.slice(0, 5); track specId) {
-                        @let spec = getSpec(specId);
-                        @if (spec) {
-                          <span class="spec-chip"
-                            [style.background]="groupColor(spec.group).bg"
-                            [style.color]="groupColor(spec.group).fg"
-                            [style.border-color]="groupColor(spec.group).border"
-                          >{{ spec.name }}</span>
-                        }
-                      }
-                      @if (s.specialties.length > 5) {
-                        <span class="spec-chip" style="background:rgba(148,163,184,0.1);color:var(--text-muted);border-color:rgba(148,163,184,0.2)">
-                          +{{ s.specialties.length - 5 }} más
-                        </span>
-                      }
-                    </div>
-                  </td>
-
-                  <!-- Col 3: Habilitaciones -->
-                  <td>
-                    <div style="display:flex;gap:6px;align-items:center">
-                      <span class="hab-tag" [style.opacity]="s.domiciliary ? '1' : '0.35'">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-                        Domiciliaria
-                      </span>
-                      <span class="hab-tag hab-tag--emerg" [style.opacity]="s.emergency ? '1' : '0.35'">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-                        Emergencias
-                      </span>
-                    </div>
-                  </td>
-
-                  <!-- Col 4: Estado -->
-                  <td>
-                    @if (s.active) {
-                      <emx-status-badge variant="stable">Activo</emx-status-badge>
-                    } @else {
-                      <span class="badge-inactive">Inactivo</span>
-                    }
-                  </td>
-
-                  <!-- Col 5: Acciones -->
-                  <td (click)="$event.stopPropagation()" style="position:relative">
-                    <button class="action-icon" style="width:28px;height:28px" title="Acciones"
-                      (click)="toggleMenu(s.id)">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
-                    </button>
-                    @if (menuOpen() === s.id) {
-                      <div class="row-menu" (click)="$event.stopPropagation()">
-                        <button class="user-menu__item" (click)="openEditForm(s); menuOpen.set(null)">
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                          Editar
-                        </button>
-                        <button class="user-menu__item">
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.63 3.41 2 2 0 0 1 3.6 1.25h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.36a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.73 16z"/></svg>
-                          Contactar
-                        </button>
-                        <div style="height:1px;background:var(--border-hairline);margin:4px 0"></div>
-                        @if (s.active) {
-                          <button class="user-menu__item user-menu__item--danger" (click)="toggleActive(s.id); menuOpen.set(null)">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                            Desactivar
-                          </button>
-                        } @else {
-                          <button class="user-menu__item user-menu__item--danger" (click)="toggleActive(s.id); menuOpen.set(null)">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                            Reactivar
-                          </button>
-                        }
-                      </div>
-                    }
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Pagination -->
-        <div class="pt-pagination">
-          <div class="mono micro" style="color:var(--text-muted)">
-            Mostrando <strong style="color:var(--text-primary)">{{ paged().length }}</strong> de
-            <strong style="color:var(--text-primary)">{{ filtered().length }}</strong> profesionales
-          </div>
-          <div style="display:flex;align-items:center;gap:4px">
-            <button class="btn btn--ghost btn--sm" [disabled]="page() === 0" [style.opacity]="page() === 0 ? '0.4' : '1'" (click)="page.set(page() - 1)">‹ Anterior</button>
-            @for (i of pageRange(); track i) {
-              <button class="page-btn" [attr.data-active]="page() === i" (click)="page.set(i)">{{ i + 1 }}</button>
-            }
-            <button class="btn btn--ghost btn--sm" [disabled]="page() >= totalPages() - 1" [style.opacity]="page() >= totalPages() - 1 ? '0.4' : '1'" (click)="page.set(page() + 1)">Siguiente ›</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ═══════════════════════════════════════════════════════
-         STAFF FORM MODAL
-         ═══════════════════════════════════════════════════════ -->
-    @if (formOpen()) {
-      <div class="qc-overlay" (click)="closeForm()">
-        <div class="qc-modal qc-modal--wide glass-strong" (click)="$event.stopPropagation()">
-          
-          <!-- Head -->
-          <div class="qc-head">
-            <div>
-              <h2 style="font-size:16px;font-weight:600;color:var(--text-primary)">
-                {{ editingStaff() ? 'Editar Profesional' : 'Alta de Profesional' }}
-              </h2>
-              <div class="eyebrow mono micro" style="margin-top:2px">
-                {{ editingStaff() ? 'ID: ' + editingStaff()?.id : 'Nuevo registro operativo' }}
-              </div>
-            </div>
-            <button class="qc-close-btn" (click)="closeForm()">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-          </div>
-
-          <!-- Body -->
-          <div class="qc-body scroll-y" style="display:flex;flex-direction:column;gap:20px;padding:20px">
-
-              <!-- Sección 1: Datos personales -->
-              <div>
-                <div class="form-section__head">
-                  <div class="form-section__step">1</div>
-                  <div>
-                    <div style="font-size:13px;font-weight:600;color:var(--text-primary)">Datos personales y contacto</div>
-                  </div>
-                </div>
-
-                <div style="display:flex;flex-direction:column;gap:12px">
-                  <div class="qc-row">
-                    <div class="qc-field" style="width:110px;flex-shrink:0">
-                      <label class="eyebrow">Prefijo</label>
-                      <select class="qc-input" [(ngModel)]="form().prefix" (ngModelChange)="patchForm({ prefix: $event })">
-                        @for (p of prefixOptions; track p) {
-                          <option [value]="p">{{ p }}</option>
-                        }
-                      </select>
-                    </div>
-                    <div class="qc-field" style="flex:1">
-                      <label class="eyebrow">Nombre <span style="color:var(--accent-red)">*</span></label>
-                      <input class="qc-input" placeholder="Ej. Mariana" [(ngModel)]="form().firstName" (ngModelChange)="patchForm({ firstName: $event })" autofocus/>
-                    </div>
-                    <div class="qc-field" style="flex:1">
-                      <label class="eyebrow">Apellido <span style="color:var(--accent-red)">*</span></label>
-                      <input class="qc-input" placeholder="Ej. Soto" [(ngModel)]="form().lastName" (ngModelChange)="patchForm({ lastName: $event })"/>
-                    </div>
-                  </div>
-
-                  <div class="qc-row">
-                    <div class="qc-field" style="flex:1">
-                      <label class="eyebrow">Documento</label>
-                      <input class="qc-input mono" placeholder="DNI / CUIL" [(ngModel)]="form().documento" (ngModelChange)="patchForm({ documento: $event })"/>
-                    </div>
-                    <div class="qc-field" style="flex:1">
-                      <label class="eyebrow">Matrícula <span style="color:var(--accent-red)">*</span></label>
-                      <input class="qc-input mono" placeholder="MP 14887" [(ngModel)]="form().matricula" (ngModelChange)="patchForm({ matricula: $event })"/>
-                    </div>
-                    <div class="qc-field" style="flex:1">
-                      <label class="eyebrow">Teléfono</label>
-                      <input class="qc-input" placeholder="+54 388 4123-7754" [(ngModel)]="form().phone" (ngModelChange)="patchForm({ phone: $event })"/>
-                    </div>
-                  </div>
-
-                  <div class="qc-row">
-                    <div class="qc-field" style="flex:1">
-                      <label class="eyebrow">Email</label>
-                      <input class="qc-input" type="email" placeholder="apellido@emergex.com.ar" [(ngModel)]="form().email" (ngModelChange)="patchForm({ email: $event })"/>
-                    </div>
-                  </div>
-
-                  <!-- Link user card -->
-                  <div class="link-user-card" [class.link-user-card--on]="form().linkedUser" (click)="patchForm({ linkedUser: !form().linkedUser })">
-                    <div class="link-user-card__check" [class.link-user-card__check--on]="form().linkedUser">
-                      @if (form().linkedUser) {
-                        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><polyline points="1.5 5 4 7.5 8.5 2"/></svg>
-                      }
-                    </div>
-                    <div style="flex:1">
-                      <div style="font-size:12.5px;font-weight:500;color:var(--text-primary)">Vincular con usuario del sistema</div>
-                      <div class="mono micro" style="color:var(--text-muted);margin-top:2px">El profesional podrá acceder a la plataforma con sus credenciales</div>
-                    </div>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:0.7"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                  </div>
-
-                  <!-- Panel de Configuración de Credenciales Animado -->
-                  @if (form().linkedUser) {
-                    <div class="user-credentials-panel glass-weak" style="border: 1px dashed rgba(59,130,246,0.3); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 12px; margin-top: 4px;">
-                      <div style="display: flex; align-items: center; gap: 6px;">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-                        <span class="eyebrow" style="color: var(--accent-blue); font-size: 10px;">Ajustes de Credenciales y Seguridad</span>
-                      </div>
-
-                      <div class="qc-row">
-                        <div class="qc-field" style="flex:1">
-                          <label class="eyebrow">Nombre de usuario (Login)</label>
-                          <input class="qc-input mono" placeholder="Sugerido: nombre.apellido" [(ngModel)]="form().username" (ngModelChange)="patchForm({ username: $event })"/>
-                        </div>
-                        <div class="qc-field" style="flex:1">
-                          <label class="eyebrow">Contraseña temporal</label>
-                          <input class="qc-input mono" type="password" placeholder="Dejar en blanco para autogenerar" [(ngModel)]="form().passwordTemporal" (ngModelChange)="patchForm({ passwordTemporal: $event })"/>
-                        </div>
-                      </div>
-
-                      <div class="qc-field">
-                        <label class="eyebrow">Roles y Permisos en el Sistema <span style="color:var(--accent-red)">*</span></label>
-                        <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;">
-                          @for (role of systemAuthorities(); track role) {
-                            <button type="button" class="filter-chip" style="height: 28px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--border-glass);"
-                              [attr.data-on]="form().authorities.includes(role)"
-                              (click)="toggleAuthority(role)">
-                              {{ role.replace('ROLE_', '') }}
-                            </button>
-                          }
-                        </div>
-                        <span class="mono micro" style="color: var(--text-muted); margin-top: 2px;">ROLE_USER se asigna siempre por defecto.</span>
-                      </div>
-                    </div>
-                  }
-                </div>
-              </div>
-
-              <!-- Sección 2: Perfil médico -->
-              <div>
-                <div class="form-section__head">
-                  <div class="form-section__step">2</div>
-                  <div>
-                    <div style="font-size:13px;font-weight:600;color:var(--text-primary)">Perfil médico y operativo</div>
-                  </div>
-                </div>
-
-                <div style="display:flex;flex-direction:column;gap:12px">
-
-                  <!-- Multiselect especialidades -->
-                  <div class="qc-field">
-                    <label class="eyebrow">Especialidades y certificaciones <span style="color:var(--accent-red)">*</span></label>
-                    <div class="spec-multiselect">
-                      <!-- chips seleccionados -->
-                      @if (form().specialties.length > 0) {
-                        <div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 10px 6px;border-bottom:1px solid var(--border-hairline)">
-                          @for (sid of form().specialties; track sid) {
-                            @let sp = getSpec(sid);
-                            @if (sp) {
-                              @let isPrincipal = form().especialidadPrincipalId === Number(sid);
-                              <span class="spec-chip"
-                                [style.background]="groupColor(sp.group).bg"
-                                [style.color]="groupColor(sp.group).fg"
-                                [style.border-color]="isPrincipal ? 'var(--accent-cyan)' : groupColor(sp.group).border"
-                                [style.box-shadow]="isPrincipal ? '0 0 8px rgba(34,211,238,0.2)' : 'none'"
-                                style="position:relative; padding-left: 22px;"
-                              >
-                                <button type="button"
-                                  (click)="setPrincipalSpecialty(sid); $event.stopPropagation()"
-                                  style="position: absolute; left: 4px; top: 50%; transform: translateY(-50%); background: transparent; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0;"
-                                  [title]="isPrincipal ? 'Especialidad Principal' : 'Marcar como Principal'"
-                                >
-                                  <svg width="11" height="11" viewBox="0 0 24 24"
-                                    [attr.fill]="isPrincipal ? 'var(--accent-cyan)' : 'none'"
-                                    [attr.stroke]="isPrincipal ? 'var(--accent-cyan)' : 'var(--text-muted)'"
-                                    stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
-                                    [style.opacity]="isPrincipal ? '1' : '0.4'"
-                                    style="transition: all 0.15s;"
-                                  >
-                                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-                                  </svg>
-                                </button>
-                                {{ sp.name }}
-                                @if (isPrincipal) {
-                                  <span class="mono micro" style="color:var(--accent-cyan); font-size: 8.5px; font-weight: 700; margin-left: 2px;">(P)</span>
-                                }
-                                <button class="spec-chip__remove" (click)="removeSpecialty(sid); $event.stopPropagation()">
-                                  <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="1" y1="1" x2="7" y2="7"/><line x1="7" y1="1" x2="1" y2="7"/></svg>
-                                </button>
-                              </span>
-                            }
-                          }
-                        </div>
-                      }
-                      <!-- input búsqueda -->
-                      <div style="position:relative">
-                        <input
-                           class="qc-input spec-search-input"
-                           placeholder="Buscar especialidad…"
-                           [ngModel]="specQuery()"
-                           (ngModelChange)="specQuery.set($event)"
-                           (focus)="specDropOpen.set(true)"
-                           (click)="specDropOpen.set(true); $event.stopPropagation()"
-                        />
-                        @if (specDropOpen() && filteredSpecs().length > 0) {
-                          <div class="spec-dropdown" (click)="$event.stopPropagation()">
-                            @for (grp of specGroups; track grp) {
-                              @let items = filteredSpecsByGroup(grp);
-                              @if (items.length > 0) {
-                                <div class="spec-drop__group-label">{{ grp }}</div>
-                                @for (sp of items; track sp.id) {
-                                  <button class="spec-drop__item" [class.spec-drop__item--selected]="form().specialties.includes(sp.id)" (click)="toggleSpecialty(sp.id)">
-                                    <span class="spec-chip" style="pointer-events:none"
-                                      [style.background]="groupColor(sp.group).bg"
-                                      [style.color]="groupColor(sp.group).fg"
-                                      [style.border-color]="groupColor(sp.group).border"
-                                    >{{ sp.name }}</span>
-                                    @if (form().specialties.includes(sp.id)) {
-                                      <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="var(--accent-emerald)" stroke-width="2" stroke-linecap="round" style="margin-left:auto"><polyline points="1.5 5.5 4.5 8.5 9.5 2"/></svg>
-                                    }
-                                  </button>
-                                }
-                              }
-                            }
-                          </div>
-                        }
-                      </div>
-                    </div>
-                    <div class="mono micro" style="color:var(--text-muted);margin-top:4px">{{ form().specialties.length }} especialidades seleccionadas</div>
-                  </div>
-
-                  <!-- Hab cards -->
-                  <div>
-                    <label class="eyebrow" style="display:block;margin-bottom:8px">Habilitaciones</label>
-                    <div class="hab-grid">
-                      <button type="button" class="hab-card"
-                        [attr.data-on]="form().domiciliary"
-                        [style.border-color]="form().domiciliary ? 'rgba(59,130,246,0.5)' : 'var(--border-glass)'"
-                        [style.background]="form().domiciliary ? 'rgba(59,130,246,0.08)' : 'transparent'"
-                        (click)="patchForm({ domiciliary: !form().domiciliary })">
-                        <div style="width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"
-                          [style.background]="form().domiciliary ? 'rgba(59,130,246,0.15)' : 'rgba(148,163,184,0.08)'">
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                            [attr.stroke]="form().domiciliary ? 'var(--accent-blue)' : 'var(--text-muted)'"
-                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                            <polyline points="9 22 9 12 15 12 15 22"/>
-                          </svg>
-                        </div>
-                        <div style="text-align:left">
-                          <div style="font-size:13px;font-weight:500"
-                            [style.color]="form().domiciliary ? 'var(--accent-blue)' : 'var(--text-secondary)'">Atención domiciliaria</div>
-                          <div class="mono micro" style="color:var(--text-muted);margin-top:2px">Visitas a domicilio</div>
-                        </div>
-                      </button>
-                      <button type="button" class="hab-card"
-                        [attr.data-on]="form().emergency"
-                        [style.border-color]="form().emergency ? 'rgba(239,68,68,0.5)' : 'var(--border-glass)'"
-                        [style.background]="form().emergency ? 'rgba(239,68,68,0.08)' : 'transparent'"
-                        (click)="patchForm({ emergency: !form().emergency })">
-                        <div style="width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"
-                          [style.background]="form().emergency ? 'rgba(239,68,68,0.15)' : 'rgba(148,163,184,0.08)'">
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                            [attr.stroke]="form().emergency ? 'var(--accent-red)' : 'var(--text-muted)'"
-                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <rect x="1" y="3" width="15" height="13" rx="2"/>
-                            <path d="M16 8h4l3 3v5h-7V8z"/>
-                            <circle cx="5.5" cy="18.5" r="2.5"/>
-                            <circle cx="18.5" cy="18.5" r="2.5"/>
-                          </svg>
-                        </div>
-                        <div style="text-align:left">
-                          <div style="font-size:13px;font-weight:500"
-                            [style.color]="form().emergency ? 'var(--accent-red)' : 'var(--text-secondary)'">Atención de emergencias</div>
-                          <div class="mono micro" style="color:var(--text-muted);margin-top:2px">Ambulancia y urgencias</div>
-                        </div>
-                      </button>
-                    </div>
-                  </div>
-
-                  <!-- Active strip -->
-                  <div class="active-strip"
-                    [style.border-color]="form().active ? 'rgba(16,185,129,0.3)' : 'var(--border-glass)'"
-                    [style.background]="form().active ? 'rgba(16,185,129,0.06)' : 'rgba(255,255,255,0.03)'">
-                    <div style="display:flex;align-items:center;gap:10px">
-                      <div style="width:8px;height:8px;border-radius:50%;flex-shrink:0"
-                        [style.background]="form().active ? 'var(--accent-emerald)' : 'var(--text-dim)'"></div>
-                      <div>
-                        <div style="font-size:13px;font-weight:500"
-                          [style.color]="form().active ? 'var(--accent-emerald)' : 'var(--text-secondary)'">
-                          {{ form().active ? 'Profesional activo' : 'Profesional inactivo' }}
-                        </div>
-                        <div class="mono micro" style="color:var(--text-muted);margin-top:1px">
-                          {{ form().active ? 'Aparece en asignaciones y búsquedas' : 'No disponible para asignaciones' }}
-                        </div>
-                      </div>
-                    </div>
-                    <button type="button" class="toggle-sw" [class.toggle-sw--on]="form().active" (click)="patchForm({ active: !form().active })">
-                      <span class="toggle-sw__track" [class.toggle-sw__track--on]="form().active">
-                        <span class="toggle-sw__thumb" [class.toggle-sw__thumb--on]="form().active"></span>
-                      </span>
-                    </button>
-                  </div>
-
-                </div>
-              </div>
-            </div>
-
-          <div class="qc-foot">
-            <div class="qc-hint">
-              <span class="kbd">Esc</span> cerrar
-            </div>
-            <div style="display:flex;gap:8px">
-              <button class="btn btn--ghost" (click)="closeForm()">Cancelar</button>
-              <button class="btn btn--primary" [disabled]="!canSubmit()" [style.opacity]="canSubmit() ? '1' : '0.5'" (click)="saveForm()">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                Guardar profesional
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    }
-
-    @if (specialtiesModalOpen()) {
-      <div class="qc-overlay" (click)="closeSpecialtiesModal()">
-        <div class="glass-strong qc-modal qc-modal--wide" (click)="$event.stopPropagation()">
-          <div class="qc-head">
-            <div>
-              <h3 style="margin:0;font-size:16px;color:var(--text-primary)">
-                Catálogo de Especialidades
-              </h3>
-              <div class="eyebrow" style="margin-top:2px">
-                GESTIONAR CATÁLOGO GLOBAL DE ESPECIALIDADES
-              </div>
-            </div>
-            <button class="qc-close-btn" (click)="closeSpecialtiesModal()">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-          </div>
-
-          <div class="qc-body" style="padding:20px; display:flex; flex-direction:column; gap:16px;">
-            <!-- Formulario para agregar una especialidad -->
-            <div style="border: 1px solid var(--border-glass); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 12px; background: rgba(255,255,255,0.02);">
-              <div style="font-size: 13px; font-weight: 600; color: var(--text-primary);">Crear nueva especialidad</div>
-              
-              <div class="qc-row">
-                <div class="qc-field" style="flex: 1.5;">
-                  <label class="eyebrow">Nombre <span style="color:var(--accent-red)">*</span></label>
-                  <input class="qc-input" placeholder="Ej. Cardiología" [ngModel]="newSpecialtyForm().nombre" (ngModelChange)="updateNewSpecialtyForm({ nombre: $event })" style="height: 32px;"/>
-                </div>
-                
-                <div class="qc-field" style="flex: 2;">
-                  <label class="eyebrow">Descripción</label>
-                  <input class="qc-input" placeholder="Descripción de la especialidad..." [ngModel]="newSpecialtyForm().descripcion" (ngModelChange)="updateNewSpecialtyForm({ descripcion: $event })" style="height: 32px;"/>
-                </div>
-              </div>
-
-              <div class="qc-row" style="align-items: flex-end;">
-                <div class="qc-field" style="flex: 1;">
-                  <label class="eyebrow">Años Formación</label>
-                  <input class="qc-input mono" type="number" min="0" placeholder="0" [ngModel]="newSpecialtyForm().aniosFormacion" (ngModelChange)="updateNewSpecialtyForm({ aniosFormacion: $event })" style="height: 32px;"/>
-                </div>
-
-                <div class="qc-field" style="flex: 1.5; align-items: flex-start; justify-content: center; height: 32px;">
-                  <button type="button" class="toggle-sw" [class.toggle-sw--on]="newSpecialtyForm().requiereCertificacion" (click)="updateNewSpecialtyForm({ requiereCertificacion: !newSpecialtyForm().requiereCertificacion })" style="display: inline-flex; align-items: center; gap: 8px;">
-                    <span class="toggle-sw__track" [class.toggle-sw__track--on]="newSpecialtyForm().requiereCertificacion">
-                      <span class="toggle-sw__thumb" [class.toggle-sw__thumb--on]="newSpecialtyForm().requiereCertificacion"></span>
-                    </span>
-                    <span class="eyebrow" style="margin: 0; user-select: none;">¿Req. Certificación?</span>
-                  </button>
-                </div>
-
-                <div style="display:flex; align-items:flex-end;">
-                  <button class="btn btn--primary btn--sm" [disabled]="!canSaveSpecialty()" (click)="saveSpecialty()" style="height: 32px; padding: 0 16px;">
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="margin-right:4px;"><line x1="6" y1="1" x2="6" y2="11"/><line x1="1" y1="6" x2="11" y2="6"/></svg>
-                    Crear Especialidad
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <!-- Listado de especialidades existentes -->
-            <div style="flex:1; display:flex; flex-direction:column; min-height: 220px; max-height: 350px; border: 1px solid var(--border-glass); border-radius: 10px; overflow:hidden; background:rgba(0,0,0,0.1);">
-              <div class="scroll-y" style="flex:1;">
-                <table class="data-table" style="width:100%; border-collapse:separate; border-spacing:0;">
-                  <thead>
-                    <tr>
-                      <th style="padding: 10px 12px; text-align:left; background:var(--bg-elevated); color:var(--text-muted); font-size:10px; text-transform:uppercase; letter-spacing:0.08em; border-bottom:1px solid var(--border-hairline); position:sticky; top:0; z-index:10;">Especialidad</th>
-                      <th style="padding: 10px 12px; text-align:left; background:var(--bg-elevated); color:var(--text-muted); font-size:10px; text-transform:uppercase; letter-spacing:0.08em; border-bottom:1px solid var(--border-hairline); position:sticky; top:0; z-index:10;">Descripción</th>
-                      <th style="padding: 10px 12px; text-align:left; background:var(--bg-elevated); color:var(--text-muted); font-size:10px; text-transform:uppercase; letter-spacing:0.08em; border-bottom:1px solid var(--border-hairline); position:sticky; top:0; z-index:10;">Años Formación</th>
-                      <th style="padding: 10px 12px; text-align:center; background:var(--bg-elevated); color:var(--text-muted); font-size:10px; text-transform:uppercase; letter-spacing:0.08em; border-bottom:1px solid var(--border-hairline); position:sticky; top:0; z-index:10;">Req. Certificación</th>
-                      <th style="padding: 10px 12px; text-align:right; background:var(--bg-elevated); color:var(--text-muted); font-size:10px; text-transform:uppercase; letter-spacing:0.08em; border-bottom:1px solid var(--border-hairline); position:sticky; top:0; z-index:10;">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    @if (loadingSpecialties()) {
-                      <tr>
-                        <td colspan="5" style="text-align:center; padding: 32px; color:var(--text-muted); font-size:13px;">
-                          Cargando catálogo...
-                        </td>
-                      </tr>
-                    } @else if (catalog().length === 0) {
-                      <tr>
-                        <td colspan="5" style="text-align:center; padding: 32px; color:var(--text-muted); font-size:13px;">
-                          No hay especialidades en el catálogo.
-                        </td>
-                      </tr>
-                    } @else {
-                      @for (item of catalog(); track item.id) {
-                        <tr style="border-bottom:1px solid var(--border-hairline);">
-                          <td style="padding: 10px 12px; font-size:13px;">
-                            <span class="spec-chip"
-                              [style.background]="groupColor(item.group).bg"
-                              [style.color]="groupColor(item.group).fg"
-                              [style.border-color]="groupColor(item.group).border"
-                            >
-                              {{ item.name }}
-                            </span>
-                          </td>
-                          <td style="padding: 10px 12px; font-size:13px; color:var(--text-secondary)">
-                            {{ item.descripcion || '—' }}
-                          </td>
-                          <td style="padding: 10px 12px; font-size:13px; font-family:var(--font-mono); color:var(--text-secondary)">
-                            {{ item.aniosFormacion ?? 0 }} años
-                          </td>
-                          <td style="padding: 10px 12px; font-size:13px; text-align:center;">
-                            @if (item.requiereCertificacion) {
-                              <span style="color:var(--accent-cyan); font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:0.04em;">Sí</span>
-                            } @else {
-                              <span style="color:var(--text-muted); font-size:11px; text-transform:uppercase; letter-spacing:0.04em;">No</span>
-                            }
-                          </td>
-                          <td style="padding: 10px 12px; text-align:right;">
-                            <button class="action-icon" style="color:var(--accent-red); width:24px; height:24px; display:inline-flex; align-items:center; justify-content:center; border-radius:4px; border:none; background:transparent; cursor:pointer;" (click)="deleteSpecialty(Number(item.id))" title="Eliminar del catálogo">
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-                            </button>
-                          </td>
-                        </tr>
-                      }
-                    }
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
-          <div class="qc-foot">
-            <div class="qc-hint">
-              <span class="kbd">Esc</span> cerrar
-            </div>
-            <button class="btn btn--ghost" (click)="closeSpecialtiesModal()">Cerrar</button>
-          </div>
-        </div>
-      </div>
-    }
-  `,
-  styles: [`
-    :host { display: block; }
-
-    /* ── Table card wrapper ── */
-    .pt-card {
-      border-radius: var(--r-card);
-      padding: 0;
-      overflow: hidden;
-    }
-
-    /* ── Toolbar ── */
-    .pt-toolbar {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--border-hairline);
-    }
-    .pt-search {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex: 1;
-      min-width: 200px;
-      background: rgba(255,255,255,0.04);
-      border: 1px solid var(--border-glass);
-      border-radius: var(--r-btn);
-      padding: 0 10px;
-      height: 32px;
-    }
-    .pt-search__input {
-      flex: 1;
-      background: transparent;
-      border: none;
-      outline: none;
-      color: var(--text-primary);
-      font-family: var(--font-sans);
-      font-size: 13px;
-    }
-    .pt-search__input::placeholder { color: var(--text-dim); }
-    .pt-filters {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .filter-chip {
-      height: 26px;
-      padding: 0 10px;
-      border-radius: 6px;
-      font-size: 11.5px;
-      font-family: var(--font-sans);
-      border: 1px solid transparent;
-      background: rgba(255,255,255,0.04);
-      color: var(--text-secondary);
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-    .filter-chip:hover { background: rgba(255,255,255,0.07); color: var(--text-primary); }
-    .filter-chip[data-on="true"] {
-      background: rgba(59,130,246,0.12);
-      border-color: rgba(59,130,246,0.35);
-      color: var(--accent-blue);
-    }
-
-    /* ── Table ── */
-    .scroll-y { overflow-y: auto; }
-    .pt-card .data-table thead th:first-child,
-    .pt-card .data-table tbody td:first-child {
-      padding-left: 16px;
-    }
-    .pt-card .data-table thead th:last-child,
-    .pt-card .data-table tbody td:last-child {
-      padding-right: 16px;
-    }
-
-    :host-context([data-theme="light"]) .pt-card .data-table thead th {
-      color: rgba(15, 23, 42, 0.78);
-      background: rgba(148, 163, 184, 0.52);
-    }
-
-    /* ── Pagination ── */
-    .pt-pagination {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 16px;
-      border-top: 1px solid var(--border-hairline);
-    }
-    .page-btn {
-      width: 28px; height: 28px;
-      border-radius: 6px;
-      border: 1px solid transparent;
-      background: transparent;
-      color: var(--text-secondary);
-      font-size: 12px;
-      font-family: var(--font-mono);
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-    .page-btn:hover { background: rgba(255,255,255,0.06); color: var(--text-primary); }
-    .page-btn[data-active="true"] {
-      background: rgba(59,130,246,0.15);
-      border-color: rgba(59,130,246,0.4);
-      color: var(--accent-blue);
-    }
-
-    /* ── Row menu ── */
-    .row-menu {
-      position: absolute;
-      right: 4px;
-      top: 100%;
-      z-index: 100;
-      background: var(--bg-elevated);
-      border: 1px solid var(--border-glass);
-      border-radius: 10px;
-      padding: 4px;
-      min-width: 160px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-    }
-    .user-menu__item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      width: 100%;
-      padding: 7px 10px;
-      border-radius: 6px;
-      background: transparent;
-      border: none;
-      color: var(--text-secondary);
-      font-size: 12px;
-      font-family: var(--font-sans);
-      cursor: pointer;
-      text-align: left;
-      transition: all 0.12s;
-    }
-    .user-menu__item:hover { background: rgba(255,255,255,0.05); color: var(--text-primary); }
-    .user-menu__item--danger { color: var(--accent-red); }
-    .user-menu__item--danger:hover { background: rgba(239,68,68,0.08); color: var(--accent-red); }
-
-    /* ── Staff avatar ── */
-    .staff-avatar {
-      width: 34px;
-      height: 34px;
-      border-radius: 50%;
-      background: rgba(59,130,246,0.15);
-      font-family: var(--font-mono);
-      font-size: 11px;
-      font-weight: 700;
-      color: var(--accent-blue);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-    }
-
-    /* ── Spec chip ── */
-    .spec-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 3px 8px;
-      border-radius: 5px;
-      border: 1px solid;
-      font-size: 11px;
-      font-weight: 500;
-      white-space: nowrap;
-    }
-    .spec-chip__remove {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: transparent;
-      border: none;
-      cursor: pointer;
-      padding: 1px;
-      opacity: 0.6;
-      color: inherit;
-      transition: opacity 0.12s;
-    }
-    .spec-chip__remove:hover { opacity: 1; }
-
-    /* ── Hab tag ── */
-    .hab-tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 3px 8px;
-      border-radius: 5px;
-      font-size: 11px;
-      font-weight: 500;
-      background: rgba(59,130,246,0.1);
-      color: var(--accent-blue);
-      border: 1px solid rgba(59,130,246,0.25);
-      white-space: nowrap;
-      transition: opacity 0.15s;
-    }
-    .hab-tag--emerg {
-      background: rgba(239,68,68,0.1);
-      color: var(--accent-red);
-      border-color: rgba(239,68,68,0.25);
-    }
-
-    /* ── Badge inactive ── */
-    .badge-inactive {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      padding: 3px 8px;
-      border-radius: 5px;
-      font-size: 11px;
-      font-weight: 500;
-      background: rgba(148,163,184,0.1);
-      color: var(--text-muted);
-      border: 1px solid rgba(148,163,184,0.2);
-    }
-
-    /* ── Modal ── */
-    .qc-overlay {
-      position: fixed; inset: 0; z-index: 300;
-      background: rgba(0,0,0,0.55);
-      backdrop-filter: blur(3px);
-      display: flex; align-items: center; justify-content: center;
-    }
-    .qc-modal {
-      width: 540px;
-      max-width: 95vw;
-      max-height: 90vh;
-      border-radius: var(--r-card);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-    .qc-modal--wide { width: 680px; }
-    .qc-head {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      padding: 20px 20px 0;
-      flex-shrink: 0;
-    }
-    .qc-body { flex: 1; overflow-y: auto; }
-    .qc-foot {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 14px 20px;
-      border-top: 1px solid var(--border-hairline);
-      flex-shrink: 0;
-    }
-    .qc-hint {
-      font-size: 11.5px;
-      color: var(--text-muted);
-    }
-    .qc-row {
-      display: flex;
-      gap: 12px;
-    }
-    .qc-field {
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-    }
-
-    /* ── Close button ── */
-    .qc-close-btn {
-      width: 32px; height: 32px;
-      border-radius: 8px;
-      border: 1px solid var(--border-glass);
-      background: rgba(255,255,255,0.04);
-      color: var(--text-muted);
-      cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0;
-      transition: all 0.15s;
-    }
-    .qc-close-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
-
-    /* ── Form section head ── */
-    .form-section__head {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 12px;
-    }
-    .form-section__step {
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      background: var(--accent-blue);
-      color: white;
-      font-size: 12px;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-    }
-
-    /* ── Link user card ── */
-    .link-user-card {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 12px;
-      border-radius: 10px;
-      border: 1px solid var(--border-glass);
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-    .link-user-card:hover { background: rgba(255,255,255,0.03); }
-    .link-user-card--on { background: rgba(59,130,246,0.06); border-color: rgba(59,130,246,0.3); }
-    .link-user-card__check {
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      border: 2px solid var(--border-glass);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      transition: all 0.15s;
-    }
-    .link-user-card__check--on {
-      background: var(--accent-blue);
-      border-color: var(--accent-blue);
-    }
-
-    /* ── Hab grid & card ── */
-    .hab-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-    }
-    .hab-card {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px 14px;
-      border-radius: 10px;
-      border: 1px solid;
-      cursor: pointer;
-      transition: all 0.15s;
-      text-align: left;
-      background: transparent;
-    }
-    .hab-card:hover { background: rgba(255,255,255,0.03); }
-
-    /* ── Active strip & toggle ── */
-    .active-strip {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 14px;
-      border-radius: 10px;
-      border: 1px solid;
-      background: rgba(255,255,255,0.03);
-      transition: all 0.15s;
-    }
-    .toggle-sw {
-      background: transparent;
-      border: none;
-      cursor: pointer;
-      padding: 0;
-      display: flex;
-      align-items: center;
-    }
-    .toggle-sw__track {
-      display: flex;
-      align-items: center;
-      width: 36px;
-      height: 20px;
-      border-radius: 10px;
-      background: rgba(148,163,184,0.25);
-      padding: 2px;
-      transition: background 0.2s;
-    }
-    .toggle-sw__track--on { background: var(--accent-emerald); }
-    .toggle-sw__thumb {
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      background: white;
-      transition: transform 0.2s;
-      transform: translateX(0);
-    }
-    .toggle-sw__thumb--on { transform: translateX(16px); }
-
-    /* ── Spec multiselect ── */
-    .spec-multiselect {
-      border: 1px solid var(--border-glass);
-      border-radius: var(--r-btn);
-      background: rgba(255,255,255,0.03);
-      overflow: visible;
-      position: relative;
-    }
-    .spec-search-input {
-      border: none !important;
-      background: transparent !important;
-      border-radius: 0 !important;
-      border-top: 1px solid var(--border-hairline) !important;
-    }
-    .spec-dropdown {
-      position: absolute;
-      top: calc(100% + 4px);
-      left: 0;
-      right: 0;
-      z-index: 50;
-      max-height: 240px;
-      overflow-y: auto;
-      border-radius: 10px;
-      background: var(--bg-elevated);
-      border: 1px solid var(--border-glass);
-      box-shadow: 0 8px 32px rgba(0,0,0,0.45);
-      padding: 4px;
-    }
-    .spec-drop__group-label {
-      padding: 6px 10px 3px;
-      font-size: 10px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      color: var(--text-dim);
-    }
-    .spec-drop__item {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      width: 100%;
-      padding: 5px 8px;
-      border-radius: 6px;
-      background: transparent;
-      border: none;
-      cursor: pointer;
-      text-align: left;
-      transition: background 0.12s;
-    }
-    .spec-drop__item:hover { background: rgba(255,255,255,0.05); }
-    .spec-drop__item--selected { background: rgba(59,130,246,0.05); }
-
-    :host-context([data-theme="light"]) .qc-modal .qc-input,
-    :host-context([data-theme="light"]) .qc-modal .spec-multiselect,
-    :host-context([data-theme="light"]) .qc-modal .spec-search-input {
-      background: #f8fafc !important;
-      border-color: rgba(148, 163, 184, 0.35) !important;
-      color: #0f172a !important;
-    }
-    :host-context([data-theme="light"]) .qc-modal .qc-input::placeholder,
-    :host-context([data-theme="light"]) .qc-modal .spec-search-input::placeholder {
-      color: #64748b !important;
-    }
-  `],
+  imports: [
+    FormsModule,
+    StatusBadgeComponent,
+    SpecialtiesModalComponent,
+    StaffFormModalComponent
+  ],
+  templateUrl: './staff.component.html',
+  styleUrl: './staff.component.scss'
 })
 export class StaffComponent implements OnInit {
-    private destroyRef = inject(DestroyRef);
+  private destroyRef = inject(DestroyRef);
   private staffApi = inject(StaffApiService);
   protected readonly Number = Number;
 
-  ngOnInit(): void {
-    forkJoin({
-            catalog: this.staffApi.getSubespecialidadesCatalog(),
-            staff:   this.staffApi.getProfesionales(),
-            roles:   this.staffApi.getAuthorities(),
-          }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(({ catalog, staff, roles }) => {
-            this.catalog.set(catalog.map(toCatalogItem));
-            this.staff.set(staff.map(this.mapToMember));
-            this.systemAuthorities.set(roles);
-          });
+  // ── Seed / Constants ──
+  readonly statusOptions = [
+    { value: 'all',      label: 'Todos' },
+    { value: 'active',   label: 'Activos' },
+    { value: 'inactive', label: 'Inactivos' },
+  ];
+  readonly habOptions = [
+    { value: 'all',         label: 'Todas' },
+    { value: 'domiciliary', label: 'Domiciliaria' },
+    { value: 'emergency',   label: 'Emergencias' },
+  ];
+
+  // ── State ──
+  readonly catalog = signal<CatalogItem[]>([]);
+  readonly staff = signal<StaffMember[]>([]);
+  readonly systemAuthorities = signal<string[]>([]);
+  readonly searchQuery = signal('');
+  readonly statusFilter = signal('all');
+  readonly habFilter = signal('all');
+  readonly page = signal(0);
+  readonly loadingSpecialties = signal(false);
+  
+  // Modals Visibility & Edit state
+  readonly formOpen = signal(false);
+  readonly editingStaff = signal<StaffMember | null>(null);
+  readonly specialtiesModalOpen = signal(false);
+  
+  // Table context menu
+  readonly menuOpen = signal<string | null>(null);
+
+  // Two-way search query binding helper
+  get searchQueryValue(): string {
+    return this.searchQuery();
+  }
+  set searchQueryValue(v: string) {
+    this.searchQuery.set(v);
+    this.page.set(0);
   }
 
-  private loadStaff(): void {
+  ngOnInit(): void {
+    forkJoin({
+      catalog: this.staffApi.getSubespecialidadesCatalog(),
+      staff:   this.staffApi.getProfesionales(),
+      roles:   this.staffApi.getAuthorities(),
+    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: ({ catalog, staff, roles }) => {
+        this.catalog.set(catalog.map(toCatalogItem));
+        this.staff.set(staff.map(this.mapToMember));
+        this.systemAuthorities.set(roles);
+      }
+    });
+  }
+
+  loadStaff(): void {
     this.staffApi.getProfesionales().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((list: ProfesionalSaludDTO[]) => {
-            this.staff.set(list.map(this.mapToMember));
-          });
+      this.staff.set(list.map(this.mapToMember));
+    });
+  }
+
+  refreshCatalog(): void {
+    this.loadingSpecialties.set(true);
+    this.staffApi.getSubespecialidadesCatalog().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (catalog) => {
+        this.catalog.set(catalog.map(toCatalogItem));
+        this.loadingSpecialties.set(false);
+      },
+      error: () => {
+        this.loadingSpecialties.set(false);
+      }
+    });
   }
 
   private mapToMember = (b: ProfesionalSaludDTO): StaffMember => {
     const specialties: string[] = (b.subespecialidads ?? []).map(s => String(s.id));
 
-    // Derivar prefijo del nombre real del profesional, no de la especialidad
+    // Derivar prefijo del nombre real del profesional
     const nombre = b.nombre ?? '';
     const prefix = nombre.startsWith('Enf') ? 'Enf.'
       : nombre.startsWith('Lic') ? 'Lic.'
@@ -1295,7 +133,7 @@ export class StaffComponent implements OnInit {
       : nombre.startsWith('Op') ? 'Op.'
       : 'Dr.';
 
-    // Resolver especialidad principal: intentar por nombre, fallback al primero
+    // Resolver especialidad principal
     const primarySpec = b.especialidad
       ? this.catalog().find(c => c.name.toLowerCase() === b.especialidad!.toLowerCase())
       : undefined;
@@ -1330,52 +168,6 @@ export class StaffComponent implements OnInit {
       especialidadPrincipalId,
     };
   };
-
-  // ── Constants exposed to template ──
-  readonly prefixOptions = PREFIX_OPTIONS;
-  readonly statusOptions = [
-    { value: 'all',      label: 'Todos' },
-    { value: 'active',   label: 'Activos' },
-    { value: 'inactive', label: 'Inactivos' },
-  ];
-  readonly habOptions = [
-    { value: 'all',         label: 'Todas' },
-    { value: 'domiciliary', label: 'Domiciliaria' },
-    { value: 'emergency',   label: 'Emergencias' },
-  ];
-  readonly specGroups: SpecialtyGroup[] = ['Médica', 'Enfermería'];
-
-  // ── State ──
-  readonly catalog = signal<CatalogItem[]>([]);
-  readonly staff = signal<StaffMember[]>(STAFF_SEED);
-  readonly systemAuthorities = signal<string[]>([]);
-  readonly searchQuery = signal('');
-  readonly statusFilter = signal('all');
-  readonly habFilter = signal('all');
-  readonly page = signal(0);
-  readonly formOpen = signal(false);
-  readonly editingStaff = signal<StaffMember | null>(null);
-  readonly menuOpen = signal<string | null>(null);
-  readonly form = signal<StaffForm>(emptyForm());
-  readonly specDropOpen = signal(false);
-  readonly saving = signal(false);
-
-  readonly specQuery = signal('');
-
-  // ── Specialty Modal State ──
-  readonly specialtiesModalOpen = signal(false);
-  readonly loadingSpecialties = signal(false);
-  readonly savingSpecialty = signal(false);
-  readonly newSpecialtyForm = signal({
-    nombre: '',
-    descripcion: '',
-    requiereCertificacion: false,
-    aniosFormacion: 0 as number | null
-  });
-
-  // ── Two-way ngModel bridge ──
-  get searchQueryValue(): string { return this.searchQuery(); }
-  set searchQueryValue(v: string) { this.searchQuery.set(v); this.page.set(0); }
 
   // ── Computed ──
   readonly filtered = computed(() => {
@@ -1412,23 +204,6 @@ export class StaffComponent implements OnInit {
     };
   });
 
-  readonly canSubmit = computed(() => {
-    const f = this.form();
-    return !this.saving() &&
-      f.firstName.trim().length > 0 &&
-      f.lastName.trim().length > 0 &&
-      f.matricula.trim().length > 0 &&
-      f.specialties.length > 0 &&
-      f.especialidadPrincipalId != null;
-  });
-
-  readonly filteredSpecs = computed(() => {
-    const q = this.specQuery().toLowerCase();
-    return this.catalog().filter(s =>
-      !q || s.name.toLowerCase().includes(q) || s.group.toLowerCase().includes(q)
-    );
-  });
-
   // ── Helpers ──
   getSpec(id: string): CatalogItem | undefined {
     return specById(this.catalog(), id);
@@ -1436,10 +211,6 @@ export class StaffComponent implements OnInit {
 
   groupColor(group: string): { bg: string; fg: string; border: string } {
     return SPEC_GROUP_COLOR[group as SpecialtyGroup] ?? { bg: 'rgba(148,163,184,0.1)', fg: 'var(--text-muted)', border: 'rgba(148,163,184,0.2)' };
-  }
-
-  filteredSpecsByGroup(group: SpecialtyGroup): CatalogItem[] {
-    return this.filteredSpecs().filter(s => s.group === group);
   }
 
   // ── Filters ──
@@ -1453,7 +224,7 @@ export class StaffComponent implements OnInit {
     this.page.set(0);
   }
 
-  // ── Table menu ──
+  // ── Table Action Menu ──
   toggleMenu(id: string): void {
     this.menuOpen.set(this.menuOpen() === id ? null : id);
   }
@@ -1463,244 +234,43 @@ export class StaffComponent implements OnInit {
     if (!member) return;
     const numId = Number(id);
     this.staffApi.patch(numId, { id: numId, activo: !member.active }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-            next: () => this.loadStaff(),
-            error: () => {},
-          });
+      next: () => this.loadStaff(),
+      error: () => {},
+    });
   }
 
   @HostListener('document:click')
   closeMenuOnOutsideClick(): void {
     this.menuOpen.set(null);
-    this.specDropOpen.set(false);
   }
 
   @HostListener('document:keydown.escape')
   onEsc(): void {
-    if (this.specDropOpen()) { this.specDropOpen.set(false); return; }
-    if (this.formOpen()) { this.closeForm(); return; }
-    if (this.specialtiesModalOpen()) { this.closeSpecialtiesModal(); return; }
+    this.menuOpen.set(null);
   }
 
-  // ── Specialty management ──
-  toggleSpecialty(id: string): void {
-    const current = this.form().specialties;
-    let nextSpecialties = [...current];
-    if (current.includes(id)) {
-      nextSpecialties = current.filter(s => s !== id);
-    } else {
-      nextSpecialties.push(id);
-    }
-
-    let principalId = this.form().especialidadPrincipalId;
-    if (nextSpecialties.length === 0) {
-      principalId = null;
-    } else if (principalId === null || !nextSpecialties.includes(String(principalId))) {
-      principalId = Number(nextSpecialties[0]);
-    }
-
-    this.patchForm({
-      specialties: nextSpecialties,
-      especialidadPrincipalId: principalId
-    });
-  }
-
-  removeSpecialty(id: string): void {
-    const nextSpecialties = this.form().specialties.filter(s => s !== id);
-    let principalId = this.form().especialidadPrincipalId;
-    if (nextSpecialties.length === 0) {
-      principalId = null;
-    } else if (principalId === null || !nextSpecialties.includes(String(principalId))) {
-      principalId = Number(nextSpecialties[0]);
-    }
-
-    this.patchForm({
-      specialties: nextSpecialties,
-      especialidadPrincipalId: principalId
-    });
-  }
-
-  setPrincipalSpecialty(id: string): void {
-    this.patchForm({ especialidadPrincipalId: Number(id) });
-  }
-
-  // ── Subespecialidad Modal Actions ──
-  openSpecialtiesModal(): void {
-    this.specialtiesModalOpen.set(true);
-    this.resetNewSpecialtyForm();
-  }
-
-  closeSpecialtiesModal(): void {
-    this.specialtiesModalOpen.set(false);
-  }
-
-  resetNewSpecialtyForm(): void {
-    this.newSpecialtyForm.set({
-      nombre: '',
-      descripcion: '',
-      requiereCertificacion: false,
-      aniosFormacion: 0
-    });
-  }
-
-  updateNewSpecialtyForm(patch: Partial<any>): void {
-    this.newSpecialtyForm.set({ ...this.newSpecialtyForm(), ...patch });
-  }
-
-  refreshCatalog(): void {
-    this.loadingSpecialties.set(true);
-    this.staffApi.getSubespecialidadesCatalog().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: (catalog) => {
-        this.catalog.set(catalog.map(toCatalogItem));
-        this.loadingSpecialties.set(false);
-      },
-      error: () => {
-        this.loadingSpecialties.set(false);
-      }
-    });
-  }
-
-  canSaveSpecialty(): boolean {
-    const f = this.newSpecialtyForm();
-    return f.nombre.trim().length > 0 && !this.savingSpecialty();
-  }
-
-  saveSpecialty(): void {
-    if (!this.canSaveSpecialty()) return;
-    const form = this.newSpecialtyForm();
-
-    this.savingSpecialty.set(true);
-    const payload = {
-      nombre: form.nombre.trim(),
-      descripcion: form.descripcion.trim() || null,
-      aniosFormacion: form.aniosFormacion,
-      requiereCertificacion: form.requiereCertificacion
-    };
-
-    this.staffApi.createSubespecialidad(payload).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: () => {
-        this.savingSpecialty.set(false);
-        this.resetNewSpecialtyForm();
-        this.refreshCatalog();
-      },
-      error: () => {
-        this.savingSpecialty.set(false);
-      }
-    });
-  }
-
-  deleteSpecialty(id: number): void {
-    if (!confirm('¿Está seguro de eliminar esta especialidad del catálogo?')) return;
-    this.staffApi.deleteSubespecialidad(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: () => {
-        this.refreshCatalog();
-      },
-      error: () => {}
-    });
-  }
-
-  // ── Form actions ──
+  // ── Form Modal Triggers ──
   openNewForm(): void {
     this.editingStaff.set(null);
-    this.form.set(emptyForm());
-    this.specQuery.set('');
-    this.specDropOpen.set(false);
     this.formOpen.set(true);
   }
 
   openEditForm(m: StaffMember): void {
     this.editingStaff.set(m);
-    this.form.set({
-      prefix:                  m.prefix,
-      firstName:               m.firstName,
-      lastName:                m.lastName,
-      matricula:               m.matricula,
-      documento:               m.documento ?? '',
-      phone:                   m.phone,
-      email:                   m.email,
-      linkedUser:              m.linkedUser,
-      specialties:             [...m.specialties],
-      domiciliary:             m.domiciliary,
-      emergency:               m.emergency,
-      active:                  m.active,
-      username:                m.userLogin ?? (m.email ? m.email.split('@')[0] : ''),
-      passwordTemporal:        '',
-      authorities:             ['ROLE_USER'],
-      especialidadPrincipalId: m.especialidadPrincipalId ?? null,
-    });
-
-    if (m.linkedUser) {
-      this.staffApi.getAuthoritiesByProfesional(Number(m.id)).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-                next: (auths) => {
-                  this.patchForm({ authorities: auths });
-                }
-              });
-    }
-
-    this.specQuery.set('');
-    this.specDropOpen.set(false);
     this.formOpen.set(true);
   }
 
   closeForm(): void {
     this.formOpen.set(false);
     this.editingStaff.set(null);
-    this.specDropOpen.set(false);
   }
 
-  patchForm(patch: Partial<StaffForm>): void {
-    this.form.set({ ...this.form(), ...patch });
+  // ── Specialties Modal Triggers ──
+  openSpecialtiesModal(): void {
+    this.specialtiesModalOpen.set(true);
   }
 
-  toggleAuthority(role: string): void {
-    const current = this.form().authorities;
-    if (current.includes(role)) {
-      this.patchForm({ authorities: current.filter(r => r !== role) });
-    } else {
-      this.patchForm({ authorities: [...current, role] });
-    }
-  }
-
-  saveForm(): void {
-    if (!this.canSubmit()) return;
-    const f = this.form();
-    const editing = this.editingStaff();
-    this.saving.set(true);
-
-    const payload: IProfesionalOnboardingRequest = {
-      profesional: {
-        nombre:               f.firstName.trim(),
-        apellido:             f.lastName.trim(),
-        matricula:            f.matricula.trim(),
-        documento:            f.documento.trim() || null,
-        telefono:             f.phone.trim() || null,
-        email:                f.email.trim() || null,
-        atencionDomiciliaria: f.domiciliary,
-        atencionEmergencia:   f.emergency,
-        activo:               f.active,
-      },
-      especialidades: {
-        especialidadPrincipalId: Number(f.especialidadPrincipalId),
-        subespecialidadIds:      f.specialties.map(id => Number(id)),
-      },
-      usuario: {
-        username:         f.linkedUser ? (f.username.trim() || null) : null,
-        email:            f.linkedUser ? (f.email.trim() || null) : null,
-        passwordTemporal: f.linkedUser ? (f.passwordTemporal.trim() || null) : null,
-        authorities:      f.linkedUser ? f.authorities : ['ROLE_USER'],
-      }
-    };
-
-    if (editing) {
-      const numId = Number(editing.id);
-      this.staffApi.onboardingUpdate(numId, payload).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-                next: () => { this.loadStaff(); this.closeForm(); this.saving.set(false); },
-                error: () => this.saving.set(false),
-              });
-    } else {
-      this.staffApi.onboardingCreate(payload).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-                next: () => { this.loadStaff(); this.closeForm(); this.saving.set(false); },
-                error: () => this.saving.set(false),
-              });
-    }
+  closeSpecialtiesModal(): void {
+    this.specialtiesModalOpen.set(false);
   }
 }
