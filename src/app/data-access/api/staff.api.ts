@@ -8,6 +8,8 @@ export interface SubespecialidadCatalogItem {
   id: number;
   nombre: string;
   descripcion?: string;
+  requiereCertificacion?: boolean;
+  aniosFormacion?: number;
 }
 
 export interface IProfesionalOnboardingRequest {
@@ -110,5 +112,13 @@ export class StaffApiService {
 
   getAuthoritiesByProfesional(id: number): Observable<string[]> {
     return this.http.get<string[]>(`${this.v2}/${id}/authorities`);
+  }
+
+  createSubespecialidad(body: any): Observable<any> {
+    return this.http.post<any>(`${environment.apiUrl}/api/subespecialidads`, body);
+  }
+
+  deleteSubespecialidad(id: number): Observable<void> {
+    return this.http.delete<void>(`${environment.apiUrl}/api/subespecialidads/${id}`);
   }
 }

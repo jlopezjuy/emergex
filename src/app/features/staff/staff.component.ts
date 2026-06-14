@@ -14,13 +14,19 @@ interface CatalogItem {
   id: string;
   name: string;
   group: SpecialtyGroup;
+  descripcion?: string;
+  requiereCertificacion?: boolean;
+  aniosFormacion?: number;
 }
 
 function toCatalogItem(s: SubespecialidadCatalogItem): CatalogItem {
   return {
     id:    String(s.id),
     name:  s.nombre,
-    group: s.nombre.startsWith('Enfermería') ? 'Enfermería' : 'Médica',
+    group: s.nombre.toLowerCase().startsWith('enfermer') ? 'Enfermería' : 'Médica',
+    descripcion: s.descripcion,
+    requiereCertificacion: s.requiereCertificacion,
+    aniosFormacion: s.aniosFormacion,
   };
 }
 
@@ -177,6 +183,10 @@ function specById(catalog: CatalogItem[], id: string): CatalogItem | undefined {
         </div>
 
         <div class="screen-head__actions">
+          <button class="btn btn--ghost btn--sm" (click)="openSpecialtiesModal()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            Especialidades
+          </button>
           <button class="btn btn--ghost btn--sm">Reporte de turnos</button>
           <button class="btn btn--primary btn--sm" (click)="openNewForm()">
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="1" x2="6" y2="11"/><line x1="1" y1="6" x2="11" y2="6"/></svg>
@@ -540,9 +550,10 @@ function specById(catalog: CatalogItem[], id: string): CatalogItem | undefined {
                         <input
                            class="qc-input spec-search-input"
                            placeholder="Buscar especialidad…"
-                           [(ngModel)]="specQuery"
+                           [ngModel]="specQuery()"
+                           (ngModelChange)="specQuery.set($event)"
                            (focus)="specDropOpen.set(true)"
-                           (click)="$event.stopPropagation()"
+                           (click)="specDropOpen.set(true); $event.stopPropagation()"
                         />
                         @if (specDropOpen() && filteredSpecs().length > 0) {
                           <div class="spec-dropdown" (click)="$event.stopPropagation()">
@@ -659,6 +670,139 @@ function specById(catalog: CatalogItem[], id: string): CatalogItem | undefined {
                 Guardar profesional
               </button>
             </div>
+          </div>
+        </div>
+      </div>
+    }
+
+    @if (specialtiesModalOpen()) {
+      <div class="qc-overlay" (click)="closeSpecialtiesModal()">
+        <div class="glass-strong qc-modal qc-modal--wide" (click)="$event.stopPropagation()">
+          <div class="qc-head">
+            <div>
+              <h3 style="margin:0;font-size:16px;color:var(--text-primary)">
+                Catálogo de Especialidades
+              </h3>
+              <div class="eyebrow" style="margin-top:2px">
+                GESTIONAR CATÁLOGO GLOBAL DE ESPECIALIDADES
+              </div>
+            </div>
+            <button class="qc-close-btn" (click)="closeSpecialtiesModal()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+
+          <div class="qc-body" style="padding:20px; display:flex; flex-direction:column; gap:16px;">
+            <!-- Formulario para agregar una especialidad -->
+            <div style="border: 1px solid var(--border-glass); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 12px; background: rgba(255,255,255,0.02);">
+              <div style="font-size: 13px; font-weight: 600; color: var(--text-primary);">Crear nueva especialidad</div>
+              
+              <div class="qc-row">
+                <div class="qc-field" style="flex: 1.5;">
+                  <label class="eyebrow">Nombre <span style="color:var(--accent-red)">*</span></label>
+                  <input class="qc-input" placeholder="Ej. Cardiología" [ngModel]="newSpecialtyForm().nombre" (ngModelChange)="updateNewSpecialtyForm({ nombre: $event })" style="height: 32px;"/>
+                </div>
+                
+                <div class="qc-field" style="flex: 2;">
+                  <label class="eyebrow">Descripción</label>
+                  <input class="qc-input" placeholder="Descripción de la especialidad..." [ngModel]="newSpecialtyForm().descripcion" (ngModelChange)="updateNewSpecialtyForm({ descripcion: $event })" style="height: 32px;"/>
+                </div>
+              </div>
+
+              <div class="qc-row" style="align-items: flex-end;">
+                <div class="qc-field" style="flex: 1;">
+                  <label class="eyebrow">Años Formación</label>
+                  <input class="qc-input mono" type="number" min="0" placeholder="0" [ngModel]="newSpecialtyForm().aniosFormacion" (ngModelChange)="updateNewSpecialtyForm({ aniosFormacion: $event })" style="height: 32px;"/>
+                </div>
+
+                <div class="qc-field" style="flex: 1.5; align-items: flex-start; justify-content: center; height: 32px;">
+                  <button type="button" class="toggle-sw" [class.toggle-sw--on]="newSpecialtyForm().requiereCertificacion" (click)="updateNewSpecialtyForm({ requiereCertificacion: !newSpecialtyForm().requiereCertificacion })" style="display: inline-flex; align-items: center; gap: 8px;">
+                    <span class="toggle-sw__track" [class.toggle-sw__track--on]="newSpecialtyForm().requiereCertificacion">
+                      <span class="toggle-sw__thumb" [class.toggle-sw__thumb--on]="newSpecialtyForm().requiereCertificacion"></span>
+                    </span>
+                    <span class="eyebrow" style="margin: 0; user-select: none;">¿Req. Certificación?</span>
+                  </button>
+                </div>
+
+                <div style="display:flex; align-items:flex-end;">
+                  <button class="btn btn--primary btn--sm" [disabled]="!canSaveSpecialty()" (click)="saveSpecialty()" style="height: 32px; padding: 0 16px;">
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="margin-right:4px;"><line x1="6" y1="1" x2="6" y2="11"/><line x1="1" y1="6" x2="11" y2="6"/></svg>
+                    Crear Especialidad
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Listado de especialidades existentes -->
+            <div style="flex:1; display:flex; flex-direction:column; min-height: 220px; max-height: 350px; border: 1px solid var(--border-glass); border-radius: 10px; overflow:hidden; background:rgba(0,0,0,0.1);">
+              <div class="scroll-y" style="flex:1;">
+                <table class="data-table" style="width:100%; border-collapse:separate; border-spacing:0;">
+                  <thead>
+                    <tr>
+                      <th style="padding: 10px 12px; text-align:left; background:var(--bg-elevated); color:var(--text-muted); font-size:10px; text-transform:uppercase; letter-spacing:0.08em; border-bottom:1px solid var(--border-hairline); position:sticky; top:0; z-index:10;">Especialidad</th>
+                      <th style="padding: 10px 12px; text-align:left; background:var(--bg-elevated); color:var(--text-muted); font-size:10px; text-transform:uppercase; letter-spacing:0.08em; border-bottom:1px solid var(--border-hairline); position:sticky; top:0; z-index:10;">Descripción</th>
+                      <th style="padding: 10px 12px; text-align:left; background:var(--bg-elevated); color:var(--text-muted); font-size:10px; text-transform:uppercase; letter-spacing:0.08em; border-bottom:1px solid var(--border-hairline); position:sticky; top:0; z-index:10;">Años Formación</th>
+                      <th style="padding: 10px 12px; text-align:center; background:var(--bg-elevated); color:var(--text-muted); font-size:10px; text-transform:uppercase; letter-spacing:0.08em; border-bottom:1px solid var(--border-hairline); position:sticky; top:0; z-index:10;">Req. Certificación</th>
+                      <th style="padding: 10px 12px; text-align:right; background:var(--bg-elevated); color:var(--text-muted); font-size:10px; text-transform:uppercase; letter-spacing:0.08em; border-bottom:1px solid var(--border-hairline); position:sticky; top:0; z-index:10;">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @if (loadingSpecialties()) {
+                      <tr>
+                        <td colspan="5" style="text-align:center; padding: 32px; color:var(--text-muted); font-size:13px;">
+                          Cargando catálogo...
+                        </td>
+                      </tr>
+                    } @else if (catalog().length === 0) {
+                      <tr>
+                        <td colspan="5" style="text-align:center; padding: 32px; color:var(--text-muted); font-size:13px;">
+                          No hay especialidades en el catálogo.
+                        </td>
+                      </tr>
+                    } @else {
+                      @for (item of catalog(); track item.id) {
+                        <tr style="border-bottom:1px solid var(--border-hairline);">
+                          <td style="padding: 10px 12px; font-size:13px;">
+                            <span class="spec-chip"
+                              [style.background]="groupColor(item.group).bg"
+                              [style.color]="groupColor(item.group).fg"
+                              [style.border-color]="groupColor(item.group).border"
+                            >
+                              {{ item.name }}
+                            </span>
+                          </td>
+                          <td style="padding: 10px 12px; font-size:13px; color:var(--text-secondary)">
+                            {{ item.descripcion || '—' }}
+                          </td>
+                          <td style="padding: 10px 12px; font-size:13px; font-family:var(--font-mono); color:var(--text-secondary)">
+                            {{ item.aniosFormacion ?? 0 }} años
+                          </td>
+                          <td style="padding: 10px 12px; font-size:13px; text-align:center;">
+                            @if (item.requiereCertificacion) {
+                              <span style="color:var(--accent-cyan); font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:0.04em;">Sí</span>
+                            } @else {
+                              <span style="color:var(--text-muted); font-size:11px; text-transform:uppercase; letter-spacing:0.04em;">No</span>
+                            }
+                          </td>
+                          <td style="padding: 10px 12px; text-align:right;">
+                            <button class="action-icon" style="color:var(--accent-red); width:24px; height:24px; display:inline-flex; align-items:center; justify-content:center; border-radius:4px; border:none; background:transparent; cursor:pointer;" (click)="deleteSpecialty(Number(item.id))" title="Eliminar del catálogo">
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                            </button>
+                          </td>
+                        </tr>
+                      }
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="qc-foot">
+            <div class="qc-hint">
+              <span class="kbd">Esc</span> cerrar
+            </div>
+            <button class="btn btn--ghost" (click)="closeSpecialtiesModal()">Cerrar</button>
           </div>
         </div>
       </div>
@@ -1216,7 +1360,18 @@ export class StaffComponent implements OnInit {
   readonly specDropOpen = signal(false);
   readonly saving = signal(false);
 
-  specQuery = '';
+  readonly specQuery = signal('');
+
+  // ── Specialty Modal State ──
+  readonly specialtiesModalOpen = signal(false);
+  readonly loadingSpecialties = signal(false);
+  readonly savingSpecialty = signal(false);
+  readonly newSpecialtyForm = signal({
+    nombre: '',
+    descripcion: '',
+    requiereCertificacion: false,
+    aniosFormacion: 0 as number | null
+  });
 
   // ── Two-way ngModel bridge ──
   get searchQueryValue(): string { return this.searchQuery(); }
@@ -1268,10 +1423,9 @@ export class StaffComponent implements OnInit {
   });
 
   readonly filteredSpecs = computed(() => {
-    const q = this.specQuery.toLowerCase();
+    const q = this.specQuery().toLowerCase();
     return this.catalog().filter(s =>
-      !this.form().specialties.includes(s.id) &&
-      (!q || s.name.toLowerCase().includes(q) || s.group.toLowerCase().includes(q))
+      !q || s.name.toLowerCase().includes(q) || s.group.toLowerCase().includes(q)
     );
   });
 
@@ -1324,6 +1478,7 @@ export class StaffComponent implements OnInit {
   onEsc(): void {
     if (this.specDropOpen()) { this.specDropOpen.set(false); return; }
     if (this.formOpen()) { this.closeForm(); return; }
+    if (this.specialtiesModalOpen()) { this.closeSpecialtiesModal(); return; }
   }
 
   // ── Specialty management ──
@@ -1368,11 +1523,86 @@ export class StaffComponent implements OnInit {
     this.patchForm({ especialidadPrincipalId: Number(id) });
   }
 
+  // ── Subespecialidad Modal Actions ──
+  openSpecialtiesModal(): void {
+    this.specialtiesModalOpen.set(true);
+    this.resetNewSpecialtyForm();
+  }
+
+  closeSpecialtiesModal(): void {
+    this.specialtiesModalOpen.set(false);
+  }
+
+  resetNewSpecialtyForm(): void {
+    this.newSpecialtyForm.set({
+      nombre: '',
+      descripcion: '',
+      requiereCertificacion: false,
+      aniosFormacion: 0
+    });
+  }
+
+  updateNewSpecialtyForm(patch: Partial<any>): void {
+    this.newSpecialtyForm.set({ ...this.newSpecialtyForm(), ...patch });
+  }
+
+  refreshCatalog(): void {
+    this.loadingSpecialties.set(true);
+    this.staffApi.getSubespecialidadesCatalog().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (catalog) => {
+        this.catalog.set(catalog.map(toCatalogItem));
+        this.loadingSpecialties.set(false);
+      },
+      error: () => {
+        this.loadingSpecialties.set(false);
+      }
+    });
+  }
+
+  canSaveSpecialty(): boolean {
+    const f = this.newSpecialtyForm();
+    return f.nombre.trim().length > 0 && !this.savingSpecialty();
+  }
+
+  saveSpecialty(): void {
+    if (!this.canSaveSpecialty()) return;
+    const form = this.newSpecialtyForm();
+
+    this.savingSpecialty.set(true);
+    const payload = {
+      nombre: form.nombre.trim(),
+      descripcion: form.descripcion.trim() || null,
+      aniosFormacion: form.aniosFormacion,
+      requiereCertificacion: form.requiereCertificacion
+    };
+
+    this.staffApi.createSubespecialidad(payload).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: () => {
+        this.savingSpecialty.set(false);
+        this.resetNewSpecialtyForm();
+        this.refreshCatalog();
+      },
+      error: () => {
+        this.savingSpecialty.set(false);
+      }
+    });
+  }
+
+  deleteSpecialty(id: number): void {
+    if (!confirm('¿Está seguro de eliminar esta especialidad del catálogo?')) return;
+    this.staffApi.deleteSubespecialidad(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: () => {
+        this.refreshCatalog();
+      },
+      error: () => {}
+    });
+  }
+
   // ── Form actions ──
   openNewForm(): void {
     this.editingStaff.set(null);
     this.form.set(emptyForm());
-    this.specQuery = '';
+    this.specQuery.set('');
     this.specDropOpen.set(false);
     this.formOpen.set(true);
   }
@@ -1406,7 +1636,7 @@ export class StaffComponent implements OnInit {
               });
     }
 
-    this.specQuery = '';
+    this.specQuery.set('');
     this.specDropOpen.set(false);
     this.formOpen.set(true);
   }
