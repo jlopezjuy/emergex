@@ -1,4 +1,5 @@
 import { Component, inject, signal, computed, OnInit, DestroyRef } from '@angular/core';
+import { Location } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { EmergencyApiService } from '../../../data-access/api/emergency.api';
 import { DateUtils } from '../../../core/utils/date.utils';
@@ -1993,7 +1994,11 @@ export class EmergencyDetailComponent implements OnInit {
   }
 
   goBack(): void {
-    this.router.navigate(['/dashboard']);
+    // const loc = inject(Location);
+    // loc.back();
+    window.history.back();
+  
+
   }
 
   openDispatch(): void {

@@ -1,6 +1,7 @@
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AsistenciaHistorialApiService } from '../../data-access/api/asistencia-historial.api';
 import { AsistenciaDashboardHistorialResponse } from '../../data-access/dto/asistencia-historial.dto';
@@ -114,9 +115,10 @@ import { DateUtils } from '../../core/utils/date.utils';
               </thead>
               <tbody>
                 @for (item of data()!.historial.items; track item.id) {
-                  <tr class="border-t" style="border-color: var(--border-glass); color: var(--text-primary);">
+                  <tr class="border-t hover:bg-[var(--surface-hover)] cursor-pointer" style="border-color: var(--border-glass); color: var(--text-primary);"
+                      (click)="verDetalle(item.id)">
                     <td class="td">{{ item.fechaHora | date:'dd/MM HH:mm' }}</td>
-                    <td class="td">{{ item.numeroTicket }}</td>
+                    <td class="td font-mono font-medium">{{ item.numeroTicket }}</td>
                     <td class="td">{{ item.paciente || '—' }}</td>
                     <td class="td">{{ item.tipoAsistencia }}</td>
                     <td class="td">{{ item.prioridad }}</td>
@@ -179,6 +181,7 @@ import { DateUtils } from '../../core/utils/date.utils';
 export class AsistenciasHistorialComponent {
   private readonly fb = inject(FormBuilder);
   private readonly api = inject(AsistenciaHistorialApiService);
+  private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
 
   readonly loading = signal(false);
@@ -213,6 +216,10 @@ export class AsistenciasHistorialComponent {
 
   constructor() {
     this.load();
+  }
+
+  verDetalle(id: number): void {
+    this.router.navigate(['/dashboard/emergency', id]);
   }
 
   applyFilters(): void {
