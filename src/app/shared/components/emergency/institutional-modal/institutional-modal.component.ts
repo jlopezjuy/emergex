@@ -7,8 +7,10 @@ import { InstitutionsApiService } from '../../../../data-access/api/institutions
 import { MiembrosInstitucionApiService, MiembroInstitucionDTO } from '../../../../data-access/api/miembros-institucion.api';
 import { EmergencyApiService } from '../../../../data-access/api/emergency.api';
 import { PatientApiService } from '../../../../data-access/api/patient.api';
+import { FleetApiService } from '../../../../data-access/api/fleet.api';
 import { CoberturaVigenteDTO } from '../../../../data-access/dto/patient.dto';
 import { InstitutionDTO } from '../../../../data-access/dto/institution.dto';
+import { UnidadMovilDTO } from '../../../../data-access/dto/ambulancia.dto';
 import { CrearTicketRequest, TicketAsistenciaDTO } from '../../../../data-access/dto/ticket.dto';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { catchError, of } from 'rxjs';
@@ -132,7 +134,7 @@ function parseApiError(err: any): string {
               [attr.data-active]="step() === i"
               [attr.data-done]="s.valid() && step() > i"
               [disabled]="isSubmitting()"
-              (click)="step.set(i)">
+              (click)="selectStep(i)">
               <span class="wiz-step__circle">
                 @if (s.valid() && step() > i) {
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -521,6 +523,99 @@ function parseApiError(err: any): string {
               </div>
             </div>
           }
+
+          <!-- ═══ STEP 4: ASIGNACIÓN (OPCIONAL) ═══ -->
+          @if (step() === 3) {
+            <div style="display:flex;flex-direction:column;gap:14px">
+              <div>
+                <label class="eyebrow">Asignar Unidad Móvil (Opcional)</label>
+                <p class="mono micro" style="color:var(--text-muted);margin-top:2px;margin-bottom:10px">
+                  Seleccioná una unidad de la lista de móviles disponibles para despachar en este momento, o avanza sin asignar.
+                </p>
+              </div>
+
+              @if (loadingUnits()) {
+                <div style="display:flex;align-items:center;justify-content:center;padding:30px;gap:8px;color:var(--text-muted)">
+                  <span class="ac-spinner"></span>
+                  <span style="font-size:13px">Buscando unidades disponibles en tiempo real...</span>
+                </div>
+              } @else if (availableUnits().length === 0) {
+                <div style="text-align:center;padding:24px;border:1px dashed var(--border-glass);border-radius:10px;color:var(--text-muted);font-size:13px">
+                  No hay móviles disponibles en servicio actualmente. La asignación se podrá realizar luego desde la pantalla de despacho.
+                </div>
+              } @else {
+                <div class="units-list" style="display:flex;flex-direction:column;gap:8px">
+                  <!-- Opción Sin Asignar -->
+                  <label class="unit-card" [class.unit-card--selected]="selectedUnitId() === null" style="cursor:pointer">
+                    <div style="display:flex;align-items:center;gap:12px;width:100%">
+                      <input type="radio" name="selectedUnit" [checked]="selectedUnitId() === null" (change)="selectedUnitId.set(null)" style="margin:0" />
+                      <div style="flex:1">
+                        <div style="font-size:13px;font-weight:600;color:var(--text-primary)">No asignar ahora (Despacho diferido)</div>
+                        <div class="mono micro" style="color:var(--text-muted);margin-top:2px">El ticket quedará en estado RECIBIDO para ser asignado luego</div>
+                      </div>
+                    </div>
+                  </label>
+
+                  <!-- Unidades Disponibles -->
+                  @for (u of availableUnits(); track u.id) {
+                    <label class="unit-card" [class.unit-card--selected]="selectedUnitId() === u.id" style="cursor:pointer">
+                      <div style="display:flex;align-items:center;gap:12px;width:100%">
+                        <input type="radio" name="selectedUnit" [value]="u.id" [checked]="selectedUnitId() === u.id" (change)="selectedUnitId.set(u.id)" style="margin:0" />
+                        <div style="flex:1">
+                          <div style="display:flex;align-items:center;gap:8px">
+                            <span style="font-size:13px;font-weight:600;color:var(--text-primary)">{{ u.identificador ?? 'AMB-' + u.id }}</span>
+                            <span class="badge font-mono text-[9px] px-1.5 py-0.5" style="border-radius:4px;background:rgba(59,130,246,0.1);color:var(--accent-blue)">{{ u.tipo }}</span>
+                          </div>
+                          @if (u.tripulacion) {
+                            <div class="mono micro" style="color:var(--text-muted);margin-top:2px">Tripulación: {{ u.tripulacion }}</div>
+                          }
+                        </div>
+                        @if (selectedUnitId() === u.id) {
+                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent-emerald)" aria-hidden="true">
+                            <path d="M2 7l4 4 6-6"/>
+                          </svg>
+                        }
+                      </div>
+
+                      @if (selectedUnitId() === u.id) {
+                        <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border-hairline);width:100%">
+                          <div class="eyebrow" style="margin-bottom:6px;font-size:9.5px">Detalle de Tripulación Activa</div>
+                          @if (u.tripulacionActual && u.tripulacionActual.length > 0) {
+                            <div style="display:flex;flex-direction:column;gap:5px">
+                              @for (member of u.tripulacionActual; track member.id || member.profesionalId) {
+                                <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px">
+                                  <span style="color:var(--text-primary);font-weight:500">{{ member.profesionalNombre || member.nombre }}</span>
+                                  <span class="badge" style="font-size:9px;font-family:monospace;background:rgba(6,182,212,0.1);color:#0891b2;padding:2px 6px;border-radius:4px">{{ member.rol }}</span>
+                                </div>
+                              }
+                            </div>
+                          } @else {
+                            <div style="font-size:11px;color:var(--accent-amber);background:rgba(245,158,11,0.08);padding:6px 10px;border-radius:6px;border:1px solid rgba(245,158,11,0.2)">
+                              ⚠️ No hay tripulación activa cargada para esta unidad.
+                            </div>
+                          }
+
+                          @if (requiresMedicoWarning(u)) {
+                            <div style="margin-top:8px;font-size:11px;color:var(--accent-red);background:rgba(239,68,68,0.08);padding:6px 10px;border-radius:6px;border:1px solid rgba(239,68,68,0.2)">
+                              <strong>Médico Obligatorio Ausente:</strong> Esta emergencia es clasificada como {{ prioLabel(form().prio) }} y no se ha detectado un Médico en la tripulación.
+                            </div>
+                          }
+                        </div>
+                      }
+                    </label>
+                  }
+                </div>
+              }
+
+              <!-- Error de API -->
+              @if (submitError()) {
+                <div class="alert-block" style="background:rgba(239,68,68,0.08);border-color:rgba(239,68,68,0.3)">
+                  <div class="eyebrow" style="color:var(--accent-red)">✕ ERROR AL REGISTRAR</div>
+                  <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;line-height:1.5">{{ submitError() }}</div>
+                </div>
+              }
+            </div>
+          }
         </div>
 
         <!-- Footer -->
@@ -537,7 +632,7 @@ function parseApiError(err: any): string {
               <button class="btn btn--primary"
                 [disabled]="!steps[step()].valid()"
                 [style.opacity]="steps[step()].valid() ? '1' : '0.5'"
-                (click)="step.set(step() + 1)">
+                (click)="selectStep(step() + 1)">
                 Siguiente ›
               </button>
             } @else {
@@ -733,6 +828,17 @@ function parseApiError(err: any): string {
     .wiz-summary__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; }
     .wiz-v { font-size: 13px; font-weight: 500; color: var(--text-primary); margin-top: 2px; }
 
+    /* ── unit-card ── */
+    .unit-card {
+      display: flex; flex-direction: column;
+      padding: 12px 14px; border-radius: 10px;
+      border: 1px solid var(--border-glass);
+      background: rgba(248,250,252,0.78); color: var(--text-muted);
+      transition: all 0.15s;
+    }
+    .unit-card:hover { background: rgba(59,130,246,0.08); color: var(--text-primary); }
+    .unit-card--selected { background: rgba(59,130,246,0.1); border-color: rgba(59,130,246,0.35); color: var(--accent-blue); }
+
     /* ── btn--danger ── */
     .btn--danger {
       background: linear-gradient(135deg,#DC2626,#B91C1C); color: white;
@@ -754,9 +860,11 @@ function parseApiError(err: any): string {
     :host-context([data-theme="dark"]) .qc-input:focus { background: rgba(15,23,42,0.9); border-color: var(--accent-blue); box-shadow: 0 0 0 3px rgba(59,130,246,0.18); }
     :host-context([data-theme="dark"]) .patient-tab,
     :host-context([data-theme="dark"]) .wiz-summary,
+    :host-context([data-theme="dark"]) .unit-card,
     :host-context([data-theme="dark"]) .traslado-block { background: rgba(15,23,42,0.42); }
     :host-context([data-theme="dark"]) .ac-row:hover,
     :host-context([data-theme="dark"]) .patient-tab:hover,
+    :host-context([data-theme="dark"]) .unit-card:hover,
     :host-context([data-theme="dark"]) .prio-card:hover { background: rgba(59,130,246,0.10); }
   `],
 })
@@ -770,6 +878,7 @@ export class InstitutionalModalComponent implements OnInit, OnDestroy {
   private readonly miembros      = inject(MiembrosInstitucionApiService);
   private readonly emergencyApi  = inject(EmergencyApiService);
   private readonly patientApi    = inject(PatientApiService);
+  private readonly fleetApi      = inject(FleetApiService);
 
   // ── Constants ──
   readonly prioLevels      = PRIO_LEVELS;
@@ -790,6 +899,11 @@ export class InstitutionalModalComponent implements OnInit, OnDestroy {
   readonly memberResults   = signal<MiembroInstitucionDTO[]>([]);
   readonly isLoadingMembers = signal(false);
 
+  // Fleet
+  readonly availableUnits = signal<UnidadMovilDTO[]>([]);
+  readonly selectedUnitId = signal<number | null>(null);
+  readonly loadingUnits = signal(false);
+
   // Submit
   readonly isSubmitting = signal(false);
   readonly submitError  = signal<string | null>(null);
@@ -800,13 +914,30 @@ export class InstitutionalModalComponent implements OnInit, OnDestroy {
   private _memberTimer?: ReturnType<typeof setTimeout>;
 
   // ── Derived ──
-  readonly institution = computed(() =>
-    this._allInstitutions.find(i => i.id === this.form().institutionId) ?? null
-  );
+  readonly institution = computed(() => {
+    const id = this.form().institutionId;
+    if (id === null) return null;
+    return this._allInstitutions.find(i => String(i.id) === String(id)) ?? null;
+  });
 
-  readonly member = computed(() =>
-    this.memberResults().find(m => m.id === this.form().memberId) ?? null
-  );
+  readonly member = computed(() => {
+    const id = this.form().memberId;
+    if (id === null) return null;
+    return this.memberResults().find(m => String(m.id) === String(id)) ?? null;
+  });
+
+  readonly selectedUnit = computed(() => {
+    const id = this.selectedUnitId();
+    if (id === null) return null;
+    return this.availableUnits().find(u => u.id === id) ?? null;
+  });
+
+  requiresMedicoWarning(u: UnidadMovilDTO): boolean {
+    const urgencia = this.form().prio;
+    const isCritical = urgencia === 'red' || urgencia === 'amber';
+    const hasMedico = u.tripulacionActual?.some(m => m.rol === 'MEDICO') ?? false;
+    return isCritical && !hasMedico;
+  }
 
   // ── Lifecycle ──
   ngOnInit(): void {
@@ -843,7 +974,13 @@ export class InstitutionalModalComponent implements OnInit, OnDestroy {
   }
 
   selectInstitution(inst: InstitutionDTO): void {
-    this.patchForm({ institutionId: inst.id, institutionQuery: '', memberId: null, memberQuery: '' });
+    this.patchForm({
+      institutionId: inst.id,
+      institutionQuery: '',
+      memberId: null,
+      memberQuery: '',
+      specificLocation: inst.address ?? ''
+    });
     this.memberResults.set([]);
     this.submitError.set(null);
   }
@@ -873,6 +1010,28 @@ export class InstitutionalModalComponent implements OnInit, OnDestroy {
   toggleTraslado(): void {
     const next = !this.form().requiereTraslado;
     this.patchForm({ requiereTraslado: next, tipoTraslado: next ? this.form().tipoTraslado : '' });
+  }
+
+  // ── Step navigation with data fetching ──
+  selectStep(s: number): void {
+    this.step.set(s);
+    if (s === 3) {
+      this.loadAvailableUnits();
+    }
+  }
+
+  loadAvailableUnits(): void {
+    this.loadingUnits.set(true);
+    this.fleetApi.ambulanciasDisponibles().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: units => {
+        this.availableUnits.set(units);
+        this.loadingUnits.set(false);
+      },
+      error: () => {
+        this.availableUnits.set([]);
+        this.loadingUnits.set(false);
+      }
+    });
   }
 
   // ── Step validation ──
@@ -911,6 +1070,7 @@ export class InstitutionalModalComponent implements OnInit, OnDestroy {
     { id: 0, label: 'Ubicación', valid: this.step1Valid },
     { id: 1, label: 'Paciente',  valid: this.step2Valid },
     { id: 2, label: 'Triaje',    valid: this.step3Valid },
+    { id: 3, label: 'Asignación', valid: () => true },
   ];
 
   // ── Helpers ──
@@ -948,6 +1108,7 @@ export class InstitutionalModalComponent implements OnInit, OnDestroy {
 
     const f    = this.form();
     const inst = this.institution();
+    const selectedUnit = this.selectedUnit();
 
     const req: CrearTicketRequest = {
       tipoAsistencia:      'EMERGENCIA_DOMICILIARIA',
@@ -957,6 +1118,8 @@ export class InstitutionalModalComponent implements OnInit, OnDestroy {
       direccion:           inst?.address || f.specificLocation,
       notaDireccion:       inst?.address && f.specificLocation ? f.specificLocation : undefined,
       institucionId:       inst ? Number(inst.id) : undefined,
+      latitud:             inst?.lat,
+      longitud:            inst?.lng,
     };
 
     if (f.requiereTraslado && f.tipoTraslado) {
@@ -971,7 +1134,16 @@ export class InstitutionalModalComponent implements OnInit, OnDestroy {
       req.pacienteApellido = f.transient.lastName;
       req.pacienteDni      = f.transient.dni || undefined;
     }
-    // 'unknown': sin sujeto → resolverParaAreaProtegidaAnonima en backend
+
+    if (selectedUnit) {
+      req.ambulanciaId = selectedUnit.id;
+      // Identificar el médico de la tripulación activa asignada al móvil
+      const medico = selectedUnit.tripulacionActual?.find(m => m.rol === 'MEDICO');
+      if (medico) {
+        // En base a fleet.api.ts y ambulancia.dto.ts, ProfesionalDisponibleDTO o TripulacionMovilDTO tienen profesionalId o profesionalResponsable
+        req.notaOperador = `Auto-despachado con móvil ${selectedUnit.identificador ?? selectedUnit.id} y Médico a cargo.`;
+      }
+    }
 
     this.submitError.set(null);
     this.isSubmitting.set(true);

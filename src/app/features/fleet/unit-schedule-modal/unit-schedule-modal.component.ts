@@ -447,7 +447,7 @@ export class UnitScheduleModalComponent implements OnInit {
     const errores: string[] = [];
     for (const t of this.turnosUi()) {
       if (!t.diasActivos.some(Boolean)) continue;
-      const roles = t.tripulacion.map((m) => m.rol);
+      const roles = t.tripulacion.map((m) => (m.rol ?? '').trim().toUpperCase());
       const tieneChofer = roles.includes('CHOFER');
       const tieneMedico = roles.includes('MEDICO');
       const tieneEnfermeroOParamedico = roles.includes('ENFERMERO') || roles.includes('PARAMEDICO');
