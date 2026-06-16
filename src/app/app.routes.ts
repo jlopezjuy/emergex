@@ -213,6 +213,14 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'dashboard/coverage/:tipo/:id',
+        canActivate: [roleGuard('ROLE_DESPACHANTE', 'ROLE_OPERADOR', 'ROLE_ADMIN', 'ROLE_ADMINISTRADOR', 'ROLE_PROPIETARIO')],
+        loadComponent: () =>
+          import('./features/operations/coverage-operations/coverage-operations.component').then(
+            (m) => m.CoverageOperationsComponent,
+          ),
+      },
+      {
         path: '**',
         loadComponent: () =>
           import('./features/not-found/not-found.component').then((m) => m.NotFoundComponent),

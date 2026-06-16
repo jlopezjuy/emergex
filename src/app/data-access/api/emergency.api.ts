@@ -301,4 +301,22 @@ export class EmergencyApiService {
       catchError(() => of([]))
     );
   }
+
+  getAsistenciasPorEvento(eventoId: number): Observable<TicketAsistenciaDTO[]> {
+    return this.http.get<any[]>(`${environment.apiUrl}/api/v2/eventos-cobertura/${eventoId}/asistencias`).pipe(
+      map((items) => (items ?? []).map((r) => this.mapTicket(r))),
+    );
+  }
+
+  getAsistenciasPorInstitucion(institucionId: number): Observable<TicketAsistenciaDTO[]> {
+    return this.http.get<any[]>(`${environment.apiUrl}/api/v2/instituciones/${institucionId}/asistencias`).pipe(
+      map((items) => (items ?? []).map((r) => this.mapTicket(r))),
+    );
+  }
+
+  getAsistenciasPorContexto(contextoCoberturaId: number): Observable<TicketAsistenciaDTO[]> {
+    return this.http.get<any[]>(`${environment.apiUrl}/api/v2/contextos-cobertura/${contextoCoberturaId}/asistencias`).pipe(
+      map((items) => (items ?? []).map((r) => this.mapTicket(r))),
+    );
+  }
 }

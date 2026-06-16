@@ -1,5 +1,5 @@
 import { Component, signal, computed, inject, OnInit, DestroyRef, effect } from '@angular/core';
-import { catchError, of, forkJoin } from 'rxjs';
+import { catchError, of } from 'rxjs';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import type { BadgeVariant } from '../../shared/components/status-badge/status-badge.component';
 import { EventsApiService } from '../../data-access/api/events.api';
@@ -1086,34 +1086,19 @@ export class EventsComponent implements OnInit {
     return this.ambulances().find(a => a.id === id)?.type ?? '—';
   }
 
-  loadIncidents(eventId: string, eventName: string): void {
+  loadIncidents(eventId: string, _eventName: string): void {
     this.loadingIncidents.set(true);
-    forkJoin({
-      active: this.emergencyApi.getActivos().pipe(catchError(() => of([]))),
-      history: this.emergencyApi.getHistorial().pipe(catchError(() => of([])))
-    }).pipe(
+    this.emergencyApi.getAsistenciasPorEvento(Number(eventId)).pipe(
+      catchError(() => of([])),
       takeUntilDestroyed(this.destroyRef)
-    ).subscribe(({ active, history }) => {
-      const allTicketsMap = new Map<number, TicketAsistenciaDTO>();
-      active.forEach(t => allTicketsMap.set(t.id, t));
-      history.forEach(t => allTicketsMap.set(t.id, t));
-
-      const allTickets = Array.from(allTicketsMap.values());
-      const filtered = allTickets.filter(t => {
-        const evId = t.contextoCobertura?.eventoCoberturaId;
-        const evName = t.coberturaNombreSnapshot;
-        return (evId && String(evId) === eventId) ||
-               (evName && evName.toUpperCase().includes(`EVENTO: ${eventName.toUpperCase()}`)) ||
-               (evName && evName.toUpperCase().includes(eventName.toUpperCase()));
-      });
-
-      filtered.sort((a, b) => {
+    ).subscribe(tickets => {
+      tickets.sort((a, b) => {
         const dateA = a.fechaCreacion ? new Date(a.fechaCreacion).getTime() : 0;
         const dateB = b.fechaCreacion ? new Date(b.fechaCreacion).getTime() : 0;
         return dateA - dateB;
       });
 
-      this.eventIncidents.set(filtered);
+      this.eventIncidents.set(tickets);
       this.loadingIncidents.set(false);
     });
   }

@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, OnInit, DestroyRef } from '@angular/core';
+import { Component, inject, signal, computed, input, output, OnInit, DestroyRef } from '@angular/core';
 import { Location } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { EmergencyApiService } from '../../../data-access/api/emergency.api';
@@ -1459,6 +1459,10 @@ export class EmergencyDetailComponent implements OnInit {
   private emergencyApi = inject(EmergencyApiService);
   private session = inject(SessionStore);
 
+  // ── Input / output signals ────────────────────────────────────
+  readonly ticketIdInput = input<number | undefined>(undefined, { alias: 'ticketId' });
+  readonly ticketClosed = output<void>();
+
   // ── Core signals ──────────────────────────────────────────────
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
@@ -1886,7 +1890,7 @@ export class EmergencyDetailComponent implements OnInit {
 
   // ── Route helper ──────────────────────────────────────────────
   private get ticketId(): number {
-    return Number(this.route.snapshot.paramMap.get('id'));
+    return this.ticketIdInput() ?? Number(this.route.snapshot.paramMap.get('id'));
   }
 
   // ── Lifecycle ─────────────────────────────────────────────────
@@ -2397,7 +2401,11 @@ Observación: ${this.clinicalObservacion().trim() || '—'}`,
     this.emergencyApi.cerrar(this.ticketId, req).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
             next: () => {
               this.showCloseDialog.set(false);
-              this.router.navigate(['/dashboard']);
+              if (this.ticketIdInput() != null) {
+                this.ticketClosed.emit();
+              } else {
+                this.router.navigate(['/dashboard']);
+              }
             },
             error: () => this.error.set('Error al cerrar el ticket'),
           });
@@ -2416,7 +2424,11 @@ Observación: ${this.clinicalObservacion().trim() || '—'}`,
             next: () => {
               this.showCancelDialog.set(false);
               this.cancelMotivo.set('');
-              this.router.navigate(['/dashboard']);
+              if (this.ticketIdInput() != null) {
+                this.ticketClosed.emit();
+              } else {
+                this.router.navigate(['/dashboard']);
+              }
             },
             error: () => this.error.set('Error al cancelar el ticket'),
           });

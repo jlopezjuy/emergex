@@ -140,6 +140,12 @@ export class EventsApiService {
       .pipe(map(list => list.map(toFrontend)));
   }
 
+  getById(id: number): Observable<FrontendEvento> {
+    return this.http
+      .get<BackendEvento>(`${this.base}/${id}`)
+      .pipe(map(toFrontend));
+  }
+
   create(evento: FrontendEvento): Observable<FrontendEvento> {
     return this.http
       .post<BackendEvento>(this.base, toPayload(evento))

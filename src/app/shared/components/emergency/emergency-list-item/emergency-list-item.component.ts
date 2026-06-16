@@ -1,6 +1,7 @@
 import { Component, input, output, computed, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { TicketAsistenciaDTO } from '../../../../data-access/dto/ticket.dto';
+import { resolveOrigen } from '../../../../core/utils/ticket-origen.utils';
 import { EmergencyPriorityBadgeComponent } from '../emergency-priority-badge/emergency-priority-badge.component';
 import { EmergencySlaBarComponent } from '../emergency-sla-bar/emergency-sla-bar.component';
 
@@ -181,7 +182,29 @@ export class EmergencyListItemComponent {
   private router = inject(Router);
 
   openDetail(): void {
-    this.router.navigate(['/dashboard/emergency', this.emergency().id]);
+    const ticket = this.emergency();
+    const origen = resolveOrigen(ticket);
+    const ctx = ticket.contextoCobertura;
+
+    if (origen === 'EVENTO' && ctx?.eventoCoberturaId != null) {
+      this.router.navigate(
+        ['/dashboard/coverage/evento', ctx.eventoCoberturaId],
+        { queryParams: { ticketId: ticket.id } },
+      );
+    } else if (origen === 'INSTITUCIONAL' && ctx?.institucionId != null) {
+      this.router.navigate(
+        ['/dashboard/coverage/institucion', ctx.institucionId],
+        { queryParams: { ticketId: ticket.id } },
+      );
+    } else if (origen === 'INSTITUCIONAL' && ctx?.id != null) {
+      // AREA_PROTEGIDA without resolved institucionId — group by contextoCoberturaId
+      this.router.navigate(
+        ['/dashboard/coverage/contexto', ctx.id],
+        { queryParams: { ticketId: ticket.id } },
+      );
+    } else {
+      this.router.navigate(['/dashboard/emergency', ticket.id]);
+    }
   }
 
   priorityColor = computed(() => {

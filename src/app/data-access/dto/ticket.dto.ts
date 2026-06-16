@@ -1,3 +1,21 @@
+export interface ContextoCoberturaDTO {
+  id?: number;
+  modalidadCobertura?: 'INDIVIDUAL_PLAN' | 'AREA_PROTEGIDA' | 'EVENTO' | 'PARTICULAR';
+  empresaId?: number;
+  institucionId?: number;
+  institucionNombre?: string;
+  areaProtegidaId?: number;
+  areaProtegidaNombre?: string;
+  eventoCoberturaId?: number;
+  eventoCoberturaNombre?: string;
+  contratoCoberturaId?: number;
+  pacienteId?: number;
+  pacienteNombreCompleto?: string;
+  personaAsistidaTransitoriaId?: number;
+  miembroInstitucionId?: number;
+  miembroInstitucionNombreCompleto?: string;
+}
+
 export interface TicketAsistenciaDTO {
   id: number;
   codigo?: string;
@@ -38,7 +56,7 @@ export interface TicketAsistenciaDTO {
 
   enTraslado?: boolean;
   trasladoFinalizado?: boolean;
-  contextoCobertura?: any;
+  contextoCobertura?: ContextoCoberturaDTO;
   coberturaNombreSnapshot?: string;
 }
 
@@ -77,6 +95,7 @@ export interface CrearTicketRequest {
   // Sujeto
   pacienteId?: number;
   miembroInstitucionId?: number;
+  contextoCoberturaId?: number;
   // Cobertura institucional
   institucionId?: number;
   contratoCoberturaId?: number;

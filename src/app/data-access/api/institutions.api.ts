@@ -216,6 +216,10 @@ export class InstitutionsApiService {
     );
   }
 
+  getById(id: number): Observable<InstitutionDTO> {
+    return this.http.get<InstitucionBackend>(`${this.base}/${id}`).pipe(map(toDTO));
+  }
+
   create(dto: InstitutionDTO): Observable<InstitutionDTO> {
     return this.http.post<InstitucionBackend>(this.base, toBackend(dto)).pipe(
       map(toDTO),
