@@ -533,10 +533,15 @@ const ALL_STEPS: StatusStep[] = [
                   <button
                     type="button"
                     class="btn btn--primary btn--sm self-end"
-                    [disabled]="!noteText().trim()"
+                    [disabled]="!canCreateOperationalNotes() || !noteText().trim()"
                     (click)="agregarNota()"
                   >Agregar</button>
                 </div>
+                @if (!canCreateOperationalNotes()) {
+                  <p class="text-xs mb-2" style="color: var(--text-muted);">
+                    La API actual no expone un endpoint para agregar notas operativas manuales desde esta vista.
+                  </p>
+                }
                 @if (notaError()) {
                   <p class="text-xs mb-2" style="color: var(--accent-red);">{{ notaError() }}</p>
                 }
@@ -1474,6 +1479,7 @@ export class EmergencyDetailComponent implements OnInit {
   readonly noteText = signal('');
   readonly notaError = signal<string | null>(null);
   readonly notaOk = signal(false);
+  readonly canCreateOperationalNotes = signal(false);
   readonly showCancelDialog = signal(false);
   readonly cancelMotivo = signal('');
   readonly clinicalAtencion = signal<AtencionFullDTO | null>(null);
@@ -2251,6 +2257,10 @@ Observación: ${this.clinicalObservacion().trim() || '—'}`,
     if (!nota) return;
     this.notaError.set(null);
     this.notaOk.set(false);
+    if (!this.canCreateOperationalNotes()) {
+      this.notaError.set('La API actual no expone un endpoint para agregar notas operativas desde esta pantalla.');
+      return;
+    }
     this.emergencyApi.agregarNota(this.ticketId, nota).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
             next: () => {
               this.noteText.set('');

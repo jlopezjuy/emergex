@@ -6,6 +6,7 @@ export interface LoginRequest {
 
 export interface JwtToken {
   id_token: string;
+  refresh_token?: string;
 }
 
 export interface AccountDTO {

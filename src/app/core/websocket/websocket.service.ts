@@ -10,6 +10,18 @@ export class WebsocketService {
   private connectedCallback?: () => void;
   readonly connected = signal(false);
 
+  /**
+   * Connects to the STOMP/WebSocket endpoint.
+   *
+   * Security note: the token is sent ONLY in the STOMP connectHeaders
+   * (Authorization: Bearer). It must NOT be appended to the URL as a
+   * query parameter — doing so exposes the JWT in proxy logs, browser
+   * history, and server access logs.
+   *
+   * SockJS negotiation happens via HTTP before the WebSocket upgrade;
+   * the Authorization header is honored by Spring Security on the
+   * STOMP CONNECT frame.
+   */
   connect(token: string, onConnected?: () => void): void {
     if (this.client?.connected) {
       onConnected?.();
@@ -20,12 +32,14 @@ export class WebsocketService {
       return;
     }
     this.connectedCallback = onConnected;
-    const wsUrlWithToken = `${environment.wsUrl}${
-      environment.wsUrl.includes('?') ? '&' : '?'
-    }access_token=${encodeURIComponent(token)}`;
+
+    // Use the clean WS URL — no token in query string.
+    const wsUrl = environment.wsUrl;
+
     this.client = new Client({
-      webSocketFactory: () => new SockJS(wsUrlWithToken) as WebSocket,
+      webSocketFactory: () => new SockJS(wsUrl) as WebSocket,
       connectHeaders: {
+        // Token travels only in the STOMP connect frame header, not in the URL.
         Authorization: `Bearer ${token}`,
       },
       reconnectDelay: 5000,

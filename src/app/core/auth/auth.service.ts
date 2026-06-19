@@ -1,16 +1,23 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { Observable, tap, switchMap } from 'rxjs';
+import { Observable, catchError, mapTo, of, tap, switchMap, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { Account } from './models/account.model';
 import { LoginCredentials } from './models/login.model';
 
-import { getSecureToken, saveSecureToken, removeSecureToken } from './auth.storage';
-import { JWT_STORAGE_KEY } from './auth.constants';
+import {
+  clearLegacyStoredTokens,
+} from './auth.storage';
 
 interface JwtResponse {
   id_token: string;
+  refresh_token?: string;
+}
+
+interface RefreshTokenResponse {
+  accessToken: string;
+  refreshToken: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -19,19 +26,14 @@ export class AuthService {
   private router = inject(Router);
 
   private _account = signal<Account | null>(null);
-  private _isAuthenticated = signal<boolean>(!!getSecureToken());
+  private _accessToken = signal<string | null>(null);
+  private _isAuthenticated = signal<boolean>(false);
 
   readonly currentAccount = this._account.asReadonly();
   readonly isAuthenticated = this._isAuthenticated.asReadonly();
 
   constructor() {
-    window.addEventListener('storage', (event) => {
-      if (event.key === JWT_STORAGE_KEY && !event.newValue) {
-        this._account.set(null);
-        this._isAuthenticated.set(false);
-        this.router.navigate(['/login']);
-      }
-    });
+    clearLegacyStoredTokens();
   }
 
   login(credentials: LoginCredentials): Observable<Account> {
@@ -40,11 +42,10 @@ export class AuthService {
         username: credentials.username,
         password: credentials.password,
         rememberMe: credentials.rememberMe,
-      })
+      }, { withCredentials: true })
       .pipe(
         tap((res) => {
-          saveSecureToken(res.id_token);
-          this._isAuthenticated.set(true);
+          this.persistSession(res);
         }),
         switchMap(() => this.fetchAccount()),
       );
@@ -52,11 +53,10 @@ export class AuthService {
 
   switchEnterprise(empresaId: number): Observable<Account> {
     return this.http
-      .post<JwtResponse>(`${environment.apiUrl}/api/account/switch-enterprise/${empresaId}`, {})
+      .post<JwtResponse>(`${environment.apiUrl}/api/account/switch-enterprise/${empresaId}`, {}, { withCredentials: true })
       .pipe(
         tap((res) => {
-          saveSecureToken(res.id_token);
-          this._isAuthenticated.set(true);
+          this.persistSession(res);
         }),
         switchMap(() => this.fetchAccount()),
       );
@@ -107,25 +107,48 @@ export class AuthService {
   }
 
   logout(): void {
-    removeSecureToken();
-    this._account.set(null);
-    this._isAuthenticated.set(false);
-    this.router.navigate(['/login']);
+    this.http.post(`${environment.apiUrl}/api/logout`, {}, { withCredentials: true }).subscribe({
+      complete: () => this.resetSession(),
+      error: () => this.resetSession(),
+    });
   }
 
   getToken(): string | null {
-    return getSecureToken();
+    return this._accessToken();
   }
 
-  refreshToken(): Observable<{ id_token: string }> {
-    const token = this.getToken();
-    return this.http.post<{ id_token: string }>(
-      `${environment.apiUrl}/api/refresh`,
-      { token }
-    ).pipe(
-      tap(res => {
-        saveSecureToken(res.id_token);
-      })
+  refreshToken(): Observable<RefreshTokenResponse> {
+    return this.http
+      .post<RefreshTokenResponse>(`${environment.apiUrl}/api/auth/refresh`, {}, { withCredentials: true })
+      .pipe(
+        tap((res) => {
+          this._accessToken.set(res.accessToken);
+          this._isAuthenticated.set(true);
+        }),
+      );
+  }
+
+  ensureAuthenticated(): Observable<boolean> {
+    if (this._accessToken()) {
+      return of(true);
+    }
+
+    return this.refreshToken().pipe(
+      mapTo(true),
+      catchError(() => of(false)),
     );
+  }
+
+  private persistSession(res: JwtResponse): void {
+    this._accessToken.set(res.id_token);
+    this._isAuthenticated.set(true);
+  }
+
+  private resetSession(): void {
+    this._accessToken.set(null);
+    this._account.set(null);
+    this._isAuthenticated.set(false);
+    clearLegacyStoredTokens();
+    this.router.navigate(['/login']);
   }
 }
