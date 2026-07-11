@@ -51,6 +51,8 @@ export class EmergencyApiService {
       operador:           raw.creadoPor?.login,
       fechaCreacion:      raw.horaLlamada,
       pacienteDescripcion: raw.pacienteNombreSnapshot,
+      pacienteNombreSnapshot: raw.pacienteNombreSnapshot,
+      pacienteDniSnapshot: raw.pacienteDniSnapshot,
       horaDespacho:       raw.horaDespacho,
       horaLlegada:        raw.horaLlegada,
       horaInicioTraslado: raw.horaInicioTraslado,

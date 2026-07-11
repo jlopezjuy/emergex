@@ -29,6 +29,7 @@ export interface TicketAsistenciaDTO {
   pacienteId?: number;
   pacienteDni?: string;
   pacienteNombreSnapshot?: string;
+  pacienteDniSnapshot?: string;
   ambulanciaId?: number;
   empresaId?: number;
   fechaCreacion?: string;

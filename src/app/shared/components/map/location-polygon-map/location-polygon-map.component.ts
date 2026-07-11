@@ -16,7 +16,7 @@ import { Map as MapLibreMap, Marker, NavigationControl } from 'maplibre-gl';
 const JUJUY_CENTER: [number, number] = [-65.2995, -24.1858];
 
 @Component({
-  selector: 'app-location-polygon-map',
+  selector: 'emx-location-polygon-map',
   standalone: true,
   template: `
     <div style="position:relative; width:100%; height:100%">

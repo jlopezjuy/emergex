@@ -43,4 +43,8 @@ export class MiembrosInstitucionApiService {
       params: { query, institucionId: String(institucionId) },
     }).pipe(map(list => list.map(toDTO)));
   }
+
+  deactivate(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${id}`);
+  }
 }

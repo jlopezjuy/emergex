@@ -235,7 +235,7 @@ const INSTITUTION_TYPES: { id: InstitutionType; label: string; icon: string }[] 
               <div style="display:flex;flex-direction:column;gap:8px">
                 <div class="eyebrow">Georreferenciación y perímetro</div>
                 <div style="height:260px; border-radius:0.75rem; overflow:hidden; border:1px solid rgba(148,163,184,0.3)">
-                  <app-location-polygon-map
+                  <emx-location-polygon-map
                     [lat]="form().lat || null"
                     [lng]="form().lng || null"
                     [polygon]="form().polygon ?? null"

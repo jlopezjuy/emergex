@@ -174,6 +174,12 @@ const ALL_STEPS: StatusStep[] = [
               <emx-glass-card>
                 <h2 class="section-label">Paciente</h2>
 
+                @if (isClosedOrCancelled()) {
+                  <div class="alert-block text-xs py-1 px-2 mb-3 font-semibold" style="background: rgba(6,182,212,0.1); border: 1px solid rgba(6,182,212,0.2); color: var(--accent-cyan); display: flex; align-items: center; gap: 6px; border-radius: 4px;">
+                    ℹ️ Snapshot de datos históricos
+                  </div>
+                }
+
                 <!-- Avatar + nombre -->
                 <div class="flex items-center gap-3 mb-4">
                   <div class="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 font-mono font-bold text-sm text-white"
@@ -182,10 +188,10 @@ const ALL_STEPS: StatusStep[] = [
                   </div>
                   <div>
                     <p class="font-semibold text-sm" style="color: var(--text-primary);">
-                      {{ ticket()?.pacienteDescripcion ?? 'Paciente no identificado' }}
+                      {{ patientName() }}
                     </p>
                     <p class="text-xs font-mono mt-0.5" style="color: var(--text-muted);">
-                      ID {{ ticket()?.pacienteId ?? '—' }}
+                      DNI: {{ patientDni() }} | ID {{ ticket()?.pacienteId ?? '—' }}
                     </p>
                   </div>
                 </div>
@@ -775,6 +781,11 @@ const ALL_STEPS: StatusStep[] = [
                 <!-- Mini Paciente Card -->
                 <emx-glass-card>
                   <h2 class="section-label">Paciente</h2>
+                  @if (isClosedOrCancelled()) {
+                    <div class="alert-block text-xs py-1 px-2 mb-3 font-semibold" style="background: rgba(6,182,212,0.1); border: 1px solid rgba(6,182,212,0.2); color: var(--accent-cyan); display: flex; align-items: center; gap: 6px; border-radius: 4px;">
+                      ℹ️ Snapshot de datos históricos
+                    </div>
+                  }
                   <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 font-mono font-bold text-xs text-white"
                          style="background: linear-gradient(135deg, var(--accent-red, #ef4444), #b91c1c);">
@@ -782,10 +793,10 @@ const ALL_STEPS: StatusStep[] = [
                     </div>
                     <div>
                       <p class="font-semibold text-sm" style="color: var(--text-primary, #f8fafc);">
-                        {{ ticket()?.pacienteDescripcion ?? 'Paciente no identificado' }}
+                        {{ patientName() }}
                       </p>
                       <p class="text-xs font-mono mt-0.5" style="color: var(--text-muted, #94a3b8);">
-                        DNI {{ ticket()?.pacienteDni ?? '—' }} | ID {{ ticket()?.pacienteId ?? '—' }}
+                        DNI {{ patientDni() }} | ID {{ ticket()?.pacienteId ?? '—' }}
                       </p>
                     </div>
                   </div>
@@ -1745,9 +1756,38 @@ export class EmergencyDetailComponent implements OnInit {
     this.timeline().filter((e) => !!e.notas)
   );
 
+  readonly isClosedOrCancelled = computed(() => {
+    const estado = this.ticket()?.estado;
+    return estado === 'CERRADO' || estado === 'CANCELADO' || estado === 'COMPLETADO';
+  });
+
+  readonly patientName = computed((): string => {
+    const t = this.ticket();
+    if (this.isClosedOrCancelled() && t?.pacienteNombreSnapshot) {
+      return t.pacienteNombreSnapshot;
+    }
+    return t?.pacienteDescripcion ?? 'Paciente no identificado';
+  });
+
+  readonly patientDni = computed((): string => {
+    const t = this.ticket();
+    if (this.isClosedOrCancelled() && t?.pacienteDniSnapshot) {
+      return t.pacienteDniSnapshot;
+    }
+    return t?.pacienteDni ?? '—';
+  });
+
+  readonly coberturaName = computed((): string => {
+    const t = this.ticket();
+    if (this.isClosedOrCancelled() && t?.coberturaNombreSnapshot) {
+      return t.coberturaNombreSnapshot;
+    }
+    return t?.contextoCobertura?.institucionNombre || t?.contextoCobertura?.areaProtegidaNombre || 'Particular';
+  });
+
   // ── Patient initials ──────────────────────────────────────────
   readonly patientInitials = computed((): string => {
-    const desc = this.ticket()?.pacienteDescripcion;
+    const desc = this.patientName();
     if (!desc) return '??';
     const parts = desc.trim().split(/\s+/);
     const first = parts[0]?.[0] ?? '';
