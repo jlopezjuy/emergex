@@ -9,7 +9,7 @@ import { EmergencyApiService } from '../../../../data-access/api/emergency.api';
 import { PatientApiService } from '../../../../data-access/api/patient.api';
 import { FleetApiService } from '../../../../data-access/api/fleet.api';
 import { CoberturaVigenteDTO } from '../../../../data-access/dto/patient.dto';
-import { InstitutionDTO } from '../../../../data-access/dto/institution.dto';
+import { InstitutionDTO, ContractDTO } from '../../../../data-access/dto/institution.dto';
 import { UnidadMovilDTO } from '../../../../data-access/dto/ambulancia.dto';
 import { CrearTicketRequest, TicketAsistenciaDTO } from '../../../../data-access/dto/ticket.dto';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
@@ -56,6 +56,7 @@ interface IEForm {
   channel: string;
   requiereTraslado: boolean;
   tipoTraslado: TipoTraslado | '';
+  contratoCoberturaId: number | null;
 }
 
 const PRIO_LEVELS: PrioLevel[] = [
@@ -89,6 +90,7 @@ function emptyForm(): IEForm {
     transient: { firstName: '', lastName: '', dni: '', age: '' },
     prio: 'red', symptoms: '', channel: 'phone',
     requiereTraslado: false, tipoTraslado: '',
+    contratoCoberturaId: null,
   };
 }
 
@@ -214,6 +216,27 @@ function parseApiError(err: any): string {
                   </div>
                   <emx-status-badge variant="stable">CONVENIO ACTIVO</emx-status-badge>
                 </div>
+
+                @if (availableContracts().length > 1) {
+                  <div class="qc-field" style="margin-top:10px">
+                    <label class="eyebrow" style="color:var(--accent-amber)">Seleccionar Contrato de Cobertura (Obligatorio)</label>
+                    <select class="qc-input"
+                      [value]="form().contratoCoberturaId || ''"
+                      (change)="patchForm({ contratoCoberturaId: $any($event.target).value ? +$any($event.target).value : null })">
+                      <option value="">Seleccioná un contrato...</option>
+                      @for (c of availableContracts(); track c.id) {
+                        <option [value]="c.id">Contrato: {{ c.code }} (Plan: {{ c.plan }})</option>
+                      }
+                    </select>
+                  </div>
+                } @else if (availableContracts().length === 1) {
+                  <div class="alert-block" style="background:rgba(16,185,129,0.06);border-color:rgba(16,185,129,0.2);margin-top:10px">
+                    <div class="eyebrow" style="color:var(--accent-emerald)">✓ Contrato seleccionado automáticamente</div>
+                    <div style="font-size:12px;color:var(--text-secondary);margin-top:4px">
+                      Contrato: <strong>{{ availableContracts()[0].code }}</strong> (Plan: {{ availableContracts()[0].plan }})
+                    </div>
+                  </div>
+                }
 
                 @if (!institution()!.address) {
                   <div class="alert-block">
@@ -911,6 +934,9 @@ export class InstitutionalModalComponent implements OnInit, OnDestroy {
   // Cobertura vigente del miembro seleccionado
   readonly coberturaVigente = signal<CoberturaVigenteDTO | null>(null);
 
+  // Contratos de la institución seleccionada
+  readonly availableContracts = signal<ContractDTO[]>([]);
+
   private _memberTimer?: ReturnType<typeof setTimeout>;
 
   // ── Derived ──
@@ -979,16 +1005,31 @@ export class InstitutionalModalComponent implements OnInit, OnDestroy {
       institutionQuery: '',
       memberId: null,
       memberQuery: '',
-      specificLocation: inst.address ?? ''
+      specificLocation: inst.address ?? '',
+      contratoCoberturaId: null
     });
     this.memberResults.set([]);
     this.submitError.set(null);
+    this.availableContracts.set([]);
+
+    // Cargar contratos de la institución
+    this.instituciones.getContratosByInstitucion(Number(inst.id)).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: list => {
+        const activeContracts = list.filter(c => c.status === 'active');
+        this.availableContracts.set(activeContracts);
+        if (activeContracts.length === 1) {
+          this.patchForm({ contratoCoberturaId: activeContracts[0].id ?? null });
+        }
+      },
+      error: () => this.availableContracts.set([])
+    });
   }
 
   clearInstitution(): void {
-    this.patchForm({ institutionId: null, institutionQuery: '', memberId: null, memberQuery: '' });
+    this.patchForm({ institutionId: null, institutionQuery: '', memberId: null, memberQuery: '', contratoCoberturaId: null });
     this.institutionResults.set(this._allInstitutions.slice(0, 8));
     this.memberResults.set([]);
+    this.availableContracts.set([]);
   }
 
   // ── Member search ──
@@ -1041,6 +1082,8 @@ export class InstitutionalModalComponent implements OnInit, OnDestroy {
     if (!inst) return false;
     // Si no tiene dirección, el operador DEBE completar el lugar específico como dirección
     if (!inst.address && !f.specificLocation.trim()) return false;
+    // Si la institución tiene contratos y hay múltiples, obligar a seleccionar uno
+    if (this.availableContracts().length > 1 && !f.contratoCoberturaId) return false;
     return true;
   });
 
@@ -1118,6 +1161,7 @@ export class InstitutionalModalComponent implements OnInit, OnDestroy {
       direccion:           inst?.address || f.specificLocation,
       notaDireccion:       inst?.address && f.specificLocation ? f.specificLocation : undefined,
       institucionId:       inst ? Number(inst.id) : undefined,
+      contratoCoberturaId: f.contratoCoberturaId ?? undefined,
       latitud:             inst?.lat,
       longitud:            inst?.lng,
     };
