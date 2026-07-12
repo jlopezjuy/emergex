@@ -38,7 +38,7 @@ export class EmergencyApiService {
 
   private mapTicket(raw: any): TicketAsistenciaDTO {
     return {
-      id:                 raw.id,
+      id:                 raw.id ?? raw.ticketId,
       codigo:             raw.numeroTicket,
       tipoEmergencia:     raw.descripcionSintomas,
       estado:             raw.estadoActual,
