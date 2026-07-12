@@ -209,10 +209,8 @@ export class EmergencyApiService {
     return this.http.get<unknown>(`${this.base}/${id}/sugerir-movil`);
   }
 
-  agregarNota(id: number, nota: string): Observable<unknown> {
-    void id;
-    void nota;
-    return throwError(() => new Error('NOTA_ENDPOINT_NOT_AVAILABLE'));
+  agregarNota(id: number, nota: string): Observable<TicketAsistenciaDTO> {
+    return this.http.patch<TicketAsistenciaDTO>(`${this.base}/${id}/agregar-nota`, { nota });
   }
 
   getAtencionesPorTicket(ticketId: number): Observable<AtencionAsistenciaItemDTO[]> {
