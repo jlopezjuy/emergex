@@ -8,7 +8,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { forkJoin } from 'rxjs';
+import { forkJoin, of, catchError } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { EmergencyApiService } from '../../../data-access/api/emergency.api';
@@ -703,7 +703,25 @@ export class CoverageOperationsComponent implements OnInit {
   }
 
   finalizarOperativo(): void {
-    this.router.navigate(['/dashboard']);
+    if (this.tipo() === 'evento') {
+      this.loading.set(true);
+      this.eventsApi.cerrar(this.contextoId()).pipe(
+        catchError((error) => {
+          console.error('Error al finalizar el operativo:', error);
+          const errorMsg = error?.error?.detail || error?.error?.message || error?.message || 'Error desconocido del servidor';
+          alert(`Error al finalizar el operativo: ${errorMsg}`);
+          this.loading.set(false);
+          return of(null);
+        }),
+        takeUntilDestroyed(this.destroyRef)
+      ).subscribe((res) => {
+        if (res) {
+          this.router.navigate(['/dashboard']);
+        }
+      });
+    } else {
+      this.router.navigate(['/dashboard']);
+    }
   }
 
   goBack(): void {

@@ -10,6 +10,8 @@ import { DateTime } from 'luxon';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { EmergencyApiService } from '../../data-access/api/emergency.api';
 import { TicketAsistenciaDTO } from '../../data-access/dto/ticket.dto';
+import { InstitutionsApiService } from '../../data-access/api/institutions.api';
+import type { InstitutionDTO } from '../../data-access/dto/institution.dto';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -81,6 +83,7 @@ interface NewEventForm {
   dateTo: string;
   timeTo: string;
   units: string[];
+  institucionId?: number;
 }
 
 // ─── Static data ──────────────────────────────────────────────────────────────
@@ -770,6 +773,10 @@ export class EventsComponent implements OnInit {
   private eventsApi = inject(EventsApiService);
   private fleetApi = inject(FleetApiService);
   private emergencyApi = inject(EmergencyApiService);
+  private institutionsApi = inject(InstitutionsApiService);
+
+  // ── Institutions signal ────────────────────────────────────────────────────
+  readonly institutions = signal<InstitutionDTO[]>([]);
 
   // ── Ambulances signal (populated from backend on init) ────────────────────
   readonly ambulances = signal<AmbUnit[]>([]);
@@ -913,7 +920,9 @@ export class EventsComponent implements OnInit {
   readonly orgResults = computed(() => {
     const q = this.orgQuery().toLowerCase();
     if (!q) return [];
-    return EVENT_ORGS.filter(o => o.toLowerCase().includes(q));
+    return this.institutions()
+      .filter(o => o.name.toLowerCase().includes(q))
+      .map(o => o.name);
   });
 
   readonly availableForEvents = computed(() => {
@@ -948,6 +957,10 @@ export class EventsComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadEvents();
+    this.institutionsApi.getAll().pipe(
+      catchError(() => of([])), takeUntilDestroyed(this.destroyRef)
+    ).subscribe(list => this.institutions.set(list));
+
     this.fleetApi.ambulancias().pipe(
       catchError(() => of([])), takeUntilDestroyed(this.destroyRef)
     ).subscribe(units => {
@@ -970,6 +983,7 @@ export class EventsComponent implements OnInit {
 
   submitNewEvent(): void {
     const f = this.form();
+    const inst = this.institutions().find(i => i.name.toLowerCase() === f.org.toLowerCase());
     const payload: FrontendEvento = {
       id:          '',
       name:        f.name,
@@ -984,6 +998,7 @@ export class EventsComponent implements OnInit {
       timeTo:      f.timeTo,
       units:       [...f.units],
       status:      'scheduled',
+      institucionId: inst ? Number(inst.id) : f.institucionId,
     };
     this.eventsApi.create(payload).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
             this.loadEvents();
@@ -1010,7 +1025,12 @@ export class EventsComponent implements OnInit {
   }
 
   selectOrg(org: string): void {
-    this.form.update(f => ({ ...f, org }));
+    const inst = this.institutions().find(i => i.name === org);
+    this.form.update(f => ({
+      ...f,
+      org,
+      institucionId: inst ? Number(inst.id) : undefined
+    }));
     this.orgQuery.set('');
   }
 
@@ -1115,23 +1135,7 @@ export class EventsComponent implements OnInit {
       return;
     }
 
-    const updated: FrontendEvento = {
-      id: ev.id,
-      name: ev.name,
-      type: ev.type as any,
-      org: ev.org,
-      responsible: ev.responsible,
-      attendees: ev.attendees,
-      address: ev.address,
-      dateFrom: ev.dateFrom,
-      timeFrom: ev.timeFrom,
-      dateTo: ev.dateTo,
-      timeTo: ev.timeTo,
-      units: ev.units,
-      status: 'closed'
-    };
-
-    this.eventsApi.update(ev.id, updated).pipe(
+    this.eventsApi.cerrar(ev.id).pipe(
       catchError((error) => {
         console.error('Error al finalizar el evento:', error);
         const errorMsg = error?.error?.detail || error?.error?.message || error?.message || 'Error desconocido del servidor';

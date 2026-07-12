@@ -55,6 +55,7 @@ export interface FrontendEvento {
   timeTo: string;
   units: string[];
   status: FrontendEventStatus;
+  institucionId?: number;
 }
 
 const TIPO_MAP: Record<BackendTipoEvento, FrontendEventType> = {
@@ -102,6 +103,7 @@ function toFrontend(b: BackendEvento): FrontendEvento {
     timeTo,
     units:       [],
     status:      b.activo ? 'scheduled' : 'closed',
+    institucionId: b.institucionId,
   };
 }
 
@@ -114,6 +116,7 @@ interface EventoPayload {
   cantidadAsistentesEstimados: number;
   responsableEvento?: string;
   activo: boolean;
+  institucionId?: number;
 }
 
 function toPayload(f: FrontendEvento): EventoPayload {
@@ -126,6 +129,7 @@ function toPayload(f: FrontendEvento): EventoPayload {
     cantidadAsistentesEstimados: f.attendees,
     responsableEvento:           f.responsible,
     activo:                      f.status !== 'closed',
+    institucionId:               f.institucionId,
   };
 }
 
@@ -155,6 +159,12 @@ export class EventsApiService {
   update(id: string, evento: FrontendEvento): Observable<FrontendEvento> {
     return this.http
       .put<BackendEvento>(`${this.base}/${id}`, { id: Number(id), ...toPayload(evento) })
+      .pipe(map(toFrontend));
+  }
+
+  cerrar(id: string | number): Observable<FrontendEvento> {
+    return this.http
+      .post<BackendEvento>(`${this.base}/${id}/cerrar`, {})
       .pipe(map(toFrontend));
   }
 
