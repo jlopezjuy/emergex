@@ -1,9 +1,11 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { localDateYmd } from '../../shared/utils/date-local.util';
+// ... (rest of imports/mappings)
+
 
 type BackendTipoEvento =
   | 'DEPORTIVO'
@@ -142,6 +144,22 @@ export class EventsApiService {
     return this.http
       .get<BackendEvento[]>(this.base)
       .pipe(map(list => list.map(toFrontend)));
+  }
+
+  query(params: { page?: number; size?: number }): Observable<{ data: FrontendEvento[]; total: number }> {
+    let httpParams = new HttpParams();
+    if (params.page !== undefined) httpParams = httpParams.set('page', String(params.page));
+    if (params.size !== undefined) httpParams = httpParams.set('size', String(params.size));
+
+    return this.http.get<BackendEvento[]>(this.base, {
+      params: httpParams,
+      observe: 'response'
+    }).pipe(
+      map(res => ({
+        data: (res.body ?? []).map(toFrontend),
+        total: Number(res.headers.get('X-Total-Count') ?? '0')
+      }))
+    );
   }
 
   getById(id: number): Observable<FrontendEvento> {

@@ -34,7 +34,7 @@ const URGENCIA_MAP: Record<string, TicketAsistenciaDTO['prioridad']> = {
 @Injectable({ providedIn: 'root' })
 export class EmergencyApiService {
   private http = inject(HttpClient);
-  private base = `${environment.apiUrl}/api/v1/asistencias`;
+  private base = `${environment.apiUrl}/api/v2/asistencias`;
 
   private mapTicket(raw: any): TicketAsistenciaDTO {
     return {
@@ -165,7 +165,9 @@ export class EmergencyApiService {
   }
 
   crear(req: CrearTicketRequest): Observable<TicketAsistenciaDTO> {
-    return this.http.post<TicketAsistenciaDTO>(`${this.base}/recibir-llamada`, req);
+    return this.http.post<any>(`${this.base}/recibir-llamada`, req).pipe(
+      map((r) => this.mapTicket(r))
+    );
   }
 
   altaRapida(req: AltaRapidaRequest): Observable<TicketAsistenciaDTO> {
@@ -176,23 +178,33 @@ export class EmergencyApiService {
   }
 
   despachar(id: number, req: DespacharRequest): Observable<TicketAsistenciaDTO> {
-    return this.http.patch<TicketAsistenciaDTO>(`${this.base}/${id}/despachar`, req);
+    return this.http.patch<any>(`${this.base}/${id}/despachar`, req).pipe(
+      map((r) => this.mapTicket(r))
+    );
   }
 
   enCamino(id: number): Observable<TicketAsistenciaDTO> {
-    return this.http.patch<TicketAsistenciaDTO>(`${this.base}/${id}/en-camino`, {});
+    return this.http.patch<any>(`${this.base}/${id}/en-camino`, {}).pipe(
+      map((r) => this.mapTicket(r))
+    );
   }
 
   enSitio(id: number): Observable<TicketAsistenciaDTO> {
-    return this.http.patch<TicketAsistenciaDTO>(`${this.base}/${id}/en-sitio`, {});
+    return this.http.patch<any>(`${this.base}/${id}/en-sitio`, {}).pipe(
+      map((r) => this.mapTicket(r))
+    );
   }
 
   iniciarTraslado(id: number): Observable<TicketAsistenciaDTO> {
-    return this.http.patch<TicketAsistenciaDTO>(`${this.base}/${id}/iniciar-traslado`, {});
+    return this.http.patch<any>(`${this.base}/${id}/iniciar-traslado`, {}).pipe(
+      map((r) => this.mapTicket(r))
+    );
   }
 
   finalizarTraslado(id: number): Observable<TicketAsistenciaDTO> {
-    return this.http.patch<TicketAsistenciaDTO>(`${this.base}/${id}/finalizar-traslado`, {});
+    return this.http.patch<any>(`${this.base}/${id}/finalizar-traslado`, {}).pipe(
+      map((r) => this.mapTicket(r))
+    );
   }
 
   cerrar(id: number, req: CerrarTicketRequest): Observable<TicketAsistenciaDTO> {
@@ -202,7 +214,9 @@ export class EmergencyApiService {
   }
 
   cancelar(id: number, req: CancelarTicketRequest): Observable<TicketAsistenciaDTO> {
-    return this.http.patch<TicketAsistenciaDTO>(`${this.base}/${id}/cancelar`, req);
+    return this.http.patch<any>(`${this.base}/${id}/cancelar`, req).pipe(
+      map((r) => this.mapTicket(r))
+    );
   }
 
   sugerirMovil(id: number): Observable<unknown> {
@@ -210,7 +224,9 @@ export class EmergencyApiService {
   }
 
   agregarNota(id: number, nota: string): Observable<TicketAsistenciaDTO> {
-    return this.http.patch<TicketAsistenciaDTO>(`${this.base}/${id}/agregar-nota`, { nota });
+    return this.http.patch<any>(`${this.base}/${id}/agregar-nota`, { nota }).pipe(
+      map((r) => this.mapTicket(r))
+    );
   }
 
   getAtencionesPorTicket(ticketId: number): Observable<AtencionAsistenciaItemDTO[]> {

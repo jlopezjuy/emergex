@@ -69,7 +69,7 @@ describe('InstitutionalModalComponent', () => {
       plan: 'Premium',
       razonSocial: 'Razon Social A',
       cuit: '20-12345678-9',
-      type: 'empresa'
+      type: 'EMPRESA'
     });
     fixture.detectChanges();
 
@@ -93,7 +93,7 @@ describe('InstitutionalModalComponent', () => {
       plan: 'Plan A',
       razonSocial: 'Razon Social A',
       cuit: '20-12345678-9',
-      type: 'empresa'
+      type: 'EMPRESA'
     });
     fixture.detectChanges();
 

@@ -1,14 +1,18 @@
 export type EstadoInstitucion = 'ACTIVA' | 'PENDIENTE_ACTIVACION' | 'SUSPENDIDA' | 'BAJA';
 
 export type InstitutionType =
-  | 'colegio'
-  | 'universidad'
-  | 'empresa'
-  | 'club'
-  | 'hospital'
-  | 'gobierno'
-  | 'ong'
-  | 'otro';
+  | 'ESCUELA'
+  | 'JARDIN'
+  | 'COLEGIO_SECUNDARIO'
+  | 'UNIVERSIDAD'
+  | 'SHOPPING'
+  | 'EMPRESA'
+  | 'CLUB'
+  | 'GERIATRICO'
+  | 'GIMNASIO'
+  | 'ORGANISMO_PUBLICO'
+  | 'EVENTO'
+  | 'OTRO';
 
 export type ContractStatus = 'active' | 'suspended' | 'ended' | 'draft';
 

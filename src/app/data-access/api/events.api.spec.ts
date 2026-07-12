@@ -51,4 +51,36 @@ describe('EventsApiService', () => {
     const req = httpMock.expectOne(r => r.url.endsWith('/api/v2/eventos-cobertura/123/cerrar'));
     expect(req.request.method).toBe('POST');
   });
+
+  it('should support pagination and read X-Total-Count header', () => {
+    const mockEvents = [
+      {
+        id: 1,
+        nombre: 'Evento 1',
+        tipoEvento: 'DEPORTIVO',
+        direccion: 'Calle Falsa 123',
+        fechaInicio: '2026-07-12T10:00:00Z',
+        fechaFin: '2026-07-12T12:00:00Z',
+        cantidadAsistentesEstimados: 100,
+        activo: true
+      }
+    ];
+
+    service.query({ page: 1, size: 5 }).subscribe(res => {
+      expect(res.data.length).toBe(1);
+      expect(res.data[0].name).toBe('Evento 1');
+      expect(res.total).toBe(10);
+    });
+
+    const req = httpMock.expectOne(r => {
+      const url = new URL(r.urlWithParams);
+      return url.pathname.endsWith('/api/v2/eventos-cobertura') &&
+             url.searchParams.get('page') === '1' &&
+             url.searchParams.get('size') === '5';
+    });
+    expect(req.request.method).toBe('GET');
+    req.flush(mockEvents, {
+      headers: { 'X-Total-Count': '10' }
+    });
+  });
 });

@@ -94,7 +94,7 @@ function avatarOf(name: string): string {
 
 function emptyForm(): InstitutionForm {
   return {
-    name: '', razonSocial: '', cuit: '', type: 'empresa', plan: 'Plan Empresa Básico', status: 'ACTIVA',
+    name: '', razonSocial: '', cuit: '', type: 'EMPRESA', plan: 'Plan Empresa Básico', status: 'ACTIVA',
     email: '', phone: '', adminContact: '', opsContact: '', address: '', city: 'San Salvador de Jujuy',
     lat: 0, lng: 0,
   };
@@ -1299,7 +1299,15 @@ export class InstitutionsComponent implements OnInit {
     return this._commercialPlans().find(p => p.id === planId || p.name === planId);
   }
   getType(typeId: string): typeof INSTITUTION_TYPES[number] | undefined {
-    return INSTITUTION_TYPES.find(t => t.id === typeId);
+    let mappedId = typeId;
+    if (typeId === 'ESCUELA' || typeId === 'JARDIN' || typeId === 'COLEGIO_SECUNDARIO') mappedId = 'colegio';
+    else if (typeId === 'UNIVERSIDAD') mappedId = 'universidad';
+    else if (typeId === 'SHOPPING' || typeId === 'EMPRESA') mappedId = 'empresa';
+    else if (typeId === 'CLUB' || typeId === 'GIMNASIO') mappedId = 'club';
+    else if (typeId === 'GERIATRICO') mappedId = 'hospital';
+    else if (typeId === 'ORGANISMO_PUBLICO') mappedId = 'gobierno';
+    else if (typeId === 'EVENTO' || typeId === 'OTRO') mappedId = 'otro';
+    return INSTITUTION_TYPES.find(t => t.id === mappedId.toLowerCase());
   }
 
   calcMonths(from: string, to: string): number { return diffMonths(from, to); }
@@ -1401,7 +1409,7 @@ export class InstitutionsComponent implements OnInit {
       name: 'Factura institucional',
       razonSocial: '',
       cuit: '',
-      type: 'empresa',
+      type: 'EMPRESA',
       status: 'ACTIVA',
       plan: '',
       email: '',

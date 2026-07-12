@@ -44,14 +44,18 @@ export interface InstitutionForm {
 }
 
 const INSTITUTION_TYPES: { id: InstitutionType; label: string; icon: string }[] = [
-  { id: 'colegio',     label: 'Colegio / Escuela',       icon: '🏫' },
-  { id: 'universidad', label: 'Universidad',             icon: '🏛️' },
-  { id: 'empresa',     label: 'Empresa / Industria',     icon: '🏭' },
-  { id: 'club',        label: 'Club / Deporte',          icon: '⚽' },
-  { id: 'hospital',    label: 'Hospital / Clínica',      icon: '🏥' },
-  { id: 'gobierno',    label: 'Gobierno / Municipio',    icon: '🏛️' },
-  { id: 'ong',         label: 'ONG / Fundación',         icon: '🤝' },
-  { id: 'otro',        label: 'Otro',                    icon: '📍' },
+  { id: 'COLEGIO_SECUNDARIO', label: 'Colegio Secundario',  icon: '🏫' },
+  { id: 'ESCUELA',            label: 'Escuela Primaria',    icon: '🏫' },
+  { id: 'JARDIN',             label: 'Jardín de Infantes',  icon: '👶' },
+  { id: 'UNIVERSIDAD',        label: 'Universidad',         icon: '🏛️' },
+  { id: 'EMPRESA',            label: 'Empresa',             icon: '🏭' },
+  { id: 'SHOPPING',           label: 'Shopping / Centro',   icon: '🛍️' },
+  { id: 'CLUB',               label: 'Club',                icon: '⚽' },
+  { id: 'GIMNASIO',           label: 'Gimnasio',            icon: '💪' },
+  { id: 'GERIATRICO',         label: 'Geriátrico',          icon: '👵' },
+  { id: 'ORGANISMO_PUBLICO',  label: 'Organismo Público',   icon: '🏛️' },
+  { id: 'EVENTO',             label: 'Evento',              icon: '📅' },
+  { id: 'OTRO',               label: 'Otro',                icon: '📍' },
 ];
 
 @Component({

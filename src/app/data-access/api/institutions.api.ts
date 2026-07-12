@@ -128,35 +128,11 @@ type TipoInstitucion =
   | 'EVENTO' | 'OTRO';
 
 function mapTipoToFrontend(tipo?: string): InstitutionType {
-  switch (tipo as TipoInstitucion) {
-    case 'ESCUELA':
-    case 'JARDIN':
-    case 'COLEGIO_SECUNDARIO': return 'colegio';
-    case 'UNIVERSIDAD':        return 'universidad';
-    case 'SHOPPING':
-    case 'EMPRESA':            return 'empresa';
-    case 'CLUB':
-    case 'GIMNASIO':           return 'club';
-    case 'GERIATRICO':         return 'hospital';
-    case 'ORGANISMO_PUBLICO':  return 'gobierno';
-    case 'EVENTO':
-    case 'OTRO':
-    default:                   return 'otro';
-  }
+  return (tipo ?? 'OTRO') as InstitutionType;
 }
 
 function mapTipoToBackend(type: InstitutionType): string {
-  switch (type) {
-    case 'colegio':     return 'COLEGIO_SECUNDARIO';
-    case 'universidad': return 'UNIVERSIDAD';
-    case 'empresa':     return 'EMPRESA';
-    case 'club':        return 'CLUB';
-    case 'hospital':    return 'GERIATRICO';
-    case 'gobierno':    return 'ORGANISMO_PUBLICO';
-    case 'ong':
-    case 'otro':
-    default:            return 'OTRO';
-  }
+  return type;
 }
 
 function parsePolygon(json?: string): [number, number][] | undefined {
