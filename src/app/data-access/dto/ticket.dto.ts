@@ -110,6 +110,8 @@ export interface CrearTicketRequest {
   tipoTraslado?: 'URBANO' | 'CLINICA' | 'INTERURBANO' | 'INTRANOSOCOMIAL' | 'ALTA_MEDICA';
   // Despacho
   ambulanciaId?: number;
+  profesionalId?: number;
+  tripulacionIds?: number[];
   notaOperador?: string;
   canal?: 'PRESENCIAL' | 'TELEFONICA' | 'VIDEOLLAMADA';
 }
@@ -342,4 +344,3 @@ export interface ContactoDespachoRequestDTO {
   resultado: string;
   observacion?: string;
 }
-

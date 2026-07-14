@@ -1189,7 +1189,8 @@ export class InstitutionalModalComponent implements OnInit, OnDestroy {
       // Identificar el médico de la tripulación activa asignada al móvil
       const medico = selectedUnit.tripulacionActual?.find(m => m.rol === 'MEDICO');
       if (medico) {
-        // En base a fleet.api.ts y ambulancia.dto.ts, ProfesionalDisponibleDTO o TripulacionMovilDTO tienen profesionalId o profesionalResponsable
+        req.profesionalId = medico.profesionalId;
+        req.tripulacionIds = selectedUnit.tripulacionActual?.map(member => member.profesionalId);
         req.notaOperador = `Auto-despachado con móvil ${selectedUnit.identificador ?? selectedUnit.id} y Médico a cargo.`;
       }
     }

@@ -129,5 +129,40 @@ describe('InstitutionalModalComponent', () => {
     fixture.detectChanges();
     expect(component.institution()).toBeNull();
   });
-});
 
+  it('debería enviar el profesional del móvil para un paciente a identificar al llegar', () => {
+    component.selectInstitution({
+      id: '1',
+      name: 'Institución A',
+      status: 'ACTIVA',
+      address: 'Calle Falsa 123',
+      type: 'EMPRESA',
+      razonSocial: 'Institución A S.A.',
+      cuit: '30-12345678-9',
+      plan: 'Plan Área Protegida',
+    });
+    component.patchForm({
+      patientType: 'unknown',
+      contratoCoberturaId: 10,
+      symptoms: 'Persona inconsciente sin identificación disponible',
+      prio: 'green',
+    });
+    component.availableUnits.set([
+      {
+        id: 1,
+        identificador: 'MOVIL-01',
+        tripulacionActual: [{ profesionalId: 42, rol: 'MEDICO', profesionalNombre: 'Médico de guardia' }],
+      },
+    ]);
+    component.selectedUnitId.set(1);
+
+    component.submit();
+
+    expect(emergencyApiMock.crear).toHaveBeenCalledWith(expect.objectContaining({
+      institucionId: 1,
+      contratoCoberturaId: 10,
+      ambulanciaId: 1,
+      profesionalId: 42,
+    }));
+  });
+});
