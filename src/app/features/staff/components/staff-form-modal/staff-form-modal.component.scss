@@ -82,35 +82,6 @@
   flex-shrink: 0;
 }
 
-/* ── Link user card ── */
-.link-user-card {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  border: 1px solid var(--border-glass);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.link-user-card:hover { background: rgba(255,255,255,0.03); }
-.link-user-card--on { background: rgba(59,130,246,0.06); border-color: rgba(59,130,246,0.3); }
-.link-user-card__check {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 2px solid var(--border-glass);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: all 0.15s;
-}
-.link-user-card__check--on {
-  background: var(--accent-blue);
-  border-color: var(--accent-blue);
-}
-
 /* ── Hab grid & card ── */
 .hab-grid {
   display: grid;
@@ -249,24 +220,134 @@
 }
 .spec-chip__remove:hover { opacity: 1; }
 
-.filter-chip {
-  height: 26px;
-  padding: 0 10px;
-  border-radius: 6px;
-  font-size: 11.5px;
-  font-family: var(--font-sans);
-  border: 1px solid transparent;
-  background: rgba(255,255,255,0.04);
-  color: var(--text-secondary);
+/* ── Role cards (roles y permisos) ── */
+.role-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-glass);
+  background: transparent;
   cursor: pointer;
   transition: all 0.15s;
+  text-align: left;
+  width: 100%;
+  font-family: var(--font-sans);
 }
-.filter-chip:hover { background: rgba(255,255,255,0.07); color: var(--text-primary); }
-.filter-chip[data-on="true"] {
-  background: rgba(59,130,246,0.12);
-  border-color: rgba(59,130,246,0.35);
-  color: var(--accent-blue);
+.role-card:hover { background: rgba(255,255,255,0.03); }
+.role-card--on { background: rgba(59,130,246,0.06); border-color: rgba(59,130,246,0.3); }
+.role-card__check {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--border-glass);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+  transition: all 0.15s;
 }
+.role-card__check--on {
+  background: var(--accent-blue);
+  border-color: var(--accent-blue);
+}
+.role-card__label {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.role-card__desc {
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+/* ── Empresa (chip persistente en el header) ── */
+.empresa-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border-glass);
+  white-space: nowrap;
+}
+
+/* ── Wizard: dots de progreso ── */
+.step-dots {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.step-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(148,163,184,0.3);
+  transition: background 0.2s;
+}
+.step-dot--on { background: var(--accent-blue); }
+
+/* ── Acceso al sistema: panel de estado ── */
+.access-panel {
+  border-radius: 10px;
+  border: 1px solid var(--border-glass);
+  padding: 12px 14px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.access-panel--muted { background: rgba(255,255,255,0.03); }
+.access-panel--ok {
+  background: var(--accent-emerald-dim);
+  border-color: rgba(16,185,129,0.35);
+  color: var(--text-primary);
+}
+.access-panel--warn {
+  background: var(--accent-amber-dim);
+  border-color: rgba(245,158,11,0.4);
+  color: var(--text-primary);
+}
+.access-panel--error {
+  background: var(--accent-red-dim);
+  border-color: rgba(239,68,68,0.4);
+  color: var(--text-primary);
+}
+.access-panel__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 0;
+}
+.access-panel__row .eyebrow { flex-shrink: 0; }
+
+.code-block {
+  border: 1px solid var(--border-glass);
+  border-radius: 8px;
+  background: rgba(0,0,0,0.18);
+  padding: 8px 10px;
+  word-break: break-all;
+  color: var(--text-secondary);
+}
+
+.spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255,255,255,0.25);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: qc-spin 0.7s linear infinite;
+  vertical-align: -2px;
+  margin-right: 4px;
+}
+@keyframes qc-spin { to { transform: rotate(360deg); } }
 
 :host-context([data-theme="light"]) .qc-modal .qc-input,
 :host-context([data-theme="light"]) .qc-modal .spec-multiselect,

@@ -16,7 +16,8 @@ import {
   StaffMember,
   SPEC_GROUP_COLOR,
   PREFIX_OPTIONS,
-  specById
+  specById,
+  inferSpecialtyGroup
 } from './models/staff.interfaces';
 import { ProfesionalSaludDTO } from '../../data-access/dto/staff.dto';
 
@@ -26,7 +27,7 @@ function toCatalogItem(s: any): CatalogItem {
   return {
     id:    String(s.id),
     name:  s.nombre,
-    group: s.nombre.toLowerCase().startsWith('enfermer') ? 'Enfermería' : 'Médica',
+    group: inferSpecialtyGroup(s.nombre),
     descripcion: s.descripcion,
     requiereCertificacion: s.requiereCertificacion,
     aniosFormacion: s.aniosFormacion,

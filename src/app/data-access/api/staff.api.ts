@@ -1,8 +1,13 @@
 import { inject, Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { ProfesionalSaludDTO } from '../dto/staff.dto';
+import {
+  OnboardingEmailStatusDTO,
+  ProfesionalAccesoDTO,
+  ProfesionalOnboardingResultDTO,
+  ProfesionalSaludDTO,
+} from '../dto/staff.dto';
 
 export interface SubespecialidadCatalogItem {
   id: number;
@@ -31,7 +36,10 @@ export interface IProfesionalOnboardingRequest {
   usuario: {
     username?: string | null;
     email?: string | null;
-    passwordTemporal?: string | null;
+    /** Set only when linking to a user that already exists (resolved via checkEmail). */
+    existingUserId?: number | null;
+    /** Required explicit confirmation to link a user that already belongs to another empresa. */
+    confirmarVinculoOtraEmpresa?: boolean;
     authorities: string[];
   };
 }
@@ -98,12 +106,31 @@ export class StaffApiService {
     return this.http.patch<ProfesionalSaludDTO>(`${this.crud}/${id}`, body);
   }
 
-  onboardingCreate(payload: IProfesionalOnboardingRequest): Observable<ProfesionalSaludDTO> {
-    return this.http.post<ProfesionalSaludDTO>(`${this.v2}/onboarding`, payload);
+  onboardingCreate(payload: IProfesionalOnboardingRequest): Observable<ProfesionalOnboardingResultDTO> {
+    return this.http.post<ProfesionalOnboardingResultDTO>(`${this.v2}/onboarding`, payload);
   }
 
   onboardingUpdate(id: number, payload: IProfesionalOnboardingRequest): Observable<ProfesionalSaludDTO> {
     return this.http.put<ProfesionalSaludDTO>(`${this.v2}/onboarding/${id}`, payload);
+  }
+
+  checkEmail(email: string, nombre?: string, apellido?: string): Observable<OnboardingEmailStatusDTO> {
+    let params = new HttpParams().set('email', email);
+    if (nombre) params = params.set('nombre', nombre);
+    if (apellido) params = params.set('apellido', apellido);
+    return this.http.get<OnboardingEmailStatusDTO>(`${this.v2}/onboarding/check-email`, { params });
+  }
+
+  enviarInvitacion(userId: number): Observable<{ emailEnviado: boolean }> {
+    return this.http.post<{ emailEnviado: boolean }>(`${this.v2}/onboarding/usuarios/${userId}/enviar-invitacion`, {});
+  }
+
+  reenviarInvitacion(profesionalId: number): Observable<ProfesionalOnboardingResultDTO> {
+    return this.http.post<ProfesionalOnboardingResultDTO>(`${this.v2}/${profesionalId}/reenviar-invitacion`, {});
+  }
+
+  getAcceso(profesionalId: number): Observable<ProfesionalAccesoDTO> {
+    return this.http.get<ProfesionalAccesoDTO>(`${this.v2}/${profesionalId}/acceso`);
   }
 
   getAuthorities(): Observable<string[]> {

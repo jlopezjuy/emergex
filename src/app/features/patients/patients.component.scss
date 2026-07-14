@@ -42,3 +42,134 @@
     }
   }
 }
+
+/* The template uses Tailwind's light palette directly. Scope its dark-mode
+ * equivalents here so the page follows the application data-theme contract. */
+:host-context([data-theme="dark"]) {
+  .screen {
+    background: var(--bg-deep);
+  }
+
+  .bg-white {
+    background-color: var(--bg-elevated);
+  }
+
+  .bg-slate-50,
+  .bg-slate-50\/50,
+  .bg-slate-50\/65,
+  .bg-slate-50\/40,
+  .bg-slate-50\/20 {
+    background-color: rgba(30, 41, 59, 0.42);
+  }
+
+  .bg-slate-100 {
+    background-color: rgba(51, 65, 85, 0.62);
+  }
+
+  .border-slate-100,
+  .border-slate-200,
+  .border-slate-200\/60,
+  .border-slate-300,
+  .divide-slate-100 > :not([hidden]) ~ :not([hidden]) {
+    border-color: var(--border-glass);
+  }
+
+  .text-slate-800,
+  .text-slate-700 {
+    color: var(--text-primary);
+  }
+
+  .text-slate-600,
+  .text-slate-500 {
+    color: var(--text-secondary);
+  }
+
+  .text-slate-400,
+  .text-slate-300 {
+    color: var(--text-muted);
+  }
+
+  .placeholder-slate-400::placeholder {
+    color: var(--text-muted);
+  }
+
+  .hover\:bg-slate-50:hover,
+  .hover\:bg-slate-100:hover,
+  .hover\:bg-slate-50\/40:hover {
+    background-color: rgba(51, 65, 85, 0.66);
+  }
+
+  .hover\:text-slate-700:hover,
+  .hover\:text-slate-800:hover {
+    color: var(--text-primary);
+  }
+
+  .bg-blue-50,
+  .bg-blue-50\/40,
+  .bg-blue-50\/20 {
+    background-color: var(--accent-blue-dim);
+  }
+
+  .border-blue-100,
+  .border-blue-200 {
+    border-color: rgba(96, 165, 250, 0.28);
+  }
+
+  .bg-amber-50,
+  .bg-amber-50\/50 {
+    background-color: var(--accent-amber-dim);
+  }
+
+  .border-amber-100,
+  .border-amber-200,
+  .border-amber-200\/60 {
+    border-color: rgba(251, 191, 36, 0.28);
+  }
+
+  .text-amber-700 {
+    color: var(--warning-text);
+  }
+
+  .bg-emerald-50 {
+    background-color: var(--accent-emerald-dim);
+  }
+
+  .border-emerald-100,
+  .border-emerald-200 {
+    border-color: rgba(52, 211, 153, 0.28);
+  }
+
+  .bg-red-50 {
+    background-color: var(--accent-red-dim);
+  }
+
+  .border-red-100,
+  .border-red-200 {
+    border-color: rgba(248, 113, 113, 0.28);
+  }
+
+  .bg-cyan-50 {
+    background-color: var(--accent-cyan-dim);
+  }
+
+  .border-cyan-100 {
+    border-color: rgba(34, 211, 238, 0.28);
+  }
+
+  .plan-card-inline {
+    background: rgba(15, 23, 42, 0.72);
+    border-color: var(--border-glass);
+
+    &:hover {
+      border-color: var(--border-strong);
+    }
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: var(--text-dim);
+
+    &:hover {
+      background: var(--text-muted);
+    }
+  }
+}
