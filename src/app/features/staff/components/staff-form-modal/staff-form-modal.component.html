@@ -257,7 +257,7 @@
 
               <!-- Multiselect especialidades -->
               <div class="qc-field">
-                <label class="eyebrow">Especialidades y certificaciones <span style="color:var(--accent-red)">*</span></label>
+                <label class="eyebrow">Especialidades y funciones <span style="color:var(--accent-red)">*</span></label>
                 <div class="spec-multiselect">
                   <!-- chips seleccionados -->
                   @if (form().specialties.length > 0) {
@@ -276,7 +276,7 @@
                             <button type="button"
                               (click)="setPrincipalSpecialty(sid); $event.stopPropagation()"
                               style="position: absolute; left: 4px; top: 50%; transform: translateY(-50%); background: transparent; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0;"
-                              [title]="isPrincipal ? 'Especialidad Principal' : 'Marcar como Principal'"
+                              [title]="isPrincipal ? 'Especialidad principal' : 'Marcar como principal'"
                             >
                               <svg width="11" height="11" viewBox="0 0 24 24"
                                 [attr.fill]="isPrincipal ? 'var(--accent-cyan)' : 'none'"
@@ -290,9 +290,9 @@
                             </button>
                             {{ sp.name }}
                             @if (isPrincipal) {
-                              <span class="mono micro" style="color:var(--accent-cyan); font-size: 8.5px; font-weight: 700; margin-left: 2px;">(P)</span>
+                              <span class="spec-chip__principal-badge">Principal</span>
                             }
-                            <button class="spec-chip__remove" (click)="removeSpecialty(sid); $event.stopPropagation()">
+                            <button class="spec-chip__remove" title="Quitar" (click)="removeSpecialty(sid); $event.stopPropagation()">
                               <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="1" y1="1" x2="7" y2="7"/><line x1="7" y1="1" x2="1" y2="7"/></svg>
                             </button>
                           </span>
@@ -304,27 +304,40 @@
                   <div style="position:relative">
                     <input
                        class="qc-input spec-search-input"
-                       placeholder="Buscar especialidad…"
+                       placeholder="Buscar o explorar por categoría…"
                        [ngModel]="specQuery()"
                        (ngModelChange)="specQuery.set($event)"
                        (focus)="specDropOpen.set(true)"
                        (click)="specDropOpen.set(true); $event.stopPropagation()"
                     />
-                    @if (specDropOpen() && filteredSpecs().length > 0) {
+                    @if (specDropOpen()) {
                       <div class="spec-dropdown" (click)="$event.stopPropagation()">
+                        @if (filteredSpecs().length === 0) {
+                          <div class="spec-drop__empty">
+                            @if (catalog().length === 0) {
+                              Todavía no hay especialidades cargadas. Podés agregarlas desde "Gestionar especialidades".
+                            } @else {
+                              Sin resultados para "{{ specQuery() }}". Probá con otro término o cargá una especialidad nueva desde "Gestionar especialidades".
+                            }
+                          </div>
+                        }
                         @for (grp of specGroups; track grp) {
                           @let items = filteredSpecsByGroup(grp);
                           @if (items.length > 0) {
-                            <div class="spec-drop__group-label">{{ grp }}</div>
+                            <div class="spec-drop__group-label">
+                              <span class="spec-drop__group-dot" [style.background]="groupColor(grp).fg"></span>
+                              {{ grp }}
+                            </div>
                             @for (sp of items; track sp.id) {
-                              <button class="spec-drop__item" [class.spec-drop__item--selected]="form().specialties.includes(sp.id)" (click)="toggleSpecialty(sp.id)">
-                                <span class="spec-chip" style="pointer-events:none"
-                                  [style.background]="groupColor(sp.group).bg"
-                                  [style.color]="groupColor(sp.group).fg"
-                                  [style.border-color]="groupColor(sp.group).border"
-                                >{{ sp.name }}</span>
+                              <button type="button" class="spec-drop__item" [class.spec-drop__item--selected]="form().specialties.includes(sp.id)" (click)="toggleSpecialty(sp.id)">
+                                <div style="flex:1;min-width:0">
+                                  <div class="spec-drop__item-name" [style.color]="groupColor(sp.group).fg">{{ sp.name }}</div>
+                                  @if (sp.descripcion) {
+                                    <div class="spec-drop__item-desc">{{ sp.descripcion }}</div>
+                                  }
+                                </div>
                                 @if (form().specialties.includes(sp.id)) {
-                                  <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="var(--accent-emerald)" stroke-width="2" stroke-linecap="round" style="margin-left:auto"><polyline points="1.5 5.5 4.5 8.5 9.5 2"/></svg>
+                                  <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="var(--accent-emerald)" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;margin-left:8px"><polyline points="1.5 5.5 4.5 8.5 9.5 2"/></svg>
                                 }
                               </button>
                             }
@@ -334,7 +347,7 @@
                     }
                   </div>
                 </div>
-                <div class="mono micro" style="color:var(--text-muted);margin-top:4px">{{ form().specialties.length }} especialidades seleccionadas</div>
+                <div class="mono micro" style="color:var(--text-muted);margin-top:4px">{{ form().specialties.length }} seleccionadas</div>
               </div>
 
               <!-- Hab cards -->
