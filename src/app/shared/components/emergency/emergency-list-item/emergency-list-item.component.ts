@@ -32,11 +32,15 @@ import { EmergencySlaBarComponent } from '../emergency-sla-bar/emergency-sla-bar
               {{ emergency().codigo ?? 'E-????' }}
             </span>
             <emx-emergency-priority-badge [priority]="emergency().prioridad" />
+            <span
+              class="origin-chip"
+              [class.origin-chip--institutional]="origin() === 'INSTITUCIONAL'"
+            >{{ originLabel() }}</span>
           </div>
-          <span
-            class="font-mono text-xs flex-shrink-0"
-            [style.color]="elapsedColor()"
-          >{{ elapsedStr() }}</span>
+          <div class="flex items-center gap-1.5 flex-shrink-0">
+            <span class="status-chip">{{ emergency().estado ?? 'RECIBIDO' }}</span>
+            <span class="font-mono text-xs" [style.color]="elapsedColor()">{{ elapsedStr() }}</span>
+          </div>
         </div>
 
         <!-- Type + address -->
@@ -52,6 +56,15 @@ import { EmergencySlaBarComponent } from '../emergency-sla-bar/emergency-sla-bar
               {{ emergency().direccion ?? '—' }}
             </span>
           </div>
+          @if (coverageLabel()) {
+            <div class="coverage-row">
+              <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                <path d="M6 1.25 10 2.8v2.9c0 2.34-1.6 4.42-4 5.05-2.4-.63-4-2.71-4-5.05V2.8L6 1.25Z"/>
+                <path d="m4.25 5.9 1.1 1.1 2.4-2.45"/>
+              </svg>
+              <span class="truncate">{{ coverageLabel() }}</span>
+            </div>
+          }
         </div>
 
         <!-- SLA bar -->
@@ -143,6 +156,41 @@ import { EmergencySlaBarComponent } from '../emergency-sla-bar/emergency-sla-bar
         0 0 0 3px color-mix(in srgb, var(--priority-color) 10%, transparent);
     }
 
+    .origin-chip,
+    .status-chip {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 9px;
+      line-height: 1;
+      letter-spacing: 0.06em;
+      padding: 4px 5px;
+      border-radius: 4px;
+      color: var(--text-muted);
+      background: color-mix(in srgb, var(--text-muted) 8%, transparent);
+      border: 1px solid color-mix(in srgb, var(--text-muted) 18%, transparent);
+      white-space: nowrap;
+    }
+
+    .origin-chip--institutional {
+      color: #047857;
+      background: rgba(16, 185, 129, 0.10);
+      border-color: rgba(16, 185, 129, 0.30);
+    }
+
+    .status-chip {
+      color: var(--text-secondary);
+    }
+
+    .coverage-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      min-width: 0;
+      color: #047857;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 10px;
+      letter-spacing: 0.02em;
+    }
+
     .emergency-card--selected {
       background:
         linear-gradient(135deg, color-mix(in srgb, var(--priority-color) 15%, transparent), transparent 52%),
@@ -180,6 +228,23 @@ export class EmergencyListItemComponent {
   call = output<TicketAsistenciaDTO>();
 
   private router = inject(Router);
+
+  readonly origin = computed(() => resolveOrigen(this.emergency()));
+
+  readonly originLabel = computed(() => {
+    switch (this.origin()) {
+      case 'INSTITUCIONAL': return 'INSTITUCIONAL';
+      case 'INDIVIDUAL': return 'PERSONA';
+      case 'EVENTO': return 'EVENTO';
+      default: return 'PARTICULAR';
+    }
+  });
+
+  readonly coverageLabel = computed(() => {
+    const ticket = this.emergency();
+    const context = ticket.contextoCobertura;
+    return context?.institucionNombre ?? context?.areaProtegidaNombre ?? ticket.coberturaNombreSnapshot ?? null;
+  });
 
   openDetail(): void {
     const ticket = this.emergency();

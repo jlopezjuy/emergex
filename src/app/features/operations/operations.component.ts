@@ -9,6 +9,7 @@ import { PatientApiService } from '../../data-access/api/patient.api';
 import { DashboardOperativoDTO } from '../../data-access/dto/dashboard.dto';
 import { TicketAsistenciaDTO } from '../../data-access/dto/ticket.dto';
 import { CoberturaVigenteDTO } from '../../data-access/dto/patient.dto';
+import { resolveOrigen } from '../../core/utils/ticket-origen.utils';
 import { OperationsMapComponent } from '../../shared/components/map/operations-map/operations-map.component';
 import { EmergencyListItemComponent } from '../../shared/components/emergency/emergency-list-item/emergency-list-item.component';
 import { TelemetryBarComponent } from '../../shared/components/telemetry-bar/telemetry-bar.component';
@@ -20,7 +21,7 @@ import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { catchError, of } from 'rxjs';
 
-type FeedTab = 'TODAS' | 'SIN_ASIGNAR' | 'CRITICAS';
+type FeedTab = 'TODAS' | 'INSTITUCIONALES' | 'PERSONAS' | 'SIN_ASIGNAR' | 'CRITICAS';
 
 @Component({
   selector: 'app-operations',
@@ -38,7 +39,7 @@ type FeedTab = 'TODAS' | 'SIN_ASIGNAR' | 'CRITICAS';
   template: `
     <div class="h-full flex flex-col overflow-hidden">
       <!-- Main 2-column area -->
-      <div class="flex-1 grid overflow-hidden" style="grid-template-columns: 1fr 340px;">
+      <div class="flex-1 grid overflow-hidden" style="grid-template-columns: minmax(0, 1fr) minmax(400px, 460px);">
         <!-- Map (center/left) -->
         <div class="relative overflow-hidden">
           <!-- Map header overlay -->
@@ -166,6 +167,21 @@ type FeedTab = 'TODAS' | 'SIN_ASIGNAR' | 'CRITICAS';
             </div>
           </div>
 
+          <div class="ops-feed-summary">
+            <div class="ops-feed-summary__item ops-feed-summary__item--institutional">
+              <span>Instituciones</span>
+              <strong>{{ institutionalCount() }}</strong>
+            </div>
+            <div class="ops-feed-summary__item">
+              <span>Personas</span>
+              <strong>{{ personCount() }}</strong>
+            </div>
+            <div class="ops-feed-summary__item ops-feed-summary__item--dispatched">
+              <span>Despachadas</span>
+              <strong>{{ dispatchedCount() }}</strong>
+            </div>
+          </div>
+
           <!-- Panel header: tabs -->
           <div
             class="flex flex-col flex-shrink-0 border-b"
@@ -205,7 +221,7 @@ type FeedTab = 'TODAS' | 'SIN_ASIGNAR' | 'CRITICAS';
               <input
                 type="text"
                 [(ngModel)]="feedSearch"
-                placeholder="Buscar por tipo o dirección..."
+                placeholder="Buscar paciente, institución o dirección..."
                 class="w-full rounded-btn px-2.5 py-1.5 text-xs"
                 style="background: var(--surface-glass); border: 1px solid var(--border-glass); color: var(--text-primary);"
               />
@@ -386,6 +402,46 @@ type FeedTab = 'TODAS' | 'SIN_ASIGNAR' | 'CRITICAS';
           var(--bg-deep);
       }
 
+      .ops-feed-summary {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--border-glass);
+        background: color-mix(in srgb, var(--bg-elevated) 68%, transparent);
+      }
+
+      .ops-feed-summary__item {
+        min-width: 0;
+        padding: 7px 8px;
+        border: 1px solid var(--border-glass);
+        border-radius: 7px;
+        background: color-mix(in srgb, var(--surface-glass) 82%, transparent);
+      }
+
+      .ops-feed-summary__item span {
+        display: block;
+        overflow: hidden;
+        color: var(--text-muted);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-size: 9px;
+        letter-spacing: 0.06em;
+        text-overflow: ellipsis;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+
+      .ops-feed-summary__item strong {
+        display: block;
+        margin-top: 3px;
+        color: var(--text-primary);
+        font-size: 16px;
+        line-height: 1;
+      }
+
+      .ops-feed-summary__item--institutional strong { color: #059669; }
+      .ops-feed-summary__item--dispatched strong { color: var(--accent-cyan); }
+
       :host-context([data-theme='dark']) .ops-map-header {
         background: linear-gradient(
           to bottom,
@@ -426,19 +482,34 @@ export class OperationsComponent implements OnInit, OnDestroy {
   readonly activeTab = signal<FeedTab>('TODAS');
   feedSearch = '';
 
+  readonly institutionalCount = computed(() =>
+    this.emergencyStore.emergencies().filter((ticket) => resolveOrigen(ticket) === 'INSTITUCIONAL').length,
+  );
+  readonly personCount = computed(() =>
+    this.emergencyStore.emergencies().filter((ticket) => resolveOrigen(ticket) !== 'INSTITUCIONAL').length,
+  );
+  readonly dispatchedCount = computed(() =>
+    this.emergencyStore.emergencies().filter((ticket) => ticket.estado === 'DESPACHADO').length,
+  );
+
   readonly filteredEmergencies = computed(() => {
     const all = this.emergencyStore.emergencies();
     const tab = this.activeTab();
     const q = this.feedSearch.toLowerCase().trim();
 
     let list = all;
-    if (tab === 'SIN_ASIGNAR') list = all.filter((e) => !e.ambulanciaId);
+    if (tab === 'INSTITUCIONALES') list = all.filter((e) => resolveOrigen(e) === 'INSTITUCIONAL');
+    else if (tab === 'PERSONAS') list = all.filter((e) => resolveOrigen(e) !== 'INSTITUCIONAL');
+    else if (tab === 'SIN_ASIGNAR') list = all.filter((e) => !e.ambulanciaId);
     else if (tab === 'CRITICAS') list = all.filter((e) => e.prioridad === 'CRITICA');
 
     if (q) {
       list = list.filter(
         (e) =>
-          e.tipoEmergencia?.toLowerCase().includes(q) || e.direccion?.toLowerCase().includes(q),
+          e.tipoEmergencia?.toLowerCase().includes(q) ||
+          e.direccion?.toLowerCase().includes(q) ||
+          e.pacienteDescripcion?.toLowerCase().includes(q) ||
+          e.coberturaNombreSnapshot?.toLowerCase().includes(q),
       );
     }
 
@@ -452,6 +523,8 @@ export class OperationsComponent implements OnInit, OnDestroy {
 
   readonly feedTabs: { id: FeedTab; label: string; count: () => number }[] = [
     { id: 'TODAS', label: 'Activas', count: () => this.emergencyStore.emergencies().length },
+    { id: 'INSTITUCIONALES', label: 'Instituciones', count: () => this.institutionalCount() },
+    { id: 'PERSONAS', label: 'Personas', count: () => this.personCount() },
     {
       id: 'SIN_ASIGNAR',
       label: 'Sin asignar',
