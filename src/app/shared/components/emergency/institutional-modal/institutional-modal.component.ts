@@ -180,20 +180,23 @@ function parseApiError(err: any): string {
                           {{ form().institutionQuery.length < 2 ? 'Escribí al menos 2 caracteres…' : 'Sin resultados' }}
                         </div>
                       }
-                      @for (r of institutionResults(); track r.id) {
-                        <button type="button" class="ac-row" (click)="selectInstitution(r)">
-                          <div class="ac-row__icon">
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                          </div>
-                          <div style="flex:1;text-align:left;min-width:0">
-                            <div style="font-size:13px;font-weight:500;color:var(--text-primary)">{{ r.name }}</div>
-                            <div class="mono micro" style="color:var(--text-muted)">{{ r.type | uppercase }} · {{ r.address ?? 'Sin dirección' }}</div>
-                          </div>
-                          @if (r.status === 'SUSPENDIDA' || r.status === 'BAJA') {
-                            <emx-status-badge variant="urgent">{{ r.status }}</emx-status-badge>
-                          }
-                        </button>
-                      }
+                       @for (r of institutionResults(); track r.id) {
+                         <button type="button" class="ac-row" (click)="selectInstitution(r)"
+                           [disabled]="r.status === 'SUSPENDIDA' || r.status === 'BAJA'"
+                           [style.opacity]="(r.status === 'SUSPENDIDA' || r.status === 'BAJA') ? 0.55 : 1"
+                           [style.cursor]="(r.status === 'SUSPENDIDA' || r.status === 'BAJA') ? 'not-allowed' : 'pointer'">
+                           <div class="ac-row__icon">
+                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                           </div>
+                           <div style="flex:1;text-align:left;min-width:0">
+                             <div style="font-size:13px;font-weight:500;color:var(--text-primary)">{{ r.name }}</div>
+                             <div class="mono micro" style="color:var(--text-muted)">{{ r.type | uppercase }} · {{ r.address ?? 'Sin dirección' }}</div>
+                           </div>
+                           @if (r.status === 'SUSPENDIDA' || r.status === 'BAJA') {
+                             <emx-status-badge variant="urgent">{{ r.status }}</emx-status-badge>
+                           }
+                         </button>
+                       }
                     </div>
                   }
                 </div>
@@ -965,12 +968,11 @@ export class InstitutionalModalComponent implements OnInit, OnDestroy {
     return isCritical && !hasMedico;
   }
 
-  // ── Lifecycle ──
   ngOnInit(): void {
     this.isLoadingInstitutions.set(true);
     this.instituciones.getAll().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
             next: list => {
-              this._allInstitutions = list.filter(i => i.status === 'ACTIVA' || i.status === 'PENDIENTE_ACTIVACION');
+              this._allInstitutions = list;
               this.institutionResults.set(this._allInstitutions.slice(0, 8));
               this.isLoadingInstitutions.set(false);
             },
@@ -1000,6 +1002,9 @@ export class InstitutionalModalComponent implements OnInit, OnDestroy {
   }
 
   selectInstitution(inst: InstitutionDTO): void {
+    if (inst.status === 'SUSPENDIDA' || inst.status === 'BAJA') {
+      return;
+    }
     this.patchForm({
       institutionId: inst.id,
       institutionQuery: '',

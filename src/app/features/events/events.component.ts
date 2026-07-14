@@ -218,79 +218,91 @@ import { DatePipe } from '@angular/common';
 
             <!-- List body (scrollable) -->
             <div class="flex-1 overflow-y-auto">
-              @for (group of groupedEvents(); track group.key) {
-                <!-- Month group header -->
-                <div class="px-4 py-2 flex items-center gap-2 sticky top-0" style="background:var(--bg-elevated);border-bottom:1px solid var(--border-hairline);z-index:1;">
-                  <span class="font-mono text-xs font-semibold uppercase tracking-wider" style="color:var(--text-muted);">{{ group.label }} · {{ group.events.length }} evento{{ group.events.length !== 1 ? 's' : '' }}</span>
-                </div>
-
-                @for (ev of group.events; track ev.id) {
-                  <button type="button"
-                    class="w-full text-left flex items-center gap-3 px-4 py-3 transition-colors"
-                    style="border-bottom:1px solid var(--border-hairline);background:transparent;border-left:none;border-right:none;border-top:none;cursor:pointer;"
-                    [style.background]="selectedEvent()?.id === ev.id ? 'rgba(59,130,246,0.06)' : 'transparent'"
-                    (click)="selectedEvent.set(ev)"
-                    (mouseenter)="$any($event.currentTarget).style.background='rgba(255,255,255,0.03)'"
-                    (mouseleave)="$any($event.currentTarget).style.background=selectedEvent()?.id === ev.id ? 'rgba(59,130,246,0.06)' : 'transparent'">
-
-                    <!-- Date column -->
-                    <div class="text-center flex-shrink-0" style="width:36px;">
-                      <div class="font-mono font-bold" style="font-size:22px;line-height:1;color:var(--text-primary);">{{ ev.dateFrom.slice(8) }}</div>
-                      <div class="font-mono uppercase" style="font-size:9px;color:var(--text-muted);margin-top:2px;">{{ dayOfWeek(ev.dateFrom) }}</div>
-                    </div>
-
-                    <!-- Color bar -->
-                    <div class="flex-shrink-0 self-stretch" style="width:3px;border-radius:2px;" [style.background]="typeColor(ev.type)"></div>
-
-                    <!-- Center info -->
-                    <div class="flex-1 min-w-0">
-                      <div class="flex items-center gap-2">
-                        <span class="font-semibold truncate" style="font-size:13.5px;color:var(--text-primary);">{{ ev.name }}</span>
-                        <span class="font-mono flex-shrink-0" style="font-size:11px;color:var(--text-muted);">{{ ev.id }}</span>
-                      </div>
-                      <div class="flex items-center gap-2 mt-0.5">
-                        <span style="font-size:12px;color:var(--text-secondary);">{{ ev.timeFrom }} → {{ ev.timeTo }}</span>
-                        <span style="font-size:11px;color:var(--text-muted);">· {{ ev.address }}</span>
-                      </div>
-                    </div>
-
-                    <!-- Right meta -->
-                    <div class="flex items-center gap-3 flex-shrink-0">
-                      <!-- Type chip -->
-                      <span style="padding:2px 8px;border-radius:5px;font-size:12px;font-weight:500;"
-                        [style.background]="typeColor(ev.type) + '22'"
-                        [style.color]="typeColor(ev.type)">{{ ev.type }}</span>
-
-                      <!-- Attendees -->
-                      <span class="font-mono" style="font-size:11px;color:var(--text-muted);">{{ ev.attendees.toLocaleString() }} asist.</span>
-
-                      <!-- Units -->
-                      <div class="flex items-center gap-1">
-                        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="var(--accent-emerald)" stroke-width="1.5">
-                          <rect x="1" y="4" width="11" height="6" rx="1.5"/>
-                          <path d="M3 4V3a1.5 1.5 0 011.5-1.5h4A1.5 1.5 0 0110 3v1"/>
-                          <circle cx="3" cy="10" r="1"/><circle cx="10" cy="10" r="1"/>
-                        </svg>
-                        <span class="font-mono font-semibold" style="font-size:11px;color:var(--accent-emerald);">{{ ev.units.length }}</span>
-                      </div>
-
-                      <!-- Status badge -->
-                      <emx-status-badge [variant]="statusMeta(ev.status).variant" [pulse]="ev.status === 'inprogress'">
-                        {{ statusMeta(ev.status).label }}
-                      </emx-status-badge>
-                    </div>
-                  </button>
-                }
-              }
-
-              @if (filteredEvents().length === 0) {
+              @if (loadingEvents()) {
                 <div class="flex flex-col items-center justify-center py-16" style="color:var(--text-muted);">
-                  <svg width="36" height="36" viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.2" style="margin-bottom:10px;opacity:0.4;">
-                    <rect x="4" y="6" width="28" height="26" rx="3"/>
-                    <path d="M4 14h28"/><path d="M12 2v8M24 2v8"/>
-                  </svg>
-                  <span style="font-size:13px;">No se encontraron eventos</span>
+                  <span class="ac-spinner"></span>
+                  <span style="font-size:13px;margin-top:10px;">Cargando eventos...</span>
                 </div>
+              } @else if (errorEvents()) {
+                <div class="flex flex-col items-center justify-center py-16" style="color:var(--accent-red); gap: 8px;">
+                  <span style="font-size:13px;font-weight:600;">Error al cargar eventos</span>
+                  <button type="button" class="btn btn--secondary btn--sm" (click)="retryLoadEvents()">Reintentar</button>
+                </div>
+              } @else {
+                @for (group of groupedEvents(); track group.key) {
+                  <!-- Month group header -->
+                  <div class="px-4 py-2 flex items-center gap-2 sticky top-0" style="background:var(--bg-elevated);border-bottom:1px solid var(--border-hairline);z-index:1;">
+                    <span class="font-mono text-xs font-semibold uppercase tracking-wider" style="color:var(--text-muted);">{{ group.label }} · {{ group.events.length }} evento{{ group.events.length !== 1 ? 's' : '' }}</span>
+                  </div>
+
+                  @for (ev of group.events; track ev.id) {
+                    <button type="button"
+                      class="w-full text-left flex items-center gap-3 px-4 py-3 transition-colors"
+                      style="border-bottom:1px solid var(--border-hairline);background:transparent;border-left:none;border-right:none;border-top:none;cursor:pointer;"
+                      [style.background]="selectedEvent()?.id === ev.id ? 'rgba(59,130,246,0.06)' : 'transparent'"
+                      (click)="selectedEvent.set(ev)"
+                      (mouseenter)="$any($event.currentTarget).style.background='rgba(255,255,255,0.03)'"
+                      (mouseleave)="$any($event.currentTarget).style.background=selectedEvent()?.id === ev.id ? 'rgba(59,130,246,0.06)' : 'transparent'">
+
+                      <!-- Date column -->
+                      <div class="text-center flex-shrink-0" style="width:36px;">
+                        <div class="font-mono font-bold" style="font-size:22px;line-height:1;color:var(--text-primary);">{{ ev.dateFrom.slice(8) }}</div>
+                        <div class="font-mono uppercase" style="font-size:9px;color:var(--text-muted);margin-top:2px;">{{ dayOfWeek(ev.dateFrom) }}</div>
+                      </div>
+
+                      <!-- Color bar -->
+                      <div class="flex-shrink-0 self-stretch" style="width:3px;border-radius:2px;" [style.background]="typeColor(ev.type)"></div>
+
+                      <!-- Center info -->
+                      <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2">
+                          <span class="font-semibold truncate" style="font-size:13.5px;color:var(--text-primary);">{{ ev.name }}</span>
+                          <span class="font-mono flex-shrink-0" style="font-size:11px;color:var(--text-muted);">{{ ev.id }}</span>
+                        </div>
+                        <div class="flex items-center gap-2 mt-0.5">
+                          <span style="font-size:12px;color:var(--text-secondary);">{{ ev.timeFrom }} → {{ ev.timeTo }}</span>
+                          <span style="font-size:11px;color:var(--text-muted);">· {{ ev.address }}</span>
+                        </div>
+                      </div>
+
+                      <!-- Right meta -->
+                      <div class="flex items-center gap-3 flex-shrink-0">
+                        <!-- Type chip -->
+                        <span style="padding:2px 8px;border-radius:5px;font-size:12px;font-weight:500;"
+                          [style.background]="typeColor(ev.type) + '22'"
+                          [style.color]="typeColor(ev.type)">{{ ev.type }}</span>
+
+                        <!-- Attendees -->
+                        <span class="font-mono" style="font-size:11px;color:var(--text-muted);">{{ ev.attendees.toLocaleString() }} asist.</span>
+
+                        <!-- Units -->
+                        <div class="flex items-center gap-1">
+                          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="var(--accent-emerald)" stroke-width="1.5">
+                            <rect x="1" y="4" width="11" height="6" rx="1.5"/>
+                            <path d="M3 4V3a1.5 1.5 0 011.5-1.5h4A1.5 1.5 0 0110 3v1"/>
+                            <circle cx="3" cy="10" r="1"/><circle cx="10" cy="10" r="1"/>
+                          </svg>
+                          <span class="font-mono font-semibold" style="font-size:11px;color:var(--accent-emerald);">{{ ev.units.length }}</span>
+                        </div>
+
+                        <!-- Status badge -->
+                        <emx-status-badge [variant]="statusMeta(ev.status).variant" [pulse]="ev.status === 'inprogress'">
+                          {{ statusMeta(ev.status).label }}
+                        </emx-status-badge>
+                      </div>
+                    </button>
+                  }
+                }
+
+                @if (filteredEvents().length === 0) {
+                  <div class="flex flex-col items-center justify-center py-16" style="color:var(--text-muted);">
+                    <svg width="36" height="36" viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-width="1.2" style="margin-bottom:10px;opacity:0.4;">
+                      <rect x="4" y="6" width="28" height="26" rx="3"/>
+                      <path d="M4 14h28"/><path d="M12 2v8M24 2v8"/>
+                    </svg>
+                    <span style="font-size:13px;">No se encontraron eventos</span>
+                  </div>
+                }
               }
             </div>
           </div>
@@ -788,6 +800,8 @@ export class EventsComponent implements OnInit {
   readonly eventIncidents = signal<TicketAsistenciaDTO[]>([]);
   readonly loadingIncidents = signal(false);
   readonly newEventOpen = signal(false);
+  readonly loadingEvents = signal(false);
+  readonly errorEvents = signal(false);
 
   constructor() {
     effect(() => {
@@ -973,10 +987,26 @@ export class EventsComponent implements OnInit {
     });
   }
 
+  retryLoadEvents(): void {
+    this.loadEvents();
+  }
+
   private loadEvents(): void {
+    this.loadingEvents.set(true);
+    this.errorEvents.set(false);
     this.eventsApi.getAll().pipe(
-      catchError(() => of([])), takeUntilDestroyed(this.destroyRef)
-    ).subscribe(data => this.events.set(data));
+      takeUntilDestroyed(this.destroyRef)
+    ).subscribe({
+      next: data => {
+        this.events.set(data);
+        this.loadingEvents.set(false);
+      },
+      error: () => {
+        this.events.set([]);
+        this.errorEvents.set(true);
+        this.loadingEvents.set(false);
+      }
+    });
   }
 
   // ── Methods ────────────────────────────────────────────────────────────────

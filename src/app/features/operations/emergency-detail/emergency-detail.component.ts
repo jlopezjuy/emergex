@@ -1490,7 +1490,13 @@ export class EmergencyDetailComponent implements OnInit {
   readonly noteText = signal('');
   readonly notaError = signal<string | null>(null);
   readonly notaOk = signal(false);
-  readonly canCreateOperationalNotes = signal(true);
+  readonly canCreateOperationalNotes = computed(() => {
+    return this.session.isDespachante() ||
+           this.session.isOperador() ||
+           this.session.isAdministrador() ||
+           this.session.isPropietario() ||
+           this.session.isAdmin();
+  });
   readonly showCancelDialog = signal(false);
   readonly cancelMotivo = signal('');
   readonly clinicalAtencion = signal<AtencionFullDTO | null>(null);

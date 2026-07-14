@@ -16,7 +16,9 @@ describe('InstitutionalModalComponent', () => {
   const institutionsApiMock = {
     getAll: vi.fn().mockReturnValue(of([
       { id: '1', name: 'Institución A', status: 'ACTIVA', address: 'Calle Falsa 123' },
-      { id: '2', name: 'Institución B', status: 'ACTIVA', address: 'Calle Falsa 456' }
+      { id: '2', name: 'Institución B', status: 'ACTIVA', address: 'Calle Falsa 456' },
+      { id: '3', name: 'Institución Suspendida', status: 'SUSPENDIDA', address: 'Calle Falsa 789' },
+      { id: '4', name: 'Institución Baja', status: 'BAJA', address: 'Calle Falsa 000' }
     ])),
     getContratosByInstitucion: vi.fn().mockReturnValue(of([]))
   };
@@ -106,4 +108,26 @@ describe('InstitutionalModalComponent', () => {
     fixture.detectChanges();
     expect(component.step1Valid()).toBe(true);
   });
+
+  it('debería mostrar instituciones suspendidas o de baja en los resultados pero no permitir seleccionarlas', async () => {
+    component.onInstitutionInput('Institución');
+    fixture.detectChanges();
+
+    const results = component.institutionResults();
+    const suspendida = results.find(r => r.status === 'SUSPENDIDA');
+    const baja = results.find(r => r.status === 'BAJA');
+
+    expect(suspendida).toBeDefined();
+    expect(baja).toBeDefined();
+
+    // Intentar seleccionar
+    component.selectInstitution(suspendida!);
+    fixture.detectChanges();
+    expect(component.institution()).toBeNull();
+
+    component.selectInstitution(baja!);
+    fixture.detectChanges();
+    expect(component.institution()).toBeNull();
+  });
 });
+
