@@ -144,6 +144,13 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'encuestas',
+        loadChildren: () =>
+          import('./features/encuestas/encuestas.routes').then(
+            (m) => m.ENCUESTAS_ROUTES,
+          ),
+      },
+      {
         path: 'internacion',
         loadChildren: () =>
           import('./features/internacion/internacion.routes').then(
