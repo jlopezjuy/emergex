@@ -15,6 +15,7 @@ import {
   TelemedicinaSalaResponseDTO,
   CoberturaAsistenciaSnapshotDTO,
   ConsentimientoInformadoDTO,
+  EpisodioClinicoDTO,
 } from '../../../data-access/dto/ticket.dto';
 import { LoadingStateComponent } from '../../../shared/components/loading-state/loading-state.component';
 import { ErrorStateComponent } from '../../../shared/components/error-state/error-state.component';
@@ -26,6 +27,7 @@ import { OperationsMapComponent } from '../../../shared/components/map/operation
 import { UnidadMovilDTO } from '../../../data-access/dto/ambulancia.dto';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { SessionStore } from '../../../core/stores/session.store';
+import { AddAssistedPersonModalComponent } from '../coverage-operations/add-assisted-person-modal.component';
 
 interface StatusStep {
   id: string;
@@ -51,6 +53,7 @@ const ALL_STEPS: StatusStep[] = [
     GlassCardComponent,
     EmptyStateComponent,
     DispatchModalComponent,
+    AddAssistedPersonModalComponent,
     SparklineComponent,
     OperationsMapComponent,
   ],
@@ -174,6 +177,13 @@ const ALL_STEPS: StatusStep[] = [
               <emx-glass-card>
                 <h2 class="section-label">Paciente</h2>
 
+                @if (canIdentifyAnonymousPatient()) {
+                  <div class="alert-block text-xs py-2 px-2 mb-3" style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.24); color: var(--accent-blue); border-radius: 4px;">
+                    La persona será identificada por la tripulación al llegar.
+                    <button type="button" class="btn btn--primary btn--sm ml-2" (click)="showIdentifyPersonModal.set(true)">Identificar persona</button>
+                  </div>
+                }
+
                 @if (isClosedOrCancelled()) {
                   <div class="alert-block text-xs py-1 px-2 mb-3 font-semibold" style="background: rgba(6,182,212,0.1); border: 1px solid rgba(6,182,212,0.2); color: var(--accent-cyan); display: flex; align-items: center; gap: 6px; border-radius: 4px;">
                     ℹ️ Snapshot de datos históricos
@@ -217,6 +227,20 @@ const ALL_STEPS: StatusStep[] = [
                     <dd class="font-mono text-xs mt-0.5" style="color: var(--text-muted);">{{ ticket()?.empresaId ?? '—' }}</dd>
                   </div>
                 </dl>
+
+                @if (episodios().length > 1) {
+                  <div class="mt-4 pt-3" style="border-top: 1px solid var(--border-glass);">
+                    <p class="text-xs font-semibold mb-2" style="color: var(--text-muted);">PERSONAS ATENDIDAS EN ESTE OPERATIVO · {{ episodios().length }}</p>
+                    <ul class="flex flex-col gap-1">
+                      @for (episodio of episodios(); track episodio.id) {
+                        <li class="text-xs" style="color: var(--text-secondary);">
+                          {{ episodio.pacienteNombreSnapshot ?? 'Persona sin identificar' }}
+                          @if (episodio.pacienteDniSnapshot) { · DNI {{ episodio.pacienteDniSnapshot }} }
+                        </li>
+                      }
+                    </ul>
+                  </div>
+                }
               </emx-glass-card>
 
               <!-- Liquidación de Costos (Sprint 3) -->
@@ -1340,6 +1364,19 @@ const ALL_STEPS: StatusStep[] = [
         (closed)="showDispatch.set(false)"
       />
     }
+
+    @if (showIdentifyPersonModal() && ticket()) {
+      <app-add-assisted-person-modal
+        [tipo]="'institucion'"
+        [contextoId]="ticket()!.contextoCobertura?.id ?? 0"
+        [institucionId]="ticket()!.contextoCobertura?.institucionId"
+        [ticketId]="ticket()!.id"
+        [mode]="'identify'"
+        [contextoDireccion]="ticket()!.direccion"
+        (added)="onPersonIdentified()"
+        (closed)="showIdentifyPersonModal.set(false)"
+      />
+    }
   `,
   styles: [`
     .section-label {
@@ -1483,10 +1520,12 @@ export class EmergencyDetailComponent implements OnInit {
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
   readonly detalle = signal<TicketDetalleDTO | null>(null);
+  readonly episodios = signal<EpisodioClinicoDTO[]>([]);
   readonly timeline = signal<LogEstadoTicketDTO[]>([]);
   readonly reversedTimeline = computed(() => [...this.timeline()].reverse());
   readonly tracking = signal<any | null>(null);
   readonly showDispatch = signal(false);
+  readonly showIdentifyPersonModal = signal(false);
   readonly noteText = signal('');
   readonly notaError = signal<string | null>(null);
   readonly notaOk = signal(false);
@@ -1767,6 +1806,11 @@ export class EmergencyDetailComponent implements OnInit {
     return estado === 'CERRADO' || estado === 'CANCELADO' || estado === 'COMPLETADO';
   });
 
+  readonly canIdentifyAnonymousPatient = computed(() => {
+    const name = this.ticket()?.pacienteDescripcion ?? this.ticket()?.pacienteNombreSnapshot ?? '';
+    return !this.isClosedOrCancelled() && name.includes('A IDENTIFICAR (ÁREA PROTEGIDA)');
+  });
+
   readonly patientName = computed((): string => {
     const t = this.ticket();
     if (this.isClosedOrCancelled() && t?.pacienteNombreSnapshot) {
@@ -1958,6 +2002,11 @@ export class EmergencyDetailComponent implements OnInit {
           });
   }
 
+  onPersonIdentified(): void {
+    this.showIdentifyPersonModal.set(false);
+    this.load();
+  }
+
   load(): void {
     const id = this.ticketId;
     this.loading.set(true);
@@ -1966,6 +2015,10 @@ export class EmergencyDetailComponent implements OnInit {
     this.emergencyApi.getDetalle(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
             next: (data) => {
               this.detalle.set(data as TicketDetalleDTO);
+              this.emergencyApi.getEpisodios(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+                next: episodios => this.episodios.set(episodios),
+                error: () => this.episodios.set([]),
+              });
               this.loadClinicalAtencion();
               this.loadTicketGeo(id);
               this.loadTracking(id);

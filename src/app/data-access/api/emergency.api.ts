@@ -23,6 +23,8 @@ import {
   CoberturaAsistenciaSnapshotDTO,
   ContactoDespachoRequestDTO,
   ConsentimientoInformadoDTO,
+  RegistrarPersonaTicketRequest,
+  EpisodioClinicoDTO,
 } from '../dto/ticket.dto';
 
 const URGENCIA_MAP: Record<string, TicketAsistenciaDTO['prioridad']> = {
@@ -168,6 +170,18 @@ export class EmergencyApiService {
     return this.http.post<any>(`${this.base}/recibir-llamada`, req).pipe(
       map((r) => this.mapTicket(r))
     );
+  }
+
+  agregarPersona(ticketId: number, req: RegistrarPersonaTicketRequest): Observable<EpisodioClinicoDTO> {
+    return this.http.post<EpisodioClinicoDTO>(`${this.base}/${ticketId}/personas`, req);
+  }
+
+  identificarPersona(ticketId: number, req: RegistrarPersonaTicketRequest): Observable<EpisodioClinicoDTO> {
+    return this.http.patch<EpisodioClinicoDTO>(`${this.base}/${ticketId}/sujeto`, req);
+  }
+
+  getEpisodios(ticketId: number): Observable<EpisodioClinicoDTO[]> {
+    return this.http.get<EpisodioClinicoDTO[]>(`${this.base}/${ticketId}/episodios`);
   }
 
   altaRapida(req: AltaRapidaRequest): Observable<TicketAsistenciaDTO> {

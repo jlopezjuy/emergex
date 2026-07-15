@@ -46,7 +46,7 @@ import { AddAssistedPersonModalComponent } from './add-assisted-person-modal.com
         <div class="header-actions">
           <div class="roster-count">
             <span class="count-number">{{ roster().length }}</span>
-            <span class="count-label">personas</span>
+            <span class="count-label">asistencias</span>
           </div>
           @if (allClosed()) {
             <button class="btn-finalizar" (click)="finalizarOperativo()">
@@ -75,11 +75,16 @@ import { AddAssistedPersonModalComponent } from './add-assisted-person-modal.com
           <!-- LEFT: Roster -->
           <div class="roster-panel">
             <div class="roster-toolbar">
-              <button class="btn-action btn-action--primary" (click)="showAddPersonModal.set(true)">
+              <button
+                class="btn-action btn-action--primary"
+                [disabled]="selectedTicketId() == null"
+                [title]="selectedTicketId() == null ? 'Seleccioná primero la asistencia operativa' : 'Agregar otra persona al mismo operativo'"
+                (click)="showAddPersonModal.set(true)"
+              >
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5">
                   <path d="M6 1v10M1 6h10"/>
                 </svg>
-                Agregar persona
+                Agregar otra persona
               </button>
               <button class="btn-action" (click)="loadRoster()" title="Actualizar lista">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -166,9 +171,9 @@ import { AddAssistedPersonModalComponent } from './add-assisted-person-modal.com
         [institucionId]="headerInstitucionId()"
         [eventoLatitud]="headerLatitud()"
         [eventoLongitud]="headerLongitud()"
-        [existingContextoCoberturaId]="roster()[0]?.contextoCobertura?.id"
+        [ticketId]="selectedTicketId() ?? undefined"
         [contextoDireccion]="tipo() === 'contexto' ? roster()[0]?.direccion : headerDireccion()"
-        (added)="onPersonAdded($event)"
+        (added)="onPersonAdded()"
         (closed)="showAddPersonModal.set(false)"
       />
     }
@@ -691,10 +696,14 @@ export class CoverageOperationsComponent implements OnInit {
     this.selectedTicketId.set(id);
   }
 
-  onPersonAdded(ticket: TicketAsistenciaDTO): void {
+  onPersonAdded(): void {
     this.showAddPersonModal.set(false);
     this.loadRoster();
-    this.selectedTicketId.set(ticket.id);
+    const ticketId = this.selectedTicketId();
+    if (ticketId != null) {
+      this.selectedTicketId.set(null);
+      queueMicrotask(() => this.selectedTicketId.set(ticketId));
+    }
   }
 
   onTicketClosed(): void {

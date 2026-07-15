@@ -16,6 +16,7 @@ describe('EmergencyDetailComponent', () => {
     emergencyApiMock = {
       getById: vi.fn().mockReturnValue(of({ id: 1 })),
       getDetalle: vi.fn().mockReturnValue(of({ id: 1 })),
+      getEpisodios: vi.fn().mockReturnValue(of([])),
       getTimeline: vi.fn().mockReturnValue(of([])),
       getTrackingInfo: vi.fn().mockReturnValue(of(null)),
       getAtencionByTicket: vi.fn().mockReturnValue(of(null)),

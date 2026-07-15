@@ -116,6 +116,26 @@ export interface CrearTicketRequest {
   canal?: 'PRESENCIAL' | 'TELEFONICA' | 'VIDEOLLAMADA';
 }
 
+export interface RegistrarPersonaTicketRequest {
+  pacienteId?: number;
+  miembroInstitucionId?: number;
+  noAfiliado?: boolean;
+  nombre?: string;
+  apellido?: string;
+  dni?: string;
+  telefono?: string;
+  motivoApertura?: string;
+}
+
+export interface EpisodioClinicoDTO {
+  id: number;
+  ticketAsistenciaId?: number;
+  contextoCoberturaAsistencialId?: number;
+  pacienteNombreSnapshot?: string;
+  pacienteDniSnapshot?: string;
+  estado?: string;
+}
+
 export interface CancelarTicketRequest {
   motivo: string;
   notas?: string;

@@ -9,12 +9,12 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { debounceTime, distinctUntilChanged, switchMap, catchError, of } from 'rxjs';
+import { Observable, debounceTime, distinctUntilChanged, switchMap, catchError, of, map } from 'rxjs';
 import { Subject } from 'rxjs';
 
 import { EmergencyApiService } from '../../../data-access/api/emergency.api';
 import { MiembrosInstitucionApiService, MiembroInstitucionDTO } from '../../../data-access/api/miembros-institucion.api';
-import { CrearTicketRequest, TicketAsistenciaDTO } from '../../../data-access/dto/ticket.dto';
+import { CrearTicketRequest, RegistrarPersonaTicketRequest } from '../../../data-access/dto/ticket.dto';
 
 type TipoPersona = 'transitoria' | 'miembro';
 type NivelUrgencia = 'ROJO' | 'AMARILLO' | 'VERDE';
@@ -28,7 +28,7 @@ type NivelUrgencia = 'ROJO' | 'AMARILLO' | 'VERDE';
       <div class="modal-shell" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <!-- Header -->
         <div class="modal-header">
-          <h2 id="modal-title" class="modal-title">Agregar persona al operativo</h2>
+          <h2 id="modal-title" class="modal-title">{{ mode() === 'identify' ? 'Identificar persona atendida' : 'Agregar otra persona al operativo' }}</h2>
           <button class="btn-close" (click)="closed.emit()" aria-label="Cerrar">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
               <path d="M3 3l10 10M13 3L3 13"/>
@@ -39,7 +39,7 @@ type NivelUrgencia = 'ROJO' | 'AMARILLO' | 'VERDE';
         <!-- Body -->
         <div class="modal-body">
           <!-- Tipo de persona — solo si es institución -->
-          @if (tipo() === 'institucion') {
+          @if (isInstitutionalOperation()) {
             <div class="field-group">
               <label class="field-label">Tipo de persona</label>
               <div class="segmented-control">
@@ -64,7 +64,7 @@ type NivelUrgencia = 'ROJO' | 'AMARILLO' | 'VERDE';
           }
 
           <!-- Búsqueda de miembro -->
-          @if (tipoPersona() === 'miembro' && tipo() === 'institucion') {
+          @if (tipoPersona() === 'miembro' && isInstitutionalOperation()) {
             <div class="field-group">
               <label class="field-label">Buscar miembro</label>
               <input
@@ -108,7 +108,7 @@ type NivelUrgencia = 'ROJO' | 'AMARILLO' | 'VERDE';
           }
 
           <!-- Datos de persona transitoria -->
-          @if (tipoPersona() === 'transitoria' || tipo() === 'evento' || tipo() === 'contexto') {
+          @if (tipoPersona() === 'transitoria' || !isInstitutionalOperation()) {
             <div class="fields-row">
               <div class="field-group">
                 <label class="field-label">Nombre *</label>
@@ -218,7 +218,7 @@ type NivelUrgencia = 'ROJO' | 'AMARILLO' | 'VERDE';
               <div class="spinner"></div>
               Guardando...
             } @else {
-              Registrar asistencia
+              {{ mode() === 'identify' ? 'Confirmar identidad' : 'Registrar persona' }}
             }
           </button>
         </div>
@@ -568,9 +568,11 @@ export class AddAssistedPersonModalComponent {
   eventoLongitud = input<number | undefined>(undefined);
   existingContextoCoberturaId = input<number | undefined>(undefined);
   contextoDireccion = input<string | undefined>(undefined);
+  ticketId = input<number | undefined>(undefined);
+  mode = input<'add' | 'identify'>('add');
 
   // Outputs
-  added = output<TicketAsistenciaDTO>();
+  added = output<void>();
   closed = output<void>();
 
   private emergencyApi = inject(EmergencyApiService);
@@ -631,6 +633,10 @@ export class AddAssistedPersonModalComponent {
     this.tipoPersona.set('miembro');
   }
 
+  isInstitutionalOperation(): boolean {
+    return this.ticketId() != null || this.tipo() === 'institucion';
+  }
+
   onMemberSearch(query: string): void {
     this.memberSearch.set(query);
     this.memberSearch$.next(query);
@@ -671,10 +677,9 @@ export class AddAssistedPersonModalComponent {
       ...(this.contextoDireccion() ? { direccion: this.contextoDireccion() } : {}),
     };
 
-    // Reusar contexto existente si ya hay tickets en el operativo
-    if (this.existingContextoCoberturaId() != null) {
+    if (this.ticketId() == null && this.existingContextoCoberturaId() != null) {
       req.contextoCoberturaId = this.existingContextoCoberturaId();
-    } else {
+    } else if (this.ticketId() == null) {
       // Primera persona: vincular al contexto
       if (this.institucionId() != null) {
         req.institucionId = this.institucionId();
@@ -701,12 +706,32 @@ export class AddAssistedPersonModalComponent {
     this.isSubmitting.set(true);
     this.error.set(null);
 
-    this.emergencyApi.crear(req)
+    const personaReq: RegistrarPersonaTicketRequest = this.tipoPersona() === 'miembro' && this.selectedMemberId() != null
+      ? { miembroInstitucionId: this.selectedMemberId()!, motivoApertura: req.descripcionSintomas }
+      : {
+          noAfiliado: true,
+          nombre: this.nombre().trim(),
+          apellido: this.apellido().trim(),
+          dni: this.dni().trim() || undefined,
+          telefono: this.telefono().trim() || undefined,
+          motivoApertura: req.descripcionSintomas,
+        };
+    let request$: Observable<void>;
+    if (this.ticketId() != null) {
+      const personRequest$ = this.mode() === 'identify'
+        ? this.emergencyApi.identificarPersona(this.ticketId()!, personaReq)
+        : this.emergencyApi.agregarPersona(this.ticketId()!, personaReq);
+      request$ = personRequest$.pipe(map(() => undefined));
+    } else {
+      request$ = this.emergencyApi.crear(req).pipe(map(() => undefined));
+    }
+
+    request$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: ticket => {
+        next: () => {
           this.isSubmitting.set(false);
-          this.added.emit(ticket);
+          this.added.emit();
         },
         error: () => {
           this.isSubmitting.set(false);

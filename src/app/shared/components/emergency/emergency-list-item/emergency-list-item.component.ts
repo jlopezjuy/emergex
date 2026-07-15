@@ -31,6 +31,12 @@ import { EmergencySlaBarComponent } from '../emergency-sla-bar/emergency-sla-bar
             <span class="font-mono text-xs font-semibold" style="color: var(--accent-cyan);">
               {{ emergency().codigo ?? 'E-????' }}
             </span>
+            <span
+              class="urgency-dot"
+              [style.background-color]="priorityColor()"
+              [attr.aria-label]="'Nivel de urgencia ' + (emergency().nivelUrgencia ?? emergency().prioridad ?? 'sin definir')"
+              [title]="emergency().nivelUrgencia ?? emergency().prioridad ?? 'Sin nivel de urgencia'"
+            ></span>
             <emx-emergency-priority-badge [priority]="emergency().prioridad" />
             <span
               class="origin-chip"
@@ -133,7 +139,7 @@ import { EmergencySlaBarComponent } from '../emergency-sla-bar/emergency-sla-bar
       background:
         linear-gradient(135deg, var(--priority-bg), transparent 46%),
         rgba(255, 255, 255, 0.56);
-      border: 1px solid rgba(148, 163, 184, 0.28);
+      border: 1px solid color-mix(in srgb, var(--priority-color) 44%, rgba(148, 163, 184, 0.28));
       box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
     }
 
@@ -168,6 +174,14 @@ import { EmergencySlaBarComponent } from '../emergency-sla-bar/emergency-sla-bar
       background: color-mix(in srgb, var(--text-muted) 8%, transparent);
       border: 1px solid color-mix(in srgb, var(--text-muted) 18%, transparent);
       white-space: nowrap;
+    }
+
+    .urgency-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      flex: 0 0 auto;
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--priority-color) 14%, transparent);
     }
 
     .origin-chip--institutional {
@@ -273,6 +287,12 @@ export class EmergencyListItemComponent {
   }
 
   priorityColor = computed(() => {
+    switch (this.emergency().nivelUrgencia) {
+      case 'ROJO': return 'var(--accent-red)';
+      case 'AMARILLO': return 'var(--accent-amber)';
+      case 'VERDE': return 'var(--accent-emerald)';
+      case 'AZUL': return 'var(--accent-blue)';
+    }
     switch (this.emergency().prioridad) {
       case 'CRITICA': return 'var(--accent-red)';
       case 'URGENTE': return 'var(--accent-amber)';
@@ -282,6 +302,12 @@ export class EmergencyListItemComponent {
   });
 
   priorityTint = computed(() => {
+    switch (this.emergency().nivelUrgencia) {
+      case 'ROJO': return 'rgba(239, 68, 68, 0.09)';
+      case 'AMARILLO': return 'rgba(245, 158, 11, 0.11)';
+      case 'VERDE': return 'rgba(16, 185, 129, 0.10)';
+      case 'AZUL': return 'rgba(59, 130, 246, 0.10)';
+    }
     switch (this.emergency().prioridad) {
       case 'CRITICA': return 'rgba(239, 68, 68, 0.09)';
       case 'URGENTE': return 'rgba(245, 158, 11, 0.11)';
