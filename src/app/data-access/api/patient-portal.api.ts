@@ -4,6 +4,7 @@ import { Observable, of } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { PacientePortalDashboardDTO, SOSRequestDTO, SOSResponseDTO } from '../dto/patient-portal.dto';
 
+// TODO(P2): reemplazar mock por backend real. Actualmente devuelve datos hardcodeados.
 @Injectable({ providedIn: 'root' })
 export class PatientPortalApiService {
   private http = inject(HttpClient);

@@ -29,9 +29,37 @@ export class TrackingApiService {
     );
   }
 
+  upsertUbicacionConIdempotency(
+    ambulanciaId: number,
+    req: any,
+    idempotencyKey?: string
+  ): Observable<any> {
+    const headers: Record<string, string> = {};
+    if (idempotencyKey) {
+      headers['Idempotency-Key'] = idempotencyKey;
+    }
+    return this.http.post<any>(
+      `${this.base}/ambulancias/${ambulanciaId}/ubicacion`,
+      req,
+      { headers }
+    );
+  }
+
   getUbicacionHistorial(ambulanciaId: number): Observable<GeoPosicionDTO[]> {
     return this.http.get<GeoPosicionDTO[]>(
       `${this.base}/ambulancias/${ambulanciaId}/ubicacion/historial`,
     );
+  }
+
+  aceptarAsignacion(id: number, req?: any): Observable<any> {
+    return this.http.patch<any>(`${this.base}/asignaciones/${id}/aceptar`, req || {});
+  }
+
+  rechazarAsignacion(id: number, req?: any): Observable<any> {
+    return this.http.patch<any>(`${this.base}/asignaciones/${id}/rechazar`, req || {});
+  }
+
+  registrarHeartbeat(req: any): Observable<void> {
+    return this.http.post<void>(`${this.base}/tracking/heartbeat`, req);
   }
 }

@@ -105,6 +105,12 @@ export class EmergencyApiService {
     );
   }
 
+  getMisActivos(): Observable<TicketAsistenciaDTO[]> {
+    return this.http.get<any[]>(`${this.base}/mis-activos`).pipe(
+      map((items) => (items ?? []).map((r) => this.mapTicket(r))),
+    );
+  }
+
   getHistorial(): Observable<TicketAsistenciaDTO[]> {
     return this.http.get<any[]>(`${this.base}/historial`).pipe(
       map((items) => (items ?? []).map((r) => this.mapTicket(r))),

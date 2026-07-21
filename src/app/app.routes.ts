@@ -66,6 +66,14 @@ export const routes: Routes = [
           import('./features/clinico/clinico.component').then((m) => m.ClinicoComponent),
       },
       {
+        path: 'tripulacion',
+        canActivate: [roleGuard('ROLE_PROFESIONAL', 'ROLE_CHOFER', 'ROLE_MEDICO_CAMPO', 'ROLE_ADMIN')],
+        loadComponent: () =>
+          import('./features/tripulacion/tripulacion.component').then(
+            (m) => m.TripulacionComponent,
+          ),
+      },
+      {
         path: 'map',
         loadComponent: () =>
           import('./features/map/map.component').then((m) => m.MapComponent),
@@ -186,11 +194,12 @@ export const routes: Routes = [
             (m) => m.AsistenciasHistorialComponent,
           ),
       },
-      {
-        path: 'paciente',
-        loadComponent: () =>
-          import('./features/paciente/paciente.component').then((m) => m.PacienteComponent),
-      },
+      // TODO(P2): Retirado el mock del portal de pacientes en producción hasta implementar backend real.
+      // {
+      //   path: 'paciente',
+      //   loadComponent: () =>
+      //     import('./features/paciente/paciente.component').then((m) => m.PacienteComponent),
+      // },
       {
         path: 'settings',
         canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_ADMINISTRADOR', 'ROLE_PROPIETARIO')],

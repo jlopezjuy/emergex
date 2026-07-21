@@ -10,6 +10,7 @@ import {
   AsignacionEstadoChangedEvent,
 } from '../../data-access/dto/ticket.dto';
 import { logError } from '../utils/logger';
+import { SessionStore } from './session.store';
 
 const TERMINAL_STATES = new Set(['COMPLETADO', 'CERRADO', 'CANCELADO']);
 
@@ -17,6 +18,7 @@ const TERMINAL_STATES = new Set(['COMPLETADO', 'CERRADO', 'CANCELADO']);
 export class EmergencyStore implements OnDestroy {
   private api = inject(EmergencyApiService);
   private ws = inject(WebsocketService);
+  private sessionStore = inject(SessionStore);
   private tickerSub: Subscription | null = null;
   private ticketSub: StompSubscription | null = null;
   private asignacionSub: StompSubscription | null = null;
@@ -74,7 +76,13 @@ export class EmergencyStore implements OnDestroy {
       this.asignacionSub = null;
     }
 
-    this.ticketSub = this.ws.subscribe('/topic/tickets', (raw: unknown) => {
+    const empresaId = this.sessionStore.account()?.empresa?.id;
+    if (!empresaId) {
+      logError('[EmergencyStore] No se encontró empresaId en la sesión para tracking de tickets');
+      return;
+    }
+
+    this.ticketSub = this.ws.subscribe(`/topic/empresa/${empresaId}/tickets`, (raw: unknown) => {
       const event = raw as TicketEstadoChangedEvent;
       if (!event?.ticketId) return;
       if (TERMINAL_STATES.has(event.estadoNuevo)) {
@@ -90,7 +98,7 @@ export class EmergencyStore implements OnDestroy {
       }
     });
 
-    this.asignacionSub = this.ws.subscribe('/topic/asignaciones', (raw: unknown) => {
+    this.asignacionSub = this.ws.subscribe(`/topic/empresa/${empresaId}/asignaciones`, (raw: unknown) => {
       const event = raw as AsignacionEstadoChangedEvent;
       if (!event?.ticketId) return;
       this.api.getById(event.ticketId).pipe(
