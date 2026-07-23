@@ -616,11 +616,10 @@ export class InternacionListComponent implements OnInit {
     this.showVisitaActionModal.set(false);
   }
 
-  iniciarVisitaActual(): void {
+  confirmarIniciarVisita(): void {
     const v = this.selectedVisita();
     if (!v || !v.id) {
-      // Mock Fallback
-      if (v) v.status = 'progress';
+      alert('Visita no válida para iniciar.');
       this.closeVisitaActionModal();
       return;
     }
@@ -630,8 +629,8 @@ export class InternacionListComponent implements OnInit {
         this.closeVisitaActionModal();
       },
       error: (err) => {
-        console.error('Error starting visit', err);
-        v.status = 'progress';
+        console.error('Error starting visit:', err);
+        alert('No se pudo iniciar la visita en el servidor. Intente nuevamente.');
         this.closeVisitaActionModal();
       }
     });
@@ -643,11 +642,8 @@ export class InternacionListComponent implements OnInit {
 
   confirmarFinalizarVisita(): void {
     const v = this.selectedVisita();
-    if (!v) return;
-
-    if (!v.id) {
-      // Mock Fallback
-      v.status = 'done';
+    if (!v || !v.id) {
+      alert('Visita no válida para finalizar.');
       this.showFinalizarVisitaModal.set(false);
       this.closeVisitaActionModal();
       return;
@@ -660,8 +656,8 @@ export class InternacionListComponent implements OnInit {
         this.closeVisitaActionModal();
       },
       error: (err) => {
-        console.error('Error completing visit', err);
-        v.status = 'done';
+        console.error('Error completing visit:', err);
+        alert('No se pudo finalizar la visita en el servidor. Intente nuevamente.');
         this.showFinalizarVisitaModal.set(false);
         this.closeVisitaActionModal();
       }

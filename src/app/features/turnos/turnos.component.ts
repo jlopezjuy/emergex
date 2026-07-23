@@ -593,9 +593,8 @@ export class TurnosComponent implements OnInit, OnDestroy {
         this.closeTurnoActionMenu();
       },
       error: (err) => {
-        console.error('Error confirming turno', err);
-        // Fallback local
-        this.appointments.update(list => list.map(a => a.id === appt.id ? { ...a, state: 'CONFIRMADO', prio: 'blue' } : a));
+        console.error('Error confirming turno:', err);
+        alert('No se pudo confirmar el turno en el servidor. Intente nuevamente.');
         this.closeTurnoActionMenu();
       }
     });
@@ -611,9 +610,8 @@ export class TurnosComponent implements OnInit, OnDestroy {
         this.closeTurnoActionMenu();
       },
       error: (err) => {
-        console.error('Error performing check-in', err);
-        // Fallback local
-        this.appointments.update(list => list.map(a => a.id === appt.id ? { ...a, state: 'EN_SESION', prio: 'emerald' } : a));
+        console.error('Error performing check-in:', err);
+        alert('No se pudo realizar el check-in en el servidor. Intente nuevamente.');
         this.closeTurnoActionMenu();
       }
     });
@@ -635,9 +633,8 @@ export class TurnosComponent implements OnInit, OnDestroy {
         this.closeTurnoActionMenu();
       },
       error: (err) => {
-        console.error('Error cancelling turno', err);
-        // Fallback local removal
-        this.appointments.update(list => list.filter(a => a.id !== appt.id));
+        console.error('Error cancelling turno:', err);
+        alert('No se pudo cancelar el turno en el servidor. Intente nuevamente.');
         this.showCancelConfirm.set(false);
         this.closeTurnoActionMenu();
       }

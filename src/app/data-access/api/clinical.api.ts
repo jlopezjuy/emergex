@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of, switchMap, map, catchError } from 'rxjs';
+import { Observable, of, switchMap, map, catchError, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { EpisodioClinicoDTO, MedicamentoPrescritoDTO } from '../dto/clinical.dto';
 import { SessionStore } from '../../core/stores/session.store';
@@ -455,24 +455,22 @@ export class ClinicalApiService {
       .post<AtencionFullBackend>(`${this.basAtenciones}/guardar-completa`, payload)
       .pipe(
         map(() => episode),
-        catchError(() => of(episode)),
+        catchError((err) => throwError(() => err)),
       );
   }
 
   // Sign recipe/episode → POST /api/atenciones/{id}/cerrar
   signEpisode(episodeId: string, signature: string): Observable<{ success: boolean; hash: string }> {
     if (!episodeId) {
-      // TODO: backend endpoint missing — no atencionId available to close
       return of({ success: false, hash: '' });
     }
 
     return this.http
-      .post<void>(`${this.basAtenciones}/${episodeId}/cerrar`, null)
+      .post<{ success: boolean; hash: string }>(`${this.basAtenciones}/${episodeId}/cerrar`, null)
       .pipe(
-        map(() => ({
-          success: true,
-          // El backend no devuelve hash digital — se genera localmente como referencia
-          hash: `0x${Date.now().toString(16).toUpperCase()}`,
+        map((res) => ({
+          success: res?.success ?? true,
+          hash: res?.hash ?? '',
         })),
         catchError(() => of({ success: false, hash: '' })),
       );
