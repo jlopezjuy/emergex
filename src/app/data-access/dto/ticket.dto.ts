@@ -59,6 +59,13 @@ export interface TicketAsistenciaDTO {
   trasladoFinalizado?: boolean;
   contextoCobertura?: ContextoCoberturaDTO;
   coberturaNombreSnapshot?: string;
+  historialMoviles?: {
+    ambulanciaId?: number;
+    ambulanciaCodigo?: string;
+    fechaAsignacion?: string;
+    fechaLiberacion?: string;
+    motivo?: string;
+  }[];
 }
 
 export interface AltaRapidaRequest {

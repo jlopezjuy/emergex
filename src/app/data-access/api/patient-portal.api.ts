@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of } from 'rxjs';
+import { Observable, of, map, catchError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { PacientePortalDashboardDTO, SOSRequestDTO, SOSResponseDTO } from '../dto/patient-portal.dto';
 
@@ -148,13 +148,33 @@ export class PatientPortalApiService {
   }
 
   triggerSOS(req: SOSRequestDTO): Observable<SOSResponseDTO> {
-    // Simulated emergency request matching the React implementation
-    return of({
-      exito: true,
-      unidadAsignada: 'ALPHA-1',
-      tiempoEstimadoMinutos: 6,
-      baseOperativa: 'base Palermo',
-      mensaje: 'Unidad de Código Rojo asignada y en camino. Queda asentado en tu historia clínica.'
-    });
+    const payload = {
+      pacienteId: req.pacienteId,
+      descripcionSintomas: 'Solicitud SOS de emergencia desde Portal del Paciente',
+      nivelUrgencia: 'ROJO',
+      tipoAsistencia: 'EMERGENCIA',
+      canal: 'APP_MOVIL',
+      direccion: req.ubicacion
+    };
+
+    return this.http.post<any>(`${environment.apiUrl}/api/v2/asistencias/recibir-llamada`, payload).pipe(
+      map((res) => ({
+        exito: true,
+        unidadAsignada: res.ambulanciaId ? `UNIDAD-${res.ambulanciaId}` : 'DESPACHO ASIGNADO',
+        tiempoEstimadoMinutos: 8,
+        baseOperativa: 'Central Emergex',
+        mensaje: `Emergencia de Código Rojo registrada exitosamente (Ticket #${res.id}). Unidad asignada.`
+      })),
+      catchError((err) => {
+        console.error('Error enviando SOS al backend:', err);
+        return of({
+          exito: false,
+          unidadAsignada: 'N/A',
+          tiempoEstimadoMinutos: 0,
+          baseOperativa: 'Central Emergex',
+          mensaje: 'No se pudo comunicar el SOS con el servidor. Por favor llame inmediatamente a la línea directa de emergencias.'
+        });
+      })
+    );
   }
 }

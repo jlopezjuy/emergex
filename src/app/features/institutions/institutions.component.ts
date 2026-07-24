@@ -423,9 +423,9 @@ const PAGE_SIZE = 10;
                   <td class="mono">#{{ f.id }}</td>
                   <td class="mono">{{ f.periodoDesde }} → {{ f.periodoHasta }}</td>
                   <td>{{ f.cantidadMiembrosFacturados }}</td>
-                  <td class="mono">{{ fmtCurrency(f.importeTotal ?? 0) }}</td>
-                  <td class="mono" [style.color]="(f.saldoPendiente ?? f.importeTotal ?? 0) > 0 ? 'var(--accent-red)' : 'var(--accent-emerald)'">
-                    {{ fmtCurrency(f.saldoPendiente ?? f.importeTotal ?? 0) }}
+                  <td class="mono">{{ fmtCurrency(f.importeTotal) }}</td>
+                  <td class="mono" [style.color]="(f.saldoPendiente ?? f.importeTotal) > 0 ? 'var(--accent-red)' : 'var(--accent-emerald)'">
+                    {{ fmtCurrency(f.saldoPendiente ?? f.importeTotal) }}
                   </td>
                   <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ f.observaciones || '—' }}</td>
                   <td>

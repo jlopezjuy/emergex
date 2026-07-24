@@ -616,7 +616,7 @@ export class InternacionListComponent implements OnInit {
     this.showVisitaActionModal.set(false);
   }
 
-  confirmarIniciarVisita(): void {
+  iniciarVisitaActual(): void {
     const v = this.selectedVisita();
     if (!v || !v.id) {
       alert('Visita no válida para iniciar.');
@@ -713,18 +713,8 @@ export class InternacionListComponent implements OnInit {
         this.showNuevaVisitaModal.set(false);
       },
       error: (err) => {
-        console.error('Error generating visits', err);
-        // Fallback local mock insertion
-        this.visitsMock.push({
-          day: 4,
-          h: 10,
-          d: 0,
-          role: this.nuevaVisitaForm.tipoVisita === 'MEDICA' ? 'med' : this.nuevaVisitaForm.tipoVisita === 'KINESIOLOGIA' ? 'kine' : 'enf',
-          staff: 'Dr. Alejandro Gómez',
-          patient: selected.paciente ? `${selected.paciente.nombre} ${selected.paciente.apellido}` : 'Paciente',
-          status: 'pending'
-        });
-        this.showNuevaVisitaModal.set(false);
+        console.error('Error generating visits on server:', err);
+        alert('❌ Error al generar las visitas en el servidor. Por favor verifique la conexión e intente nuevamente.');
       }
     });
   }

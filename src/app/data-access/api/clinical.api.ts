@@ -263,7 +263,10 @@ export class ClinicalApiService {
               avatar: avatarFromName(t.pacienteNombre ?? 'P'),
             })),
         ),
-        catchError(() => of([])),
+        catchError((err) => {
+          console.error('[ClinicalApiService] Error fetching waitlist:', err);
+          return throwError(() => err);
+        }),
       );
   }
 
@@ -291,7 +294,10 @@ export class ClinicalApiService {
             state: scheduleStateFromEstado(t.estado),
           })),
         ),
-        catchError(() => of([])),
+        catchError((err) => {
+          console.error('[ClinicalApiService] Error fetching schedule:', err);
+          return throwError(() => err);
+        }),
       );
   }
 

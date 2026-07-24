@@ -39,6 +39,7 @@ const ALL_STEPS: StatusStep[] = [
   { id: 'DESPACHADO', label: 'Despachado' },
   { id: 'EN_CAMINO',  label: 'En camino'  },
   { id: 'EN_SITIO',   label: 'En sitio'   },
+  { id: 'HOSPITALIZACION_PENDIENTE', label: 'Hosp. pendiente' },
   { id: 'TRASLADO',   label: 'Traslado'   },
   { id: 'ENTREGADO',  label: 'Entregado'  },
   { id: 'CERRADO',    label: 'Cerrado'    },
@@ -112,7 +113,9 @@ const ALL_STEPS: StatusStep[] = [
             }
           }
           @if (canDispatch()) {
-            <button type="button" class="btn btn--primary btn--sm" (click)="openDispatch()">Despachar</button>
+            <button type="button" class="btn btn--primary btn--sm" (click)="openDispatch()">
+              {{ ticket()?.estado === 'HOSPITALIZACION_PENDIENTE' ? 'Asignar unidad de traslado' : 'Despachar' }}
+            </button>
           }
           @if (canMarkEnCamino()) {
             <button type="button" class="btn btn--primary btn--sm" (click)="marcarEnCamino()">En camino</button>
@@ -603,8 +606,10 @@ const ALL_STEPS: StatusStep[] = [
               <emx-glass-card>
                 <div class="flex items-center justify-between gap-2 mb-2">
                   <h2 class="section-label" style="margin:0;">Unidad asignada</h2>
-                  @if (!ticket()?.ambulanciaId && canDispatch()) {
-                    <button type="button" class="btn btn--primary btn--sm" (click)="openDispatch()">Asignar unidad</button>
+                  @if ((!ticket()?.ambulanciaId || ticket()?.estado === 'HOSPITALIZACION_PENDIENTE') && canDispatch()) {
+                    <button type="button" class="btn btn--primary btn--sm" (click)="openDispatch()">
+                      {{ ticket()?.estado === 'HOSPITALIZACION_PENDIENTE' ? 'Asignar unidad de traslado' : 'Asignar unidad' }}
+                    </button>
                   }
                 </div>
                 @if (ticket()?.ambulanciaId) {
@@ -614,6 +619,20 @@ const ALL_STEPS: StatusStep[] = [
                   <p class="text-sm mt-0.5" style="color: var(--text-secondary);">{{ ticket()?.unidadAsignada ?? '—' }}</p>
                 } @else {
                   <p class="text-sm" style="color: var(--text-muted);">Sin unidad asignada</p>
+                }
+                @if ((ticket()?.historialMoviles?.length ?? 0) > 1) {
+                  <div class="mt-3 border-t pt-3" style="border-color: var(--border-glass);">
+                    <h3 class="text-xs font-semibold mb-2" style="color: var(--text-muted);">Historial de unidades</h3>
+                    <ul class="flex flex-col gap-1.5">
+                      @for (h of ticket()!.historialMoviles!; track h.fechaAsignacion) {
+                        <li class="text-xs" style="color: var(--text-secondary);">
+                          <span class="font-mono font-semibold" style="color: var(--text-primary);">{{ h.ambulanciaCodigo ?? ('AMB-' + h.ambulanciaId) }}</span>
+                          <span style="color: var(--text-muted);"> · {{ formatTime(h.fechaAsignacion) }}{{ h.fechaLiberacion ? ' → ' + formatTime(h.fechaLiberacion) : ' (activa)' }}</span>
+                          @if (h.motivo) { <span class="block" style="color: var(--text-muted);">{{ h.motivo }}</span> }
+                        </li>
+                      }
+                    </ul>
+                  </div>
                 }
 
                 @if (detalle()?.tripulacion && detalle()!.tripulacion!.length > 0) {
@@ -1174,8 +1193,14 @@ const ALL_STEPS: StatusStep[] = [
                 <option value="DERIVADO_HOSPITAL">Derivado a hospital</option>
                 <option value="PACIENTE_RECHAZO">Paciente rechaza</option>
                 <option value="SIN_RESPUESTA">Sin respuesta</option>
+                <option value="HOSPITALIZACION_PENDIENTE">Hospitalización pendiente</option>
               </select>
             </label>
+            @if (closeTipoResolucion() === 'HOSPITALIZACION_PENDIENTE') {
+              <div class="col-span-2 rounded-lg px-4 py-3" style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.35);">
+                <p class="text-xs" style="color: var(--text-secondary);">El caso queda pendiente de cierre y sigue visible en el operativo. La unidad asignada se libera para otros servicios; volvé a abrir "Cerrar" cuando se consiga cama para completar la atención.</p>
+              </div>
+            }
             <label class="clinical-checkbox flex items-center gap-2 mt-5">
               <input type="checkbox" [checked]="closeRequiereTraslado()" (change)="closeRequiereTraslado.set($any($event.target).checked)" />
               <span>Requiere traslado</span>
@@ -1271,7 +1296,9 @@ const ALL_STEPS: StatusStep[] = [
 
           <div class="clinical-modal-footer">
             <button type="button" class="btn btn--ghost btn--sm" (click)="showCloseDialog.set(false)">Volver</button>
-            <button type="button" class="btn btn--primary btn--sm" [disabled]="!closeImpresion().trim()" (click)="confirmarCierre()">Completar atención</button>
+            <button type="button" class="btn btn--primary btn--sm" [disabled]="!closeImpresion().trim()" (click)="confirmarCierre()">
+              {{ closeTipoResolucion() === 'HOSPITALIZACION_PENDIENTE' ? 'Marcar hospitalización pendiente' : 'Completar atención' }}
+            </button>
           </div>
         </div>
       </div>
@@ -1884,7 +1911,9 @@ export class EmergencyDetailComponent implements OnInit {
   readonly canDispatch = computed(() => {
     const t = this.ticket();
     const canByRole = this.session.isDespachante() || this.session.isOperador() || this.session.isAdministrador() || this.session.isPropietario() || this.session.isAdmin();
-    return canByRole && !t?.ambulanciaId && (t?.estado === 'RECIBIDO' || t?.estado === 'EN_ESPERA');
+    if (!canByRole) return false;
+    if (t?.estado === 'HOSPITALIZACION_PENDIENTE') return true;
+    return !t?.ambulanciaId && (t?.estado === 'RECIBIDO' || t?.estado === 'EN_ESPERA');
   });
 
   readonly canMarkEnCamino = computed(() => {
