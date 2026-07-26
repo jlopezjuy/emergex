@@ -13,7 +13,8 @@ import { Component, input, output } from '@angular/core';
       <!-- Panel -->
       <div
         class="glass-strong rounded-card w-full max-h-[90vh] flex flex-col overflow-hidden"
-        style="max-width: 560px; min-width: 320px;"
+        [class]="maxWidthClass()"
+        style="min-width: 320px;"
         (click)="$event.stopPropagation()"
       >
         <!-- Header -->
@@ -50,6 +51,10 @@ export class ModalShellComponent {
   title = input('');
   closed = output<void>();
   closeOnBackdropClick = input(true);
+  // Ancho del panel: por defecto se mantiene el angosto histórico (560px) para no afectar
+  // a los modales existentes; los modales que necesiten más espacio (ej. formularios con
+  // layout en columnas) pueden pasar clases responsivas propias, ej. 'max-w-[560px] lg:max-w-5xl'.
+  maxWidthClass = input('max-w-[560px]');
 
   onBackdropClick(event: MouseEvent): void {
     if (this.closeOnBackdropClick() && event.target === event.currentTarget) {

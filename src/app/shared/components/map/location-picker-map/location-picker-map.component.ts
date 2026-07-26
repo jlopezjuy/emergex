@@ -6,10 +6,10 @@ const JUJUY_CENTER: [number, number] = [-65.2995, -24.1858];
 @Component({
   selector: 'emx-location-picker-map',
   standalone: true,
-  template: `<div #mapEl class="location-map"></div>`,
+  template: `<div #mapEl class="location-map" [style.min-height.px]="minHeight()"></div>`,
   styles: [`
-    :host { display:block; width:100%; height:100%; min-height:180px; }
-    .location-map { width:100%; height:100%; min-height:180px; border-radius:0.75rem; overflow:hidden; }
+    :host { display:block; width:100%; height:100%; }
+    .location-map { width:100%; height:100%; border-radius:0.75rem; overflow:hidden; }
     ::ng-deep .maplibregl-ctrl-attrib { display:none !important; }
   `],
 })
@@ -17,6 +17,9 @@ export class LocationPickerMapComponent implements OnDestroy {
   lat = input<number | null>(null);
   lng = input<number | null>(null);
   zoom = input(15);
+  // Altura mínima configurable: el picker de alta rápida necesita un mapa más bajo
+  // (es solo confirmatorio) que el wizard de pacientes, que le da más protagonismo.
+  minHeight = input(180);
   pointChanged = output<{ lat: number; lng: number }>();
 
   private zone = inject(NgZone);

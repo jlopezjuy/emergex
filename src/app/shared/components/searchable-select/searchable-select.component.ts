@@ -1,4 +1,4 @@
-import { Component, EventEmitter, HostListener, Input, Output, computed, effect, forwardRef, signal } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnDestroy, Output, computed, effect, forwardRef, inject, signal } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 
 export interface SearchableSelectOption {
@@ -29,7 +29,7 @@ let nextListboxId = 0;
     },
   ],
   template: `
-    <div class="relative" (click)="$event.stopPropagation()">
+    <div class="relative">
       <div class="relative">
         <input
           type="text"
@@ -84,9 +84,11 @@ let nextListboxId = 0;
     </div>
   `,
 })
-export class SearchableSelectComponent implements ControlValueAccessor {
+export class SearchableSelectComponent implements ControlValueAccessor, OnDestroy {
   @Input() placeholder = 'Seleccionar...';
   @Input() inputId: string | null = null;
+
+  private readonly elementRef = inject(ElementRef<HTMLElement>);
 
   private readonly _options = signal<SearchableSelectOption[]>([]);
   @Input()
@@ -132,6 +134,18 @@ export class SearchableSelectComponent implements ControlValueAccessor {
   private onChange: (value: string | number | null) => void = () => {};
   private onTouched: () => void = () => {};
 
+  // Listener manual en fase de CAPTURA: el modal-shell hace stopPropagation() en su
+  // panel (para que "click afuera" cierre el modal sin que "click adentro" lo haga),
+  // lo que impedía que un @HostListener('document:click') común (fase de burbuja)
+  // llegara a dispararse para cualquier click dentro del modal. La captura corre
+  // document → target, antes de que ese stopPropagation() (que ocurre en la fase
+  // de burbuja, después) pueda bloquearlo.
+  private readonly onDocumentClickCapture = (event: MouseEvent): void => {
+    if (!this.elementRef.nativeElement.contains(event.target as Node)) {
+      this.dropdownOpen.set(false);
+    }
+  };
+
   constructor() {
     // Mientras el dropdown está cerrado, el texto del input siempre refleja la
     // opción seleccionada (evita dejar visible un texto tipeado sin confirmar).
@@ -141,6 +155,11 @@ export class SearchableSelectComponent implements ControlValueAccessor {
         this.query.set(opt?.label ?? '');
       }
     });
+    document.addEventListener('click', this.onDocumentClickCapture, true);
+  }
+
+  ngOnDestroy(): void {
+    document.removeEventListener('click', this.onDocumentClickCapture, true);
   }
 
   private normalize(text: string): string {
@@ -174,11 +193,6 @@ export class SearchableSelectComponent implements ControlValueAccessor {
     this.rawValue.set(val);
     this.onChange(val);
     this.valueChange.emit(val);
-  }
-
-  @HostListener('document:click')
-  onDocumentClick(): void {
-    this.dropdownOpen.set(false);
   }
 
   writeValue(val: string | number | null | undefined): void {

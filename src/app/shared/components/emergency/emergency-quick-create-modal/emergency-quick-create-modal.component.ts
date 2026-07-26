@@ -75,10 +75,15 @@ const TIPOS_PRACTICA_ESTADISTICA: SearchableSelectOption[] = [
   standalone: true,
   imports: [ReactiveFormsModule, ModalShellComponent, LocationPickerMapComponent, SearchableSelectComponent],
   template: `
-    <emx-modal-shell title="Nueva Emergencia" [closeOnBackdropClick]="false" (closed)="close()">
-      <form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-5">
+    <emx-modal-shell
+      title="Nueva Emergencia"
+      [closeOnBackdropClick]="false"
+      [maxWidthClass]="'max-w-[560px] lg:max-w-5xl'"
+      (closed)="close()"
+    >
+      <form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-4">
 
-        <!-- Tipo de asistencia -->
+        <!-- Tipo de asistencia (fila completa, arriba de las 2 columnas) -->
         <div class="flex flex-col gap-2">
           <span id="tipoAsistenciaLabel" class="eyebrow">Tipo de asistencia *</span>
           <div class="flex flex-wrap gap-1.5" role="radiogroup" aria-labelledby="tipoAsistenciaLabel">
@@ -105,6 +110,13 @@ const TIPOS_PRACTICA_ESTADISTICA: SearchableSelectOption[] = [
             <span role="alert" class="text-xs" style="color: var(--error-text);">Seleccioná un tipo</span>
           }
         </div>
+
+        <!-- Grid principal: 1 columna en mobile/tablet, 2 columnas desde lg (1024px) —
+             coincide con el breakpoint en el que el modal pasa a max-w-5xl. -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-x-6">
+
+        <!-- Columna izquierda: Paciente + Dirección -->
+        <div class="flex flex-col gap-4">
 
         <!-- Paciente -->
         <div class="flex flex-col gap-2">
@@ -356,10 +368,13 @@ const TIPOS_PRACTICA_ESTADISTICA: SearchableSelectOption[] = [
                 }
               </div>
             }
-            <div class="rounded-btn overflow-hidden" style="border:1px solid rgba(148,163,184,.35); background:#f8fafc;">
+            <!-- Alto reducido a la mitad del histórico (~180px, mínimo interno del componente):
+                 acá el mapa cumple un rol confirmatorio del pin, no hace falta tanto alto. -->
+            <div class="rounded-btn overflow-hidden" style="border:1px solid rgba(148,163,184,.35); background:#f8fafc; height: 110px;">
               <emx-location-picker-map
                 [lat]="selectedLocation()?.lat ?? null"
                 [lng]="selectedLocation()?.lng ?? null"
+                [minHeight]="110"
                 (pointChanged)="setManualLocation($event)"
               />
             </div>
@@ -397,6 +412,12 @@ const TIPOS_PRACTICA_ESTADISTICA: SearchableSelectOption[] = [
           </div>
         }
 
+        </div>
+        <!-- Fin columna izquierda -->
+
+        <!-- Columna derecha: Urgencia + clasificación + descripción -->
+        <div class="flex flex-col gap-4">
+
         <!-- Nivel de urgencia -->
         <div class="flex flex-col gap-2">
           <span id="nivelUrgenciaLabel" class="eyebrow">Nivel de urgencia *</span>
@@ -422,39 +443,44 @@ const TIPOS_PRACTICA_ESTADISTICA: SearchableSelectOption[] = [
           }
         </div>
 
-        <!-- Motivo de llamado (catálogo) — complementario a "Descripción / síntomas": el operador
-             puede elegir un motivo del catálogo Y ADEMÁS seguir detallando en el textarea libre. -->
-        <div class="flex flex-col gap-1.5">
-          <label for="motivoLlamadoInput" class="eyebrow">Motivo de llamado</label>
-          <emx-searchable-select
-            [inputId]="'motivoLlamadoInput'"
-            formControlName="motivoLlamadoId"
-            [options]="motivoLlamadoOptions()"
-            placeholder="Seleccionar motivo (opcional)..."
-          />
-        </div>
+        <!-- Motivo de llamado / Cobertura / Práctica: son combos autocompletables cortos que no
+             necesitan una fila completa cada uno, así que comparten una sub-grilla de 3 columnas
+             (colapsa a 1 columna por debajo de 640px). -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <!-- Motivo de llamado (catálogo) — complementario a "Descripción / síntomas": el operador
+               puede elegir un motivo del catálogo Y ADEMÁS seguir detallando en el textarea libre. -->
+          <div class="flex flex-col gap-1.5">
+            <label for="motivoLlamadoInput" class="eyebrow">Motivo de llamado</label>
+            <emx-searchable-select
+              [inputId]="'motivoLlamadoInput'"
+              formControlName="motivoLlamadoId"
+              [options]="motivoLlamadoOptions()"
+              placeholder="Opcional..."
+            />
+          </div>
 
-        <!-- Cobertura / Práctica estadística: clasificación manual del operador solo para fines
-             de reporte, independiente de la cobertura real del paciente y de cualquier catálogo
-             de facturación (no valida ni condiciona nada del resto del formulario). -->
-        <div class="flex flex-col gap-1.5">
-          <label for="tipoCoberturaEstadisticaInput" class="eyebrow">Cobertura</label>
-          <emx-searchable-select
-            [inputId]="'tipoCoberturaEstadisticaInput'"
-            formControlName="tipoCoberturaEstadistica"
-            [options]="tiposCoberturaEstadistica"
-            placeholder="Seleccionar cobertura (opcional)..."
-          />
-        </div>
+          <!-- Cobertura / Práctica estadística: clasificación manual del operador solo para fines
+               de reporte, independiente de la cobertura real del paciente y de cualquier catálogo
+               de facturación (no valida ni condiciona nada del resto del formulario). -->
+          <div class="flex flex-col gap-1.5">
+            <label for="tipoCoberturaEstadisticaInput" class="eyebrow">Cobertura</label>
+            <emx-searchable-select
+              [inputId]="'tipoCoberturaEstadisticaInput'"
+              formControlName="tipoCoberturaEstadistica"
+              [options]="tiposCoberturaEstadistica"
+              placeholder="Opcional..."
+            />
+          </div>
 
-        <div class="flex flex-col gap-1.5">
-          <label for="tipoPracticaEstadisticaInput" class="eyebrow">Práctica</label>
-          <emx-searchable-select
-            [inputId]="'tipoPracticaEstadisticaInput'"
-            formControlName="tipoPracticaEstadistica"
-            [options]="tiposPracticaEstadistica"
-            placeholder="Seleccionar práctica (opcional)..."
-          />
+          <div class="flex flex-col gap-1.5">
+            <label for="tipoPracticaEstadisticaInput" class="eyebrow">Práctica</label>
+            <emx-searchable-select
+              [inputId]="'tipoPracticaEstadisticaInput'"
+              formControlName="tipoPracticaEstadistica"
+              [options]="tiposPracticaEstadistica"
+              placeholder="Opcional..."
+            />
+          </div>
         </div>
 
         <!-- Descripción / síntomas -->
@@ -524,6 +550,12 @@ const TIPOS_PRACTICA_ESTADISTICA: SearchableSelectOption[] = [
             </div>
           }
         </div>
+
+        </div>
+        <!-- Fin columna derecha -->
+
+        </div>
+        <!-- Fin grid principal (2 columnas) -->
       </form>
 
       <!-- Footer -->
