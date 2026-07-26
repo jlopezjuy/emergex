@@ -18,6 +18,7 @@ import {
   AtencionAsistenciaItemDTO,
   IniciarAtencionDesdeTicketResponse,
   HospitalDTO,
+  DiagnosticoFrecuenteDTO,
   EntregaHospitalariaDTO,
   TelemedicinaSalaResponseDTO,
   CoberturaAsistenciaSnapshotDTO,
@@ -25,6 +26,8 @@ import {
   ConsentimientoInformadoDTO,
   RegistrarPersonaTicketRequest,
   EpisodioClinicoDTO,
+  MotivoLlamadoDTO,
+  ContextoEmergenciaPaciente,
 } from '../dto/ticket.dto';
 
 const URGENCIA_MAP: Record<string, TicketAsistenciaDTO['prioridad']> = {
@@ -73,6 +76,13 @@ export class EmergencyApiService {
       empresaUrlTelemedicina: raw.empresa?.urlTelemedicina,
       contextoCobertura:  raw.contextoCobertura,
       coberturaNombreSnapshot: raw.coberturaNombreSnapshot,
+      autorizacionEspecial: raw.autorizacionEspecial,
+      autorizadoPor:      raw.autorizadoPor,
+      detalleAutorizacion: raw.detalleAutorizacion,
+      motivoLlamadoId:    raw.motivoLlamadoId,
+      motivoLlamadoNombre: raw.motivoLlamadoNombre,
+      tipoCoberturaEstadistica: raw.tipoCoberturaEstadistica,
+      tipoPracticaEstadistica: raw.tipoPracticaEstadistica,
     };
   }
 
@@ -291,6 +301,20 @@ export class EmergencyApiService {
 
   getHospitales(): Observable<HospitalDTO[]> {
     return this.http.get<HospitalDTO[]>(`${environment.apiUrl}/api/hospitales`);
+  }
+
+  getDiagnosticosFrecuentes(): Observable<DiagnosticoFrecuenteDTO[]> {
+    return this.http.get<DiagnosticoFrecuenteDTO[]>(`${environment.apiUrl}/api/diagnosticos-frecuentes`);
+  }
+
+  getMotivosLlamado(): Observable<MotivoLlamadoDTO[]> {
+    return this.http.get<MotivoLlamadoDTO[]>(`${environment.apiUrl}/api/motivos-llamado`);
+  }
+
+  getContextoPaciente(pacienteId: number): Observable<ContextoEmergenciaPaciente> {
+    return this.http.get<ContextoEmergenciaPaciente>(
+      `${environment.apiUrl}/api/operador-emergencias/pacientes/${pacienteId}/contexto`,
+    );
   }
 
   registrarEntregaHospitalaria(ticketId: number, dto: EntregaHospitalariaDTO): Observable<EntregaHospitalariaDTO> {

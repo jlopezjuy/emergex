@@ -5,7 +5,8 @@ import { Subject, debounceTime, distinctUntilChanged, switchMap, catchError, of,
 import { takeUntil } from 'rxjs/operators';
 import { ModalShellComponent } from '../../modal-shell/modal-shell.component';
 import { LocationPickerMapComponent } from '../../map/location-picker-map/location-picker-map.component';
-import { AltaRapidaRequest } from '../../../../data-access/dto/ticket.dto';
+import { SearchableSelectComponent, SearchableSelectOption } from '../../searchable-select/searchable-select.component';
+import { AltaRapidaRequest, MotivoLlamadoDTO, ContextoEmergenciaPaciente } from '../../../../data-access/dto/ticket.dto';
 import { environment } from '../../../../../environments/environment';
 import { GeocodeResult } from '../../../map/geocoder-provider';
 import { HttpGeocoderProvider } from '../../../map/providers/http-geocoder.provider';
@@ -17,6 +18,8 @@ import { UserFeedbackService } from '../../../../core/notifications/user-feedbac
 
 type TipoAsistencia = AltaRapidaRequest['tipoAsistencia'];
 type NivelUrgencia  = AltaRapidaRequest['nivelUrgencia'];
+type TipoCoberturaEstadistica = AltaRapidaRequest['tipoCoberturaEstadistica'];
+type TipoPracticaEstadistica  = AltaRapidaRequest['tipoPracticaEstadistica'];
 
 interface PacienteResult {
   id: number;
@@ -47,10 +50,30 @@ const NIVELES_URGENCIA: { value: NivelUrgencia; label: string; sublabel: string;
   { value: 'AZUL',    label: 'Guardia',  sublabel: 'Consulta de guardia',      color: '#3B82F6', bg: 'rgba(59,130,246,0.12)' },
 ];
 
+const TIPOS_COBERTURA_ESTADISTICA: SearchableSelectOption[] = [
+  { value: 'AFILIADO',                  label: 'Afiliado' },
+  { value: 'CONTRATO',                  label: 'Contrato' },
+  { value: 'EMPLEADO_O_FAMILIAR',       label: 'Empleado o Familiar' },
+  { value: 'EVENTOS',                   label: 'Eventos' },
+  { value: 'INTERNACION_DOMICILIARIA',  label: 'Internación Domiciliaria de' },
+  { value: 'PARTICULAR',                label: 'Particular' },
+  { value: 'VIA_PUBLICA',               label: 'Vía Pública' },
+];
+
+const TIPOS_PRACTICA_ESTADISTICA: SearchableSelectOption[] = [
+  { value: 'ATENCION_MEDICA',          label: 'Atención Médica' },
+  { value: 'COBERTURA',                label: 'Cobertura' },
+  { value: 'ENFERMERIA',               label: 'Enfermería' },
+  { value: 'INTERNACION',              label: 'INTERNACIÓN' },
+  { value: 'INYECTABLE',               label: 'Inyectable' },
+  { value: 'RECONOCIMIENTO_MEDICO',    label: 'Reconocimiento Médico' },
+  { value: 'TRASLADO_PROGRAMADO',      label: 'Traslado Programado' },
+];
+
 @Component({
   selector: 'emx-emergency-quick-create-modal',
   standalone: true,
-  imports: [ReactiveFormsModule, ModalShellComponent, LocationPickerMapComponent],
+  imports: [ReactiveFormsModule, ModalShellComponent, LocationPickerMapComponent, SearchableSelectComponent],
   template: `
     <emx-modal-shell title="Nueva Emergencia" [closeOnBackdropClick]="false" (closed)="close()">
       <form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-5">
@@ -136,6 +159,32 @@ const NIVELES_URGENCIA: { value: NivelUrgencia; label: string; sublabel: string;
                     (click)="clearPaciente()"
                   >✕</button>
                 </div>
+
+                <!-- Contexto clínico del paciente (edad, sexo, antecedentes) — solo lectura -->
+                @if (cargandoContexto()) {
+                  <span class="text-xs" style="color: var(--text-muted);" role="status">Cargando datos clínicos...</span>
+                } @else if (contextoPaciente()) {
+                  <div class="flex flex-col gap-1 rounded-btn px-3 py-2 text-xs" style="background: var(--surface-glass); border: 1px solid var(--border-glass); color: var(--text-secondary);">
+                    <span class="flex gap-3 flex-wrap">
+                      @if (contextoPaciente()!.edad != null) {
+                        <span><strong style="color: var(--text-primary);">Edad:</strong> {{ contextoPaciente()!.edad }} años</span>
+                      }
+                      @if (contextoPaciente()!.sexo) {
+                        <span><strong style="color: var(--text-primary);">Sexo:</strong> {{ contextoPaciente()!.sexo }}</span>
+                      }
+                    </span>
+                    @if (contextoPaciente()!.antecedentes.length > 0) {
+                      <span class="flex flex-col gap-0.5 mt-1">
+                        <strong style="color: var(--text-primary);">Antecedentes:</strong>
+                        @for (a of contextoPaciente()!.antecedentes; track $index) {
+                          <span>• {{ a.tipo }}: {{ a.descripcion }}</span>
+                        }
+                      </span>
+                    } @else {
+                      <span style="color: var(--text-muted);">Sin antecedentes registrados</span>
+                    }
+                  </div>
+                }
               } @else {
                 <!-- Input de búsqueda -->
                 <input
@@ -373,6 +422,41 @@ const NIVELES_URGENCIA: { value: NivelUrgencia; label: string; sublabel: string;
           }
         </div>
 
+        <!-- Motivo de llamado (catálogo) — complementario a "Descripción / síntomas": el operador
+             puede elegir un motivo del catálogo Y ADEMÁS seguir detallando en el textarea libre. -->
+        <div class="flex flex-col gap-1.5">
+          <label for="motivoLlamadoInput" class="eyebrow">Motivo de llamado</label>
+          <emx-searchable-select
+            [inputId]="'motivoLlamadoInput'"
+            formControlName="motivoLlamadoId"
+            [options]="motivoLlamadoOptions()"
+            placeholder="Seleccionar motivo (opcional)..."
+          />
+        </div>
+
+        <!-- Cobertura / Práctica estadística: clasificación manual del operador solo para fines
+             de reporte, independiente de la cobertura real del paciente y de cualquier catálogo
+             de facturación (no valida ni condiciona nada del resto del formulario). -->
+        <div class="flex flex-col gap-1.5">
+          <label for="tipoCoberturaEstadisticaInput" class="eyebrow">Cobertura</label>
+          <emx-searchable-select
+            [inputId]="'tipoCoberturaEstadisticaInput'"
+            formControlName="tipoCoberturaEstadistica"
+            [options]="tiposCoberturaEstadistica"
+            placeholder="Seleccionar cobertura (opcional)..."
+          />
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label for="tipoPracticaEstadisticaInput" class="eyebrow">Práctica</label>
+          <emx-searchable-select
+            [inputId]="'tipoPracticaEstadisticaInput'"
+            formControlName="tipoPracticaEstadistica"
+            [options]="tiposPracticaEstadistica"
+            placeholder="Seleccionar práctica (opcional)..."
+          />
+        </div>
+
         <!-- Descripción / síntomas -->
         <div class="flex flex-col gap-1.5">
           <label for="descripcionSintomasInput" class="eyebrow">Descripción / síntomas *</label>
@@ -400,6 +484,45 @@ const NIVELES_URGENCIA: { value: NivelUrgencia; label: string; sublabel: string;
             class="rounded-btn px-3 py-2 text-sm w-full resize-none focus:ring-2 focus:ring-[var(--accent-cyan)] focus:outline-none"
             style="background: var(--surface-glass); border: 1px solid var(--border-strong); color: var(--text-primary);"
           ></textarea>
+        </div>
+
+        <!-- Autorización especial: distinta de "Motivo de Excepción" (esa es por deuda/falta de
+             cobertura del paciente). Esta es una autorización operativa general del despacho,
+             siempre disponible sin importar el estado comercial del paciente. -->
+        <div class="flex flex-col gap-1.5 p-3 rounded-btn" style="background: rgba(59, 130, 246, 0.06); border: 1px solid rgba(59, 130, 246, 0.35);">
+          <label class="flex items-center gap-2 text-sm cursor-pointer font-medium" style="color: var(--text-secondary);">
+            <input type="checkbox" formControlName="autorizacionEspecial" class="rounded focus:ring-2 focus:ring-[var(--accent-cyan)]" />
+            Autorización especial
+          </label>
+          @if (f['autorizacionEspecial'].value) {
+            <div class="flex flex-col gap-2 mt-1">
+              <div class="flex flex-col gap-1">
+                <label for="autorizadoPorInput" class="eyebrow">Autorizado por *</label>
+                <input
+                  type="text"
+                  id="autorizadoPorInput"
+                  formControlName="autorizadoPor"
+                  placeholder="Ej: Dr. Pérez, director médico"
+                  class="rounded-btn px-3 py-2 text-sm w-full focus:ring-2 focus:ring-[var(--accent-cyan)] focus:outline-none"
+                  style="background: var(--surface-glass); border: 1px solid var(--border-strong); color: var(--text-primary);"
+                />
+                @if (f['autorizadoPor'].invalid && f['autorizadoPor'].touched) {
+                  <span role="alert" class="text-xs" style="color: var(--error-text);">Indicá quién autorizó.</span>
+                }
+              </div>
+              <div class="flex flex-col gap-1">
+                <label for="detalleAutorizacionInput" class="eyebrow">Detalle</label>
+                <textarea
+                  id="detalleAutorizacionInput"
+                  formControlName="detalleAutorizacion"
+                  rows="2"
+                  placeholder="Motivo o contexto de la autorización especial..."
+                  class="rounded-btn px-3 py-2 text-sm w-full resize-none focus:ring-2 focus:ring-[var(--accent-cyan)] focus:outline-none"
+                  style="background: var(--surface-glass); border: 1px solid var(--border-strong); color: var(--text-primary);"
+                ></textarea>
+              </div>
+            </div>
+          }
         </div>
       </form>
 
@@ -446,6 +569,8 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
 
   readonly tiposAsistencia = TIPOS_ASISTENCIA;
   readonly nivelesUrgencia = NIVELES_URGENCIA;
+  readonly tiposCoberturaEstadistica = TIPOS_COBERTURA_ESTADISTICA;
+  readonly tiposPracticaEstadistica = TIPOS_PRACTICA_ESTADISTICA;
 
   // ── Autocomplete state ──
   readonly selectedPaciente = signal<PacienteResult | null>(null);
@@ -456,6 +581,14 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
   readonly geocodeResults   = signal<GeocodeResult[]>([]);
   readonly geocodeSearching = signal(false);
   readonly selectedLocation = signal<GeocodeResult | null>(null);
+
+  // ── Motivo de llamado (catálogo) y contexto clínico del paciente seleccionado ──
+  readonly motivosLlamado   = signal<MotivoLlamadoDTO[]>([]);
+  readonly motivoLlamadoOptions = computed<SearchableSelectOption[]>(() =>
+    this.motivosLlamado().map(m => ({ value: m.id, label: m.nombre }))
+  );
+  readonly contextoPaciente = signal<ContextoEmergenciaPaciente | null>(null);
+  readonly cargandoContexto = signal(false);
 
   private destroy$ = new Subject<void>();
   private search$  = new Subject<string>();
@@ -509,11 +642,18 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
     pacienteDni:        [''],
     pacienteTelefono:   [''],
     motivoExcepcion:    [''],
+    motivoLlamadoId:    [null as number | null],
+    tipoCoberturaEstadistica: [null as TipoCoberturaEstadistica],
+    tipoPracticaEstadistica: [null as TipoPracticaEstadistica],
     observacion:        [''],
+    autorizacionEspecial: [false],
+    autorizadoPor:      [''],
+    detalleAutorizacion: [''],
   });
 
   constructor() {
     this.applyConditionalValidators();
+    this.loadMotivosLlamado();
 
     this.search$.pipe(
       debounceTime(300),
@@ -564,6 +704,11 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
     this.f['noAfiliado'].valueChanges
       .pipe(takeUntil(this.destroy$), takeUntilDestroyed(this.destroyRef))
       .subscribe(value => this.handleNoAfiliadoToggle(Boolean(value)));
+
+    // Autorización especial — distinta de motivoExcepcion (esa es por deuda/falta de cobertura)
+    this.f['autorizacionEspecial'].valueChanges
+      .pipe(takeUntil(this.destroy$), takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.applyConditionalValidators());
 
     this.f['tipoNoAfiliado'].valueChanges
       .pipe(takeUntil(this.destroy$), takeUntilDestroyed(this.destroyRef))
@@ -640,15 +785,39 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
       this.f['telefonoContacto'].setValue(p.telefono);
     }
 
+    this.loadContextoPaciente(p.id);
     this.applyConditionalValidators();
   }
 
   clearPaciente(): void {
     this.selectedPaciente.set(null);
     this.searchResults.set([]);
+    this.contextoPaciente.set(null);
     this.f['pacienteId'].setValue(null);
     this.f['pacienteBusqueda'].setValue('', { emitEvent: false });
     this.applyConditionalValidators();
+  }
+
+  private loadMotivosLlamado(): void {
+    this.emergencyApi.getMotivosLlamado().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (data) => this.motivosLlamado.set(data),
+      error: () => {} // no crítico: el select queda vacío si falla el catálogo
+    });
+  }
+
+  private loadContextoPaciente(pacienteId: number): void {
+    this.contextoPaciente.set(null);
+    this.cargandoContexto.set(true);
+    this.emergencyApi.getContextoPaciente(pacienteId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (ctx) => {
+        this.contextoPaciente.set(ctx);
+        this.cargandoContexto.set(false);
+      },
+      error: () => {
+        // no crítico: el chip de paciente sigue mostrando los datos básicos de la búsqueda
+        this.cargandoContexto.set(false);
+      }
+    });
   }
 
   private resolvePacienteAddress(address: string): void {
@@ -744,6 +913,9 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
       nivelUrgencia:       val.nivelUrgencia as NivelUrgencia,
       descripcionSintomas: val.descripcionSintomas!,
       coberturaAlMomentoId: null,
+      motivoLlamadoId:     val.motivoLlamadoId ?? null,
+      tipoCoberturaEstadistica: val.tipoCoberturaEstadistica ?? null,
+      tipoPracticaEstadistica: val.tipoPracticaEstadistica ?? null,
     };
 
     if (tipo !== 'ORIENTACION_TELEFONICA') {
@@ -784,6 +956,13 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
         : `[Motivo de Excepción: ${motivo}]`;
     } else if (val.observacion) {
       req.observacion = val.observacion;
+    }
+
+    // Autorización especial — independiente del motivo de excepción por deuda/cobertura
+    if (val.autorizacionEspecial) {
+      req.autorizacionEspecial = true;
+      req.autorizadoPor = val.autorizadoPor || undefined;
+      req.detalleAutorizacion = val.detalleAutorizacion || undefined;
     }
 
     this.emergencyApi.altaRapida(req)
@@ -872,5 +1051,13 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
     this.f['pacienteId'].updateValueAndValidity({ emitEvent: false });
     this.f['pacienteNombre'].updateValueAndValidity({ emitEvent: false });
     this.f['pacienteTelefono'].updateValueAndValidity({ emitEvent: false });
+
+    // Autorización especial: "autorizadoPor" es obligatorio sólo si el checkbox está tildado
+    if (this.f['autorizacionEspecial'].value) {
+      this.f['autorizadoPor'].setValidators([Validators.required]);
+    } else {
+      this.f['autorizadoPor'].clearValidators();
+    }
+    this.f['autorizadoPor'].updateValueAndValidity({ emitEvent: false });
   }
 }

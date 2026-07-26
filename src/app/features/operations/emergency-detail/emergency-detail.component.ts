@@ -11,6 +11,7 @@ import {
   SignosVitalesDTO,
   AtencionFullDTO,
   HospitalDTO,
+  DiagnosticoFrecuenteDTO,
   EntregaHospitalariaDTO,
   TelemedicinaSalaResponseDTO,
   CoberturaAsistenciaSnapshotDTO,
@@ -28,6 +29,7 @@ import { UnidadMovilDTO } from '../../../data-access/dto/ambulancia.dto';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { SessionStore } from '../../../core/stores/session.store';
 import { AddAssistedPersonModalComponent } from '../coverage-operations/add-assisted-person-modal.component';
+import { SearchableSelectComponent, SearchableSelectOption } from '../../../shared/components/searchable-select/searchable-select.component';
 
 interface StatusStep {
   id: string;
@@ -57,6 +59,7 @@ const ALL_STEPS: StatusStep[] = [
     AddAssistedPersonModalComponent,
     SparklineComponent,
     OperationsMapComponent,
+    SearchableSelectComponent,
   ],
   template: `
     <div class="flex flex-col h-full overflow-hidden" style="background: var(--bg-base);">
@@ -79,6 +82,13 @@ const ALL_STEPS: StatusStep[] = [
               <span class="badge font-mono text-xs px-2 py-0.5" [class]="priorityBadgeClass()">
                 {{ ticket()?.prioridad }}
               </span>
+              @if (ticket()?.autorizacionEspecial) {
+                <span class="badge font-mono text-xs px-2 py-0.5"
+                      style="background: rgba(139,92,246,0.15); color: #8b5cf6;"
+                      [attr.title]="'Autorizado por: ' + (ticket()?.autorizadoPor ?? '—') + (ticket()?.detalleAutorizacion ? ' · ' + ticket()?.detalleAutorizacion : '')">
+                  Autorización especial
+                </span>
+              }
             </div>
             <p class="text-xs mt-0.5" style="color: var(--text-muted);">
               {{ ticket()?.tipoEmergencia }} · {{ ticket()?.estado }}
@@ -1186,6 +1196,48 @@ const ALL_STEPS: StatusStep[] = [
                         (keydown)="onCloseKeydown($event)"
               ></textarea>
             </label>
+
+            <!-- Diagnóstico: catálogo de frecuentes O texto libre (son excluyentes: si se elige uno del
+                 catálogo no hace falta tipear; el texto libre es sólo para cuando no está en la lista).
+                 Independiente de "Impresión clínica" (que es la descripción narrativa del cuadro). -->
+            <div class="flex flex-col gap-1 col-span-2">
+              <span class="clinical-field-label">Diagnóstico</span>
+              <emx-searchable-select
+                [options]="diagnosticosFrecuentesOptions()"
+                [value]="closeDiagnosticoFrecuenteId()"
+                (valueChange)="closeDiagnosticoFrecuenteId.set($any($event))"
+                placeholder="Seleccionar diagnóstico del catálogo..."
+              />
+              <input class="clinical-input mt-1" placeholder="Otro diagnóstico (si no está en la lista)"
+                     [disabled]="closeDiagnosticoFrecuenteId() !== null"
+                     [value]="closeDiagnosticoLibre()"
+                     (input)="closeDiagnosticoLibre.set($any($event.target).value)" />
+            </div>
+
+            <!-- Antecedentes del paciente relevantes a esta atención — distinto de "Nota de cierre",
+                 que es una nota operativa libre sobre el cierre del caso. -->
+            <label class="flex flex-col gap-1 col-span-2">
+              <span class="clinical-field-label">Antecedentes</span>
+              <textarea rows="2" class="clinical-input"
+                        placeholder="Antecedentes del paciente relevantes a esta atención..."
+                        [value]="closeAntecedentes()"
+                        (input)="closeAntecedentes.set($any($event.target).value)"
+                        (keydown)="onCloseKeydown($event)"
+              ></textarea>
+            </label>
+
+            <div class="flex flex-col gap-1.5 col-span-2">
+              <label class="clinical-checkbox flex items-center gap-2">
+                <input type="checkbox" [checked]="closeConsultoFamiliar()" (change)="closeConsultoFamiliar.set($any($event.target).checked)" />
+                <span>Consultó con familiar / empleado</span>
+              </label>
+              @if (closeConsultoFamiliar()) {
+                <input class="clinical-input" placeholder="Nombre de quién fue consultado"
+                       [value]="closeConsultadoNombre()"
+                       (input)="closeConsultadoNombre.set($any($event.target).value)" />
+              }
+            </div>
+
             <label class="flex flex-col gap-1">
               <span class="clinical-field-label">Tipo resolución</span>
               <select class="clinical-input" [value]="closeTipoResolucion()" (change)="closeTipoResolucion.set($any($event.target).value)">
@@ -1605,8 +1657,25 @@ export class EmergencyDetailComponent implements OnInit {
   readonly closeNotificadoSAME107 = signal(false);
   readonly closeHospitalId = signal<number | null>(null);
 
+  // Close dialog — detalle clínico (diagnóstico/antecedentes/consulta), independiente de
+  // "Impresión clínica" y "Nota de cierre"
+  readonly closeDiagnosticoFrecuenteId = signal<number | null>(null);
+  readonly closeDiagnosticoLibre = signal('');
+  readonly closeAntecedentes = signal('');
+  readonly closeConsultoFamiliar = signal(false);
+  readonly closeConsultadoNombre = signal('');
+
   // Hospital catalog
   readonly hospitales = signal<HospitalDTO[]>([]);
+
+  // Diagnósticos frecuentes catalog
+  readonly diagnosticosFrecuentes = signal<DiagnosticoFrecuenteDTO[]>([]);
+  readonly diagnosticosFrecuentesOptions = computed<SearchableSelectOption[]>(() =>
+    this.diagnosticosFrecuentes().map(d => ({
+      value: d.id,
+      label: d.categoria ? `${d.nombre} — ${d.categoria}` : d.nombre,
+    }))
+  );
 
   // Cobertura snapshot al momento del ticket
   readonly coberturaSnapshot = signal<CoberturaAsistenciaSnapshotDTO | null>(null);
@@ -1724,6 +1793,8 @@ export class EmergencyDetailComponent implements OnInit {
     if (resolucion) {
       const date = resolucion.fechaResolucion || this.ticket()?.horaCierre;
       if (date) {
+        const detalleClinico = resolucion.detalleClinico;
+        const diagnostico = detalleClinico?.diagnosticoFrecuenteNombre || detalleClinico?.diagnosticoLibre;
         events.push({
           type: 'RESOLUCION',
           date: date,
@@ -1731,7 +1802,12 @@ export class EmergencyDetailComponent implements OnInit {
           description: resolucion.impresionClinica,
           details: [
             resolucion.tratamientoRealizado ? `Tratamiento: ${resolucion.tratamientoRealizado}` : '',
-            resolucion.requiereTraslado ? `Traslado requerido a: ${resolucion.hospitalDestino || 'Por determinar'}` : 'No requiere traslado'
+            resolucion.requiereTraslado ? `Traslado requerido a: ${resolucion.hospitalDestino || 'Por determinar'}` : 'No requiere traslado',
+            diagnostico ? `Diagnóstico: ${diagnostico}` : '',
+            detalleClinico?.antecedentes ? `Antecedentes: ${detalleClinico.antecedentes}` : '',
+            detalleClinico?.consultoFamiliarEmpleado
+              ? `Consultó con familiar/empleado${detalleClinico.consultadoNombre ? ': ' + detalleClinico.consultadoNombre : ''}`
+              : ''
           ].filter(Boolean),
           badgeClass: 'badge--stable'
         });
@@ -2022,11 +2098,19 @@ export class EmergencyDetailComponent implements OnInit {
   ngOnInit(): void {
     this.load();
     this.loadHospitales();
+    this.loadDiagnosticosFrecuentes();
   }
 
   loadHospitales(): void {
     this.emergencyApi.getHospitales().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
             next: (data) => this.hospitales.set(data),
+            error: () => {} // non-critical
+          });
+  }
+
+  loadDiagnosticosFrecuentes(): void {
+    this.emergencyApi.getDiagnosticosFrecuentes().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+            next: (data) => this.diagnosticosFrecuentes.set(data),
             error: () => {} // non-critical
           });
   }
@@ -2504,6 +2588,11 @@ Observación: ${this.clinicalObservacion().trim() || '—'}`,
     this.closeUrgenciaVital.set(false);
     this.closeNotificadoSAME107.set(false);
     this.closeHospitalId.set(null);
+    this.closeDiagnosticoFrecuenteId.set(null);
+    this.closeDiagnosticoLibre.set('');
+    this.closeAntecedentes.set('');
+    this.closeConsultoFamiliar.set(false);
+    this.closeConsultadoNombre.set('');
     this.showCloseDialog.set(true);
   }
 
@@ -2534,6 +2623,13 @@ Observación: ${this.clinicalObservacion().trim() || '—'}`,
           glasgowTotal: this.glasgowTotal() ?? undefined,
           avpu: this.avpu() || undefined,
         },
+        // Diagnóstico y antecedentes — independientes de "Impresión clínica" (narrativa) y
+        // "Nota de cierre" (nota operativa libre del cierre)
+        diagnosticoFrecuenteId: this.closeDiagnosticoFrecuenteId(),
+        diagnosticoLibre: this.closeDiagnosticoFrecuenteId() ? undefined : (this.closeDiagnosticoLibre().trim() || undefined),
+        antecedentes: this.closeAntecedentes().trim() || undefined,
+        consultoFamiliarEmpleado: this.closeConsultoFamiliar(),
+        consultadoNombre: this.closeConsultoFamiliar() ? (this.closeConsultadoNombre().trim() || undefined) : undefined,
       },
     };
     this.emergencyApi.cerrar(this.ticketId, req).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({

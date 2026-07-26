@@ -66,6 +66,20 @@ export interface TicketAsistenciaDTO {
     fechaLiberacion?: string;
     motivo?: string;
   }[];
+
+  // Autorización especial (campos "decorados" a nivel raíz del ticket)
+  autorizacionEspecial?: boolean;
+  autorizadoPor?: string | null;
+  detalleAutorizacion?: string | null;
+
+  // Motivo de llamado del catálogo — complementario a descripcionSintomas/pacienteDescripcion.
+  motivoLlamadoId?: number | null;
+  motivoLlamadoNombre?: string | null;
+
+  // Clasificación estadística manual (cobertura/práctica) — solo para fines de reporte,
+  // no ligada al motor real de cobertura ni a ningún catálogo de facturación.
+  tipoCoberturaEstadistica?: string | null;
+  tipoPracticaEstadistica?: string | null;
 }
 
 export interface AltaRapidaRequest {
@@ -83,11 +97,25 @@ export interface AltaRapidaRequest {
   observacion?: string;
   coberturaAlMomentoId?: number | null;
 
+  // Motivo de llamado del catálogo — complementario a descripcionSintomas (textarea libre),
+  // no lo reemplaza: el operador puede elegir un motivo Y ADEMÁS seguir detallando el textarea.
+  motivoLlamadoId?: number | null;
+
   noAfiliado?: boolean;
   pacienteNombre?: string;
   pacienteApellido?: string;
   pacienteDni?: string;
   pacienteTelefono?: string;
+
+  // Autorización especial — distinta de motivoExcepcion (esa es por deuda/falta de cobertura).
+  autorizacionEspecial?: boolean;
+  autorizadoPor?: string | null;
+  detalleAutorizacion?: string | null;
+
+  // Clasificación estadística manual (cobertura/práctica) — solo para fines de reporte,
+  // no ligada al motor real de cobertura ni a ningún catálogo de facturación.
+  tipoCoberturaEstadistica?: 'AFILIADO' | 'CONTRATO' | 'EMPLEADO_O_FAMILIAR' | 'EVENTOS' | 'INTERNACION_DOMICILIARIA' | 'PARTICULAR' | 'VIA_PUBLICA' | null;
+  tipoPracticaEstadistica?: 'ATENCION_MEDICA' | 'COBERTURA' | 'ENFERMERIA' | 'INTERNACION' | 'INYECTABLE' | 'RECONOCIMIENTO_MEDICO' | 'TRASLADO_PROGRAMADO' | null;
 }
 
 export interface CrearTicketRequest {
@@ -121,6 +149,11 @@ export interface CrearTicketRequest {
   tripulacionIds?: number[];
   notaOperador?: string;
   canal?: 'PRESENCIAL' | 'TELEFONICA' | 'VIDEOLLAMADA';
+
+  // Autorización especial — distinta de motivoExcepcion (esa es por deuda/falta de cobertura)
+  autorizacionEspecial?: boolean;
+  autorizadoPor?: string | null;
+  detalleAutorizacion?: string | null;
 }
 
 export interface RegistrarPersonaTicketRequest {
@@ -177,7 +210,43 @@ export interface CerrarTicketRequest {
       glasgowTotal?: number;
       avpu?: 'ALERTA' | 'VOZ' | 'DOLOR' | 'INCONSCIENTE';
     };
+    // Detalle clínico — independiente de "Nota de cierre" (que es una nota operativa libre)
+    diagnosticoFrecuenteId?: number | null;
+    diagnosticoLibre?: string | null;
+    antecedentes?: string | null;
+    consultoFamiliarEmpleado?: boolean;
+    consultadoNombre?: string | null;
   };
+}
+
+// Detalle clínico anidado dentro de `resolucion` en la respuesta de un ticket cerrado.
+export interface DetalleClinicoResolucion {
+  diagnosticoFrecuenteId?: number | null;
+  diagnosticoFrecuenteNombre?: string | null;
+  diagnosticoLibre?: string | null;
+  antecedentes?: string | null;
+  consultoFamiliarEmpleado?: boolean;
+  consultadoNombre?: string | null;
+}
+
+// Resolución médica devuelta dentro de TicketDetalleDTO.resolucion al leer un ticket cerrado.
+// Reemplaza el `any` original; sólo tipa los campos que el frontend efectivamente consume hoy.
+export interface ResolucionMedicaDetalle {
+  fechaResolucion?: string;
+  impresionClinica?: string;
+  tratamientoRealizado?: string;
+  requiereTraslado?: boolean;
+  tipoResolucion?: string;
+  hospitalDestino?: string;
+  resumenSignosVitales?: string;
+  detalleClinico?: DetalleClinicoResolucion;
+}
+
+export interface DiagnosticoFrecuenteDTO {
+  id: number;
+  nombre: string;
+  categoria: string;
+  activo: boolean;
 }
 
 export interface LogEstadoTicketDTO {
@@ -241,7 +310,7 @@ export interface TicketDetalleDTO {
   signos?: SignosVitalesDTO[];
   procedimientos?: ProcedimientoDTO[];
   medicacion?: MedicacionDTO[];
-  resolucion?: any;
+  resolucion?: ResolucionMedicaDetalle;
 }
 
 export interface TripulacionDetalleDTO {
@@ -370,4 +439,53 @@ export interface ContactoDespachoRequestDTO {
   canal: string;
   resultado: string;
   observacion?: string;
+}
+
+// Catálogo global de motivos de llamado — GET /api/motivos-llamado.
+export interface MotivoLlamadoDTO {
+  id: number;
+  nombre: string;
+  activo: boolean;
+}
+
+// Miembro del grupo familiar dentro del contexto de emergencia de un paciente.
+export interface MiembroGrupoEmergenciaDTO {
+  pacienteId?: number;
+  nombreCompleto?: string;
+  dni?: string;
+  telefono?: string;
+  rolFamiliar?: string;
+  estado?: string;
+}
+
+// Antecedente médico liviano (tipo + descripción), de solo lectura, para el contexto de emergencia.
+export interface AntecedenteEmergenciaDTO {
+  tipo: string;
+  descripcion: string;
+}
+
+// Contexto de emergencia de un paciente ya seleccionado — GET /api/operador-emergencias/pacientes/{id}/contexto.
+// edad/sexo/antecedentes quedan null/vacíos si el paciente no tiene fecha de nacimiento/sexo/historia
+// clínica cargada, sin error — es de solo lectura.
+export interface ContextoEmergenciaPaciente {
+  pacienteId?: number;
+  pacienteNombre?: string;
+  dni?: string;
+  telefono?: string;
+  direccion?: string;
+  grupoFamiliarId?: number;
+  numeroCuenta?: string;
+  estadoGrupo?: string;
+  coberturaActivaId?: number;
+  coberturaNombre?: string;
+  coberturaActiva?: boolean;
+  incluyeEmergencia?: boolean;
+  requiereCopago?: boolean;
+  montoCopago?: number;
+  miembrosGrupo?: MiembroGrupoEmergenciaDTO[];
+  alertas?: string[];
+  tiposAsistenciaPermitidos?: string[];
+  edad: number | null;
+  sexo: string | null;
+  antecedentes: AntecedenteEmergenciaDTO[];
 }
