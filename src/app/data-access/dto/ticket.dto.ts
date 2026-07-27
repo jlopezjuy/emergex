@@ -267,11 +267,14 @@ export interface SignosVitalesDTO {
   frecuenciaRespiratoria?: number;
   glucemia?: number;
   timestamp?: string;
+  fechaHora?: string;
   glasgowOcular?: number;
   glasgowVerbal?: number;
   glasgowMotor?: number;
   glasgowTotal?: number;
   avpu?: string;
+  observacion?: string;
+  observaciones?: string;
 }
 
 export interface ProcedimientoDTO {

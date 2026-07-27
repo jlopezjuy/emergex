@@ -1,0 +1,438 @@
+<div class="flex flex-col h-full overflow-hidden" style="background: var(--bg-base);">
+
+  <!-- ── HEADER ── -->
+  <app-emergency-header
+    [ticket]="ticket()"
+    [canDispatch]="canDispatch()"
+    [canMarkEnCamino]="canMarkEnCamino()"
+    [canMarkEnSitio]="canMarkEnSitio()"
+    [canStartTransfer]="canStartTransfer()"
+    [canFinishTransfer]="canFinishTransfer()"
+    [canClose]="canClose()"
+    [canStartTelemedicine]="canStartTelemedicine()"
+    [telemedicinaSala]="telemedicinaSala()"
+    [iniciandoTelemedicina]="iniciandoTelemedicina()"
+    (dispatch)="openDispatch()"
+    (enCamino)="marcarEnCamino()"
+    (enSitio)="marcarEnSitio()"
+    (iniciarTraslado)="iniciarTraslado()"
+    (finalizarTraslado)="finalizarTraslado()"
+    (cerrar)="cerrar()"
+    (cancelar)="cancelar()"
+    (iniciarTeleconsulta)="iniciarTeleconsulta()"
+    (abrirSala)="abrirSalaTelemedicina()"
+    (goBack)="goBack()"
+  />
+
+  <!-- ── BODY ── -->
+  <div class="flex-1 overflow-y-auto p-6">
+    @if (loading()) {
+      <emx-loading-state />
+    } @else if (error()) {
+      <emx-error-state [message]="error()!" (retry)="load()" />
+    } @else if (detalle()) {
+
+      <!-- ── TABS NAVIGATION ── -->
+      <div class="flex items-center gap-4 mb-5 pb-3" style="border-bottom: 1px solid var(--border-glass, rgba(255,255,255,0.1));">
+        <button type="button" 
+                class="px-4 py-2 text-sm font-semibold rounded-lg transition-all"
+                [style.background]="activeTab() === 'general' ? 'var(--bg-glass, rgba(255,255,255,0.05))' : 'transparent'"
+                [style.color]="activeTab() === 'general' ? 'var(--text-primary, #f8fafc)' : 'var(--text-muted, #94a3b8)'"
+                [style.border]="activeTab() === 'general' ? '1px solid var(--border-glass, rgba(255,255,255,0.1))' : '1px solid transparent'"
+                (click)="activeTab.set('general')">
+          Información General
+        </button>
+        <button type="button" 
+                class="px-4 py-2 text-sm font-semibold rounded-lg transition-all flex items-center gap-2"
+                [style.background]="activeTab() === 'clinico' ? 'var(--bg-glass, rgba(255,255,255,0.05))' : 'transparent'"
+                [style.color]="activeTab() === 'clinico' ? 'var(--text-primary, #f8fafc)' : 'var(--text-muted, #94a3b8)'"
+                [style.border]="activeTab() === 'clinico' ? '1px solid var(--border-glass, rgba(255,255,255,0.1))' : '1px solid transparent'"
+                (click)="activeTab.set('clinico')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+          </svg>
+          Historial Clínico
+        </button>
+      </div>
+
+      @if (activeTab() === 'general') {
+        <!-- 3-column grid -->
+        <div id="general-tab-grid" class="grid gap-5 h-full" style="grid-template-columns: 340px 1fr 300px; align-items: start;">
+
+          <!-- ══════════════════════════════════
+               COLUMNA LEFT — Paciente + Cobertura + Clínica
+               ══════════════════════════════════ -->
+          <div class="flex flex-col gap-4">
+
+            <!-- 1. Patient Card -->
+            <app-patient-card
+              [ticket]="ticket()"
+              [episodios]="episodios()"
+              [canIdentify]="canIdentifyAnonymousPatient()"
+              (identify)="showIdentifyPersonModal.set(true)"
+            />
+
+            <!-- Liquidación de Costos (SaaS Billing) -->
+            @if (ticket()?.estado === 'COMPLETADO' || ticket()?.estado === 'CERRADO' || ticket()?.presupuestoAceptado != null) {
+              <emx-glass-card>
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+                  <h2 class="section-label" style="margin:0">Liquidación Comercial</h2>
+                  <span class="badge badge--stable font-mono text-xs px-2 py-0.5" style="margin-left:auto;background:rgba(59,130,246,0.1);color:var(--accent-blue)">
+                    SaaS Billing
+                  </span>
+                </div>
+                <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                  <div>
+                    <dt class="text-xs" style="color: var(--text-muted);">Cargo Base (Zona)</dt>
+                    <dd class="font-mono text-xs mt-0.5" style="color: var(--text-primary); font-weight:600">
+                      {{ ticket()?.presupuestoAceptado != null ? '$' + ticket()?.presupuestoAceptado : '$0' }}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt class="text-xs" style="color: var(--text-muted);">Espera Adicional</dt>
+                    <dd class="font-mono text-xs mt-0.5" style="color: var(--text-primary);">
+                      {{ ticket()?.esperaMinutos != null ? ticket()?.esperaMinutos + ' min' : '0 min' }}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt class="text-xs" style="color: var(--text-muted);">Costo de Espera</dt>
+                    <dd class="font-mono text-xs mt-0.5" style="color: var(--accent-blue); font-weight:600">
+                      {{ ticket()?.costoEspera != null ? '$' + ticket()?.costoEspera : '$0' }}
+                    </dd>
+                  </div>
+                  <div style="border-top: 1px solid var(--border-hairline); padding-top:6px; grid-column: span 2; display:flex; justify-content:space-between; align-items:center">
+                    <dt class="text-xs font-semibold" style="color: var(--text-primary);">Total Liquidado</dt>
+                    <dd class="font-mono text-sm" style="color: var(--accent-emerald); font-weight:700">
+                      \${{ (Number(ticket()?.presupuestoAceptado) || 0) + (Number(ticket()?.costoEspera) || 0) }}
+                    </dd>
+                  </div>
+                </dl>
+              </emx-glass-card>
+            }
+
+            <!-- 2. Triage / Síntomas -->
+            <emx-glass-card>
+              <h2 class="section-label">Triage inicial</h2>
+              <p class="text-sm" style="color: var(--text-primary);">{{ ticket()?.tipoEmergencia ?? '—' }}</p>
+              @if (ticket()?.direccion) {
+                <p class="text-xs mt-2" style="color: var(--text-muted);">
+                  <span class="font-mono">LOC</span> {{ ticket()?.direccion }}
+                </p>
+              }
+              @if (ticket()?.latitud) {
+                <p class="font-mono text-xs mt-1" style="color: var(--text-muted);">
+                  {{ ticket()?.latitud }}, {{ ticket()?.longitud }}
+                </p>
+              }
+            </emx-glass-card>
+
+            <!-- 2b. Cobertura snapshot -->
+            <app-coverage-snapshot-card [snapshot]="coberturaSnapshot()" />
+
+            <!-- 3. Procedimientos -->
+            <app-clinical-item-list
+              title="Procedimientos"
+              [items]="procedimientos()"
+              [canEdit]="canEditClinical()"
+              type="PROCEDIMIENTO"
+              (add)="openClinicalModal('PROCEDIMIENTO')"
+            />
+
+            <!-- 4. Medicación -->
+            <app-clinical-item-list
+              title="Medicación"
+              [items]="medicacion()"
+              [canEdit]="canEditClinical()"
+              type="MEDICACION"
+              (add)="openClinicalModal('MEDICACION')"
+            />
+          </div>
+
+          <!-- ══════════════════════════════════
+               COLUMNA CENTER — Clinical data
+               ══════════════════════════════════ -->
+          <div class="flex flex-col gap-4">
+
+            <!-- 5. Status Flow Bar -->
+            <emx-status-flow-bar
+              [steps]="statusSteps()"
+              [activeIndex]="activeStepIndex()"
+            />
+
+            <!-- 6. Vital Signs -->
+            <app-vital-signs-card
+              [signos]="signos()"
+              [canEdit]="canEditClinical()"
+              [showHistory]="false"
+              (addSignos)="openClinicalModal('SIGNOS')"
+            />
+
+            <!-- 7. Timeline Operativo -->
+            <app-operative-timeline [events]="reversedTimeline()" />
+
+            <!-- 8. Notas interactivas -->
+            <emx-glass-card>
+              <h2 class="section-label">Notas</h2>
+              <div class="flex gap-2 mb-4">
+                <textarea
+                  class="flex-1 rounded-lg px-3 py-2 text-sm resize-none"
+                  rows="2"
+                  placeholder="Agregar una nota..."
+                  style="background: var(--bg-glass); border: 1px solid var(--border-glass); color: var(--text-primary); outline: none;"
+                  [value]="noteText()"
+                  (input)="noteText.set($any($event.target).value)"
+                ></textarea>
+                <button
+                  type="button"
+                  class="btn btn--primary btn--sm self-end"
+                  [disabled]="!canCreateOperationalNotes() || !noteText().trim()"
+                  (click)="agregarNota()"
+                >Agregar</button>
+              </div>
+              @if (!canCreateOperationalNotes()) {
+                <p class="text-xs mb-2" style="color: var(--text-muted);">
+                  La API actual no expone un endpoint para agregar notas operativas manuales desde esta vista.
+                </p>
+              }
+              @if (notaError()) {
+                <p class="text-xs mb-2" style="color: var(--accent-red);">{{ notaError() }}</p>
+              }
+              @if (notaOk()) {
+                <p class="text-xs mb-2" style="color: var(--accent-emerald);">Nota guardada correctamente</p>
+              }
+
+              @if (timelineNotes().length === 0) {
+                <p class="text-xs" style="color: var(--text-muted);">Sin notas registradas</p>
+              } @else {
+                <ul class="flex flex-col gap-2">
+                  @for (n of timelineNotes(); track n.id) {
+                    <li class="text-xs rounded-lg px-3 py-2" style="background: var(--bg-glass);">
+                      <p style="color: var(--text-primary);">{{ n.notas }}</p>
+                      <p class="mt-1" style="color: var(--text-muted);">{{ formatDate(n.fecha) }} · {{ n.operador ?? '—' }}</p>
+                    </li>
+                  }
+                </ul>
+              }
+            </emx-glass-card>
+          </div>
+
+          <!-- ══════════════════════════════════
+               COLUMNA RIGHT — Logística
+               ══════════════════════════════════ -->
+          <div class="flex flex-col gap-4">
+
+            <!-- 9. Unidad asignada -->
+            <app-assigned-unit-card
+              [ticket]="ticket()"
+              [tripulacion]="detalle()?.tripulacion ?? []"
+              [canDispatch]="canDispatch()"
+              (dispatch)="openDispatch()"
+            />
+
+            <!-- Widget de Telemedicina -->
+            <app-telemedicine-panel
+              [sala]="telemedicinaSala()"
+              [isLoading]="iniciandoTelemedicina()"
+              [error]="telemedicinaError()"
+              [canStart]="canStartTelemedicine()"
+              (iniciar)="iniciarTeleconsulta()"
+              (unirse)="abrirSalaTelemedicina()"
+            />
+
+            <!-- 10. Transport Card -->
+            <emx-glass-card>
+              <h2 class="section-label">Transporte</h2>
+              <dl class="flex flex-col gap-2 text-sm">
+                <div class="flex justify-between items-baseline">
+                  <dt class="text-xs" style="color: var(--text-muted);">Hospital destino</dt>
+                  <dd class="font-mono text-xs" style="color: var(--text-primary);">Por determinar</dd>
+                </div>
+                <div class="flex justify-between items-baseline">
+                  <dt class="text-xs" style="color: var(--text-muted);">Partida</dt>
+                  <dd class="font-mono text-xs" style="color: var(--text-primary);">{{ transportDeparture() }}</dd>
+                </div>
+                <div class="flex justify-between items-baseline">
+                  <dt class="text-xs" style="color: var(--text-muted);">ETA</dt>
+                  <dd class="font-mono text-xs" style="color: var(--text-muted);">—</dd>
+                </div>
+                <div class="flex justify-between items-center">
+                  <dt class="text-xs" style="color: var(--text-muted);">Pre-aviso</dt>
+                  <dd>
+                    <span class="badge text-xs px-2 py-0.5" style="background: rgba(245,158,11,0.15); color: var(--accent-amber);">
+                      Pendiente
+                    </span>
+                  </dd>
+                </div>
+              </dl>
+            </emx-glass-card>
+
+            <!-- 11. Mapa real -->
+            <emx-glass-card style="padding: 0; overflow: hidden;">
+              <div class="flex items-center justify-between px-4 py-2 flex-shrink-0"
+                   style="border-bottom: 1px solid var(--border-glass);">
+                <div class="flex items-center gap-2">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" stroke-width="2"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+                  <span class="eyebrow">Ruta · Tiempo real</span>
+                </div>
+                @if (ticket()?.ambulanciaId) {
+                  <span class="font-mono text-xs" style="color: var(--accent-cyan);">● En movimiento</span>
+                } @else if (ticket()?.latitud) {
+                  <span class="font-mono text-xs" style="color: var(--accent-amber);">● Domicilio</span>
+                }
+              </div>
+              @if (ticket()?.latitud || mapAmbulances().length > 0) {
+                <div style="height: 190px;">
+                  <emx-operations-map
+                    [ambulances]="mapAmbulances()"
+                    [emergencies]="mapTickets()"
+                    [selectedEmergencyId]="ticket()?.id ?? null"
+                    [autoFit]="true"
+                    [showLegend]="false"
+                  />
+                </div>
+              } @else {
+                <div class="px-4 py-8 text-center" style="background:#0a1628; color: var(--text-muted);">
+                  No hay ubicación geocodificada para este domicilio.
+                </div>
+              }
+            </emx-glass-card>
+
+            <!-- 12. Evidence Card -->
+            <emx-glass-card>
+              <h2 class="section-label">Evidencia</h2>
+              <div class="grid grid-cols-2 gap-2 mb-4">
+                @for (i of [0,1,2,3]; track i) {
+                  <div class="rounded-lg aspect-square"
+                       style="background: repeating-linear-gradient(
+                         45deg,
+                         var(--bg-glass) 0px,
+                         var(--bg-glass) 6px,
+                         var(--border-glass) 6px,
+                         var(--border-glass) 8px
+                       );">
+                  </div>
+                }
+              </div>
+              <p class="text-xs mb-4" style="color: var(--text-muted);">Sin evidencia fotográfica</p>
+
+              <div class="flex flex-col gap-2">
+                @for (firma of firmas; track firma.rol) {
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs" style="color: var(--text-muted);">{{ firma.rol }}</span>
+                    <span class="badge text-xs px-2 py-0.5" style="background: rgba(245,158,11,0.12); color: var(--accent-amber);">
+                      Pendiente
+                    </span>
+                  </div>
+                }
+              </div>
+            </emx-glass-card>
+          </div>
+
+        </div>
+      } @else {
+        <!-- Dedicated clinical history tab view -->
+        <div class="grid gap-5 h-full" style="grid-template-columns: 340px 1fr; align-items: start;">
+          <div class="flex flex-col gap-4">
+            <!-- Mini Paciente Card -->
+            <app-patient-card
+              [ticket]="ticket()"
+              [canIdentify]="false"
+            />
+
+            <!-- Signos Vitales Card con Historial -->
+            <app-vital-signs-card
+              [signos]="signos()"
+              [canEdit]="canEditClinical()"
+              [showHistory]="true"
+              (addSignos)="openClinicalModal('SIGNOS')"
+            />
+
+            <!-- Procedimientos Card -->
+            <app-clinical-item-list
+              title="Procedimientos"
+              [items]="procedimientos()"
+              [canEdit]="canEditClinical()"
+              type="PROCEDIMIENTO"
+              (add)="openClinicalModal('PROCEDIMIENTO')"
+            />
+
+            <!-- Medicación Card -->
+            <app-clinical-item-list
+              title="Medicación"
+              [items]="medicacion()"
+              [canEdit]="canEditClinical()"
+              type="MEDICACION"
+              (add)="openClinicalModal('MEDICACION')"
+            />
+          </div>
+
+          <!-- Columna central/derecha: Evolución Clínica Cronológica -->
+          <div class="flex flex-col gap-4">
+            <app-clinical-evolution-timeline [events]="clinicalEvolution()" />
+          </div>
+        </div>
+      }
+    }
+  </div>
+</div>
+
+<!-- Modales desvinculados del contenedor principal -->
+@if (clinicalModal()) {
+  <app-clinical-data-modal
+    [ticketId]="ticketId"
+    [kind]="clinicalModal()"
+    [clinicalAtencionInput]="clinicalAtencion()"
+    [tripulacion]="detalle()?.tripulacion ?? []"
+    (saved)="onClinicalModalSaved()"
+    (closed)="clinicalModal.set(null)"
+  />
+}
+
+@if (showCancelDialog()) {
+  <app-cancel-emergency-modal
+    [ticketId]="ticketId"
+    (confirmed)="onCancelConfirmed()"
+    (closed)="showCancelDialog.set(false)"
+  />
+}
+
+@if (showCloseDialog()) {
+  <app-close-emergency-modal
+    [ticketId]="ticketId"
+    [hospitales]="hospitales()"
+    [diagnosticosFrecuentesOptions]="diagnosticosFrecuentesOptions()"
+    [trasladoEnCurso]="trasladoEnCurso()"
+    (confirmed)="onCloseConfirmed()"
+    (closed)="showCloseDialog.set(false)"
+  />
+}
+
+@if (showEntregaModal()) {
+  <app-hospital-delivery-modal
+    [ticketId]="ticketId"
+    [hospitales]="hospitales()"
+    (confirmed)="onEntregaConfirmed()"
+    (closed)="showEntregaModal.set(false)"
+  />
+}
+
+@if (showDispatch() && ticket()) {
+  <emx-dispatch-modal
+    [emergency]="ticket()!"
+    (dispatched)="onDispatched()"
+    (closed)="showDispatch.set(false)"
+  />
+}
+
+@if (showIdentifyPersonModal() && ticket()) {
+  <app-add-assisted-person-modal
+    [tipo]="'institucion'"
+    [contextoId]="ticket()!.contextoCobertura?.id ?? 0"
+    [institucionId]="ticket()!.contextoCobertura?.institucionId"
+    [ticketId]="ticket()!.id"
+    [mode]="'identify'"
+    [contextoDireccion]="ticket()!.direccion"
+    (added)="onPersonIdentified()"
+    (closed)="showIdentifyPersonModal.set(false)"
+  />
+}

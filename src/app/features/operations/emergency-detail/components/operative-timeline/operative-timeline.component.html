@@ -1,0 +1,44 @@
+<emx-glass-card>
+  <div class="flex items-center justify-between mb-3">
+    <h2 class="section-label" style="margin:0;">Trazabilidad operativa</h2>
+    <span class="font-mono text-xs" style="color: var(--text-muted);">{{ events().length }} eventos</span>
+  </div>
+  @if (events().length === 0) {
+    <emx-empty-state message="Sin eventos registrados" />
+  } @else {
+    <ol class="flex flex-col gap-0">
+      @for (ev of events(); track ev.id; let last = $last) {
+        <li class="flex gap-3">
+          <div class="flex flex-col items-center flex-shrink-0">
+            <div class="w-2.5 h-2.5 rounded-full mt-0.5 flex-shrink-0"
+                 [style.background]="timelineColor(ev.estado)"
+                 [style.box-shadow]="'0 0 8px ' + timelineColor(ev.estado) + '99'">
+            </div>
+            @if (!last) {
+              <div class="flex-1 w-px mt-1" style="background: var(--border-glass); min-height: 28px;"></div>
+            }
+          </div>
+          <div class="pb-4 flex-1 min-w-0">
+            <div class="flex items-center gap-2 flex-wrap mb-0.5">
+              <span class="font-mono rounded px-1.5 py-0.5"
+                    [style.color]="timelineColor(ev.estado)"
+                    [style.background]="timelineColor(ev.estado) + '22'"
+                    style="font-size:9px; letter-spacing:0.08em; font-weight:700; border: 1px solid currentColor; opacity: 0.85;">
+                {{ timelineLabel(ev.estado) }}
+              </span>
+              @if (ev.operador) {
+                <span class="font-mono text-xs" style="color: var(--text-muted);">{{ ev.operador }}</span>
+              }
+              <span class="font-mono text-xs ml-auto" style="color: var(--text-muted);">{{ formatTime(ev.fecha) }}</span>
+            </div>
+            @if (ev.notas) {
+              <p class="text-xs" style="color: var(--text-secondary);">{{ ev.notas }}</p>
+            } @else {
+              <p class="text-xs" style="color: var(--text-secondary);">{{ ev.estado.replace('_', ' ') }}</p>
+            }
+          </div>
+        </li>
+      }
+    </ol>
+  }
+</emx-glass-card>

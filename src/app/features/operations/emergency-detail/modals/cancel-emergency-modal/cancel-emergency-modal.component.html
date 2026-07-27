@@ -1,0 +1,41 @@
+<div class="clinical-modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4">
+  <div class="clinical-modal-card cancel-modal-card flex flex-col gap-4 w-full max-w-md">
+    <div class="clinical-modal-header">
+      <div>
+        <p class="clinical-modal-kicker cancel-modal-kicker">Acción irreversible</p>
+        <h2 class="clinical-modal-title">¿Cancelar emergencia?</h2>
+        <p class="clinical-modal-subtitle">Indicá el motivo para dejar trazabilidad operativa.</p>
+      </div>
+      <button type="button" class="clinical-close" (click)="closed.emit()">×</button>
+    </div>
+    <div class="flex flex-col gap-1.5">
+      <label class="clinical-field-label">
+        Motivo *
+      </label>
+      <input
+        type="text"
+        class="clinical-input"
+        placeholder="Ej: llamada duplicada, paciente no encontrado..."
+        [value]="cancelMotivo()"
+        (input)="cancelMotivo.set($any($event.target).value)"
+        (keydown)="onCancelKeydown($event)"
+      />
+    </div>
+    @if (error()) {
+      <p class="text-xs" style="color: #dc2626;">{{ error() }}</p>
+    }
+    <div class="clinical-modal-footer">
+      <button
+        type="button"
+        class="btn btn--ghost btn--sm"
+        (click)="closed.emit()"
+      >Volver</button>
+      <button
+        type="button"
+        class="btn btn--danger btn--sm"
+        [disabled]="!cancelMotivo().trim() || submitting()"
+        (click)="confirmarCancelacion()"
+      >{{ submitting() ? 'Cancando...' : 'Confirmar cancelación' }}</button>
+    </div>
+  </div>
+</div>

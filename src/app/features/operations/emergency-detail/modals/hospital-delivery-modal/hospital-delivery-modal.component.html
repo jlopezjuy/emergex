@@ -1,0 +1,75 @@
+<div class="clinical-modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4">
+  <div class="clinical-modal-card flex flex-col gap-5 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+    <div class="clinical-modal-header">
+      <div>
+        <p class="clinical-modal-kicker">Acta de entrega — Ley 17.132</p>
+        <h2 class="clinical-modal-title">Entrega hospitalaria</h2>
+        <p class="clinical-modal-subtitle">Registrá los datos del receptor antes de finalizar el traslado. Este acta tiene valor legal.</p>
+      </div>
+      <button type="button" class="clinical-close" (click)="closed.emit()">×</button>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3">
+      <!-- Hospital -->
+      <label class="flex flex-col gap-1 col-span-2">
+        <span class="clinical-field-label">Hospital receptor</span>
+        @if (hospitales().length > 0) {
+          <select class="clinical-input"
+                  [value]="entregaHospitalId() ?? ''"
+                  (change)="entregaHospitalId.set($any($event.target).value ? Number($any($event.target).value) : null)">
+            <option value="">Seleccionar hospital...</option>
+            @for (h of hospitales(); track h.id) {
+              <option [value]="h.id">{{ h.nombre }}{{ h.ciudad ? ' — ' + h.ciudad : '' }}</option>
+            }
+          </select>
+        } @else {
+          <input class="clinical-input" placeholder="Hospital (cargá hospitales desde configuración)" disabled />
+        }
+      </label>
+
+      <!-- Receptor -->
+      <label class="flex flex-col gap-1">
+        <span class="clinical-field-label">Nombre del receptor *</span>
+        <input class="clinical-input" placeholder="Dr./Dra. Apellido" [value]="entregaReceptorNombre()" (input)="entregaReceptorNombre.set($any($event.target).value)" />
+      </label>
+      <label class="flex flex-col gap-1">
+        <span class="clinical-field-label">Matrícula del receptor</span>
+        <input class="clinical-input" placeholder="MN / MP 12345" [value]="entregaReceptorMatricula()" (input)="entregaReceptorMatricula.set($any($event.target).value)" />
+      </label>
+      <label class="flex flex-col gap-1 col-span-2">
+        <span class="clinical-field-label">Servicio receptor</span>
+        <input class="clinical-input" placeholder="Ej: Guardia, UTI, Clínica Médica" [value]="entregaServicioReceptor()" (input)="entregaServicioReceptor.set($any($event.target).value)" />
+      </label>
+
+      <!-- Condición al momento de entrega -->
+      <div class="col-span-2">
+        <p class="clinical-field-label mb-2">Condición del paciente al momento de entrega</p>
+        <div class="grid grid-cols-4 gap-2">
+          <input class="clinical-input" placeholder="PA (ej: 120/80)" [value]="entregaPa()" (input)="entregaPa.set($any($event.target).value)" />
+          <input class="clinical-input" type="number" placeholder="FC" [value]="entregaFc()" (input)="entregaFc.set($any($event.target).value)" />
+          <input class="clinical-input" type="number" placeholder="SpO₂ %" [value]="entregaSatO2()" (input)="entregaSatO2.set($any($event.target).value)" />
+          <input class="clinical-input" type="number" placeholder="Glasgow total" min="3" max="15" [value]="entregaGlasgow()" (input)="entregaGlasgow.set($any($event.target).value)" />
+        </div>
+      </div>
+
+      <!-- Firma -->
+      <label class="flex flex-col gap-1 col-span-2">
+        <span class="clinical-field-label">Firma del receptor (texto / código)</span>
+        <textarea rows="2" class="clinical-input" placeholder="Nombre completo y aclaración del receptor como constancia digital" [value]="entregaFirmaReceptor()" (input)="entregaFirmaReceptor.set($any($event.target).value)"></textarea>
+      </label>
+    </div>
+
+    @if (entregaError()) {
+      <p class="text-xs" style="color: #dc2626;">{{ entregaError() }}</p>
+    }
+
+    <div class="clinical-modal-footer">
+      <button type="button" class="btn btn--ghost btn--sm" (click)="closed.emit()">Cancelar</button>
+      <button type="button" class="btn btn--primary btn--sm"
+              [disabled]="entregaSaving() || !entregaReceptorNombre().trim()"
+              (click)="confirmarEntregaHospitalaria()">
+        {{ entregaSaving() ? 'Registrando...' : 'Registrar entrega y finalizar traslado' }}
+      </button>
+    </div>
+  </div>
+</div>

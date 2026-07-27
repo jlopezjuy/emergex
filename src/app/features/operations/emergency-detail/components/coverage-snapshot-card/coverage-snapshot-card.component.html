@@ -1,0 +1,46 @@
+@if (snapshot()) {
+  @let snap = snapshot()!;
+  <emx-glass-card>
+    <div class="info-section" style="margin-top:0">
+      <div class="eyebrow" style="color:var(--accent-blue);margin-bottom:8px">Cobertura al momento del ticket</div>
+      <div class="info-grid">
+        @if (snap.planNombre) {
+          <div class="info-item">
+            <div class="info-label">Plan</div>
+            <div class="info-value">{{ snap.planNombre }}</div>
+          </div>
+        }
+        @if (snap.institucionNombre) {
+          <div class="info-item">
+            <div class="info-label">Institución</div>
+            <div class="info-value">{{ snap.institucionNombre }}</div>
+          </div>
+        }
+        @if (snap.tipoCobertura) {
+          <div class="info-item">
+            <div class="info-label">Tipo</div>
+            <div class="info-value">{{ snap.tipoCobertura }}</div>
+          </div>
+        }
+        <div class="info-item">
+          <div class="info-label">Copago</div>
+          <div class="info-value" [style.color]="snap.requiereCopago ? 'var(--accent-amber)' : 'var(--accent-emerald)'">
+            {{ snap.requiereCopago ? ('$' + snap.montoCopago) : 'Sin copago' }}
+          </div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">Autorización</div>
+          <div class="info-value" [style.color]="snap.requiereAutorizacion ? 'var(--accent-amber)' : 'var(--accent-emerald)'">
+            {{ snap.requiereAutorizacion ? 'Requerida' : 'No requerida' }}
+          </div>
+        </div>
+        @if (snap.prestacionesIncluidasSnapshot) {
+          <div class="info-item" style="grid-column:1/-1">
+            <div class="info-label">Prestaciones incluidas</div>
+            <div class="info-value" style="font-size:11px">{{ snap.prestacionesIncluidasSnapshot }}</div>
+          </div>
+        }
+      </div>
+    </div>
+  </emx-glass-card>
+}

@@ -22,6 +22,7 @@ describe('EmergencyDetailComponent', () => {
       getAtencionByTicket: vi.fn().mockReturnValue(of(null)),
       agregarNota: vi.fn().mockReturnValue(of({})),
       getHospitales: vi.fn().mockReturnValue(of([])),
+      getDiagnosticosFrecuentes: vi.fn().mockReturnValue(of([])),
       getCoberturaSnapshot: vi.fn().mockReturnValue(of(null)),
       getAtencionesPorTicket: vi.fn().mockReturnValue(of([])),
       getLatestGeo: vi.fn().mockReturnValue(of(null)),

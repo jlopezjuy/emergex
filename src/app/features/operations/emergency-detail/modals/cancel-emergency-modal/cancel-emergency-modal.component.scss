@@ -1,0 +1,81 @@
+.clinical-modal-backdrop {
+  background: rgba(15, 23, 42, 0.54);
+  backdrop-filter: blur(10px) saturate(120%);
+}
+.clinical-modal-card {
+  border-radius: 1rem;
+  padding: 1.25rem;
+  background: rgba(248, 250, 252, 0.98);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.32);
+  color: #0f172a;
+}
+.cancel-modal-card {
+  box-shadow: 0 24px 70px rgba(127, 29, 29, 0.22), 0 12px 40px rgba(15, 23, 42, 0.25);
+}
+.clinical-modal-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+}
+.cancel-modal-kicker {
+  color: #dc2626;
+  font-family: monospace;
+  font-size: 0.64rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  margin: 0 0 0.25rem;
+  font-weight: 700;
+}
+.clinical-modal-title {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1rem;
+  font-weight: 700;
+}
+.clinical-modal-subtitle {
+  margin: 0.25rem 0 0;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+.clinical-close {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  color: #475569;
+  background: #fff;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+.clinical-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.22);
+}
+.clinical-field-label {
+  display: inline-flex;
+  align-items: center;
+  font-family: monospace;
+  font-size: 0.68rem;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #475569;
+  font-weight: 700;
+  margin: 0 0 0.35rem;
+}
+.clinical-input {
+  width: 100%;
+  border-radius: 0.65rem;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.875rem;
+  background: #ffffff;
+  border: 1px solid rgba(100, 116, 139, 0.35);
+  color: #0f172a;
+  outline: none;
+}
