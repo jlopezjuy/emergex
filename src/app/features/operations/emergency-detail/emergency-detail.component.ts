@@ -2099,6 +2099,10 @@ export class EmergencyDetailComponent implements OnInit {
     this.load();
     this.loadHospitales();
     this.loadDiagnosticosFrecuentes();
+
+    if (this.route.snapshot.queryParamMap.get('accion') === 'cerrar') {
+      this.cerrar();
+    }
   }
 
   loadHospitales(): void {

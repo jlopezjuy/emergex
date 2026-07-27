@@ -98,20 +98,24 @@ import { EmergencySlaBarComponent } from '../emergency-sla-bar/emergency-sla-bar
 
           <!-- Actions -->
           <div class="flex items-center gap-1 flex-shrink-0">
+            @if (!emergency().ambulanciaId) {
+              <button
+                type="button"
+                class="btn btn--sm"
+                title="Asignar unidad"
+                style="background: linear-gradient(135deg, var(--accent-purple, #a78bfa), #7c3aed); border-color: transparent; color: white;"
+                (click)="$event.stopPropagation(); assign.emit(emergency())"
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M6 1v10M1 6h10"/>
+                </svg>
+              </button>
+            }
             <button
               type="button"
-              class="btn btn--sm btn--ghost"
-              title="Asignar unidad"
-              (click)="$event.stopPropagation(); assign.emit(emergency())"
-            >
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path d="M6 1v10M1 6h10"/>
-              </svg>
-            </button>
-            <button
-              type="button"
-              class="btn btn--sm btn--ghost"
+              class="btn btn--sm"
               title="Localizar"
+              style="background: linear-gradient(135deg, var(--accent-blue), #1d4ed8); border-color: transparent; color: white;"
               (click)="$event.stopPropagation(); locate.emit(emergency())"
             >
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -121,8 +125,9 @@ import { EmergencySlaBarComponent } from '../emergency-sla-bar/emergency-sla-bar
             </button>
             <button
               type="button"
-              class="btn btn--sm btn--ghost"
+              class="btn btn--sm"
               title="Llamar"
+              style="background: linear-gradient(135deg, var(--accent-emerald), #047857); border-color: transparent; color: white;"
               (click)="$event.stopPropagation(); call.emit(emergency())"
             >
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -131,6 +136,29 @@ import { EmergencySlaBarComponent } from '../emergency-sla-bar/emergency-sla-bar
             </button>
           </div>
         </div>
+
+        <!-- Quick status actions -->
+        @if (nextActionLabel() || canClose()) {
+          <div class="flex items-center gap-1.5 pt-1.5" style="border-top: 1px solid var(--border-glass);">
+            @if (nextActionLabel()) {
+              <button
+                type="button"
+                class="btn btn--sm btn--primary"
+                [style.background]="nextActionColor()"
+                style="flex: 1; border-color: transparent;"
+                (click)="onPrimaryAction($event)"
+              >{{ nextActionLabel() }}</button>
+            }
+            @if (canClose()) {
+              <button
+                type="button"
+                class="btn btn--sm"
+                style="background: linear-gradient(135deg, var(--accent-amber), #b45309); border-color: transparent; color: white;"
+                (click)="onCloseClick($event)"
+              >Cerrar</button>
+            }
+          </div>
+        }
       </div>
     </div>
   `,
@@ -240,6 +268,8 @@ export class EmergencyListItemComponent {
   assign = output<TicketAsistenciaDTO>();
   locate = output<TicketAsistenciaDTO>();
   call = output<TicketAsistenciaDTO>();
+  enCamino = output<TicketAsistenciaDTO>();
+  enSitio = output<TicketAsistenciaDTO>();
 
   private router = inject(Router);
 
@@ -260,29 +290,91 @@ export class EmergencyListItemComponent {
     return context?.institucionNombre ?? context?.areaProtegidaNombre ?? ticket.coberturaNombreSnapshot ?? null;
   });
 
-  openDetail(): void {
+  // ── Quick status actions (mirrors emergency-detail.component.ts action guards) ──
+  readonly nextAction = computed<'DESPACHAR' | 'ASIGNAR_TRASLADO' | 'EN_CAMINO' | 'EN_SITIO' | null>(() => {
+    const t = this.emergency();
+    if (t.estado === 'HOSPITALIZACION_PENDIENTE') return 'ASIGNAR_TRASLADO';
+    if (!t.ambulanciaId && (t.estado === 'RECIBIDO' || t.estado === 'EN_ESPERA')) return 'DESPACHAR';
+    if (t.ambulanciaId && (t.estado === 'RECIBIDO' || t.estado === 'DESPACHADO')) return 'EN_CAMINO';
+    if (t.ambulanciaId && t.estado === 'EN_CAMINO') return 'EN_SITIO';
+    return null;
+  });
+
+  readonly nextActionLabel = computed((): string | null => {
+    switch (this.nextAction()) {
+      case 'DESPACHAR': return 'Despachar';
+      case 'ASIGNAR_TRASLADO': return 'Asignar traslado';
+      case 'EN_CAMINO': return 'En camino';
+      case 'EN_SITIO': return 'En sitio';
+      default: return null;
+    }
+  });
+
+  readonly canClose = computed(() => {
+    const estado = this.emergency().estado;
+    return !!estado && estado !== 'CERRADO' && estado !== 'COMPLETADO' && estado !== 'CANCELADO';
+  });
+
+  readonly nextActionColor = computed((): string => {
+    switch (this.nextAction()) {
+      case 'DESPACHAR':
+      case 'ASIGNAR_TRASLADO':
+        return 'linear-gradient(135deg, var(--accent-blue), #1d4ed8)';
+      case 'EN_CAMINO':
+        return 'linear-gradient(135deg, var(--accent-cyan), #0e7490)';
+      case 'EN_SITIO':
+        return 'linear-gradient(135deg, var(--accent-emerald), #047857)';
+      default:
+        return 'linear-gradient(135deg, var(--accent-blue), #1d4ed8)';
+    }
+  });
+
+  onPrimaryAction(event: Event): void {
+    event.stopPropagation();
+    const ticket = this.emergency();
+    switch (this.nextAction()) {
+      case 'DESPACHAR':
+      case 'ASIGNAR_TRASLADO':
+        this.assign.emit(ticket);
+        break;
+      case 'EN_CAMINO':
+        this.enCamino.emit(ticket);
+        break;
+      case 'EN_SITIO':
+        this.enSitio.emit(ticket);
+        break;
+    }
+  }
+
+  onCloseClick(event: Event): void {
+    event.stopPropagation();
+    this.openDetail('cerrar');
+  }
+
+  openDetail(accion?: 'cerrar'): void {
     const ticket = this.emergency();
     const origen = resolveOrigen(ticket);
     const ctx = ticket.contextoCobertura;
+    const accionParams = accion ? { accion } : {};
 
     if (origen === 'EVENTO' && ctx?.eventoCoberturaId != null) {
       this.router.navigate(
         ['/dashboard/coverage/evento', ctx.eventoCoberturaId],
-        { queryParams: { ticketId: ticket.id } },
+        { queryParams: { ticketId: ticket.id, ...accionParams } },
       );
     } else if (origen === 'INSTITUCIONAL' && ctx?.institucionId != null) {
       this.router.navigate(
         ['/dashboard/coverage/institucion', ctx.institucionId],
-        { queryParams: { ticketId: ticket.id } },
+        { queryParams: { ticketId: ticket.id, ...accionParams } },
       );
     } else if (origen === 'INSTITUCIONAL' && ctx?.id != null) {
       // AREA_PROTEGIDA without resolved institucionId — group by contextoCoberturaId
       this.router.navigate(
         ['/dashboard/coverage/contexto', ctx.id],
-        { queryParams: { ticketId: ticket.id } },
+        { queryParams: { ticketId: ticket.id, ...accionParams } },
       );
     } else {
-      this.router.navigate(['/dashboard/emergency', ticket.id]);
+      this.router.navigate(['/dashboard/emergency', ticket.id], { queryParams: accionParams });
     }
   }
 

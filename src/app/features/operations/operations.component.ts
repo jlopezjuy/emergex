@@ -6,6 +6,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { FleetApiService } from '../../data-access/api/fleet.api';
 import { DashboardApiService } from '../../data-access/api/dashboard.api';
 import { PatientApiService } from '../../data-access/api/patient.api';
+import { EmergencyApiService } from '../../data-access/api/emergency.api';
 import { DashboardOperativoDTO } from '../../data-access/dto/dashboard.dto';
 import { TicketAsistenciaDTO } from '../../data-access/dto/ticket.dto';
 import { CoberturaVigenteDTO } from '../../data-access/dto/patient.dto';
@@ -242,6 +243,8 @@ type FeedTab = 'TODAS' | 'INSTITUCIONALES' | 'PERSONAS' | 'SIN_ASIGNAR' | 'CRITI
                   (assign)="onAssign($event)"
                   (locate)="onLocate($event)"
                   (call)="onCall($event)"
+                  (enCamino)="onEnCamino($event)"
+                  (enSitio)="onEnSitio($event)"
                 />
               }
             }
@@ -471,6 +474,7 @@ export class OperationsComponent implements OnInit, OnDestroy {
   private fleetApi = inject(FleetApiService);
   private dashboardApi = inject(DashboardApiService);
   private patientApi = inject(PatientApiService);
+  private emergencyApi = inject(EmergencyApiService);
 
   readonly dashboard = signal<DashboardOperativoDTO | null>(null);
   readonly selectedAmbulanceId = signal<number | null>(null);
@@ -660,6 +664,24 @@ export class OperationsComponent implements OnInit, OnDestroy {
     this.closeDispatch();
     this.emergencyStore.loadActivos();
     this.refreshDashboardAndFleet();
+  }
+
+  onEnCamino(emergency: TicketAsistenciaDTO): void {
+    this.emergencyApi.enCamino(emergency.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: () => {
+        this.emergencyStore.loadActivos();
+        this.refreshDashboardAndFleet();
+      },
+    });
+  }
+
+  onEnSitio(emergency: TicketAsistenciaDTO): void {
+    this.emergencyApi.enSitio(emergency.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: () => {
+        this.emergencyStore.loadActivos();
+        this.refreshDashboardAndFleet();
+      },
+    });
   }
 
   onLocate(emergency: TicketAsistenciaDTO): void {
