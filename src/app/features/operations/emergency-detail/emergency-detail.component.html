@@ -226,7 +226,9 @@
               [ticket]="ticket()"
               [tripulacion]="detalle()?.tripulacion ?? []"
               [canDispatch]="canDispatch()"
+              [canChangeUnit]="canChangeUnit()"
               (dispatch)="openDispatch()"
+              (changeUnit)="openChangeUnit()"
             />
 
             <!-- Widget de Telemedicina -->
@@ -421,6 +423,14 @@
     [emergency]="ticket()!"
     (dispatched)="onDispatched()"
     (closed)="showDispatch.set(false)"
+  />
+}
+
+@if (showChangeUnit() && ticket()) {
+  <emx-change-unit-modal
+    [emergency]="ticket()!"
+    (changed)="onUnitChanged()"
+    (closed)="showChangeUnit.set(false)"
   />
 }
 

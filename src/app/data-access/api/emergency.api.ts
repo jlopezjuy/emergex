@@ -44,6 +44,7 @@ export class EmergencyApiService {
   private mapTicket(raw: any): TicketAsistenciaDTO {
     return {
       id:                 raw.id ?? raw.ticketId,
+      version:            raw.version,
       codigo:             raw.numeroTicket,
       tipoEmergencia:     raw.descripcionSintomas,
       estado:             raw.estadoActual,
@@ -83,6 +84,7 @@ export class EmergencyApiService {
       motivoLlamadoNombre: raw.motivoLlamadoNombre,
       tipoCoberturaEstadistica: raw.tipoCoberturaEstadistica,
       tipoPracticaEstadistica: raw.tipoPracticaEstadistica,
+      historialMoviles:   raw.historialMoviles,
     };
   }
 

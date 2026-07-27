@@ -14,8 +14,10 @@ export class AssignedUnitCardComponent {
   readonly ticket = input<TicketAsistenciaDTO | null>(null);
   readonly tripulacion = input<any[]>([]);
   readonly canDispatch = input<boolean>(false);
+  readonly canChangeUnit = input<boolean>(false);
 
   readonly dispatch = output<void>();
+  readonly changeUnit = output<void>();
 
   formatTime(iso?: string): string {
     if (!iso) return '—';

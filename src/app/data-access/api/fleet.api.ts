@@ -11,12 +11,14 @@ import {
   TurnoMovilDTO,
   TripulacionMovilDTO,
   AsignarMovilRequestDTO,
+  CambiarMovilRequestDTO,
   GuardiaMovilDTO,
   LogTurnoMovilDTO,
   GuardiaDTO,
   LogTurnoDTO,
   ProfesionalDisponibleDTO,
 } from '../dto/ambulancia.dto';
+import { TicketAsistenciaDTO } from '../dto/ticket.dto';
 
 @Injectable({ providedIn: 'root' })
 export class FleetApiService {
@@ -150,6 +152,19 @@ export class FleetApiService {
     return this.http.post<unknown>(
       `${this.v1Base}/tickets/${ticketId}/asignar-movil`,
       req,
+    );
+  }
+
+  cambiarMovil(
+    ticketId: number,
+    req: CambiarMovilRequestDTO,
+    idempotencyKey?: string,
+  ): Observable<TicketAsistenciaDTO> {
+    const headers = idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined;
+    return this.http.post<TicketAsistenciaDTO>(
+      `${this.v1Base}/tickets/${ticketId}/cambiar-movil`,
+      req,
+      headers ? { headers } : {},
     );
   }
 

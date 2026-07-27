@@ -12,6 +12,11 @@
       AMB-{{ ticket()?.ambulanciaId }}
     </p>
     <p class="text-sm mt-0.5" style="color: var(--text-secondary);">{{ ticket()?.unidadAsignada ?? '—' }}</p>
+    @if (canChangeUnit()) {
+      <button type="button" class="btn btn--ghost btn--sm mt-2" (click)="changeUnit.emit()">
+        Cambiar unidad
+      </button>
+    }
   } @else {
     <p class="text-sm" style="color: var(--text-muted);">Sin unidad asignada</p>
   }
@@ -23,7 +28,7 @@
           <li class="text-xs" style="color: var(--text-secondary);">
             <span class="font-mono font-semibold" style="color: var(--text-primary);">{{ h.ambulanciaCodigo ?? ('AMB-' + h.ambulanciaId) }}</span>
             <span style="color: var(--text-muted);"> · {{ formatTime(h.fechaAsignacion) }}{{ h.fechaLiberacion ? ' → ' + formatTime(h.fechaLiberacion) : ' (activa)' }}</span>
-            @if (h.motivo) { <span class="block" style="color: var(--text-muted);">{{ h.motivo }}</span> }
+            @if (h.motivo) { <span class="block" style="color: var(--text-muted);">{{ h.motivo }}{{ h.cambiadoPorLogin ? ' — ' + h.cambiadoPorLogin : '' }}</span> }
           </li>
         }
       </ul>

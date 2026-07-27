@@ -23,6 +23,7 @@ import { LoadingStateComponent } from '../../../shared/components/loading-state/
 import { ErrorStateComponent } from '../../../shared/components/error-state/error-state.component';
 import { GlassCardComponent } from '../../../shared/components/glass-card/glass-card.component';
 import { DispatchModalComponent } from '../../../shared/components/emergency/dispatch-modal/dispatch-modal.component';
+import { ChangeUnitModalComponent } from '../../../shared/components/emergency/change-unit-modal/change-unit-modal.component';
 import { OperationsMapComponent } from '../../../shared/components/map/operations-map/operations-map.component';
 import { SearchableSelectOption } from '../../../shared/components/searchable-select/searchable-select.component';
 import { StatusFlowBarComponent } from '../../../shared/components/emergency/status-flow-bar/status-flow-bar.component';
@@ -57,6 +58,7 @@ import { ClinicalEvent } from './models/clinical-event.model';
     ErrorStateComponent,
     GlassCardComponent,
     DispatchModalComponent,
+    ChangeUnitModalComponent,
     AddAssistedPersonModalComponent,
     OperationsMapComponent,
     StatusFlowBarComponent,
@@ -99,6 +101,7 @@ export class EmergencyDetailComponent implements OnInit {
 
   // ── Modal visibility signals ──────────────────────────────────
   readonly showDispatch = signal(false);
+  readonly showChangeUnit = signal(false);
   readonly showIdentifyPersonModal = signal(false);
   readonly showCancelDialog = signal(false);
   readonly showCloseDialog = signal(false);
@@ -221,6 +224,14 @@ export class EmergencyDetailComponent implements OnInit {
     if (!canByRole) return false;
     if (t?.estado === 'HOSPITALIZACION_PENDIENTE') return true;
     return !t?.ambulanciaId && (t?.estado === 'RECIBIDO' || t?.estado === 'EN_ESPERA');
+  });
+
+  readonly canChangeUnit = computed(() => {
+    const t = this.ticket();
+    const canByRole = this.session.isDespachante() || this.session.isOperador() || this.session.isAdministrador() || this.session.isPropietario() || this.session.isAdmin();
+    if (!canByRole || !t?.ambulanciaId) return false;
+    // HOSPITALIZACION_PENDIENTE ya tiene su propio flujo de reasignación via canDispatch().
+    return t.estado !== 'HOSPITALIZACION_PENDIENTE' && !this.isClosedOrCancelled();
   });
 
   readonly canMarkEnCamino = computed(() => {
@@ -550,6 +561,15 @@ export class EmergencyDetailComponent implements OnInit {
 
   onDispatched(): void {
     this.showDispatch.set(false);
+    this.load();
+  }
+
+  openChangeUnit(): void {
+    this.showChangeUnit.set(true);
+  }
+
+  onUnitChanged(): void {
+    this.showChangeUnit.set(false);
     this.load();
   }
 

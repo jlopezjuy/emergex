@@ -1,3 +1,5 @@
+import { MotivoCambioMovil } from './ambulancia.dto';
+
 export interface ContextoCoberturaDTO {
   id?: number;
   modalidadCobertura?: 'INDIVIDUAL_PLAN' | 'AREA_PROTEGIDA' | 'EVENTO' | 'PARTICULAR';
@@ -18,6 +20,9 @@ export interface ContextoCoberturaDTO {
 
 export interface TicketAsistenciaDTO {
   id: number;
+  // Bloqueo optimista: reenviar en operaciones sensibles a concurrencia (p. ej. cambiar-movil)
+  // para que un conflicto entre dos operadores se detecte como 409 en lugar de perderse.
+  version?: number;
   codigo?: string;
   tipoEmergencia?: string;
   prioridad?: 'CRITICA' | 'URGENTE' | 'NORMAL';
@@ -65,6 +70,12 @@ export interface TicketAsistenciaDTO {
     fechaAsignacion?: string;
     fechaLiberacion?: string;
     motivo?: string;
+    motivoCambio?: MotivoCambioMovil;
+    observacion?: string;
+    estadoTicketAlCambio?: string;
+    cambiadoPorLogin?: string;
+    origenCambio?: 'WEB' | 'MOVIL' | 'SISTEMA';
+    fueDespachada?: boolean;
   }[];
 
   // Autorización especial (campos "decorados" a nivel raíz del ticket)

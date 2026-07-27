@@ -92,6 +92,23 @@ export interface AsignarMovilRequestDTO {
   observacion?: string;
 }
 
+export type MotivoCambioMovil =
+  | 'FALTA_INSUMOS'
+  | 'FALLA_MECANICA'
+  | 'MEJOR_EQUIPAMIENTO'
+  | 'REASIGNACION_OPERATIVA'
+  | 'PRIORIDAD_SUPERIOR'
+  | 'OTRO';
+
+export interface CambiarMovilRequestDTO {
+  nuevaAmbulanciaId: number;
+  motivoCambio: MotivoCambioMovil;
+  // Obligatoria: registro auditable de por qué se cambió la unidad.
+  observacion: string;
+  ticketVersion: number;
+  usarTripulacionActiva?: boolean;
+}
+
 export interface GuardiaMovilDTO {
   id?: number;
   ambulanciaId: number;
