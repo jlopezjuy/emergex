@@ -152,6 +152,17 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'obras-sociales',
+        // Mismo criterio que institutions/plans: catálogo administrativo, no operativo.
+        // ROLE_CONTADOR no existe como authority Spring (RolCentro.CONTADOR es un rol
+        // de negocio por empresa, no un GrantedAuthority) — no se agrega acá.
+        canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_PROPIETARIO', 'ROLE_ADMINISTRADOR')],
+        loadComponent: () =>
+          import('./features/obras-sociales/obras-sociales.component').then(
+            (m) => m.ObrasSocialesComponent,
+          ),
+      },
+      {
         path: 'encuestas',
         loadChildren: () =>
           import('./features/encuestas/encuestas.routes').then(

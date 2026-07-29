@@ -1,4 +1,4 @@
-import { Component, input, inject, signal, OnInit, DestroyRef } from '@angular/core';
+import { Component, input, inject, signal, computed, OnInit, DestroyRef } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { DatePipe } from '@angular/common';
 import { InternacionApiService } from '../../../../data-access/api/internacion.api';
@@ -7,12 +7,14 @@ import {
   AutorizacionInternacionDTO,
   EstadoAutorizacion,
 } from '../../../../data-access/dto/internacion.dto';
+import { ObrasSocialesApiService } from '../../../../data-access/api/obras-sociales.api';
+import { SearchableSelectComponent, SearchableSelectOption } from '../../../../shared/components/searchable-select/searchable-select.component';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 @Component({
   selector: 'emx-autorizaciones-tab',
   standalone: true,
-  imports: [ReactiveFormsModule, DatePipe],
+  imports: [ReactiveFormsModule, DatePipe, SearchableSelectComponent],
   template: `
     <div class="max-w-3xl">
       <div class="flex items-center justify-between mb-6">
@@ -37,10 +39,13 @@ import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
           <h3 class="text-sm font-semibold" style="color: var(--text-primary)">Solicitar Autorización</h3>
           <div class="grid grid-cols-2 gap-4">
             <div class="flex flex-col gap-1">
-              <label class="text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary)">Obra Social ID *</label>
-              <input type="number" formControlName="obraSocialId" placeholder="ID"
-                class="rounded-lg px-3 py-2 text-sm w-full"
-                style="background: var(--surface-inset); border: 1px solid var(--border-glass); color: var(--text-primary); outline: none;" />
+              <label for="obraSocialSelectInput" class="text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary)">Obra Social *</label>
+              <emx-searchable-select
+                [inputId]="'obraSocialSelectInput'"
+                formControlName="obraSocialId"
+                [options]="obraSocialOptions()"
+                placeholder="Buscar obra social..."
+              />
             </div>
             <div class="flex flex-col gap-1">
               <label class="text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary)">Nro Autorización</label>
@@ -100,7 +105,7 @@ import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
                       [style.background]="estadoColor(a.estado)" style="color: #fff">{{ a.estado }}</span>
                   </div>
                   <p class="text-sm mt-1" style="color: var(--text-secondary)">
-                    Obra Social #{{ a.obraSocial?.id }}
+                    {{ obraSocialNombre(a.obraSocial?.id) }}
                   </p>
                 </div>
               </div>
@@ -198,6 +203,7 @@ export class AutorizacionesTabComponent implements OnInit {
     private destroyRef = inject(DestroyRef);
   internacion = input.required<InternacionDomiciliariaDTO>();
   private api = inject(InternacionApiService);
+  private obrasSocialesApi = inject(ObrasSocialesApiService);
   private fb = inject(FormBuilder);
 
   autorizaciones = signal<AutorizacionInternacionDTO[]>([]);
@@ -208,8 +214,15 @@ export class AutorizacionesTabComponent implements OnInit {
   actionTarget = signal<number | null>(null);
   actionMode = signal<'aprobar' | 'rechazar' | null>(null);
 
+  // Catálogo global de obras sociales (ver ObrasSocialesApiService) — reemplaza el
+  // <input type="number"> de ID a mano que obligaba al operador a memorizar IDs.
+  obrasSociales = signal<{ id: number; nombre: string }[]>([]);
+  obraSocialOptions = computed<SearchableSelectOption[]>(() =>
+    this.obrasSociales().map(os => ({ value: os.id, label: os.nombre }))
+  );
+
   form = this.fb.nonNullable.group({
-    obraSocialId: [0, [Validators.required, Validators.min(1)]],
+    obraSocialId: [null as number | null, Validators.required],
     numeroAutorizacion: [''],
     fechaVigenciaDesde: ['', Validators.required],
     fechaVigenciaHasta: ['', Validators.required],
@@ -230,6 +243,23 @@ export class AutorizacionesTabComponent implements OnInit {
 
   ngOnInit(): void {
     this.load();
+    this.loadObrasSociales();
+  }
+
+  private loadObrasSociales(): void {
+    // Solo activas: no tiene sentido solicitar una autorización nueva contra un
+    // convenio dado de baja. Las autorizaciones ya existentes con una obra social
+    // inactiva se siguen resolviendo por id en obraSocialNombre() más abajo.
+    this.obrasSocialesApi.getAll({ activa: true }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (data) => this.obrasSociales.set(data.map(os => ({ id: os.id!, nombre: os.nombre }))),
+      error: () => {}, // no crítico: el selector queda vacío si falla el catálogo
+    });
+  }
+
+  obraSocialNombre(id?: number): string {
+    if (id == null) return 'Obra Social sin datos';
+    const found = this.obrasSociales().find(os => os.id === id);
+    return found ? found.nombre : `Obra Social #${id}`;
   }
 
   private load(): void {
@@ -243,7 +273,8 @@ export class AutorizacionesTabComponent implements OnInit {
     this.submitting.set(true);
     const f = this.form.getRawValue();
     this.api.solicitarAutorizacion(this.internacion().id, {
-            obraSocial: { id: f.obraSocialId },
+            // form.invalid ya devolvió arriba si no hay selección: Validators.required lo garantiza.
+            obraSocial: { id: f.obraSocialId! },
             numeroAutorizacion: f.numeroAutorizacion || undefined,
             fechaVigenciaDesde: f.fechaVigenciaDesde,
             fechaVigenciaHasta: f.fechaVigenciaHasta,
