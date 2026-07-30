@@ -118,6 +118,13 @@ export interface AltaRapidaRequest {
   pacienteDni?: string;
   pacienteTelefono?: string;
 
+  // Contrato de atención (Área Protegida o Convenio con Obra Social) — solo aplica
+  // cuando noAfiliado=true, el backend lo ignora si viene con pacienteId. planObraSocialId
+  // y numeroCredencial solo tienen efecto si el contrato es de modalidad CONVENIO_OBRA_SOCIAL.
+  contratoCoberturaId?: number | null;
+  planObraSocialId?: number | null;
+  numeroCredencial?: string;
+
   // Autorización especial — distinta de motivoExcepcion (esa es por deuda/falta de cobertura).
   autorizacionEspecial?: boolean;
   autorizadoPor?: string | null;

@@ -15,6 +15,9 @@ import { EmergencyApiService } from '../../../../data-access/api/emergency.api';
 import { EmergencyStore } from '../../../../core/stores/emergency.store';
 import { EmergencyModalService } from '../emergency-modal.service';
 import { UserFeedbackService } from '../../../../core/notifications/user-feedback.service';
+import { ContratoCoberturaCatalogoApiService } from '../../../../data-access/api/contrato-cobertura-catalogo.api';
+import { ContratoActivoDTO } from '../../../../data-access/dto/contrato-cobertura-catalogo.dto';
+import { PlanObraSocialApiService } from '../../../../data-access/api/plan-obra-social.api';
 
 type TipoAsistencia = AltaRapidaRequest['tipoAsistencia'];
 type NivelUrgencia  = AltaRapidaRequest['nivelUrgencia'];
@@ -327,6 +330,76 @@ const TIPOS_PRACTICA_ESTADISTICA: SearchableSelectOption[] = [
                 <span role="alert" class="text-xs" style="color: var(--error-text);">El teléfono es obligatorio para paciente no registrado</span>
               }
             </div>
+
+            <!-- Contrato de atención: Área Protegida o Convenio con Obra Social. Solo tiene
+                 sentido para paciente NO afiliado (así lo pidió el cliente) — un afiliado ya
+                 tiene su cobertura resuelta por su cuenta y nunca se factura a un tercero. -->
+            <div class="flex flex-col gap-2 mt-2 pt-3" style="border-top: 1px solid var(--border-glass);">
+              <span class="eyebrow">Contrato de atención (opcional)</span>
+
+              @if (loadingContratos()) {
+                <span class="text-xs" style="color: var(--text-muted);" role="status">Cargando contratos...</span>
+              } @else if (errorContratos()) {
+                <span class="text-xs" style="color: var(--error-text);">{{ errorContratos() }}</span>
+              } @else if (tiposContratoDisponibles().length === 0) {
+                <span class="text-xs" style="color: var(--text-muted);">No hay contratos activos disponibles.</span>
+              } @else {
+                <div class="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Tipo de contrato">
+                  @for (t of tiposContratoDisponibles(); track t.value) {
+                    <button
+                      type="button"
+                      role="radio"
+                      [attr.aria-checked]="f['tipoContrato'].value === t.value"
+                      class="px-2.5 py-1 rounded-btn text-xs font-medium transition-all focus:ring-2 focus:ring-[var(--accent-cyan)] focus:outline-none"
+                      [style.border]="f['tipoContrato'].value === t.value ? '1px solid var(--accent-cyan)' : '1px solid var(--border-glass)'"
+                      [style.background]="f['tipoContrato'].value === t.value ? 'rgba(6,182,212,0.15)' : 'var(--surface-glass)'"
+                      [style.color]="f['tipoContrato'].value === t.value ? 'var(--accent-cyan)' : 'var(--text-secondary)'"
+                      (click)="onTipoContratoChange(t.value)"
+                    >{{ t.label }}</button>
+                  }
+                  @if (f['tipoContrato'].value) {
+                    <button
+                      type="button"
+                      class="px-2.5 py-1 rounded-btn text-xs"
+                      style="border: 1px solid var(--border-glass); color: var(--text-muted); background: transparent;"
+                      (click)="onTipoContratoChange(null)"
+                    >Quitar</button>
+                  }
+                </div>
+
+                @if (f['tipoContrato'].value) {
+                  <emx-searchable-select
+                    [inputId]="'contratoCoberturaInput'"
+                    formControlName="contratoCoberturaId"
+                    [options]="contratosDelTipoOptions()"
+                    placeholder="Elegí el contrato..."
+                  />
+
+                  @if (f['tipoContrato'].value === 'CONVENIO_OBRA_SOCIAL' && f['contratoCoberturaId'].value) {
+                    <div class="grid grid-cols-2 gap-2 mt-1">
+                      @if (loadingPlanesObraSocial()) {
+                        <span class="text-xs col-span-2" style="color: var(--text-muted);" role="status">Cargando planes...</span>
+                      } @else {
+                        <emx-searchable-select
+                          [inputId]="'planObraSocialInput'"
+                          formControlName="planObraSocialId"
+                          [options]="planesObraSocialOptions()"
+                          placeholder="Plan de la obra social..."
+                        />
+                      }
+                      <input
+                        type="text"
+                        formControlName="numeroCredencial"
+                        placeholder="N° de credencial (opcional)"
+                        aria-label="Número de credencial"
+                        class="rounded-btn px-3 py-2 text-sm w-full focus:ring-2 focus:ring-[var(--accent-cyan)] focus:outline-none"
+                        style="background: var(--surface-glass); border: 1px solid var(--border-strong); color: var(--text-primary);"
+                      />
+                    </div>
+                  }
+                }
+              }
+            </div>
           }
         </div>
 
@@ -596,6 +669,8 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
   private emergencyStore = inject(EmergencyStore);
   private modalService   = inject(EmergencyModalService);
   private feedback       = inject(UserFeedbackService);
+  private contratosApi   = inject(ContratoCoberturaCatalogoApiService);
+  private planObraSocialApi = inject(PlanObraSocialApiService);
 
   readonly submitting = signal(false);
 
@@ -621,6 +696,38 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
   );
   readonly contextoPaciente = signal<ContextoEmergenciaPaciente | null>(null);
   readonly cargandoContexto = signal(false);
+
+  // ── Contrato de atención (Área Protegida / Convenio Obra Social) — solo paciente no
+  // afiliado: así lo pidió el cliente, y es la única rama que el backend honra hoy
+  // (ver OperadorEmergenciaServiceImpl.altaRapida). ──
+  private readonly TIPO_CONTRATO_LABELS: { value: 'AREA_PROTEGIDA' | 'CONVENIO_OBRA_SOCIAL'; label: string }[] = [
+    { value: 'AREA_PROTEGIDA', label: 'Área Protegida' },
+    { value: 'CONVENIO_OBRA_SOCIAL', label: 'Convenio con Obra Social' },
+  ];
+  readonly contratosDisponibles = signal<ContratoActivoDTO[]>([]);
+  readonly loadingContratos = signal(false);
+  readonly errorContratos = signal<string | null>(null);
+  readonly planesObraSocial = signal<{ id: number; nombre: string }[]>([]);
+  readonly loadingPlanesObraSocial = signal(false);
+
+  readonly tiposContratoDisponibles = computed(() => {
+    const modalidades = new Set(this.contratosDisponibles().map(c => c.modalidadCobertura));
+    return this.TIPO_CONTRATO_LABELS.filter(t => modalidades.has(t.value));
+  });
+
+  // Método (no computed): depende de un FormControl.value, no de un signal — un
+  // computed() no re-evaluaría al cambiar el tipo seleccionado.
+  contratosDelTipoOptions(): SearchableSelectOption[] {
+    const tipo = this.f['tipoContrato'].value;
+    if (!tipo) return [];
+    return this.contratosDisponibles()
+      .filter(c => c.modalidadCobertura === tipo)
+      .map(c => ({ value: c.id, label: c.nombre }));
+  }
+
+  readonly planesObraSocialOptions = computed<SearchableSelectOption[]>(() =>
+    this.planesObraSocial().map(p => ({ value: p.id, label: p.nombre }))
+  );
 
   private destroy$ = new Subject<void>();
   private search$  = new Subject<string>();
@@ -674,6 +781,10 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
     pacienteDni:        [''],
     pacienteTelefono:   [''],
     motivoExcepcion:    [''],
+    tipoContrato:       [null as 'AREA_PROTEGIDA' | 'CONVENIO_OBRA_SOCIAL' | null],
+    contratoCoberturaId: [null as number | null],
+    planObraSocialId:   [null as number | null],
+    numeroCredencial:   [''],
     motivoLlamadoId:    [null as number | null],
     tipoCoberturaEstadistica: [null as TipoCoberturaEstadistica],
     tipoPracticaEstadistica: [null as TipoPracticaEstadistica],
@@ -686,6 +797,30 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
   constructor() {
     this.applyConditionalValidators();
     this.loadMotivosLlamado();
+    this.loadContratosDisponibles();
+
+    // Al cambiar el contrato elegido: si es un convenio con obra social, cargar sus
+    // planes; si no, limpiar el plan/credencial para no arrastrar selección vieja.
+    this.f['contratoCoberturaId'].valueChanges
+      .pipe(takeUntil(this.destroy$), takeUntilDestroyed(this.destroyRef))
+      .subscribe(contratoId => {
+        this.form.patchValue({ planObraSocialId: null, numeroCredencial: '' }, { emitEvent: false });
+        this.planesObraSocial.set([]);
+
+        const tipo = this.f['tipoContrato'].value;
+        if (tipo !== 'CONVENIO_OBRA_SOCIAL' || contratoId == null) return;
+
+        const contrato = this.contratosDisponibles().find(c => c.id === contratoId);
+        if (!contrato?.obraSocialId) return;
+
+        this.loadingPlanesObraSocial.set(true);
+        this.planObraSocialApi.getByObraSocial(contrato.obraSocialId)
+          .pipe(catchError(() => of([])), takeUntilDestroyed(this.destroyRef))
+          .subscribe(planes => {
+            this.planesObraSocial.set(planes.filter(p => p.activo).map(p => ({ id: p.id!, nombre: p.nombre })));
+            this.loadingPlanesObraSocial.set(false);
+          });
+      });
 
     this.search$.pipe(
       debounceTime(300),
@@ -837,6 +972,28 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
     });
   }
 
+  private loadContratosDisponibles(): void {
+    this.loadingContratos.set(true);
+    this.errorContratos.set(null);
+    this.contratosApi.getActivos().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (data) => {
+        this.contratosDisponibles.set(data);
+        this.loadingContratos.set(false);
+      },
+      error: () => {
+        this.errorContratos.set('No se pudo cargar el catálogo de contratos.');
+        this.loadingContratos.set(false);
+      }
+    });
+  }
+
+  onTipoContratoChange(tipo: 'AREA_PROTEGIDA' | 'CONVENIO_OBRA_SOCIAL' | null): void {
+    this.f['tipoContrato'].setValue(tipo);
+    // Cambiar de tipo invalida cualquier contrato/plan ya elegido del tipo anterior.
+    this.form.patchValue({ contratoCoberturaId: null, planObraSocialId: null, numeroCredencial: '' }, { emitEvent: false });
+    this.planesObraSocial.set([]);
+  }
+
   private loadContextoPaciente(pacienteId: number): void {
     this.contextoPaciente.set(null);
     this.cargandoContexto.set(true);
@@ -976,6 +1133,14 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
         if (val.pacienteDni)      req.pacienteDni      = val.pacienteDni;
         if (val.pacienteTelefono) req.pacienteTelefono = val.pacienteTelefono;
       }
+      // Contrato de atención — el backend solo lo aplica en esta rama (paciente no afiliado).
+      if (val.contratoCoberturaId) {
+        req.contratoCoberturaId = val.contratoCoberturaId;
+        if (val.tipoContrato === 'CONVENIO_OBRA_SOCIAL') {
+          if (val.planObraSocialId) req.planObraSocialId = val.planObraSocialId;
+          if (val.numeroCredencial) req.numeroCredencial = val.numeroCredencial;
+        }
+      }
     } else {
       const p = this.selectedPaciente();
       if (p) req.pacienteId = p.id;
@@ -1039,9 +1204,14 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
           pacienteApellido: '',
           pacienteDni: '',
           pacienteTelefono: '',
+          tipoContrato: null,
+          contratoCoberturaId: null,
+          planObraSocialId: null,
+          numeroCredencial: '',
         },
         { emitEvent: false }
       );
+      this.planesObraSocial.set([]);
     }
 
     this.applyConditionalValidators();
