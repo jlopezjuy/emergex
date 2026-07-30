@@ -9,9 +9,24 @@ export class ObrasSocialesApiService {
   private http = inject(HttpClient);
   private base = `${environment.apiUrl}/api/obra-socials`;
 
-  /** Catálogo global (sin tenant): trae activas e inactivas, size alto porque no se pagina en UI. */
+  /**
+   * Tope de filas que pide getAll. La UI no pagina: filtra y cuenta sobre lo que trae, así que
+   * si el catálogo supera este número la pantalla miente en silencio (KPIs mal y obras sociales
+   * que el buscador no encuentra). Pasó de verdad: con size=500 y 834 filas cargadas, SWISS
+   * MEDICAL quedaba en la posición alfabética 810 y era inhallable.
+   *
+   * 2000 es además el máximo que admite Spring Data por defecto
+   * (spring.data.web.pageable.max-page-size); pedir más se recorta sin avisar.
+   *
+   * El universo real es acotado —RNAS 365 + RNEMP 568— así que 2000 da margen de sobra. Si
+   * alguna vez se acerca, la salida no es subir el número: es paginar y buscar server-side
+   * (el endpoint ya soporta nombre.contains).
+   */
+  static readonly MAX_CATALOGO = 2000;
+
+  /** Catálogo global (sin tenant): trae activas e inactivas, sin paginar en UI. */
   getAll(params: { nombre?: string; activa?: boolean } = {}): Observable<ObraSocialDTO[]> {
-    const query: Record<string, string> = { size: '500', sort: 'nombre,asc' };
+    const query: Record<string, string> = { size: String(ObrasSocialesApiService.MAX_CATALOGO), sort: 'nombre,asc' };
     if (params.nombre) query['nombre.contains'] = params.nombre;
     if (params.activa != null) query['activa.equals'] = String(params.activa);
     return this.http.get<ObraSocialDTO[]>(this.base, { params: query });

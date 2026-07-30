@@ -496,7 +496,11 @@
     text-transform: uppercase;
     letter-spacing: 0.12em;
     color: var(--text-muted);
-    background: rgba(2, 6, 23, 0.4);
+    /* El encabezado es sticky: el fondo TIENE que ser opaco o las filas se ven
+       pasar por debajo al scrollear. Antes era rgba(2,6,23,0.4), un azul casi
+       negro que sólo funciona en tema oscuro y en tema claro se veía como una
+       barra gris. --surface-glass-strong es opaco en ambos temas. */
+    background: var(--surface-glass-strong);
     border-bottom: 1px solid var(--border-hairline);
     position: sticky;
     top: 0;

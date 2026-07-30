@@ -25,11 +25,10 @@ type ActivaFilter = 'TODAS' | 'ACTIVAS' | 'INACTIVAS';
     EmptyStateComponent,
   ],
   template: `
-    <div style="display:flex; flex-direction:column; height:100%; overflow:hidden; background:var(--bg-deep);">
+    <div class="screen">
 
       <!-- Header -->
-      <div style="padding:24px 24px 0; flex-shrink:0;">
-        <div class="screen-head">
+      <div class="screen-head">
           <div class="screen-head__title">
             <div class="screen-head__icon">
               <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="var(--accent-blue)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
@@ -80,56 +79,51 @@ type ActivaFilter = 'TODAS' | 'ACTIVAS' | 'INACTIVAS';
           </div>
         </div>
 
-        @if (importResult(); as result) {
-          <div style="margin-top:10px; padding:10px 12px; border-radius:8px; background:var(--surface-glass); border:1px solid var(--border-glass);">
-            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
-              <div style="display:flex; gap:16px; font-size:12px; font-family:var(--font-mono);">
-                <span style="color:var(--accent-emerald)">{{ result.creadas }} creadas</span>
-                <span style="color:var(--accent-blue)">{{ result.actualizadas }} actualizadas</span>
-                @if (result.rechazadas > 0) {
-                  <span style="color:var(--accent-red)">{{ result.rechazadas }} rechazadas</span>
-                }
-              </div>
-              <button type="button" class="action-icon" style="width:22px;height:22px;" title="Cerrar" (click)="importResult.set(null)">✕</button>
+      @if (importResult(); as result) {
+        <div class="glass-strong os-import-result">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+            <div style="display:flex; gap:16px; font-size:12px; font-family:var(--font-mono);">
+              <span style="color:var(--accent-emerald)">{{ result.creadas }} creadas</span>
+              <span style="color:var(--accent-blue)">{{ result.actualizadas }} actualizadas</span>
+              @if (result.rechazadas > 0) {
+                <span style="color:var(--accent-red)">{{ result.rechazadas }} rechazadas</span>
+              }
             </div>
-            @if (result.errores.length > 0) {
-              <ul style="margin:8px 0 0; padding-left:16px; font-size:11px; color:var(--accent-red); max-height:100px; overflow-y:auto;">
-                @for (err of result.errores; track err) {
-                  <li>{{ err }}</li>
-                }
-              </ul>
-            }
+            <button type="button" class="action-icon" style="width:22px;height:22px;" title="Cerrar" (click)="importResult.set(null)">✕</button>
           </div>
-        }
+          @if (result.errores.length > 0) {
+            <ul style="margin:8px 0 0; padding-left:16px; font-size:11px; color:var(--accent-red); max-height:100px; overflow-y:auto;">
+              @for (err of result.errores; track err) {
+                <li>{{ err }}</li>
+              }
+            </ul>
+          }
+        </div>
+      }
 
-        <!-- Search + filter row -->
-        <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:8px;">
-          <div style="position:relative; width:280px;">
-            <svg
-              style="position:absolute; left:10px; top:50%; transform:translateY(-50%); pointer-events:none;"
-              width="14" height="14" viewBox="0 0 16 16" fill="none"
-              stroke="var(--text-muted)" stroke-width="1.5"
-            >
-              <circle cx="7" cy="7" r="5"/>
-              <path d="M11 11l3 3"/>
-            </svg>
+      <!-- ── Table card ── -->
+      <div class="glass-strong os-card">
+
+        <!-- Toolbar -->
+        <div class="os-toolbar">
+          <div class="os-search">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-linecap="round"><circle cx="6" cy="6" r="4"/><path d="M9.5 9.5l3 3"/></svg>
             <input
+              class="os-search__input"
               type="text"
-              placeholder="Buscar por nombre o CUIT..."
+              placeholder="Buscar por nombre o CUIT…"
               [(ngModel)]="searchQuery"
-              style="width:100%; box-sizing:border-box; padding:7px 10px 7px 32px; border-radius:8px; border:1px solid var(--border-glass); background:var(--surface-glass); color:var(--text-primary); font-size:12px; outline:none; font-family:inherit;"
             />
           </div>
 
-          <div style="display:flex; gap:4px;">
+          <div class="os-filters">
+            <span class="eyebrow" style="white-space:nowrap">Estado:</span>
             @for (opt of filterOptions; track opt.value) {
               <button
                 type="button"
+                class="filter-chip"
+                [attr.data-on]="activaFilter() === opt.value"
                 (click)="activaFilter.set(opt.value)"
-                [style.background]="activaFilter() === opt.value ? 'rgba(59,130,246,0.15)' : 'transparent'"
-                [style.color]="activaFilter() === opt.value ? 'var(--accent-blue)' : 'var(--text-muted)'"
-                [style.borderColor]="activaFilter() === opt.value ? 'rgba(59,130,246,0.4)' : 'var(--border-glass)'"
-                style="padding:5px 12px; font-size:11px; font-family:var(--font-mono); border-radius:6px; border:1px solid; cursor:pointer; text-transform:uppercase; letter-spacing:0.08em; transition:all 0.15s;"
               >{{ opt.label }}</button>
             }
           </div>
@@ -138,19 +132,13 @@ type ActivaFilter = 'TODAS' | 'ACTIVAS' | 'INACTIVAS';
         </div>
 
         @if (loading()) {
-          <div style="height:2px; background:var(--accent-blue); border-radius:2px; margin-top:4px; opacity:0.7; animation:pulse 1.5s ease-in-out infinite;"></div>
+          <div class="os-loading-bar"></div>
         }
         @if (error()) {
-          <div style="margin-top:10px; padding:8px 12px; border-radius:6px; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25); font-size:11px; font-family:var(--font-mono); color:var(--accent-red);">
-            {{ error() }}
-          </div>
+          <div class="os-error">{{ error() }}</div>
         }
 
-        <div style="height:1px; background:var(--border-hairline); margin-top:16px;"></div>
-      </div>
-
-      <!-- Table -->
-      <div style="flex:1; overflow-y:auto; padding:16px 24px 24px;">
+        <!-- Table -->
         <div class="data-table-wrap">
           <table class="data-table" style="width:100%;min-width:760px">
             <thead>
@@ -174,7 +162,7 @@ type ActivaFilter = 'TODAS' | 'ACTIVAS' | 'INACTIVAS';
               }
               @for (os of filtered(); track os.id) {
                 <tr>
-                  <td style="font-weight:500;">{{ os.nombre }}</td>
+                  <td class="os-nombre" [title]="os.nombre">{{ os.nombre }}</td>
                   <td class="mono" style="font-size:12px;">{{ os.cuit || '—' }}</td>
                   <td class="mono" style="font-size:12px;">{{ os.codigoRNOS || '—' }}</td>
                   <td style="color:var(--text-secondary);">{{ os.telefono || '—' }}</td>
@@ -232,6 +220,97 @@ type ActivaFilter = 'TODAS' | 'ACTIVAS' | 'INACTIVAS';
       }
     </div>
   `,
+  styles: [`
+    :host { display: block; }
+
+    /* Mismo idioma visual que Facturación (.ft-card) e Instituciones (.pt-card):
+       la tabla y su toolbar viven dentro de una tarjeta, no sueltas sobre el fondo. */
+    .os-card { border-radius: var(--r-card); padding: 0; overflow: hidden; }
+
+    .os-import-result {
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      border-radius: var(--r-card);
+    }
+
+    .os-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-hairline);
+    }
+    .os-search {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+      min-width: 200px;
+      max-width: 380px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-glass);
+      border-radius: var(--r-btn);
+      padding: 0 10px;
+      height: 32px;
+    }
+    .os-search__input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 13px;
+    }
+    .os-search__input::placeholder { color: var(--text-dim); }
+
+    .os-filters { display: flex; align-items: center; gap: 6px; }
+    .filter-chip {
+      height: 28px; padding: 0 12px; border-radius: 20px;
+      border: 1px solid var(--border-glass); background: transparent;
+      color: var(--text-muted); font-size: 11.5px; font-family: var(--font-sans);
+      cursor: pointer; transition: all 0.15s;
+    }
+    .filter-chip:hover { color: var(--text-primary); background: rgba(255, 255, 255, 0.04); }
+    .filter-chip[data-on="true"] {
+      background: rgba(59, 130, 246, 0.12);
+      border-color: rgba(59, 130, 246, 0.4);
+      color: var(--accent-blue);
+    }
+
+    /* Sin tope, la razón social más larga del padrón estira la columna a ~1350px y empuja
+       CUIT, código y teléfono fuera de la pantalla. El nombre completo queda en el title. */
+    .os-nombre {
+      font-weight: 500;
+      max-width: 420px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .os-loading-bar {
+      height: 2px;
+      background: var(--accent-blue);
+      opacity: 0.7;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    .os-error {
+      margin: 10px 16px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--accent-red);
+    }
+
+    @media (max-width: 900px) {
+      .os-toolbar { flex-direction: column; align-items: stretch; }
+      .os-search { max-width: none; }
+    }
+  `],
 })
 export class ObrasSocialesComponent implements OnInit {
   private destroyRef = inject(DestroyRef);
@@ -305,6 +384,19 @@ export class ObrasSocialesComponent implements OnInit {
       .subscribe((data) => {
         this.obrasSociales.set(data);
         this.loading.set(false);
+        // La pantalla filtra y cuenta sobre lo que trajo. Si vino justo el tope, es probable
+        // que el backend haya recortado y estemos mostrando un catálogo incompleto: los KPIs
+        // quedarían mal y habría obras sociales que el buscador no encuentra. Avisar es mejor
+        // que mentir en silencio, que es lo que pasaba con el tope anterior de 500.
+        if (data.length >= ObrasSocialesApiService.MAX_CATALOGO) {
+          this.feedback.push({
+            type: 'error',
+            title: 'Catálogo incompleto',
+            message:
+              `Se alcanzó el tope de ${ObrasSocialesApiService.MAX_CATALOGO} obras sociales. ` +
+              'Puede haber registros que no se listen ni aparezcan en la búsqueda.',
+          });
+        }
       });
   }
 
