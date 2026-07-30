@@ -2,7 +2,16 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { ITEMS_PER_PAGE, PagedResult, buildParams, toPagedResult } from './pagination';
 import { ImportarPadronObraSocialResultDTO, ObraSocialDTO } from '../dto/obra-social.dto';
+
+export interface ObraSocialQuery {
+  page?: number;
+  size?: number;
+  /** Búsqueda por denominación. Va server-side: el catálogo son cientos de filas. */
+  nombre?: string;
+  activa?: boolean;
+}
 
 @Injectable({ providedIn: 'root' })
 export class ObrasSocialesApiService {
@@ -10,26 +19,51 @@ export class ObrasSocialesApiService {
   private base = `${environment.apiUrl}/api/obra-socials`;
 
   /**
-   * Tope de filas que pide getAll. La UI no pagina: filtra y cuenta sobre lo que trae, así que
-   * si el catálogo supera este número la pantalla miente en silencio (KPIs mal y obras sociales
-   * que el buscador no encuentra). Pasó de verdad: con size=500 y 834 filas cargadas, SWISS
-   * MEDICAL quedaba en la posición alfabética 810 y era inhallable.
+   * Listado paginado del catálogo global (sin tenant: trae activas e inactivas).
    *
-   * 2000 es además el máximo que admite Spring Data por defecto
-   * (spring.data.web.pageable.max-page-size); pedir más se recorta sin avisar.
-   *
-   * El universo real es acotado —RNAS 365 + RNEMP 568— así que 2000 da margen de sobra. Si
-   * alguna vez se acerca, la salida no es subir el número: es paginar y buscar server-side
-   * (el endpoint ya soporta nombre.contains).
+   * Pagina y busca SERVER-SIDE a propósito. Antes traía todo con un `size` fijo y filtraba en
+   * memoria, lo que rompía en silencio al crecer el padrón: con size=500 y 834 filas, SWISS
+   * MEDICAL quedaba en la posición alfabética 810 y el buscador no la encontraba, además de
+   * mostrar KPIs calculados sobre un subconjunto. El endpoint ya soportaba `Pageable` y
+   * `nombre.contains`; sólo faltaba usarlos.
    */
-  static readonly MAX_CATALOGO = 2000;
+  getPage(query: ObraSocialQuery = {}): Observable<PagedResult<ObraSocialDTO>> {
+    const params = buildParams({
+      page: query.page ?? 0,
+      size: query.size ?? ITEMS_PER_PAGE,
+      sort: 'nombre,asc',
+      'nombre.contains': query.nombre?.trim(),
+      'activa.equals': query.activa,
+    });
 
-  /** Catálogo global (sin tenant): trae activas e inactivas, sin paginar en UI. */
+    return this.http
+      .get<ObraSocialDTO[]>(this.base, { params, observe: 'response' })
+      .pipe(toPagedResult());
+  }
+
+  /**
+   * Lista completa, para SELECTORES (ej. el combo de obra social al autorizar una internación),
+   * no para pantallas de listado — ésas deben usar {@link getPage}.
+   *
+   * 2000 es el máximo que admite Spring Data por defecto
+   * (spring.data.web.pageable.max-page-size); pedir más se recorta sin avisar. El universo real
+   * es acotado (RNAS 365 + RNEMP 568), así que da margen de sobra.
+   */
   getAll(params: { nombre?: string; activa?: boolean } = {}): Observable<ObraSocialDTO[]> {
-    const query: Record<string, string> = { size: String(ObrasSocialesApiService.MAX_CATALOGO), sort: 'nombre,asc' };
+    const query: Record<string, string> = { size: '2000', sort: 'nombre,asc' };
     if (params.nombre) query['nombre.contains'] = params.nombre;
     if (params.activa != null) query['activa.equals'] = String(params.activa);
     return this.http.get<ObraSocialDTO[]>(this.base, { params: query });
+  }
+
+  /**
+   * Conteo server-side para los KPIs de la cabecera. Con paginación no se pueden calcular
+   * contando lo que llegó: eso daría el tamaño de la página, no del catálogo.
+   */
+  count(params: { activa?: boolean } = {}): Observable<number> {
+    return this.http.get<number>(`${this.base}/count`, {
+      params: buildParams({ 'activa.equals': params.activa }),
+    });
   }
 
   getById(id: number): Observable<ObraSocialDTO> {

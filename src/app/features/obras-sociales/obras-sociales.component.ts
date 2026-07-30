@@ -1,9 +1,15 @@
 import { Component, OnInit, computed, inject, signal, DestroyRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { catchError, of } from 'rxjs';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { catchError, debounceTime, distinctUntilChanged, forkJoin, of } from 'rxjs';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { ObrasSocialesApiService } from '../../data-access/api/obras-sociales.api';
-import { ImportarPadronObraSocialResultDTO, ObraSocialDTO } from '../../data-access/dto/obra-social.dto';
+import { ITEMS_PER_PAGE } from '../../data-access/api/pagination';
+import {
+  ImportarPadronObraSocialResultDTO,
+  ObraSocialDTO,
+  TIPO_FINANCIADOR_LABEL,
+  TipoFinanciadorSalud,
+} from '../../data-access/dto/obra-social.dto';
 import { ObraSocialModalComponent } from './obra-social-modal.component';
 import { PlanObraSocialModalComponent } from './plan-obra-social-modal.component';
 import { ConvenioObraSocialModalComponent } from './convenio-obra-social-modal.component';
@@ -123,12 +129,12 @@ type ActivaFilter = 'TODAS' | 'ACTIVAS' | 'INACTIVAS';
                 type="button"
                 class="filter-chip"
                 [attr.data-on]="activaFilter() === opt.value"
-                (click)="activaFilter.set(opt.value)"
+                (click)="setActivaFilter(opt.value)"
               >{{ opt.label }}</button>
             }
           </div>
 
-          <button type="button" class="btn btn--ghost btn--sm" style="margin-left:auto;" (click)="load()">Actualizar</button>
+          <button type="button" class="btn btn--ghost btn--sm" style="margin-left:auto;" (click)="reload()">Actualizar</button>
         </div>
 
         @if (loading()) {
@@ -143,30 +149,56 @@ type ActivaFilter = 'TODAS' | 'ACTIVAS' | 'INACTIVAS';
           <table class="data-table" style="width:100%;min-width:760px">
             <thead>
               <tr>
-                <th>Nombre</th>
-                <th>CUIT</th>
-                <th>Código RNOS</th>
-                <th>Teléfono</th>
-                <th>Email</th>
+                <th>Obra social</th>
+                <th>Tipo</th>
+                <th>Ámbito</th>
+                <th>Registros</th>
+                <th>Contacto</th>
                 <th>Estado</th>
                 <th style="width:80px"></th>
               </tr>
             </thead>
             <tbody>
-              @if (filtered().length === 0 && !loading()) {
+              @if (obrasSociales().length === 0 && !loading()) {
                 <tr>
                   <td colspan="7" style="padding:20px;text-align:center;">
                     <emx-empty-state message="No se encontraron obras sociales para los filtros aplicados." />
                   </td>
                 </tr>
               }
-              @for (os of filtered(); track os.id) {
+              @for (os of obrasSociales(); track os.id) {
                 <tr>
-                  <td class="os-nombre" [title]="os.nombre">{{ os.nombre }}</td>
-                  <td class="mono" style="font-size:12px;">{{ os.cuit || '—' }}</td>
-                  <td class="mono" style="font-size:12px;">{{ os.codigoRNOS || '—' }}</td>
-                  <td style="color:var(--text-secondary);">{{ os.telefono || '—' }}</td>
-                  <td style="color:var(--text-secondary);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ os.email || '—' }}</td>
+                  <td>
+                    <div class="os-nombre" [title]="os.nombre">{{ os.nombre }}</div>
+                    @if (os.sigla) {
+                      <div class="mono micro os-sub">{{ os.sigla }}</div>
+                    }
+                  </td>
+                  <td>
+                    @if (os.tipo) {
+                      <span class="os-tipo" [attr.data-tipo]="os.tipo">{{ tipoLabel(os.tipo) }}</span>
+                    } @else {
+                      <span style="color:var(--text-dim)">—</span>
+                    }
+                  </td>
+                  <td style="color:var(--text-secondary);">
+                    @if (os.ambito === 'PROVINCIAL') {
+                      Provincial
+                      @if (os.provincia) { <div class="mono micro os-sub">{{ provinciaLabel(os.provincia) }}</div> }
+                    } @else if (os.ambito) {
+                      Nacional
+                    } @else { — }
+                  </td>
+                  <td class="mono" style="font-size:11.5px;">
+                    @if (os.codigoRNOS) { <div><span class="os-reg">RNAS</span> {{ os.codigoRNOS }}</div> }
+                    @if (os.codigoRNEMP) { <div><span class="os-reg">RNEMP</span> {{ os.codigoRNEMP }}</div> }
+                    @if (!os.codigoRNOS && !os.codigoRNEMP) { <span style="color:var(--text-dim)">—</span> }
+                  </td>
+                  <td style="color:var(--text-secondary);">
+                    @if (os.telefono) { <div>{{ os.telefono }}</div> }
+                    @if (os.email) { <div class="micro os-sub os-email" [title]="os.email">{{ os.email }}</div> }
+                    @if (!os.telefono && !os.email) { <span style="color:var(--text-dim)">—</span> }
+                  </td>
                   <td>
                     @if (os.activa) {
                       <emx-status-badge variant="stable">Activa</emx-status-badge>
@@ -194,6 +226,23 @@ type ActivaFilter = 'TODAS' | 'ACTIVAS' | 'INACTIVAS';
               }
             </tbody>
           </table>
+        </div>
+
+        <!-- Mismo pie que Personal Operativo: se muestra siempre, incluso con una sola página. -->
+        <div class="os-pagination">
+          <div class="mono micro" style="color:var(--text-muted)">
+            Mostrando <strong style="color:var(--text-primary)">{{ obrasSociales().length }}</strong> de
+            <strong style="color:var(--text-primary)">{{ total() }}</strong> obras sociales
+          </div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <button type="button" class="btn btn--ghost btn--sm" [disabled]="page() === 0"
+                    [style.opacity]="page() === 0 ? '0.4' : '1'" (click)="goToPage(page() - 1)">‹ Anterior</button>
+            @for (i of pageRange(); track i) {
+              <button type="button" class="page-btn" [attr.data-active]="page() === i" (click)="goToPage(i)">{{ i + 1 }}</button>
+            }
+            <button type="button" class="btn btn--ghost btn--sm" [disabled]="page() >= totalPages() - 1"
+                    [style.opacity]="page() >= totalPages() - 1 ? '0.4' : '1'" (click)="goToPage(page() + 1)">Siguiente ›</button>
+          </div>
         </div>
       </div>
 
@@ -289,6 +338,60 @@ type ActivaFilter = 'TODAS' | 'ACTIVAS' | 'INACTIVAS';
       white-space: nowrap;
     }
 
+    /* Segunda línea de una celda: sigla, provincia, email. */
+    .os-sub { color: var(--text-dim); margin-top: 2px; }
+    .os-email {
+      max-width: 190px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Etiqueta del registro delante del código, para que RNAS y RNEMP se distingan de un vistazo. */
+    .os-reg {
+      display: inline-block;
+      min-width: 42px;
+      color: var(--text-dim);
+      font-size: 9.5px;
+      letter-spacing: 0.08em;
+    }
+
+    .os-tipo {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 10.5px;
+      font-family: var(--font-mono);
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+      background: rgba(148, 163, 184, 0.12);
+      color: var(--text-secondary);
+    }
+    /* Los tres tipos que a Administración le cambian la decisión de a quién factura. */
+    .os-tipo[data-tipo="OBRA_SOCIAL_PROVINCIAL"] { background: rgba(139, 92, 246, 0.14); color: var(--accent-purple, #a78bfa); }
+    .os-tipo[data-tipo="EMPRESA_MEDICINA_PREPAGA"] { background: rgba(59, 130, 246, 0.12); color: var(--accent-blue); }
+    .os-tipo[data-tipo="PERSONAL_DIRECCION"] { background: rgba(16, 185, 129, 0.12); color: var(--accent-emerald); }
+
+    .os-pagination {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      border-top: 1px solid var(--border-hairline);
+    }
+    .page-btn {
+      width: 30px; height: 30px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 6px; border: 1px solid var(--border-glass); background: transparent;
+      font-size: 12px; font-family: var(--font-mono); color: var(--text-muted); cursor: pointer;
+    }
+    .page-btn:hover { background: rgba(255, 255, 255, 0.05); color: var(--text-primary); }
+    .page-btn[data-active="true"] {
+      background: rgba(59, 130, 246, 0.15);
+      border-color: rgba(59, 130, 246, 0.4);
+      color: var(--accent-blue);
+    }
+
     .os-loading-bar {
       height: 2px;
       background: var(--accent-blue);
@@ -339,65 +442,120 @@ export class ObrasSocialesComponent implements OnInit {
     { label: 'Inactivas', value: 'INACTIVAS' },
   ];
 
-  readonly counts = computed(() => {
-    const all = this.obrasSociales();
-    return {
-      total: all.length,
-      activas: all.filter(o => o.activa).length,
-      inactivas: all.filter(o => !o.activa).length,
-    };
+  /** Página actual (0-based) y total de filas del catálogo según el filtro aplicado. */
+  readonly page = signal(0);
+  readonly pageSize = signal(ITEMS_PER_PAGE);
+  readonly total = signal(0);
+
+  /**
+   * KPIs de la cabecera. Vienen del endpoint /count, NO de contar lo que llegó: con paginación
+   * eso daría el tamaño de la página. Antes se calculaban sobre las filas cargadas y con 834
+   * registros la pantalla mostraba 500/485/15 en lugar de 834/804/30.
+   */
+  readonly counts = signal({ total: 0, activas: 0, inactivas: 0 });
+
+  readonly totalPages = computed(() => Math.max(1, Math.ceil(this.total() / this.pageSize())));
+
+  /** Ventana de hasta 7 botones alrededor de la página actual. */
+  readonly pageRange = computed(() => {
+    const tp = this.totalPages();
+    const actual = this.page();
+    const ventana = 7;
+    let desde = Math.max(0, actual - Math.floor(ventana / 2));
+    const hasta = Math.min(tp, desde + ventana);
+    desde = Math.max(0, hasta - ventana);
+    return Array.from({ length: hasta - desde }, (_, i) => desde + i);
   });
 
-  // Filtrado client-side: el catálogo global es chico (decenas de registros), no
-  // justifica ida y vuelta al backend por cada tecla. La carga sí usa criteria server-side.
-  readonly filtered = computed(() => {
-    const q = this.searchQuery().toLowerCase().trim();
-    const filter = this.activaFilter();
-
-    return this.obrasSociales().filter(os => {
-      const matchesFilter =
-        filter === 'TODAS' || (filter === 'ACTIVAS' ? os.activa : !os.activa);
-      const matchesSearch =
-        !q ||
-        os.nombre.toLowerCase().includes(q) ||
-        (os.cuit ?? '').toLowerCase().includes(q);
-      return matchesFilter && matchesSearch;
-    });
-  });
+  constructor() {
+    // La búsqueda va al backend, así que se espera a que el usuario deje de tipear en vez de
+    // pedir una página por tecla. Cualquier cambio de texto vuelve a la primera página: si no,
+    // se podría quedar mirando la página 12 de un resultado que ahora tiene 2.
+    toObservable(this.searchQuery)
+      .pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        this.page.set(0);
+        this.load();
+      });
+  }
 
   ngOnInit(): void {
-    this.load();
+    this.loadCounts();
   }
 
   load(): void {
     this.loading.set(true);
     this.error.set(null);
     this.api
-      .getAll()
+      .getPage({
+        page: this.page(),
+        size: this.pageSize(),
+        nombre: this.searchQuery(),
+        activa: this.activaParam(),
+      })
       .pipe(
         catchError(() => {
           this.error.set('No se pudo conectar con el servidor');
-          return of([]);
+          return of({ data: [], total: 0 });
         }),
         takeUntilDestroyed(this.destroyRef),
       )
-      .subscribe((data) => {
-        this.obrasSociales.set(data);
+      .subscribe((res) => {
+        this.obrasSociales.set(res.data);
+        this.total.set(res.total);
         this.loading.set(false);
-        // La pantalla filtra y cuenta sobre lo que trajo. Si vino justo el tope, es probable
-        // que el backend haya recortado y estemos mostrando un catálogo incompleto: los KPIs
-        // quedarían mal y habría obras sociales que el buscador no encuentra. Avisar es mejor
-        // que mentir en silencio, que es lo que pasaba con el tope anterior de 500.
-        if (data.length >= ObrasSocialesApiService.MAX_CATALOGO) {
-          this.feedback.push({
-            type: 'error',
-            title: 'Catálogo incompleto',
-            message:
-              `Se alcanzó el tope de ${ObrasSocialesApiService.MAX_CATALOGO} obras sociales. ` +
-              'Puede haber registros que no se listen ni aparezcan en la búsqueda.',
-          });
-        }
       });
+  }
+
+  /** Totales del catálogo completo, independientes de la página y del filtro de la tabla. */
+  private loadCounts(): void {
+    forkJoin({
+      total: this.api.count().pipe(catchError(() => of(0))),
+      activas: this.api.count({ activa: true }).pipe(catchError(() => of(0))),
+    })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(({ total, activas }) => {
+        this.counts.set({ total, activas, inactivas: total - activas });
+      });
+  }
+
+  /** El filtro de la tabla se traduce a criteria del backend; 'TODAS' es no mandar el parámetro. */
+  private activaParam(): boolean | undefined {
+    const f = this.activaFilter();
+    return f === 'TODAS' ? undefined : f === 'ACTIVAS';
+  }
+
+  setActivaFilter(value: ActivaFilter): void {
+    if (this.activaFilter() === value) return;
+    this.activaFilter.set(value);
+    this.page.set(0);
+    this.load();
+  }
+
+  goToPage(p: number): void {
+    const destino = Math.min(Math.max(0, p), this.totalPages() - 1);
+    if (destino === this.page()) return;
+    this.page.set(destino);
+    this.load();
+  }
+
+  /** Recarga completa: página actual + totales. Es lo que espera el botón "Actualizar". */
+  reload(): void {
+    this.load();
+    this.loadCounts();
+  }
+
+  tipoLabel(tipo: TipoFinanciadorSalud): string {
+    return TIPO_FINANCIADOR_LABEL[tipo] ?? tipo;
+  }
+
+  /** Los enums de provincia vienen en SCREAMING_SNAKE; en la tabla se leen mejor capitalizados. */
+  provinciaLabel(provincia: string): string {
+    return provincia
+      .toLowerCase()
+      .split('_')
+      .map(p => p.charAt(0).toUpperCase() + p.slice(1))
+      .join(' ');
   }
 
   openCreateModal(): void {
@@ -417,7 +575,7 @@ export class ObrasSocialesComponent implements OnInit {
 
   onModalSaved(): void {
     this.closeModal();
-    this.load();
+    this.reload();
   }
 
   openPlanesModal(os: ObraSocialDTO): void {

@@ -4,10 +4,11 @@ import { Observable, map } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { EmpresaDTO } from '../dto/empresa.dto';
 
-export interface PagedResult<T> {
-  data: T[];
-  total: number;
-}
+// PagedResult vivía acá por razones históricas y otros servicios lo importaban desde este
+// archivo. La definición canónica pasó a ./pagination junto con el resto de los helpers de
+// paginación; se re-exporta para no romper a quienes ya lo importaban desde acá.
+import type { PagedResult } from './pagination';
+export type { PagedResult };
 
 @Injectable({ providedIn: 'root' })
 export class EmpresaApiService {
