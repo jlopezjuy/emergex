@@ -181,10 +181,13 @@ function parseApiError(err: any): string {
                         </div>
                       }
                        @for (r of institutionResults(); track r.id) {
+                         @let isSuspendedOrBaja = r.status === 'SUSPENDIDA' || r.status === 'BAJA';
+                         @let isUrgent = form().prio === 'red' || form().prio === 'amber';
+                         @let isDisabled = isSuspendedOrBaja && !isUrgent;
                          <button type="button" class="ac-row" (click)="selectInstitution(r)"
-                           [disabled]="r.status === 'SUSPENDIDA' || r.status === 'BAJA'"
-                           [style.opacity]="(r.status === 'SUSPENDIDA' || r.status === 'BAJA') ? 0.55 : 1"
-                           [style.cursor]="(r.status === 'SUSPENDIDA' || r.status === 'BAJA') ? 'not-allowed' : 'pointer'">
+                           [disabled]="isDisabled"
+                           [style.opacity]="isDisabled ? 0.55 : 1"
+                           [style.cursor]="isDisabled ? 'not-allowed' : 'pointer'">
                            <div class="ac-row__icon">
                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                            </div>
@@ -219,6 +222,15 @@ function parseApiError(err: any): string {
                   </div>
                   <emx-status-badge variant="stable">CONVENIO ACTIVO</emx-status-badge>
                 </div>
+
+                @if (institution()!.status === 'SUSPENDIDA' || institution()!.status === 'BAJA') {
+                  <div class="alert-block" style="background:rgba(239,68,68,0.06);border-color:rgba(239,68,68,0.2);margin-top:10px">
+                    <div class="eyebrow" style="color:var(--accent-red)">⚠ CONVENIO SUSPENDIDO O DE BAJA</div>
+                    <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;line-height:1.5">
+                      Esta institución está en estado <strong>{{ institution()!.status }}</strong>. Se permite el registro debido a la urgencia médica, pero el despacho requerirá <strong>Autorización de Excepción Operativa</strong> en la central.
+                    </div>
+                  </div>
+                }
 
                 @if (availableContracts().length > 1) {
                   <div class="qc-field" style="margin-top:10px">
@@ -1002,7 +1014,9 @@ export class InstitutionalModalComponent implements OnInit, OnDestroy {
   }
 
   selectInstitution(inst: InstitutionDTO): void {
-    if (inst.status === 'SUSPENDIDA' || inst.status === 'BAJA') {
+    const isSuspendedOrBaja = inst.status === 'SUSPENDIDA' || inst.status === 'BAJA';
+    const isUrgent = this.form().prio === 'red' || this.form().prio === 'amber';
+    if (isSuspendedOrBaja && !isUrgent) {
       return;
     }
     this.patchForm({

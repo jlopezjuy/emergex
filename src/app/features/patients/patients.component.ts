@@ -326,7 +326,8 @@ export class PatientsComponent implements OnInit {
       takeUntilDestroyed(this.destroyRef)
     ).subscribe(({ data, total, totalPages }) => {
       const rows = data.map(r => {
-        console.log('PATIENT ROLE MAP:', r.nombreCompleto, 'rolFamiliar:', r.rolFamiliar);
+        // NOTE: In the future, debt state must be fetched from a ledger service instead of inferring it.
+        // REQUIERE VALIDACIÓN DEL CONTADOR DE SAE.
         return {
           pacienteId: r.pacienteId,
           id: r.numeroAfiliado ?? `AF-${r.pacienteId}`,
