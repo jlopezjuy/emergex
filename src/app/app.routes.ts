@@ -145,6 +145,18 @@ export const routes: Routes = [
           import('./features/facturacion/facturacion.component').then((m) => m.FacturacionComponent),
       },
       {
+        path: 'compras',
+        canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_ADMINISTRADOR', 'ROLE_PROPIETARIO')],
+        loadComponent: () =>
+          import('./features/compras/compras.component').then((m) => m.ComprasComponent),
+      },
+      {
+        path: 'cuentas-corrientes',
+        canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_ADMINISTRADOR', 'ROLE_PROPIETARIO')],
+        loadComponent: () =>
+          import('./features/cuentas-corrientes/cuentas-corrientes.component').then((m) => m.CuentasCorrientesComponent),
+      },
+      {
         path: 'hospitals',
         loadComponent: () =>
           import('./features/hospitals/hospitals.component').then(

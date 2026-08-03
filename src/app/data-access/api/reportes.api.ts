@@ -31,4 +31,16 @@ export class ReportesApiService {
     }
     return this.http.get<ReporteComercialDTO>(`${this.base}/comercial${params}`);
   }
+
+  downloadCitiVentas(anio: number, mes: number): Observable<Blob> {
+    return this.http.get(`/api/reportes/libro-iva/citi-ventas?anio=${anio}&mes=${mes}`, {
+      responseType: 'blob',
+    });
+  }
+
+  downloadCitiCompras(anio: number, mes: number): Observable<Blob> {
+    return this.http.get(`/api/reportes/libro-iva/citi-compras?anio=${anio}&mes=${mes}`, {
+      responseType: 'blob',
+    });
+  }
 }

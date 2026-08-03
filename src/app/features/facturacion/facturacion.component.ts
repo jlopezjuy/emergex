@@ -15,6 +15,7 @@ import {
 } from '../../data-access/api/facturacion.api';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { InstitutionsApiService } from '../../data-access/api/institutions.api';
+import { ReportesApiService } from '../../data-access/api/reportes.api';
 import { ContractDTO, FacturacionContratoDTO, GenerarFacturaContratoRequest } from '../../data-access/dto/institution.dto';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -106,7 +107,8 @@ function estadoColor(estado: string): string {
         </div>
 
         <div class="screen-head__actions">
-          <button class="btn btn--ghost btn--sm">Exportar CSV</button>
+          <button class="btn btn--ghost btn--sm" (click)="onExportCitiVentas()">CITI Ventas (AFIP)</button>
+          <button class="btn btn--ghost btn--sm" (click)="onExportCitiCompras()">CITI Compras (AFIP)</button>
           <button class="btn btn--primary btn--sm" (click)="openGenerarModal()">
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="1" x2="6" y2="11"/><line x1="1" y1="6" x2="11" y2="6"/></svg>
             Generar facturación
@@ -680,9 +682,42 @@ function estadoColor(estado: string): string {
   `],
 })
 export class FacturacionComponent implements OnInit {
-    private destroyRef = inject(DestroyRef);
+  private destroyRef = inject(DestroyRef);
   private api = inject(FacturacionApiService);
   private institutionsApi = inject(InstitutionsApiService);
+  private reportesApi = inject(ReportesApiService);
+
+  onExportCitiVentas(): void {
+    const anio = DateUtils.now().year;
+    const mes = DateUtils.now().month;
+    this.reportesApi.downloadCitiVentas(anio, mes).subscribe({
+      next: (blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `CITI_VENTAS_${anio}${String(mes).padStart(2, '0')}.txt`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+      },
+      error: (err) => alert('Error al exportar CITI Ventas: ' + (err.error?.message || err.message)),
+    });
+  }
+
+  onExportCitiCompras(): void {
+    const anio = DateUtils.now().year;
+    const mes = DateUtils.now().month;
+    this.reportesApi.downloadCitiCompras(anio, mes).subscribe({
+      next: (blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `CITI_COMPRAS_${anio}${String(mes).padStart(2, '0')}.txt`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+      },
+      error: (err) => alert('Error al exportar CITI Compras: ' + (err.error?.message || err.message)),
+    });
+  }
 
   // ── Constants ──
   readonly estadosFiltro = ESTADOS_FILTER;
