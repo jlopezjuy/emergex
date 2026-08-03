@@ -36,6 +36,9 @@ export interface UnidadMovilDTO {
   serviciosHoy?: number | null;
   ultimaConexionSegundos?: number | null;
   ultimaPosicionTimestamp?: string | null;
+  velocidad?: number;
+  direccion?: number;
+  enMovimiento?: boolean;
 }
 
 
@@ -80,10 +83,13 @@ export interface TripulacionMovilDTO {
 
 export interface GeoPosicionDTO {
   id?: number;
-  ambulanciaId: number;
+  ambulanciaId?: number;
+  targetId?: number;
   latitud: number;
   longitud: number;
   timestamp?: string;
+  velocidad?: number;
+  direccion?: number;
 }
 
 export interface AsignarMovilRequestDTO {

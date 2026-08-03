@@ -57,8 +57,8 @@ function emgColor(prioridad?: string): string {
 
 // ─── Ambulance Icon Canvas Generator ──────────────────────────────────────────
 
-function generateAmbulanceImageData(colorHex: string): ImageData {
-  const size = 34;
+function generateAmbulanceImageData(colorHex: string, moving = false): ImageData {
+  const size = moving ? 44 : 36;
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
@@ -67,45 +67,137 @@ function generateAmbulanceImageData(colorHex: string): ImageData {
   const cx = size / 2;
   const cy = size / 2;
 
-  // Background badge with status color
-  ctx.beginPath();
-  ctx.arc(cx, cy, 14, 0, Math.PI * 2);
-  ctx.fillStyle = colorHex;
-  ctx.fill();
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = '#FFFFFF';
-  ctx.stroke();
+  if (moving) {
+    // ─── MOVING AMBULANCE ICON ───
 
-  // White Ambulance Vehicle Body
-  ctx.fillStyle = '#FFFFFF';
+    // Outer Siren Pulse Aura Glow
+    ctx.beginPath();
+    ctx.arc(cx, cy, 19, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(56, 189, 248, 0.25)';
+    ctx.fill();
 
-  // Main Body
-  ctx.beginPath();
-  ctx.roundRect(cx - 9, cy - 5, 12, 9, 2);
-  ctx.fill();
+    // Main Circle Badge with Status Color
+    ctx.beginPath();
+    ctx.arc(cx, cy, 16, 0, Math.PI * 2);
+    ctx.fillStyle = colorHex;
+    ctx.fill();
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = '#38BDF8';
+    ctx.stroke();
 
-  // Front Cabin
-  ctx.beginPath();
-  ctx.roundRect(cx + 2, cy - 3, 6, 7, 1.5);
-  ctx.fill();
+    // Speed Lines behind vehicle
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.moveTo(cx - 12, cy - 4);
+    ctx.lineTo(cx - 17, cy - 4);
+    ctx.moveTo(cx - 12, cy + 1);
+    ctx.lineTo(cx - 18, cy + 1);
+    ctx.moveTo(cx - 12, cy + 6);
+    ctx.lineTo(cx - 15, cy + 6);
+    ctx.stroke();
 
-  // Windshield
-  ctx.fillStyle = colorHex;
-  ctx.beginPath();
-  ctx.fillRect(cx + 4, cy - 2, 3, 3);
-  ctx.fill();
+    // White Vehicle Body
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.roundRect(cx - 9, cy - 5, 13, 10, 2);
+    ctx.fill();
 
-  // Wheels
-  ctx.fillStyle = '#0f172a';
-  ctx.beginPath();
-  ctx.arc(cx - 5, cy + 4, 2.2, 0, Math.PI * 2);
-  ctx.arc(cx + 5, cy + 4, 2.2, 0, Math.PI * 2);
-  ctx.fill();
+    // Cabin
+    ctx.beginPath();
+    ctx.roundRect(cx + 3, cy - 3, 6, 8, 1.5);
+    ctx.fill();
 
-  // Medical Cross
-  ctx.fillStyle = colorHex;
-  ctx.fillRect(cx - 4, cy - 3.5, 2, 5);
-  ctx.fillRect(cx - 5.5, cy - 2, 5, 2);
+    // Windshield
+    ctx.fillStyle = colorHex;
+    ctx.fillRect(cx + 5, cy - 2, 3, 3);
+
+    // Wheels
+    ctx.fillStyle = '#0f172a';
+    ctx.beginPath();
+    ctx.arc(cx - 5, cy + 5, 2.5, 0, Math.PI * 2);
+    ctx.arc(cx + 5, cy + 5, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Medical Cross
+    ctx.fillStyle = colorHex;
+    ctx.fillRect(cx - 3.5, cy - 3.5, 2.5, 6);
+    ctx.fillRect(cx - 5.5, cy - 1.75, 6.5, 2.5);
+
+    // Red & Blue Siren Beacons on Roof
+    ctx.fillStyle = '#EF4444';
+    ctx.beginPath();
+    ctx.arc(cx - 3, cy - 8, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#3B82F6';
+    ctx.beginPath();
+    ctx.arc(cx + 2, cy - 8, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Siren Light Rays
+    ctx.strokeStyle = '#FBBF24';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(cx - 3, cy - 11);
+    ctx.lineTo(cx - 3, cy - 13);
+    ctx.moveTo(cx + 2, cy - 11);
+    ctx.lineTo(cx + 2, cy - 13);
+    ctx.stroke();
+  } else {
+    // ─── STATIONARY / PARKED AMBULANCE ICON ───
+
+    // Circle Badge
+    ctx.beginPath();
+    ctx.arc(cx, cy, 14, 0, Math.PI * 2);
+    ctx.fillStyle = colorHex;
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.stroke();
+
+    // White Vehicle Body
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.roundRect(cx - 9, cy - 5, 12, 9, 2);
+    ctx.fill();
+
+    // Cabin
+    ctx.beginPath();
+    ctx.roundRect(cx + 2, cy - 3, 6, 7, 1.5);
+    ctx.fill();
+
+    // Windshield
+    ctx.fillStyle = colorHex;
+    ctx.fillRect(cx + 4, cy - 2, 3, 3);
+
+    // Wheels
+    ctx.fillStyle = '#0f172a';
+    ctx.beginPath();
+    ctx.arc(cx - 5, cy + 4, 2.2, 0, Math.PI * 2);
+    ctx.arc(cx + 5, cy + 4, 2.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Medical Cross
+    ctx.fillStyle = colorHex;
+    ctx.fillRect(cx - 4, cy - 3.5, 2, 5);
+    ctx.fillRect(cx - 5.5, cy - 2, 5, 2);
+
+    // Small Parked "P" Badge on Top Right
+    ctx.beginPath();
+    ctx.arc(cx + 9, cy - 9, 5, 0, Math.PI * 2);
+    ctx.fillStyle = '#475569';
+    ctx.fill();
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 7px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('P', cx + 9, cy - 8.5);
+  }
 
   return ctx.getImageData(0, 0, size, size);
 }
@@ -577,12 +669,22 @@ export class OperationsMapComponent implements OnDestroy {
 
     const colors = ['#10B981', '#3B82F6', '#F59E0B', '#22D3EE', '#64748B', '#64748b'];
     colors.forEach((c) => {
-      const imgName = `amb-icon-${c.replace('#', '').toUpperCase()}`;
-      if (this.map && !this.map.hasImage(imgName)) {
+      const hex = c.replace('#', '').toUpperCase();
+      const imgStatic = `amb-icon-${hex}`;
+      const imgMoving = `amb-icon-${hex}-MOVING`;
+
+      if (this.map && !this.map.hasImage(imgStatic)) {
         try {
-          this.map.addImage(imgName, generateAmbulanceImageData(c));
+          this.map.addImage(imgStatic, generateAmbulanceImageData(c, false));
         } catch {
-          // ignore duplicate image registration
+          // ignore duplicate
+        }
+      }
+      if (this.map && !this.map.hasImage(imgMoving)) {
+        try {
+          this.map.addImage(imgMoving, generateAmbulanceImageData(c, true));
+        } catch {
+          // ignore duplicate
         }
       }
     });
@@ -591,6 +693,20 @@ export class OperationsMapComponent implements OnDestroy {
       this.map.addSource(this.AMB_SOURCE, {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] },
+      });
+      this.map.addLayer({
+        id: 'emx-amb-motion-rings',
+        type: 'circle',
+        source: this.AMB_SOURCE,
+        filter: ['==', ['get', 'isMoving'], true],
+        paint: {
+          'circle-radius': 25,
+          'circle-color': '#0284c7',
+          'circle-opacity': 0.3,
+          'circle-stroke-width': 3,
+          'circle-stroke-color': '#38bdf8',
+          'circle-stroke-opacity': 0.95,
+        },
       });
       this.map.addLayer({
         id: 'emx-amb-icons',
@@ -763,14 +879,46 @@ export class OperationsMapComponent implements OnDestroy {
     }, 50);
   };
 
+  private lastPositionsMap = new Map<number, { lat: number; lng: number; lastMoveTime: number }>();
+
+  private isUnitMoving(unit: UnidadMovilDTO): boolean {
+    if (unit.id == null) return false;
+    if (unit.velocidad != null && unit.velocidad > 0) return true;
+    if (unit.enMovimiento === true) return true;
+    if (unit.estado === 'EN_RUTA' || unit.estado === 'TRASLADO') return true;
+
+    if (unit.latitud != null && unit.longitud != null) {
+      const now = Date.now();
+      const prev = this.lastPositionsMap.get(unit.id);
+      if (prev) {
+        const dLat = Math.abs(unit.latitud - prev.lat);
+        const dLng = Math.abs(unit.longitud - prev.lng);
+        const hasMoved = dLat > 0.00003 || dLng > 0.00003;
+
+        if (hasMoved) {
+          this.lastPositionsMap.set(unit.id, { lat: unit.latitud, lng: unit.longitud, lastMoveTime: now });
+          return true;
+        }
+
+        // Mantener resaltado de movimiento continuo si se movió en los últimos 15 minutos
+        return (now - prev.lastMoveTime) < 900000;
+      } else {
+        this.lastPositionsMap.set(unit.id, { lat: unit.latitud, lng: unit.longitud, lastMoveTime: 0 });
+      }
+    }
+    return false;
+  }
+
   private updateMarkers(ambs: UnidadMovilDTO[], emgs: TicketAsistenciaDTO[]): void {
     if (!this.map) return;
     const ambFeatures = ambs
       .flatMap((unit) => {
         const lngLat = unitLngLat(unit);
         if (!lngLat || unit.id == null) return [];
+        const isMoving = this.isUnitMoving(unit);
         const color = ambColor(unit.estado);
-        const iconName = `amb-icon-${color.replace('#', '').toUpperCase()}`;
+        const hex = color.replace('#', '').toUpperCase();
+        const iconName = isMoving ? `amb-icon-${hex}-MOVING` : `amb-icon-${hex}`;
         return [{
           type: 'Feature' as const,
           properties: {
@@ -778,6 +926,7 @@ export class OperationsMapComponent implements OnDestroy {
             label: unit.identificador ?? `U-${unit.id}`,
             color: color,
             iconName: iconName,
+            isMoving: isMoving,
           },
           geometry: {
             type: 'Point' as const,

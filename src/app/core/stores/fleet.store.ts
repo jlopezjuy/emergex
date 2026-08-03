@@ -31,10 +31,18 @@ export class FleetStore implements OnDestroy {
 
     this.locationSub = this.ws.subscribe(`/topic/empresa/${empresaId}/geo`, (raw: unknown) => {
       const geoDto = raw as GeoPosicionDTO;
+      const targetId = geoDto.targetId ?? geoDto.ambulanciaId;
       this.ambulances.update((list) =>
         list.map((a) =>
-          a.id === geoDto.ambulanciaId
-            ? { ...a, latitud: geoDto.latitud, longitud: geoDto.longitud }
+          a.id === targetId
+            ? {
+                ...a,
+                latitud: geoDto.latitud,
+                longitud: geoDto.longitud,
+                velocidad: geoDto.velocidad,
+                direccion: geoDto.direccion,
+                enMovimiento: (geoDto.velocidad != null && geoDto.velocidad > 0) || a.estado === 'EN_RUTA' || a.estado === 'TRASLADO',
+              }
             : a,
         ),
       );
