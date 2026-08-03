@@ -48,8 +48,8 @@ export interface LedgerMovimientoDTO {
                   </span>
                 </td>
                 <td class="p-3 font-medium text-slate-800">{{ m.concepto }}</td>
-                <td class="p-3 text-right font-mono font-semibold text-blue-600">${{ m.montoDebe | number:'1.2-2' }}</td>
-                <td class="p-3 text-right font-mono font-semibold text-red-600">${{ m.montoHaber | number:'1.2-2' }}</td>
+                <td class="p-3 text-right font-mono font-semibold text-blue-600">$ {{ m.montoDebe | number:'1.2-2' }}</td>
+                <td class="p-3 text-right font-mono font-semibold text-red-600">$ {{ m.montoHaber | number:'1.2-2' }}</td>
               </tr>
             }
           </tbody>

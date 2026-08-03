@@ -93,7 +93,7 @@ import { ComprasApiService, ComprobanteProveedorDTO, RecepcionBienesDTO } from '
                   <td class="p-3 font-medium">{{ c.tipoDocumento }}</td>
                   <td class="p-3 font-mono">{{ c.puntoVenta }}-{{ c.numeroDocumento }}</td>
                   <td class="p-3">{{ c.fechaComprobante }}</td>
-                  <td class="p-3 font-semibold text-slate-900">${{ c.montoTotal | number:'1.2-2' }}</td>
+                  <td class="p-3 font-semibold text-slate-900">$ {{ c.montoTotal | number:'1.2-2' }}</td>
                   <td class="p-3">
                     <span [class]="c.estadoMatching === 'MATCH_OK' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'" class="px-2.5 py-1 rounded-full text-xs font-bold">
                       {{ c.estadoMatching || 'PENDIENTE' }}

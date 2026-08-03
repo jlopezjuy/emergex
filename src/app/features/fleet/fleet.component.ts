@@ -121,7 +121,7 @@ type FleetTab = 'TODAS' | 'DISPONIBLE' | 'SIN_COBERTURA' | 'EN_SERVICIO' | 'MANT
                     class="px-2.5 py-1 text-xs font-medium rounded-t transition-all whitespace-nowrap"
                     [style.color]="fleetTab() === tab.id ? 'var(--accent-cyan)' : 'var(--text-muted)'"
                     [style.border-bottom]="fleetTab() === tab.id ? '2px solid var(--accent-cyan)' : '2px solid transparent'"
-                    (click)="fleetTab.set(tab.id)"
+                    (click)="fleetTab.set(tab.id); page.set(0)"
                   >{{ tab.label }} <span class="font-mono opacity-60">{{ tabCount(tab.id) }}</span></button>
                 }
               </div>
@@ -130,10 +130,28 @@ type FleetTab = 'TODAS' | 'DISPONIBLE' | 'SIN_COBERTURA' | 'EN_SERVICIO' | 'MANT
               <emx-loading-state />
             } @else {
               <emx-fleet-table
-                [units]="filteredUnits()"
+                [units]="paginatedUnits()"
                 (viewUnit)="onViewUnit($event)"
                 (configUnit)="onConfigUnit($event)"
               />
+              @if (filteredUnits().length > 0) {
+                <div class="flex flex-wrap items-center justify-between gap-2 mt-4 px-2 pt-3" style="border-top:1px solid var(--border-glass)">
+                  <div class="font-mono text-xs" style="color:var(--text-muted)">
+                    Mostrando {{ page() * pageSize() + 1 }} - {{ getMin((page() + 1) * pageSize(), filteredUnits().length) }} de {{ filteredUnits().length }} unidades
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <button type="button" class="btn btn--ghost btn--sm" [disabled]="page() === 0" (click)="page.set(page() - 1)">
+                      ‹ Anterior
+                    </button>
+                    <span class="font-mono text-xs px-2" style="color:var(--text-primary)">
+                      Pág. {{ page() + 1 }} de {{ totalPages() }}
+                    </span>
+                    <button type="button" class="btn btn--ghost btn--sm" [disabled]="page() >= totalPages() - 1" (click)="page.set(page() + 1)">
+                      Siguiente ›
+                    </button>
+                  </div>
+                </div>
+              }
             }
           </emx-glass-card>
         </div>
@@ -395,6 +413,20 @@ export class FleetComponent implements OnInit {
   readonly unitGuardias = signal<GuardiaDTO[]>([]);
   readonly unitLogs = signal<LogTurnoDTO[]>([]);
   readonly detailLoading = signal(false);
+  readonly page = signal(0);
+  readonly pageSize = signal(10);
+
+  readonly paginatedUnits = computed(() => {
+    const units = this.filteredUnits();
+    const start = this.page() * this.pageSize();
+    return units.slice(start, start + this.pageSize());
+  });
+
+  readonly totalPages = computed(() => Math.max(1, Math.ceil(this.filteredUnits().length / this.pageSize())));
+
+  getMin(a: number, b: number): number {
+    return Math.min(a, b);
+  }
 
   readonly fleetTabs: { id: FleetTab; label: string }[] = [
     { id: 'TODAS', label: 'Todas' },
