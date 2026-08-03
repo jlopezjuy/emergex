@@ -12,7 +12,7 @@ import {
   signal,
   computed,
 } from '@angular/core';
-import { LngLatBounds, Map as MapLibreMap, NavigationControl, GeoJSONSource } from 'maplibre-gl';
+import { LngLatBounds, Map as MapLibreMap, NavigationControl, GeoJSONSource, Popup } from 'maplibre-gl';
 import type { FeatureCollection, LineString, Point } from 'geojson';
 import { UnidadMovilDTO } from '../../../../data-access/dto/ambulancia.dto';
 import { TicketAsistenciaDTO } from '../../../../data-access/dto/ticket.dto';
@@ -547,8 +547,8 @@ export class OperationsMapComponent implements OnDestroy {
           'text-size': 10,
           'text-anchor': 'top',
           'text-offset': [0, 1.2],
-          'text-allow-overlap': true,
-          'text-ignore-placement': true,
+          'text-allow-overlap': false,
+          'text-optional': true,
         },
         paint: {
           'text-color': ['get', 'color'],
@@ -624,16 +624,20 @@ export class OperationsMapComponent implements OnDestroy {
       });
     }
 
-    this.map.on('click', 'emx-amb-circles', (ev) => {
-      const feature = ev.features?.[0];
-      const id = feature?.properties?.['id'];
-      if (id != null) this.zone.run(() => this.selectAmbulance.emit(Number(id)));
-    });
+    this.map.on('click', 'emx-amb-circles', this.handleAmbClick);
+    this.map.on('click', 'emx-amb-labels', this.handleAmbClick);
     this.map.on('click', 'emx-emg-inner', (ev) => {
       const feature = ev.features?.[0];
       const id = feature?.properties?.['id'];
       if (id != null) this.zone.run(() => this.selectEmergency.emit(Number(id)));
     });
+
+    this.map.on('mouseenter', 'emx-amb-circles', () => { if (this.map) this.map.getCanvas().style.cursor = 'pointer'; });
+    this.map.on('mouseleave', 'emx-amb-circles', () => { if (this.map) this.map.getCanvas().style.cursor = ''; });
+    this.map.on('mouseenter', 'emx-amb-labels', () => { if (this.map) this.map.getCanvas().style.cursor = 'pointer'; });
+    this.map.on('mouseleave', 'emx-amb-labels', () => { if (this.map) this.map.getCanvas().style.cursor = ''; });
+    this.map.on('mouseenter', 'emx-emg-inner', () => { if (this.map) this.map.getCanvas().style.cursor = 'pointer'; });
+    this.map.on('mouseleave', 'emx-emg-inner', () => { if (this.map) this.map.getCanvas().style.cursor = ''; });
 
     this.mapReady = true;
     this.updateMarkers(this.ambulances(), this.emergencies());
@@ -641,6 +645,57 @@ export class OperationsMapComponent implements OnDestroy {
     this.fitToVisibleData(this.ambulances(), this.emergencies());
     this.syncViewportSignals();
   }
+
+  private activePopup: Popup | null = null;
+
+  private handleAmbClick = (ev: any): void => {
+    const feature = ev.features?.[0];
+    if (!feature || !this.map) return;
+    const id = feature.properties?.['id'];
+    if (id == null) return;
+
+    const unitId = Number(id);
+    const unit = this.ambulances().find((a) => a.id === unitId);
+    const coords = (feature.geometry as Point).coordinates.slice() as [number, number];
+
+    if (this.activePopup) {
+      this.activePopup.remove();
+    }
+
+    const color = ambColor(unit?.estado);
+    const label = unit?.identificador ?? (unitId ? `U-${unitId}` : 'AMB');
+    const patente = unit?.patente ?? 'AG-256-DN';
+    const estado = unit?.estado ?? 'DISPONIBLE';
+
+    const popupHtml = `
+      <div style="padding:14px 16px;font-family:Inter,system-ui,sans-serif;min-width:210px;color:#0f172a;background:#ffffff;border-radius:10px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:12px">
+          <strong style="font-size:16px;font-weight:700;color:#0f172a">${label}</strong>
+          <span style="font-size:10px;padding:3px 8px;border-radius:6px;background:${color};color:#ffffff;font-weight:700;font-family:monospace;letter-spacing:0.04em;text-transform:uppercase">${estado}</span>
+        </div>
+        <div style="font-size:13px;color:#64748b;margin-bottom:6px">Patente: <strong style="color:#334155">${patente}</strong></div>
+        <div style="font-size:12px;font-family:ui-monospace,monospace;color:#64748b;margin-bottom:14px">GPS: ${coords[1].toFixed(5)}, ${coords[0].toFixed(5)}</div>
+        <button id="emx-map-btn-${unitId}" style="width:100%;padding:10px;font-size:13px;font-weight:700;color:#ffffff;background:#0284c7;border:none;border-radius:6px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,0.12)">
+          Ver Detalles de Unidad
+        </button>
+      </div>
+    `;
+
+    this.activePopup = new Popup({ offset: 14, closeButton: true })
+      .setLngLat(coords)
+      .setHTML(popupHtml)
+      .addTo(this.map);
+
+    setTimeout(() => {
+      const btn = document.getElementById(`emx-map-btn-${unitId}`);
+      if (btn) {
+        btn.onclick = () => {
+          this.activePopup?.remove();
+          this.zone.run(() => this.selectAmbulance.emit(unitId));
+        };
+      }
+    }, 50);
+  };
 
   private updateMarkers(ambs: UnidadMovilDTO[], emgs: TicketAsistenciaDTO[]): void {
     if (!this.map) return;

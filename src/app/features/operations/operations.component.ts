@@ -13,7 +13,7 @@ import { CoberturaVigenteDTO } from '../../data-access/dto/patient.dto';
 import { resolveOrigen } from '../../core/utils/ticket-origen.utils';
 import { OperationsMapComponent } from '../../shared/components/map/operations-map/operations-map.component';
 import { EmergencyListItemComponent } from '../../shared/components/emergency/emergency-list-item/emergency-list-item.component';
-import { TelemetryBarComponent } from '../../shared/components/telemetry-bar/telemetry-bar.component';
+// import { TelemetryBarComponent } from '../../shared/components/telemetry-bar/telemetry-bar.component';
 import { LoadingStateComponent } from '../../shared/components/loading-state/loading-state.component';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { ModalShellComponent } from '../../shared/components/modal-shell/modal-shell.component';
@@ -30,7 +30,7 @@ type FeedTab = 'TODAS' | 'INSTITUCIONALES' | 'PERSONAS' | 'SIN_ASIGNAR' | 'CRITI
   imports: [
     OperationsMapComponent,
     EmergencyListItemComponent,
-    TelemetryBarComponent,
+    // TelemetryBarComponent,
     LoadingStateComponent,
     EmptyStateComponent,
     ModalShellComponent,
@@ -61,7 +61,7 @@ type FeedTab = 'TODAS' | 'INSTITUCIONALES' | 'PERSONAS' | 'SIN_ASIGNAR' | 'CRITI
                 <path d="M5 2.5v10M8.5 1v10.5" />
               </svg>
               <span class="font-mono text-xs font-semibold" style="color: var(--text-primary);"
-                >Mapa Operacional</span
+                >Mapa Operacional...</span
               >
               <span class="font-mono text-xs" style="color: var(--text-muted);"
                 >SSJ · VISTA MAESTRA</span
@@ -255,9 +255,9 @@ type FeedTab = 'TODAS' | 'INSTITUCIONALES' | 'PERSONAS' | 'SIN_ASIGNAR' | 'CRITI
       <!-- Telemetry bar (bottom) -->
       <div
         class="px-4 py-2 border-t flex-shrink-0"
-        style="height: 136px; border-color: var(--border-glass); background: var(--bg-elevated);"
+        style="height: 5px; border-color: var(--border-glass); background: var(--bg-elevated);"
       >
-        <emx-telemetry-bar [ambulances]="fleetStore.ambulances()" [dashboard]="dashboard()" />
+<!--        <emx-telemetry-bar [ambulances]="fleetStore.ambulances()" [dashboard]="dashboard()" />-->
       </div>
     </div>
 
@@ -383,6 +383,68 @@ type FeedTab = 'TODAS' | 'INSTITUCIONALES' | 'PERSONAS' | 'SIN_ASIGNAR' | 'CRITI
         (dispatched)="onDispatched()"
         (closed)="closeDispatch()"
       />
+    }
+
+    <!-- Ambulance detail modal -->
+    @if (selectedAmbulance()) {
+      <emx-modal-shell (closed)="selectedAmbulanceId.set(null)">
+        <div header class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full" style="background: var(--accent-emerald);"></span>
+          <span class="font-bold text-base" style="color: var(--text-primary);">
+            {{ selectedAmbulance()?.identificador || 'Ambulancia' }}
+          </span>
+          <span class="font-mono text-xs px-2 py-0.5 rounded" style="background: var(--surface-glass); color: var(--text-muted); border: 1px solid var(--border-glass)">
+            {{ selectedAmbulance()?.patente || 'AG-256-DN' }}
+          </span>
+        </div>
+
+        <div class="flex flex-col gap-4 py-2">
+          <!-- Status Grid -->
+          <div class="grid grid-cols-2 gap-2 font-mono text-xs">
+            <div class="p-2.5 rounded-panel glass flex flex-col gap-1" style="border:1px solid var(--border-glass)">
+              <span style="color:var(--text-muted)">ESTADO ACTUAL</span>
+              <span class="font-bold" style="color:var(--accent-emerald)">{{ selectedAmbulance()?.estado || 'DISPONIBLE' }}</span>
+            </div>
+            <div class="p-2.5 rounded-panel glass flex flex-col gap-1" style="border:1px solid var(--border-glass)">
+              <span style="color:var(--text-muted)">TIPO DE UNIDAD</span>
+              <span class="font-bold" style="color:var(--text-primary)">{{ selectedAmbulance()?.tipo || 'UTIM Ambulancia' }}</span>
+            </div>
+            <div class="p-2.5 rounded-panel glass flex flex-col gap-1" style="border:1px solid var(--border-glass)">
+              <span style="color:var(--text-muted)">UBICACIÓN GPS</span>
+              <span class="font-bold text-xs" style="color:var(--accent-cyan)">
+                {{ selectedAmbulance()?.latitud?.toFixed(5) }}, {{ selectedAmbulance()?.longitud?.toFixed(5) }}
+              </span>
+            </div>
+            <div class="p-2.5 rounded-panel glass flex flex-col gap-1" style="border:1px solid var(--border-glass)">
+              <span style="color:var(--text-muted)">BASE / MODELO</span>
+              <span class="font-bold" style="color:var(--text-primary)">{{ selectedAmbulance()?.modelo || 'Base Central SAE' }}</span>
+            </div>
+          </div>
+
+          @if (selectedAmbulance()?.tripulacion) {
+            <div class="p-3 rounded-panel glass flex flex-col gap-2" style="border:1px solid var(--border-glass)">
+              <span class="font-mono text-xs font-semibold" style="color:var(--accent-cyan)">TRIPULACIÓN ACTIVA</span>
+              <div class="flex flex-col gap-1.5">
+                @for (member of getParsedCrew(selectedAmbulance()?.tripulacion); track member.name) {
+                  <div class="flex items-center gap-2 text-xs">
+                    <div class="w-6 h-6 rounded-full flex items-center justify-center font-mono font-bold text-xs" style="background:var(--accent-cyan);color:#000">
+                      {{ member.initials }}
+                    </div>
+                    <div class="flex flex-col">
+                      <span class="font-semibold" style="color:var(--text-primary)">{{ member.name }}</span>
+                      <span class="text-xs" style="color:var(--text-muted)">{{ member.role }}</span>
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+        </div>
+
+        <div footer class="flex justify-end gap-2">
+          <button type="button" class="btn btn--ghost btn--sm" (click)="selectedAmbulanceId.set(null)">Cerrar</button>
+        </div>
+      </emx-modal-shell>
     }
   `,
   styles: [
