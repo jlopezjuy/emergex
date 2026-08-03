@@ -55,6 +55,61 @@ function emgColor(prioridad?: string): string {
   }
 }
 
+// ─── Ambulance Icon Canvas Generator ──────────────────────────────────────────
+
+function generateAmbulanceImageData(colorHex: string): ImageData {
+  const size = 34;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+
+  const cx = size / 2;
+  const cy = size / 2;
+
+  // Background badge with status color
+  ctx.beginPath();
+  ctx.arc(cx, cy, 14, 0, Math.PI * 2);
+  ctx.fillStyle = colorHex;
+  ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.stroke();
+
+  // White Ambulance Vehicle Body
+  ctx.fillStyle = '#FFFFFF';
+
+  // Main Body
+  ctx.beginPath();
+  ctx.roundRect(cx - 9, cy - 5, 12, 9, 2);
+  ctx.fill();
+
+  // Front Cabin
+  ctx.beginPath();
+  ctx.roundRect(cx + 2, cy - 3, 6, 7, 1.5);
+  ctx.fill();
+
+  // Windshield
+  ctx.fillStyle = colorHex;
+  ctx.beginPath();
+  ctx.fillRect(cx + 4, cy - 2, 3, 3);
+  ctx.fill();
+
+  // Wheels
+  ctx.fillStyle = '#0f172a';
+  ctx.beginPath();
+  ctx.arc(cx - 5, cy + 4, 2.2, 0, Math.PI * 2);
+  ctx.arc(cx + 5, cy + 4, 2.2, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Medical Cross
+  ctx.fillStyle = colorHex;
+  ctx.fillRect(cx - 4, cy - 3.5, 2, 5);
+  ctx.fillRect(cx - 5.5, cy - 2, 5, 2);
+
+  return ctx.getImageData(0, 0, size, size);
+}
+
 // ─── Marker element factories ─────────────────────────────────────────────────
 
 function createAmbEl(unit: UnidadMovilDTO, onClick: () => void): HTMLElement {
@@ -520,21 +575,32 @@ export class OperationsMapComponent implements OnDestroy {
   private setupMapLayers(): void {
     if (!this.map) return;
 
+    const colors = ['#10B981', '#3B82F6', '#F59E0B', '#22D3EE', '#64748B', '#64748b'];
+    colors.forEach((c) => {
+      const imgName = `amb-icon-${c.replace('#', '').toUpperCase()}`;
+      if (this.map && !this.map.hasImage(imgName)) {
+        try {
+          this.map.addImage(imgName, generateAmbulanceImageData(c));
+        } catch {
+          // ignore duplicate image registration
+        }
+      }
+    });
+
     if (!this.map.getSource(this.AMB_SOURCE)) {
       this.map.addSource(this.AMB_SOURCE, {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] },
       });
       this.map.addLayer({
-        id: 'emx-amb-circles',
-        type: 'circle',
+        id: 'emx-amb-icons',
+        type: 'symbol',
         source: this.AMB_SOURCE,
-        paint: {
-          'circle-radius': 10,
-          'circle-color': ['get', 'color'],
-          'circle-stroke-width': 2,
-          'circle-stroke-color': '#ffffff',
-          'circle-opacity': 0.95,
+        layout: {
+          'icon-image': ['get', 'iconName'],
+          'icon-size': 1,
+          'icon-allow-overlap': true,
+          'icon-anchor': 'center',
         },
       });
       this.map.addLayer({
@@ -546,7 +612,7 @@ export class OperationsMapComponent implements OnDestroy {
           'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'],
           'text-size': 10,
           'text-anchor': 'top',
-          'text-offset': [0, 1.2],
+          'text-offset': [0, 1.4],
           'text-allow-overlap': false,
           'text-optional': true,
         },
@@ -624,7 +690,7 @@ export class OperationsMapComponent implements OnDestroy {
       });
     }
 
-    this.map.on('click', 'emx-amb-circles', this.handleAmbClick);
+    this.map.on('click', 'emx-amb-icons', this.handleAmbClick);
     this.map.on('click', 'emx-amb-labels', this.handleAmbClick);
     this.map.on('click', 'emx-emg-inner', (ev) => {
       const feature = ev.features?.[0];
@@ -632,8 +698,8 @@ export class OperationsMapComponent implements OnDestroy {
       if (id != null) this.zone.run(() => this.selectEmergency.emit(Number(id)));
     });
 
-    this.map.on('mouseenter', 'emx-amb-circles', () => { if (this.map) this.map.getCanvas().style.cursor = 'pointer'; });
-    this.map.on('mouseleave', 'emx-amb-circles', () => { if (this.map) this.map.getCanvas().style.cursor = ''; });
+    this.map.on('mouseenter', 'emx-amb-icons', () => { if (this.map) this.map.getCanvas().style.cursor = 'pointer'; });
+    this.map.on('mouseleave', 'emx-amb-icons', () => { if (this.map) this.map.getCanvas().style.cursor = ''; });
     this.map.on('mouseenter', 'emx-amb-labels', () => { if (this.map) this.map.getCanvas().style.cursor = 'pointer'; });
     this.map.on('mouseleave', 'emx-amb-labels', () => { if (this.map) this.map.getCanvas().style.cursor = ''; });
     this.map.on('mouseenter', 'emx-emg-inner', () => { if (this.map) this.map.getCanvas().style.cursor = 'pointer'; });
@@ -703,12 +769,15 @@ export class OperationsMapComponent implements OnDestroy {
       .flatMap((unit) => {
         const lngLat = unitLngLat(unit);
         if (!lngLat || unit.id == null) return [];
+        const color = ambColor(unit.estado);
+        const iconName = `amb-icon-${color.replace('#', '').toUpperCase()}`;
         return [{
           type: 'Feature' as const,
           properties: {
             id: unit.id,
             label: unit.identificador ?? `U-${unit.id}`,
-            color: ambColor(unit.estado),
+            color: color,
+            iconName: iconName,
           },
           geometry: {
             type: 'Point' as const,
