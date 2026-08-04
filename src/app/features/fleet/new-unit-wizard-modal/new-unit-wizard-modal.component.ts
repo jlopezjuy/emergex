@@ -705,10 +705,10 @@ export class NewUnitWizardModalComponent implements OnInit {
         
         if (errObj?.properties?.message === 'error.patenteExistente') {
           msg = `Ya existe una unidad registrada con esa patente en su empresa. Por favor, modifique la patente en el Paso 1.`;
-          this.step.set(1);
+          this.paso.set(1);
         } else if (errObj?.properties?.message === 'error.identificadorExistente') {
           msg = `Ya existe una unidad con ese identificador en su empresa. Por favor, verifique el Paso 1.`;
-          this.step.set(1);
+          this.paso.set(1);
         } else if (errObj?.detail) {
           msg = errObj.detail;
         } else if (errObj?.title && errObj.title !== 'Bad Request') {
