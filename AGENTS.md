@@ -1,20 +1,47 @@
 # Emergex Web Frontend Rules (Angular 21)
 
-This file extends the root [`AGENTS.md`](file:///Users/juanlopez/Proyectos/Propios/AliviarSalud/AGENTS.md) with web-frontend-specific rules for `emergex-frontend/`.
+This file extends the root [`AGENTS.md`](file:///Users/juanlopez/Proyectos/Propios/AliviarSalud/AGENTS.md) with web-frontend-specific rules.
 
-## Architecture & Technology Stack
-- **Framework**: Angular 21 (Angular `^21.2.0`, TypeScript, RxJS).
-- **Patterns**: Standalone Components (`standalone: true`), reactive Signals (`signal()`, `computed()`), inject function (`inject()`).
-- **Styling**: Vanilla CSS / Angular Material / Tailwind. Hallmark scope applies ONLY to visual audits here.
+## Technology Stack
 
-## Critical Mandatory Rules
-1. **ACTIVE FRONTEND**: `emergex-frontend/` is the SINGLE active web application. Do NOT use `old-frontend/`.
-2. **Signals & RxJS State**: Expose Signals or Observables in services using `providedIn: 'root'`.
-3. **No View Logic Leakage**: Keep component templates focused on presentation; delegate business operations to services.
-4. **Strict Typing & ESLint**: Enforce strict TypeScript types. ESLint must pass with zero warnings (`--max-warnings 0`).
+- **Framework**: Angular 21.2.x, TypeScript 5.9.x, RxJS 7.8.x
+- **State**: Signals (`signal()`, `computed()`, `update()`) via root-provided Store classes
+- **Components**: 136 Standalone Components (`standalone: true`), functional `inject()`
+- **Routing**: Lazy-loaded routes with `loadComponent` / `loadChildren`, functional guards
+- **Styling**: Tailwind CSS 3.4.x + custom CSS design system (glassmorphism, dark/light themes)
+- **Maps**: MapLibre GL 5.x (`maplibre-gl`)
+- **Charts**: Chart.js 4.x
+- **WebSocket**: STOMP via `@stomp/stompjs` + `sockjs-client`
+- **Testing**: Vitest 4.x via `@angular/build:unit-test`
+- **Linting**: ESLint 10.x + `@angular-eslint` 21.x (strict, zero warnings)
+- **31 feature modules**, 36 API services, 5 Signal stores
+
+## Architecture
+
+- **NO PrimeNG, NO Angular Material** — custom Tailwind + CSS variables design system
+- Stores in `src/app/core/stores/` (SessionStore, EmergencyStore, FleetStore, etc.)
+- API services in `src/app/data-access/api/`
+- Shared components in `src/app/shared/`
+- Component prefix: `emx`
+
+## Critical Rules
+
+1. **ACTIVE FRONTEND**: `emergex-frontend/` is the ONLY active web app. Do NOT use `old-frontend/`.
+2. **Signals & RxJS**: Services expose Signals or Observables via `providedIn: 'root'`.
+3. **No View Logic Leakage**: Templates are pure presentation; business ops delegate to services.
+4. **ESLint Zero Warnings**: `npm run lint` must pass with `--max-warnings 0`.
+5. **No PrimeNG/Material**: Use existing Tailwind + CSS custom property design system.
+
+## Proxy Configuration
+
+- Dev: `/api` → `http://localhost:8080`, `/websocket` → `http://localhost:8080` (WebSocket)
+- Prod: `https://aliviar.appcanvas.store`
 
 ## Verification Commands
-- Dev Server: `npm start` or `npm run start:dev`
-- Production Build: `npm run build:prod`
-- Unit Tests: `npm test` or `npm run test:ci`
-- Linting: `npm run lint` (`eslint "src/**/*.ts" --max-warnings 0`)
+
+| Command | Purpose |
+|---|---|
+| `npm start` | Dev server (port 4200) |
+| `npm run build:prod` | Production build |
+| `npm run lint` | ESLint (zero warnings) |
+| `npm run test:ci` | Run tests (Vitest, no watch) |
