@@ -109,13 +109,23 @@ const DIA_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
             <label class="text-xs font-semibold uppercase tracking-wider" style="color: var(--text-secondary);">
               Patente
             </label>
-            <input
-              type="text"
-              formControlName="patente"
-              placeholder="AB 123 CD"
-              class="rounded px-3 py-2 text-sm w-full"
-              style="background: var(--surface-glass); border: 1px solid var(--border-glass); color: var(--text-primary);"
-            />
+            <div class="relative">
+              <input
+                type="text"
+                formControlName="patente"
+                placeholder="AB 123 CD"
+                (input)="onPatenteInput($event)"
+                class="rounded px-3 py-2 text-sm w-full"
+                [style.border-color]="patenteDuplicada() ? '#ef4444' : 'var(--border-glass)'"
+                style="background: var(--surface-glass); color: var(--text-primary);"
+              />
+              @if (checkingPatente()) {
+                <span class="absolute right-3 top-2.5 text-xs text-slate-400">Verificando...</span>
+              }
+            </div>
+            @if (patenteDuplicada()) {
+              <span class="text-xs text-red-400 mt-0.5">⚠️ Esta patente ya está registrada en la empresa.</span>
+            }
           </div>
 
           <!-- Modelo + Año -->
@@ -391,6 +401,9 @@ export class NewUnitWizardModalComponent implements OnInit {
   readonly saving = signal(false);
   readonly errorMsg = signal<string | null>(null);
   readonly profesionalesDisponibles = signal<ProfesionalDisponibleDTO[]>([]);
+  readonly checkingPatente = signal(false);
+  readonly patenteDuplicada = signal(false);
+  private patenteTimeout: any;
 
   readonly steps = [
     { num: 1, label: 'Datos Unidad' },
@@ -414,6 +427,33 @@ export class NewUnitWizardModalComponent implements OnInit {
     modelo: [''],
     anio: [null as number | null],
   });
+
+  onPatenteInput(event: Event): void {
+    const val = (event.target as HTMLInputElement).value?.trim();
+    this.patenteDuplicada.set(false);
+    if (this.patenteTimeout) {
+      clearTimeout(this.patenteTimeout);
+    }
+    if (!val) {
+      this.checkingPatente.set(false);
+      return;
+    }
+
+    this.checkingPatente.set(true);
+    this.patenteTimeout = setTimeout(() => {
+      this.fleetApi.validarPatente(val).pipe(
+        takeUntilDestroyed(this.destroyRef)
+      ).subscribe({
+        next: (existe) => {
+          this.checkingPatente.set(false);
+          this.patenteDuplicada.set(existe);
+        },
+        error: () => {
+          this.checkingPatente.set(false);
+        }
+      });
+    }, 400);
+  }
 
   // Paso 2 & 3 State
   readonly turnosUi = signal<TurnoConfigUi[]>([]);
@@ -451,7 +491,7 @@ export class NewUnitWizardModalComponent implements OnInit {
 
   isPasoValido(): boolean {
     if (this.paso() === 1) {
-      return this.form.valid;
+      return this.form.valid && !this.patenteDuplicada() && !this.checkingPatente();
     }
     if (this.paso() === 2) {
       // Debe haber al menos un turno definido y con al menos un día activo
@@ -660,9 +700,22 @@ export class NewUnitWizardModalComponent implements OnInit {
       },
       error: (err) => {
         this.saving.set(false);
-        this.errorMsg.set(
-          err?.error?.detail || err?.error?.title || 'Error al registrar la unidad y tripulación. Verificá que no existan patentes o identificadores duplicados, y que los horarios de guardias no se solapen.'
-        );
+        const errObj = err?.error;
+        let msg = 'Error al registrar la unidad y tripulación.';
+        
+        if (errObj?.properties?.message === 'error.patenteExistente') {
+          msg = `Ya existe una unidad registrada con esa patente en su empresa. Por favor, modifique la patente en el Paso 1.`;
+          this.step.set(1);
+        } else if (errObj?.properties?.message === 'error.identificadorExistente') {
+          msg = `Ya existe una unidad con ese identificador en su empresa. Por favor, verifique el Paso 1.`;
+          this.step.set(1);
+        } else if (errObj?.detail) {
+          msg = errObj.detail;
+        } else if (errObj?.title && errObj.title !== 'Bad Request') {
+          msg = errObj.title;
+        }
+
+        this.errorMsg.set(msg);
       },
     });
   }

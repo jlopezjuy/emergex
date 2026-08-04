@@ -83,9 +83,15 @@ export class FleetApiService {
   }
 
   ambulancias(): Observable<UnidadMovilDTO[]> {
-    return this.http.get<any[]>(`${this.base}/ambulancias`).pipe(
-      map((items) => (items ?? []).map((r) => this.mapAmbu(r))),
-    );
+    return this.http
+      .get<any[]>(`${this.base}/ambulancias`)
+      .pipe(map((list) => list.map((item) => this.mapAmbu(item))));
+  }
+
+  validarPatente(patente: string): Observable<boolean> {
+    return this.http.get<boolean>(`${this.base}/ambulancias/validar-patente`, {
+      params: { patente },
+    });
   }
 
   ambulanciasDisponibles(): Observable<UnidadMovilDTO[]> {
