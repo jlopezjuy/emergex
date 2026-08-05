@@ -73,8 +73,13 @@ describe('FacturacionComponent (Comprehensive TDD Spec)', () => {
     expect(facturacionApiMock.generarMensual).toHaveBeenCalledWith(5, 2026);
   });
 
-  it('debería manejar errores de la API durante la generación de facturas de forma segura', () => {
-    facturacionApiMock.generarMensual.mockReturnValueOnce(throwError(() => new Error('Error ARCA 500')));
+  it('debería mostrarle al operador el mensaje real que devuelve el backend', () => {
+    // El backend responde ProblemDetail (spring.mvc.problemdetails.enabled), así que el
+    // error trae `error.detail`. Un `new Error(...)` pelado no ejercita ese camino: caía
+    // siempre en el mensaje genérico y el test no probaba nada.
+    facturacionApiMock.generarMensual.mockReturnValueOnce(
+      throwError(() => ({ status: 500, error: { detail: 'Error ARCA 500' } }))
+    );
 
     const fixture = TestBed.createComponent(FacturacionComponent);
     fixture.detectChanges();
@@ -86,12 +91,26 @@ describe('FacturacionComponent (Comprehensive TDD Spec)', () => {
     expect(component.generarError()).toContain('Error ARCA 500');
   });
 
+  it('debería caer a un mensaje genérico cuando el error no trae detalle', () => {
+    facturacionApiMock.generarMensual.mockReturnValueOnce(throwError(() => new Error('network down')));
+
+    const fixture = TestBed.createComponent(FacturacionComponent);
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance;
+    component.confirmarGenerar();
+
+    // Nunca queda colgado en "Generando...": el flag se libera igual.
+    expect(component.generando()).toBe(false);
+    expect(component.generarError()).toBe('Error al generar facturas.');
+  });
+
   it('debería permitir abrir el modal para generar facturas institucionales B2B', () => {
     const fixture = TestBed.createComponent(FacturacionComponent);
     fixture.detectChanges();
 
     const component = fixture.componentInstance;
-    component.abrirModalGenerarInst();
+    component.openGenerarInstModal();
 
     expect(component.showGenerarInstModal()).toBe(true);
     expect(component.contratosActivos().length).toBe(1);
@@ -102,19 +121,39 @@ describe('FacturacionComponent (Comprehensive TDD Spec)', () => {
     fixture.detectChanges();
 
     const component = fixture.componentInstance;
-    component.abrirModalGenerarInst();
+    component.openGenerarInstModal();
     component.genInstContratoId = 99;
     component.genInstPeriodoDesde = '2026-05-01';
     component.genInstPeriodoHasta = '2026-05-31';
 
-    component.confirmarGenerarInst();
+    component.onGenerarFacturaInst();
 
+    // observaciones viaja como undefined cuando el operador no escribió nada: el backend
+    // distingue "sin observación" de "observación vacía".
     expect(institutionsApiMock.generarFacturaInstitucional).toHaveBeenCalledWith({
       contratoId: 99,
       periodoDesde: '2026-05-01',
       periodoHasta: '2026-05-31',
-      observaciones: '',
+      observaciones: undefined,
     });
-    expect(component.showGenerarInstModal()).toBe(false);
+    // El modal NO se cierra al generar: se queda mostrando el resumen de la factura
+    // (importe y miembros facturados) y el operador lo cierra a mano.
+    expect(component.generarInstResult()?.id).toBe(11);
+    expect(component.generandoInst()).toBe(false);
+    expect(institutionsApiMock.getAllFacturasInstitucionales).toHaveBeenCalledTimes(2);
+  });
+
+  it('debería exigir contrato y período antes de llamar a la API', () => {
+    const fixture = TestBed.createComponent(FacturacionComponent);
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance;
+    component.openGenerarInstModal();
+    component.genInstContratoId = 0;
+
+    component.onGenerarFacturaInst();
+
+    expect(institutionsApiMock.generarFacturaInstitucional).not.toHaveBeenCalled();
+    expect(component.generarInstError()).toContain('Completá contrato');
   });
 });
