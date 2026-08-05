@@ -47,6 +47,7 @@ export interface HistorialAsistenciaItem {
   numeroTicket: string;
   fechaHora: string;
   paciente: string;
+  antecedentes?: string;
   tipoAsistencia: string;
   prioridad: string;
   estado: string;

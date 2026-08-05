@@ -108,7 +108,7 @@ import { DateUtils } from '../../core/utils/date.utils';
             <table class="w-full text-xs min-w-[980px]">
               <thead>
                 <tr style="color: var(--text-muted);">
-                  <th class="th">Fecha</th><th class="th">Ticket</th><th class="th">Paciente</th><th class="th">Tipo</th>
+                  <th class="th">Fecha</th><th class="th">Ticket</th><th class="th">Paciente</th><th class="th">Antecedentes</th><th class="th">Tipo</th>
                   <th class="th">Prioridad</th><th class="th">Estado</th><th class="th">Móvil</th><th class="th">Resp.</th>
                   <th class="th">Cierre</th><th class="th">Zona</th>
                 </tr>
@@ -120,6 +120,7 @@ import { DateUtils } from '../../core/utils/date.utils';
                     <td class="td">{{ item.fechaHora | date:'dd/MM HH:mm' }}</td>
                     <td class="td font-mono font-medium">{{ item.numeroTicket }}</td>
                     <td class="td">{{ item.paciente || '—' }}</td>
+                    <td class="td">{{ item.antecedentes || '—' }}</td>
                     <td class="td">{{ item.tipoAsistencia }}</td>
                     <td class="td">{{ item.prioridad }}</td>
                     <td class="td">{{ item.estado }}</td>
@@ -129,7 +130,7 @@ import { DateUtils } from '../../core/utils/date.utils';
                     <td class="td">{{ item.zona || '—' }}</td>
                   </tr>
                 } @empty {
-                  <tr><td class="py-8 text-center" colspan="10" style="color: var(--text-muted);">No hay asistencias para este filtro.</td></tr>
+                  <tr><td class="py-8 text-center" colspan="11" style="color: var(--text-muted);">No hay asistencias para este filtro.</td></tr>
                 }
               </tbody>
             </table>

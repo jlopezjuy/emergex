@@ -738,6 +738,19 @@ const TIPOS_PRACTICA_ESTADISTICA: SearchableSelectOption[] = [
           ></textarea>
         </div>
 
+        <!-- Antecedentes -->
+        <div class="flex flex-col gap-1.5">
+          <label for="antecedentesInput" class="eyebrow">Antecedentes</label>
+          <textarea
+            id="antecedentesInput"
+            formControlName="antecedentes"
+            rows="2"
+            placeholder="Antecedentes relevados durante esta atención..."
+            class="rounded-btn px-3 py-2 text-sm w-full resize-none focus:ring-2 focus:ring-[var(--accent-cyan)] focus:outline-none"
+            style="background: var(--surface-glass); border: 1px solid var(--border-strong); color: var(--text-primary);"
+          ></textarea>
+        </div>
+
         <!-- Autorización especial: distinta de "Motivo de Excepción" (esa es por deuda/falta de
              cobertura del paciente). Esta es una autorización operativa general del despacho,
              siempre disponible sin importar el estado comercial del paciente. -->
@@ -967,6 +980,7 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
     tipoCoberturaEstadistica: [null as TipoCoberturaEstadistica],
     tipoPracticaEstadistica: [null as TipoPracticaEstadistica],
     observacion:        [''],
+    antecedentes:       [''],
     autorizacionEspecial: [false],
     autorizadoPor:      [''],
     detalleAutorizacion: [''],
@@ -1434,6 +1448,10 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
         : `[Motivo de Excepción: ${motivo}]`;
     } else if (val.observacion) {
       req.observacion = val.observacion;
+    }
+
+    if (val.antecedentes) {
+      req.antecedentes = val.antecedentes;
     }
 
     // Autorización especial — independiente del motivo de excepción por deuda/cobertura

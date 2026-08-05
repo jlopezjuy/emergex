@@ -108,6 +108,7 @@ export interface AltaRapidaRequest {
   telefonoContacto?: string;
   pacienteId?: number;
   observacion?: string;
+  antecedentes?: string;
   coberturaAlMomentoId?: number | null;
 
   // Motivo de llamado del catálogo — complementario a descripcionSintomas (textarea libre),
