@@ -1,5 +1,6 @@
 import { Component, output, inject, HostListener, signal, computed, OnDestroy, DestroyRef } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
+import { DatePipe } from '@angular/common';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Subject, debounceTime, distinctUntilChanged, switchMap, catchError, of, map } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
@@ -102,7 +103,7 @@ const TIPOS_PRACTICA_ESTADISTICA: SearchableSelectOption[] = [
 @Component({
   selector: 'emx-emergency-quick-create-modal',
   standalone: true,
-  imports: [ReactiveFormsModule, ModalShellComponent, LocationPickerMapComponent, SearchableSelectComponent],
+  imports: [ReactiveFormsModule, ModalShellComponent, LocationPickerMapComponent, SearchableSelectComponent, DatePipe],
   template: `
     <emx-modal-shell
       title="Nueva Emergencia"
@@ -234,6 +235,25 @@ const TIPOS_PRACTICA_ESTADISTICA: SearchableSelectOption[] = [
                       </span>
                     } @else {
                       <span style="color: var(--text-muted);">Sin antecedentes registrados</span>
+                    }
+
+                    <!-- Lo que otros operadores anotaron en emergencias ANTERIORES de este
+                         paciente (texto libre por ticket) — distinto de los antecedentes
+                         clínicos estructurados de arriba. Se muestra acá, antes de que el
+                         operador escriba el antecedente de la atención actual. -->
+                    @if ((contextoPaciente()!.antecedentesAtenciones?.length ?? 0) > 0) {
+                      <span class="flex flex-col gap-1 mt-2 pt-2" style="border-top: 1px solid var(--border-glass);">
+                        <strong style="color: var(--text-primary);">Antecedentes de emergencias anteriores:</strong>
+                        @for (a of contextoPaciente()!.antecedentesAtenciones; track a.ticketId) {
+                          <span class="flex flex-col">
+                            <span style="color: var(--text-muted);">
+                              {{ a.fecha | date:'d MMM y' }} · {{ tipoAsistenciaLabel(a.tipoAsistencia) }}
+                              @if (a.numeroTicket) { <span> · {{ a.numeroTicket }}</span> }
+                            </span>
+                            <span>{{ a.antecedentes }}</span>
+                          </span>
+                        }
+                      </span>
                     }
                   </div>
                 }
@@ -521,23 +541,43 @@ const TIPOS_PRACTICA_ESTADISTICA: SearchableSelectOption[] = [
 
         <!-- Dirección (oculta para ORIENTACION_TELEFONICA) -->
         @if (f['tipoAsistencia'].value !== 'ORIENTACION_TELEFONICA') {
+          <!-- Dirección y Nota de dirección comparten fila (2 columnas): el resto del flujo
+               de búsqueda (resultados, mapa, confirmación) va debajo, a todo el ancho — el
+               mapa no puede achicarse a media columna sin perder utilidad. -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="flex flex-col gap-1.5">
+              <label for="direccionInput" class="eyebrow">Dirección *</label>
+              <input
+                type="text"
+                id="direccionInput"
+                formControlName="direccion"
+                placeholder="Av. Independencia 842, Centro"
+                role="combobox"
+                [attr.aria-expanded]="addressCandidates().length > 0"
+                aria-autocomplete="list"
+                aria-controls="geocode-results"
+                class="rounded-btn px-3 py-2 text-sm w-full focus:ring-2 focus:ring-[var(--accent-cyan)] focus:outline-none"
+                style="background: var(--surface-glass); border: 1px solid var(--border-strong); color: var(--text-primary);"
+              />
+              @if (f['direccion'].invalid && f['direccion'].touched) {
+                <span role="alert" class="text-xs" style="color: var(--error-text);">Campo requerido</span>
+              }
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+              <label for="notaDireccionInput" class="eyebrow">Nota de dirección</label>
+              <input
+                type="text"
+                id="notaDireccionInput"
+                formControlName="notaDireccion"
+                placeholder="Piso, depto, referencia..."
+                class="rounded-btn px-3 py-2 text-sm w-full focus:ring-2 focus:ring-[var(--accent-cyan)] focus:outline-none"
+                style="background: var(--surface-glass); border: 1px solid var(--border-strong); color: var(--text-primary);"
+              />
+            </div>
+          </div>
+
           <div class="flex flex-col gap-1.5">
-            <label for="direccionInput" class="eyebrow">Dirección *</label>
-            <input
-              type="text"
-              id="direccionInput"
-              formControlName="direccion"
-              placeholder="Av. Independencia 842, Centro"
-              role="combobox"
-              [attr.aria-expanded]="addressCandidates().length > 0"
-              aria-autocomplete="list"
-              aria-controls="geocode-results"
-              class="rounded-btn px-3 py-2 text-sm w-full focus:ring-2 focus:ring-[var(--accent-cyan)] focus:outline-none"
-              style="background: var(--surface-glass); border: 1px solid var(--border-strong); color: var(--text-primary);"
-            />
-            @if (f['direccion'].invalid && f['direccion'].touched) {
-              <span role="alert" class="text-xs" style="color: var(--error-text);">Campo requerido</span>
-            }
             @if (addressSearching()) {
               <span class="text-xs" style="color: var(--text-muted);" role="status">Buscando ubicación...</span>
             }
@@ -611,18 +651,6 @@ const TIPOS_PRACTICA_ESTADISTICA: SearchableSelectOption[] = [
                 Sin ubicación confirmada. Podés registrar igual, pero el móvil sale sin punto exacto: elegí una dirección de la lista o marcá el punto en el mapa.
               </span>
             }
-          </div>
-
-          <div class="flex flex-col gap-1.5">
-            <label for="notaDireccionInput" class="eyebrow">Nota de dirección</label>
-            <input
-              type="text"
-              id="notaDireccionInput"
-              formControlName="notaDireccion"
-              placeholder="Piso, depto, referencia..."
-              class="rounded-btn px-3 py-2 text-sm w-full focus:ring-2 focus:ring-[var(--accent-cyan)] focus:outline-none"
-              style="background: var(--surface-glass); border: 1px solid var(--border-strong); color: var(--text-primary);"
-            />
           </div>
 
           <div class="flex flex-col gap-1.5">
@@ -952,6 +980,11 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
       default:
         return '#EF4444';
     }
+  }
+
+  /** Traduce el enum de tipoAsistencia al label que ya usan los botones del formulario. */
+  tipoAsistenciaLabel(value?: string): string {
+    return TIPOS_ASISTENCIA.find(t => t.value === value)?.label ?? value ?? '';
   }
 
   form = this.fb.group({

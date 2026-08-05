@@ -493,6 +493,17 @@ export interface AntecedenteEmergenciaDTO {
   descripcion: string;
 }
 
+// Antecedente de TEXTO LIBRE anotado por un operador en una emergencia anterior de este
+// mismo paciente (TicketAsistencia.antecedentes) — distinto de AntecedenteEmergenciaDTO,
+// que viene de la historia clínica estructurada.
+export interface AntecedenteTicketDTO {
+  ticketId: number;
+  numeroTicket?: string;
+  fecha?: string;
+  tipoAsistencia?: string;
+  antecedentes?: string;
+}
+
 // Contexto de emergencia de un paciente ya seleccionado — GET /api/operador-emergencias/pacientes/{id}/contexto.
 // edad/sexo/antecedentes quedan null/vacíos si el paciente no tiene fecha de nacimiento/sexo/historia
 // clínica cargada, sin error — es de solo lectura.
@@ -517,4 +528,5 @@ export interface ContextoEmergenciaPaciente {
   edad: number | null;
   sexo: string | null;
   antecedentes: AntecedenteEmergenciaDTO[];
+  antecedentesAtenciones?: AntecedenteTicketDTO[];
 }
