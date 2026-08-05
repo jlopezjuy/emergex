@@ -94,7 +94,7 @@ export interface TicketAsistenciaDTO {
 }
 
 export interface AltaRapidaRequest {
-  tipoAsistencia: 'EMERGENCIA_DOMICILIARIA' | 'ORIENTACION_TELEFONICA' | 'ENFERMERIA_DOMICILIARIA' | 'CONTROL_MEDICO_DOMICILIARIO' | 'TRASLADO_PROGRAMADO' | 'VISITA_DOMICILIARIA';
+  tipoAsistencia: 'EMERGENCIA_DOMICILIARIA' | 'ORIENTACION_TELEFONICA' | 'ENFERMERIA_DOMICILIARIA' | 'CONTROL_MEDICO_DOMICILIARIO' | 'TRASLADO_PROGRAMADO' | 'VISITA_DOMICILIARIA' | 'RECONOCIMIENTO_MEDICO';
   nivelUrgencia: 'ROJO' | 'AMARILLO' | 'VERDE' | 'AZUL';
   descripcionSintomas: string;
   direccion?: string;
@@ -102,6 +102,8 @@ export interface AltaRapidaRequest {
   longitud?: number;
   direccionNormalizada?: string;
   geocodingProvider?: string;
+  /** Cómo se obtuvo el punto. Opcional: si no viaja, el backend asume APROXIMADA. */
+  precisionDireccion?: 'EXACTA' | 'APROXIMADA' | 'MANUAL' | 'NO_CONFIRMADA';
   notaDireccion?: string;
   telefonoContacto?: string;
   pacienteId?: number;
@@ -117,6 +119,11 @@ export interface AltaRapidaRequest {
   pacienteApellido?: string;
   pacienteDni?: string;
   pacienteTelefono?: string;
+
+  // Personal propio (SAE) como persona asistida. Excluyente con pacienteId y con
+  // noAfiliado=true; el backend rechaza la combinación. Los clientes que no lo envían
+  // siguen funcionando igual que antes.
+  profesionalSaludId?: number;
 
   // Contrato de atención (Área Protegida o Convenio con Obra Social) — solo aplica
   // cuando noAfiliado=true, el backend lo ignora si viene con pacienteId. planObraSocialId
@@ -137,7 +144,7 @@ export interface AltaRapidaRequest {
 }
 
 export interface CrearTicketRequest {
-  tipoAsistencia: 'EMERGENCIA_DOMICILIARIA' | 'ORIENTACION_TELEFONICA' | 'ENFERMERIA_DOMICILIARIA' | 'CONTROL_MEDICO_DOMICILIARIO' | 'TRASLADO_PROGRAMADO' | 'VISITA_DOMICILIARIA';
+  tipoAsistencia: 'EMERGENCIA_DOMICILIARIA' | 'ORIENTACION_TELEFONICA' | 'ENFERMERIA_DOMICILIARIA' | 'CONTROL_MEDICO_DOMICILIARIO' | 'TRASLADO_PROGRAMADO' | 'VISITA_DOMICILIARIA' | 'RECONOCIMIENTO_MEDICO';
   nivelUrgencia: 'ROJO' | 'AMARILLO' | 'VERDE' | 'AZUL';
   descripcionSintomas: string;
   direccion?: string;
