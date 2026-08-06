@@ -43,8 +43,15 @@ interface BackendPagoResponse {
 export type EstadoFactura = 'EMITIDA' | 'PAGADA' | 'VENCIDA' | 'ANULADA';
 
 export type MetodoPago =
-  | 'EFECTIVO' | 'TRANSFERENCIA' | 'TARJETA_DEBITO' | 'TARJETA_CREDITO'
-  | 'MERCADOPAGO' | 'CHEQUE' | 'OBRA_SOCIAL' | 'PREPAGA' | 'OTRO';
+  | 'EFECTIVO'
+  | 'TRANSFERENCIA'
+  | 'TARJETA_DEBITO'
+  | 'TARJETA_CREDITO'
+  | 'MERCADOPAGO'
+  | 'CHEQUE'
+  | 'OBRA_SOCIAL'
+  | 'PREPAGA'
+  | 'OTRO';
 
 export interface FacturaDTO {
   id: number;
@@ -88,21 +95,27 @@ export interface PagoResponseDTO {
   saldoPendiente?: number;
 }
 
+export interface ArcaStatusDTO {
+  arcaEnabled: boolean;
+  caeSimuladoHabilitado: boolean;
+  modoPruebas: boolean;
+}
+
 // ─── Mappers ──────────────────────────────────────────────────────────────────
 
 function toFacturaDTO(b: BackendFactura, tipoPeriodo: 'MENSUAL' | 'ANUAL'): FacturaDTO {
   return {
-    id:               b.id,
-    numeroFactura:    b.numeroFactura ?? `FAC-${b.id}`,
-    estado:           (b.estado ?? 'EMITIDA') as EstadoFactura,
-    tipoFactura:      b.tipoFactura ?? '',
-    fechaEmision:     b.fechaEmision ?? '',
-    periodoDesde:     b.periodoDesde ?? '',
-    periodoHasta:     b.periodoHasta ?? '',
-    grupoFamiliarId:  b.grupoFamiliarId,
+    id: b.id,
+    numeroFactura: b.numeroFactura ?? `FAC-${b.id}`,
+    estado: (b.estado ?? 'EMITIDA') as EstadoFactura,
+    tipoFactura: b.tipoFactura ?? '',
+    fechaEmision: b.fechaEmision ?? '',
+    periodoDesde: b.periodoDesde ?? '',
+    periodoHasta: b.periodoHasta ?? '',
+    grupoFamiliarId: b.grupoFamiliarId,
     grupoNumeroCuenta: b.grupoNumeroCuenta,
-    importeTotal:     b.importeTotal ?? 0,
-    saldoPendiente:   b.saldoPendiente,
+    importeTotal: b.importeTotal ?? 0,
+    saldoPendiente: b.saldoPendiente,
     tipoPeriodo,
   };
 }
@@ -110,11 +123,11 @@ function toFacturaDTO(b: BackendFactura, tipoPeriodo: 'MENSUAL' | 'ANUAL'): Fact
 function toGenerarDTO(b: BackendGenerarResponse): GenerarResponseDTO {
   const tipoPeriodo: 'MENSUAL' | 'ANUAL' = b.mes == null ? 'ANUAL' : 'MENSUAL';
   return {
-    mes:               b.mes ?? null,
-    anio:              b.anio,
-    totalGeneradas:    b.totalGeneradas,
-    totalOmitidas:     b.totalOmitidas,
-    facturasGeneradas: b.facturasGeneradas.map(f => toFacturaDTO(f, tipoPeriodo)),
+    mes: b.mes ?? null,
+    anio: b.anio,
+    totalGeneradas: b.totalGeneradas,
+    totalOmitidas: b.totalOmitidas,
+    facturasGeneradas: b.facturasGeneradas.map((f) => toFacturaDTO(f, tipoPeriodo)),
     tipoPeriodo,
   };
 }
@@ -128,13 +141,15 @@ export class FacturacionApiService {
 
   generarMensual(mes: number, anio: number): Observable<GenerarResponseDTO> {
     const params = new HttpParams().set('mes', mes).set('anio', anio);
-    return this.http.post<BackendGenerarResponse>(`${this.base}/generar-mensual`, null, { params })
+    return this.http
+      .post<BackendGenerarResponse>(`${this.base}/generar-mensual`, null, { params })
       .pipe(map(toGenerarDTO));
   }
 
   generarAnual(anio: number): Observable<GenerarResponseDTO> {
     const params = new HttpParams().set('anio', anio);
-    return this.http.post<BackendGenerarResponse>(`${this.base}/generar-anual`, null, { params })
+    return this.http
+      .post<BackendGenerarResponse>(`${this.base}/generar-anual`, null, { params })
       .pipe(map(toGenerarDTO));
   }
 
@@ -144,21 +159,51 @@ export class FacturacionApiService {
       .set('size', size)
       .set('sort', 'fechaEmision,desc');
     if (estado) params = params.set('estado', estado);
-    return this.http.get<BackendFactura[]>(`${this.base}/facturas`, { params })
-      .pipe(map(list => list.map(f => toFacturaDTO(f, f.periodoDesde && f.periodoHasta && this.isAnual(f.periodoDesde, f.periodoHasta) ? 'ANUAL' : 'MENSUAL'))));
+    return this.http
+      .get<BackendFactura[]>(`${this.base}/facturas`, { params })
+      .pipe(
+        map((list) =>
+          list.map((f) =>
+            toFacturaDTO(
+              f,
+              f.periodoDesde && f.periodoHasta && this.isAnual(f.periodoDesde, f.periodoHasta)
+                ? 'ANUAL'
+                : 'MENSUAL',
+            ),
+          ),
+        ),
+      );
   }
 
   registrarPago(facturaId: number, req: RegistrarPagoRequest): Observable<PagoResponseDTO> {
     return this.http.post<BackendPagoResponse>(`${this.base}/facturas/${facturaId}/pago`, req);
   }
 
-  generarIndividual(pacienteId: number, mes: number, anio: number, anual: boolean): Observable<GenerarResponseDTO> {
+  /**
+   * Consulta el estado de la integración fiscal ARCA/AFIP en el backend.
+   *
+   * `arcaEnabled` indica si la emisión real está habilitada; `caeSimuladoHabilitado` refleja el
+   * flag de configuración explícito que permite el CAE simulado; `modoPruebas` (derivado en el
+   * backend como `!arcaEnabled && caeSimuladoHabilitado`) advierte al operador cuando los
+   * comprobantes se emiten con CAE simulado (sin validez fiscal).
+   */
+  getArcaStatus(): Observable<ArcaStatusDTO> {
+    return this.http.get<ArcaStatusDTO>(`${environment.apiUrl}/api/arca/status`);
+  }
+
+  generarIndividual(
+    pacienteId: number,
+    mes: number,
+    anio: number,
+    anual: boolean,
+  ): Observable<GenerarResponseDTO> {
     let params = new HttpParams()
       .set('pacienteId', pacienteId)
       .set('anio', anio)
       .set('anual', anual);
     if (!anual) params = params.set('mes', mes);
-    return this.http.post<BackendGenerarResponse>(`${this.base}/generar-individual`, null, { params })
+    return this.http
+      .post<BackendGenerarResponse>(`${this.base}/generar-individual`, null, { params })
       .pipe(map(toGenerarDTO));
   }
 
@@ -166,7 +211,7 @@ export class FacturacionApiService {
     const params = new HttpParams().set('mes', mes).set('anio', anio);
     return this.http.get(`${environment.apiUrl}/api/v2/debitos/generar-lote`, {
       params,
-      responseType: 'blob'
+      responseType: 'blob',
     });
   }
 
@@ -174,7 +219,7 @@ export class FacturacionApiService {
     const formData = new FormData();
     formData.append('file', file);
     return this.http.post(`${environment.apiUrl}/api/v2/debitos/procesar-rendicion`, formData, {
-      responseType: 'text'
+      responseType: 'text',
     });
   }
 

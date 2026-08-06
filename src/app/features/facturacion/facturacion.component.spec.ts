@@ -7,34 +7,70 @@ import { InstitutionsApiService } from '../../data-access/api/institutions.api';
 
 describe('FacturacionComponent (Comprehensive TDD Spec)', () => {
   const facturacionApiMock = {
-    listarFacturas: vi.fn().mockName('listarFacturas').mockReturnValue(of([
-      { id: 1, numeroFactura: 'FAC-001', estado: 'EMITIDA', importeTotal: 1000 },
-      { id: 2, numeroFactura: 'FAC-002', estado: 'PAGADA', importeTotal: 500 },
-      { id: 3, numeroFactura: 'FAC-003', estado: 'VENCIDA', importeTotal: 250 },
-    ])),
-    generarMensual: vi.fn().mockName('generarMensual').mockReturnValue(of({
-      mes: 5,
-      anio: 2026,
-      totalGeneradas: 1,
-      totalOmitidas: 0,
-      facturasGeneradas: [{ id: 4, numeroFactura: 'FAC-004', estado: 'EMITIDA', importeTotal: 1200 }],
-    })),
+    listarFacturas: vi
+      .fn()
+      .mockName('listarFacturas')
+      .mockReturnValue(
+        of([
+          { id: 1, numeroFactura: 'FAC-001', estado: 'EMITIDA', importeTotal: 1000 },
+          { id: 2, numeroFactura: 'FAC-002', estado: 'PAGADA', importeTotal: 500 },
+          { id: 3, numeroFactura: 'FAC-003', estado: 'VENCIDA', importeTotal: 250 },
+        ]),
+      ),
+    generarMensual: vi
+      .fn()
+      .mockName('generarMensual')
+      .mockReturnValue(
+        of({
+          mes: 5,
+          anio: 2026,
+          totalGeneradas: 1,
+          totalOmitidas: 0,
+          facturasGeneradas: [
+            { id: 4, numeroFactura: 'FAC-004', estado: 'EMITIDA', importeTotal: 1200 },
+          ],
+        }),
+      ),
     generarAnual: vi.fn().mockName('generarAnual').mockReturnValue(of(null)),
     registrarPago: vi.fn().mockName('registrarPago').mockReturnValue(of(null)),
+    getArcaStatus: vi
+      .fn()
+      .mockName('getArcaStatus')
+      .mockReturnValue(of({ arcaEnabled: true, caeSimuladoHabilitado: false, modoPruebas: false })),
   };
 
   const institutionsApiMock = {
-    getAllFacturasInstitucionales: vi.fn().mockName('getAllFacturasInstitucionales').mockReturnValue(of([
-      { id: 10, importeTotal: 8000, cantidadMiembrosFacturados: 40, periodoDesde: '2026-05-01', periodoHasta: '2026-05-31', contratoCobertura: { id: 99, nombre: 'Contrato A' } },
-    ])),
-    getAllContratosActivos: vi.fn().mockName('getAllContratosActivos').mockReturnValue(of([{ id: 99, nombre: 'Contrato A' }])),
-    generarFacturaInstitucional: vi.fn().mockName('generarFacturaInstitucional').mockReturnValue(of({
-      id: 11,
-      importeTotal: 15000,
-      cantidadMiembrosFacturados: 50,
-      periodoDesde: '2026-05-01',
-      periodoHasta: '2026-05-31',
-    })),
+    getAllFacturasInstitucionales: vi
+      .fn()
+      .mockName('getAllFacturasInstitucionales')
+      .mockReturnValue(
+        of([
+          {
+            id: 10,
+            importeTotal: 8000,
+            cantidadMiembrosFacturados: 40,
+            periodoDesde: '2026-05-01',
+            periodoHasta: '2026-05-31',
+            contratoCobertura: { id: 99, nombre: 'Contrato A' },
+          },
+        ]),
+      ),
+    getAllContratosActivos: vi
+      .fn()
+      .mockName('getAllContratosActivos')
+      .mockReturnValue(of([{ id: 99, nombre: 'Contrato A' }])),
+    generarFacturaInstitucional: vi
+      .fn()
+      .mockName('generarFacturaInstitucional')
+      .mockReturnValue(
+        of({
+          id: 11,
+          importeTotal: 15000,
+          cantidadMiembrosFacturados: 50,
+          periodoDesde: '2026-05-01',
+          periodoHasta: '2026-05-31',
+        }),
+      ),
   };
 
   beforeEach(async () => {
@@ -78,7 +114,7 @@ describe('FacturacionComponent (Comprehensive TDD Spec)', () => {
     // error trae `error.detail`. Un `new Error(...)` pelado no ejercita ese camino: caía
     // siempre en el mensaje genérico y el test no probaba nada.
     facturacionApiMock.generarMensual.mockReturnValueOnce(
-      throwError(() => ({ status: 500, error: { detail: 'Error ARCA 500' } }))
+      throwError(() => ({ status: 500, error: { detail: 'Error ARCA 500' } })),
     );
 
     const fixture = TestBed.createComponent(FacturacionComponent);
@@ -92,7 +128,9 @@ describe('FacturacionComponent (Comprehensive TDD Spec)', () => {
   });
 
   it('debería caer a un mensaje genérico cuando el error no trae detalle', () => {
-    facturacionApiMock.generarMensual.mockReturnValueOnce(throwError(() => new Error('network down')));
+    facturacionApiMock.generarMensual.mockReturnValueOnce(
+      throwError(() => new Error('network down')),
+    );
 
     const fixture = TestBed.createComponent(FacturacionComponent);
     fixture.detectChanges();
@@ -155,5 +193,50 @@ describe('FacturacionComponent (Comprehensive TDD Spec)', () => {
 
     expect(institutionsApiMock.generarFacturaInstitucional).not.toHaveBeenCalled();
     expect(component.generarInstError()).toContain('Completá contrato');
+  });
+
+  it('debería mostrar el banner de MODO PRUEBAS AFIP cuando ARCA está desactivado', () => {
+    // Escenario: el backend reporta arcaEnabled=false + caeSimuladoHabilitado=true → modoPruebas=true.
+    // La UI debe renderizar el banner "MODO PRUEBAS AFIP" y setear arcaModoPruebas en true para
+    // alertar al operador.
+    facturacionApiMock.getArcaStatus.mockReturnValueOnce(
+      of({ arcaEnabled: false, caeSimuladoHabilitado: true, modoPruebas: true }),
+    );
+
+    const fixture = TestBed.createComponent(FacturacionComponent);
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance;
+    const banner = fixture.nativeElement.querySelector('.arca-warning-banner');
+    expect(banner).toBeTruthy();
+    expect(banner.textContent).toContain('MODO PRUEBAS AFIP');
+    expect(component.arcaModoPruebas()).toBe(true);
+  });
+
+  it('debería ocultar el banner cuando ARCA está habilitado', () => {
+    // Escenario: ARCA habilitado (modoPruebas=false, valor por defecto del mock). El banner no
+    // debe renderizarse porque la emisión fiscal es real.
+    const fixture = TestBed.createComponent(FacturacionComponent);
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance;
+    expect(component.arcaModoPruebas()).toBe(false);
+    expect(fixture.nativeElement.querySelector('.arca-warning-banner')).toBeNull();
+  });
+
+  it('debería no romper el componente si el endpoint de estado ARCA falla', () => {
+    // Escenario de resiliencia: falla GET /api/arca/status. El componente no debe romperse y
+    // arcaModoPruebas queda en false (sin banner) para no mostrar una advertencia errónea.
+    facturacionApiMock.getArcaStatus.mockReturnValueOnce(
+      throwError(() => new Error('network down')),
+    );
+
+    const fixture = TestBed.createComponent(FacturacionComponent);
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance;
+    expect(component).toBeTruthy();
+    expect(component.arcaModoPruebas()).toBe(false);
+    expect(fixture.nativeElement.querySelector('.arca-warning-banner')).toBeNull();
   });
 });
