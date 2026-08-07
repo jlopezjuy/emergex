@@ -150,6 +150,12 @@ export const routes: Routes = [
           import('./features/facturacion/facturacion.component').then((m) => m.FacturacionComponent),
       },
       {
+        path: 'prefacturacion',
+        canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_ADMINISTRADOR', 'ROLE_PROPIETARIO')],
+        loadComponent: () =>
+          import('./features/prefacturacion/prefacturacion.component').then((m) => m.PrefacturacionComponent),
+      },
+      {
         path: 'auditoria-medica',
         canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_AUDITOR', 'ROLE_ADMINISTRADOR')],
         loadComponent: () =>
