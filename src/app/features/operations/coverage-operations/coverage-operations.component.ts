@@ -13,6 +13,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { EmergencyApiService } from '../../../data-access/api/emergency.api';
 import { EventsApiService } from '../../../data-access/api/events.api';
+import { IncidentesApiService } from '../../../data-access/api/incidentes.api';
 import { InstitutionsApiService } from '../../../data-access/api/institutions.api';
 import { TicketAsistenciaDTO } from '../../../data-access/dto/ticket.dto';
 import { EmergencyDetailComponent } from '../emergency-detail/emergency-detail.component';
@@ -34,8 +35,12 @@ import { AddAssistedPersonModalComponent } from './add-assisted-person-modal.com
         </button>
 
         <div class="header-info">
-          <span class="tipo-badge" [class.tipo-badge--evento]="tipo() === 'evento'">
-            {{ tipo() === 'evento' ? 'EVENTO' : tipo() === 'contexto' ? 'ÁREA PROTEGIDA' : 'INSTITUCIÓN' }}
+          <span
+            class="tipo-badge"
+            [class.tipo-badge--evento]="tipo() === 'evento'"
+            [class.tipo-badge--incidente]="tipo() === 'incidente'"
+          >
+            {{ tipo() === 'evento' ? 'EVENTO' : tipo() === 'incidente' ? 'INCIDENTE' : tipo() === 'contexto' ? 'ÁREA PROTEGIDA' : 'INSTITUCIÓN' }}
           </span>
           <h1 class="header-title">{{ headerNombre() || 'Cargando...' }}</h1>
           @if (headerDireccion()) {
@@ -173,6 +178,7 @@ import { AddAssistedPersonModalComponent } from './add-assisted-person-modal.com
         [eventoLongitud]="headerLongitud()"
         [ticketId]="selectedTicketId() ?? undefined"
         [contextoDireccion]="tipo() === 'contexto' ? roster()[0]?.direccion : headerDireccion()"
+        [incidenteEventoId]="tipo() === 'incidente' ? contextoId() : undefined"
         (added)="onPersonAdded()"
         (closed)="showAddPersonModal.set(false)"
       />
@@ -246,6 +252,12 @@ import { AddAssistedPersonModalComponent } from './add-assisted-person-modal.com
       background: rgba(139, 92, 246, 0.15);
       color: #a78bfa;
       border-color: rgba(139, 92, 246, 0.25);
+    }
+
+    .tipo-badge--incidente {
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border-color: rgba(239, 68, 68, 0.3);
     }
 
     .header-title {
@@ -559,10 +571,11 @@ export class CoverageOperationsComponent implements OnInit {
   private router = inject(Router);
   private emergencyApi = inject(EmergencyApiService);
   private eventsApi = inject(EventsApiService);
+  private incidentesApi = inject(IncidentesApiService);
   private institutionsApi = inject(InstitutionsApiService);
   private destroyRef = inject(DestroyRef);
 
-  readonly tipo = signal<'evento' | 'institucion' | 'contexto'>('evento');
+  readonly tipo = signal<'evento' | 'institucion' | 'contexto' | 'incidente'>('evento');
   readonly contextoId = signal<number>(0);
   readonly roster = signal<TicketAsistenciaDTO[]>([]);
   readonly selectedTicketId = signal<number | null>(null);
@@ -590,7 +603,7 @@ export class CoverageOperationsComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    const tipo = this.route.snapshot.paramMap.get('tipo') as 'evento' | 'institucion' | 'contexto';
+    const tipo = this.route.snapshot.paramMap.get('tipo') as 'evento' | 'institucion' | 'contexto' | 'incidente';
     const id = Number(this.route.snapshot.paramMap.get('id'));
     this.tipo.set(tipo);
     this.contextoId.set(id);
@@ -599,9 +612,35 @@ export class CoverageOperationsComponent implements OnInit {
     this.loadContexto(tipo, id, preselect ? Number(preselect) : null);
   }
 
-  private loadContexto(tipo: 'evento' | 'institucion' | 'contexto', id: number, preselectTicketId: number | null): void {
+  private loadContexto(tipo: 'evento' | 'institucion' | 'contexto' | 'incidente', id: number, preselectTicketId: number | null): void {
     this.loading.set(true);
     this.error.set(null);
+
+    if (tipo === 'incidente') {
+      // Siniestro/accidente masivo: header del incidente + roster de tickets vinculados.
+      forkJoin({ header: this.incidentesApi.getIncidente(id), tickets: this.incidentesApi.getTicketsIncidente(id) })
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: ({ header, tickets }) => {
+            this.headerNombre.set(header.numeroIncidente ?? `Incidente #${id}`);
+            this.headerDireccion.set(header.direccion || header.descripcion);
+            this.headerInstitucionId.set(undefined);
+            this.roster.set(tickets);
+            this.loading.set(false);
+            if (preselectTicketId != null) {
+              const exists = tickets.some(t => t.id === preselectTicketId);
+              this.selectedTicketId.set(exists ? preselectTicketId : (tickets[0]?.id ?? null));
+            } else if (tickets.length > 0) {
+              this.selectedTicketId.set(null);
+            }
+          },
+          error: () => {
+            this.error.set('Error al cargar el operativo. Verificá tu conexión e intentá de nuevo.');
+            this.loading.set(false);
+          },
+        });
+      return;
+    }
 
     if (tipo === 'contexto') {
       // AREA_PROTEGIDA without resolved institucionId — load roster directly
@@ -677,9 +716,11 @@ export class CoverageOperationsComponent implements OnInit {
     const obs =
       this.tipo() === 'evento'
         ? this.emergencyApi.getAsistenciasPorEvento(this.contextoId())
-        : this.tipo() === 'contexto'
-          ? this.emergencyApi.getAsistenciasPorContexto(this.contextoId())
-          : this.emergencyApi.getAsistenciasPorInstitucion(this.contextoId());
+        : this.tipo() === 'incidente'
+          ? this.incidentesApi.getTicketsIncidente(this.contextoId())
+          : this.tipo() === 'contexto'
+            ? this.emergencyApi.getAsistenciasPorContexto(this.contextoId())
+            : this.emergencyApi.getAsistenciasPorInstitucion(this.contextoId());
 
     obs.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: tickets => {
@@ -719,6 +760,22 @@ export class CoverageOperationsComponent implements OnInit {
           console.error('Error al finalizar el operativo:', error);
           const errorMsg = error?.error?.detail || error?.error?.message || error?.message || 'Error desconocido del servidor';
           alert(`Error al finalizar el operativo: ${errorMsg}`);
+          this.loading.set(false);
+          return of(null);
+        }),
+        takeUntilDestroyed(this.destroyRef)
+      ).subscribe((res) => {
+        if (res) {
+          this.router.navigate(['/dashboard']);
+        }
+      });
+    } else if (this.tipo() === 'incidente') {
+      this.loading.set(true);
+      this.incidentesApi.cerrarIncidente(this.contextoId()).pipe(
+        catchError((error) => {
+          console.error('Error al cerrar el incidente:', error);
+          const errorMsg = error?.error?.detail || error?.error?.message || error?.message || 'Error desconocido del servidor';
+          alert(`Error al cerrar el incidente: ${errorMsg}`);
           this.loading.set(false);
           return of(null);
         }),

@@ -64,6 +64,13 @@ export interface TicketAsistenciaDTO {
   trasladoFinalizado?: boolean;
   contextoCobertura?: ContextoCoberturaDTO;
   coberturaNombreSnapshot?: string;
+
+  // Siniestro/accidente masivo (multi-paciente) al que pertenece el ticket. Es una
+  // agrupación operativa de trazabilidad, distinta de contextoCobertura.eventoCobertura
+  // (cobertura programada facturable). La asignación es explícita del operador.
+  incidenteEventoId?: number;
+  incidenteEventoNumero?: string;
+
   historialMoviles?: {
     ambulanciaId?: number;
     ambulanciaCodigo?: string;
@@ -134,6 +141,10 @@ export interface AltaRapidaRequest {
   // siguen funcionando igual que antes.
   profesionalSaludId?: number;
 
+  // Siniestro/accidente masivo al que pertenece el ticket (opcional). El backend lo
+  // rechaza si el incidente está cerrado. Asignación explícita del operador.
+  incidenteEventoId?: number;
+
   // Contrato de atención (Área Protegida o Convenio con Obra Social) — solo aplica
   // cuando noAfiliado=true, el backend lo ignora si viene con pacienteId. planObraSocialId
   // y numeroCredencial solo tienen efecto si el contrato es de modalidad CONVENIO_OBRA_SOCIAL.
@@ -183,6 +194,10 @@ export interface CrearTicketRequest {
   tripulacionIds?: number[];
   notaOperador?: string;
   canal?: 'PRESENCIAL' | 'TELEFONICA' | 'VIDEOLLAMADA';
+
+  // Siniestro/accidente masivo al que pertenece el ticket (opcional). El backend lo
+  // rechaza si el incidente está cerrado. Asignación explícita del operador.
+  incidenteEventoId?: number;
 
   // Autorización especial — distinta de motivoExcepcion (esa es por deuda/falta de cobertura)
   autorizacionEspecial?: boolean;

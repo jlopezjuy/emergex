@@ -1,8 +1,17 @@
 import { TicketAsistenciaDTO } from '../../data-access/dto/ticket.dto';
 
-export type OrigenAsistencia = 'INDIVIDUAL' | 'INSTITUCIONAL' | 'EVENTO' | 'PARTICULAR';
+export type OrigenAsistencia =
+  | 'INDIVIDUAL'
+  | 'INSTITUCIONAL'
+  | 'EVENTO'
+  | 'INCIDENTE'
+  | 'PARTICULAR';
 
 export function resolveOrigen(ticket: TicketAsistenciaDTO): OrigenAsistencia {
+  // Un siniestro/accidente masivo tiene prioridad sobre cualquier contexto de
+  // cobertura: es una agrupación operativa explícita del operador.
+  if (ticket.incidenteEventoId != null) return 'INCIDENTE';
+
   const ctx = ticket.contextoCobertura;
   if (!ctx) return 'PARTICULAR';
 

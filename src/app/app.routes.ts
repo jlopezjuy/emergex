@@ -100,6 +100,11 @@ export const routes: Routes = [
           import('./features/events/events.component').then((m) => m.EventsComponent),
       },
       {
+        path: 'incidents',
+        loadComponent: () =>
+          import('./features/incidentes/incidentes.component').then((m) => m.IncidentesComponent),
+      },
+      {
         path: 'patients',
         loadComponent: () =>
           import('./features/patients/patients.component').then((m) => m.PatientsComponent),
@@ -143,6 +148,14 @@ export const routes: Routes = [
         canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_ADMINISTRADOR')],
         loadComponent: () =>
           import('./features/facturacion/facturacion.component').then((m) => m.FacturacionComponent),
+      },
+      {
+        path: 'auditoria-medica',
+        canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_AUDITOR', 'ROLE_ADMINISTRADOR')],
+        loadComponent: () =>
+          import('./features/auditoria-medica/auditoria-medica.component').then(
+            (m) => m.AuditoriaMedicaComponent,
+          ),
       },
       {
         path: 'compras',

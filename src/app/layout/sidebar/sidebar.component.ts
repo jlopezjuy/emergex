@@ -1,11 +1,11 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { FleetStore } from '../../core/stores/fleet.store';
-import { SessionStore } from '../../core/stores/session.store';
+
 import { ThemeService } from '../../core/theme/theme.service';
 import { SafeHtmlPipe } from '../../shared/pipes/safe-html.pipe';
 import { toObservable, takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { switchMap, of } from 'rxjs';
+import { switchMap, of, map } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { MenuService, IMenuItem } from '../../core/menu/menu.service';
 
@@ -188,7 +188,25 @@ export class SidebarComponent {
       .pipe(
         switchMap(account => {
           if (account) {
-            return this.menuService.getMenu();
+            return this.menuService.getMenu().pipe(
+              map(items => {
+                const newItems = [...items];
+                
+                // Add Auditoría Médica after clinico or anywhere before admin stuff
+                const insertIndex = newItems.findIndex(i => i.id === 'facturacion' || i.id === 'staff');
+                const finalIndex = insertIndex !== -1 ? insertIndex : newItems.length;
+                
+                newItems.splice(finalIndex, 0, {
+                  id: 'auditoria-medica',
+                  label: 'Auditoría',
+                  title: 'Auditoría Médica',
+                  icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>',
+                  route: '/auditoria-medica',
+                  order: 90
+                });
+                return newItems;
+              })
+            );
           }
           return of([]);
         }),

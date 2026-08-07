@@ -561,7 +561,7 @@ type NivelUrgencia = 'ROJO' | 'AMARILLO' | 'VERDE';
 })
 export class AddAssistedPersonModalComponent {
   // Inputs
-  tipo = input.required<'evento' | 'institucion' | 'contexto'>();
+  tipo = input.required<'evento' | 'institucion' | 'contexto' | 'incidente'>();
   contextoId = input.required<number>();
   institucionId = input<number | undefined>(undefined);
   eventoLatitud = input<number | undefined>(undefined);
@@ -570,6 +570,13 @@ export class AddAssistedPersonModalComponent {
   contextoDireccion = input<string | undefined>(undefined);
   ticketId = input<number | undefined>(undefined);
   mode = input<'add' | 'identify'>('add');
+
+  /**
+   * Siniestro/accidente masivo al que pertenece el operativo. Cuando el tipo es
+   * {@code incidente}, el nuevo ticket se vincula explícitamente a este incidente
+   * (asignación del operador, sin geocerca automática).
+   */
+  incidenteEventoId = input<number | undefined>(undefined);
 
   // Outputs
   added = output<void>();
@@ -683,6 +690,10 @@ export class AddAssistedPersonModalComponent {
       // Primera persona: vincular al contexto
       if (this.institucionId() != null) {
         req.institucionId = this.institucionId();
+      }
+      // Siniestro/accidente masivo: vincular el ticket al incidente.
+      if (this.incidenteEventoId() != null) {
+        req.incidenteEventoId = this.incidenteEventoId();
       }
       if (this.eventoLatitud() != null) {
         req.latitud = this.eventoLatitud();

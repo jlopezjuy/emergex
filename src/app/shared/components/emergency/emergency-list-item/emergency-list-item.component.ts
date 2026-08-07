@@ -41,6 +41,7 @@ import { EmergencySlaBarComponent } from '../emergency-sla-bar/emergency-sla-bar
             <span
               class="origin-chip"
               [class.origin-chip--institutional]="origin() === 'INSTITUCIONAL'"
+              [class.origin-chip--incidente]="origin() === 'INCIDENTE'"
             >{{ originLabel() }}</span>
           </div>
           <div class="flex items-center gap-1.5 flex-shrink-0">
@@ -218,6 +219,12 @@ import { EmergencySlaBarComponent } from '../emergency-sla-bar/emergency-sla-bar
       border-color: rgba(16, 185, 129, 0.30);
     }
 
+    .origin-chip--incidente {
+      color: #ef4444;
+      background: rgba(239, 68, 68, 0.12);
+      border-color: rgba(239, 68, 68, 0.35);
+    }
+
     .status-chip {
       color: var(--text-secondary);
     }
@@ -280,6 +287,7 @@ export class EmergencyListItemComponent {
       case 'INSTITUCIONAL': return 'INSTITUCIONAL';
       case 'INDIVIDUAL': return 'PERSONA';
       case 'EVENTO': return 'EVENTO';
+      case 'INCIDENTE': return 'INCIDENTE';
       default: return 'PARTICULAR';
     }
   });
@@ -357,7 +365,12 @@ export class EmergencyListItemComponent {
     const ctx = ticket.contextoCobertura;
     const accionParams = accion ? { accion } : {};
 
-    if (origen === 'EVENTO' && ctx?.eventoCoberturaId != null) {
+    if (ticket.incidenteEventoId != null) {
+      // Siniestro/accidente masivo: navega al operativo del incidente.
+      this.router.navigate(['/dashboard/coverage/incidente', ticket.incidenteEventoId], {
+        queryParams: { ticketId: ticket.id, ...accionParams },
+      });
+    } else if (origen === 'EVENTO' && ctx?.eventoCoberturaId != null) {
       this.router.navigate(
         ['/dashboard/coverage/evento', ctx.eventoCoberturaId],
         { queryParams: { ticketId: ticket.id, ...accionParams } },

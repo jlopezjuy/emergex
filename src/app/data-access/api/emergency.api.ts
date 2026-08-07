@@ -78,6 +78,8 @@ export class EmergencyApiService {
       empresaUrlTelemedicina: raw.empresa?.urlTelemedicina,
       contextoCobertura:  raw.contextoCobertura,
       coberturaNombreSnapshot: raw.coberturaNombreSnapshot,
+      incidenteEventoId:  raw.incidenteEventoId,
+      incidenteEventoNumero: raw.incidenteEventoNumero,
       autorizacionEspecial: raw.autorizacionEspecial,
       autorizadoPor:      raw.autorizadoPor,
       detalleAutorizacion: raw.detalleAutorizacion,
