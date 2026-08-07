@@ -178,3 +178,9 @@ export interface AltaInstitucionCompletaResponse {
     estadoContrato?: string;
   };
 }
+
+export interface AutorizanteItem {
+  id: number;
+  login: string;
+  nombreCompleto: string;
+}

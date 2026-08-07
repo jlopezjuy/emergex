@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
+import { PagedResult, buildParams, toPagedResult } from './pagination';
 import {
   AltaInstitucionCompletaRequest,
   AltaInstitucionCompletaResponse,
@@ -19,6 +20,7 @@ import {
   InstitutionDTO,
   InstitutionType,
   InstitucionMiembroItem,
+  AutorizanteItem,
 } from '../dto/institution.dto';
 
 // ── ContratoCobertura backend types ──────────────────────────────────────────
@@ -118,6 +120,15 @@ interface InstitucionBackend {
   planComercialNombre?: string;
 }
 
+interface UsuarioEmpresaBackend {
+  id: number;
+  user?: {
+    login?: string;
+    firstName?: string;
+    lastName?: string;
+  };
+}
+
 type TipoInstitucion =
   | 'ESCUELA' | 'JARDIN' | 'COLEGIO_SECUNDARIO'
   | 'UNIVERSIDAD'
@@ -181,6 +192,16 @@ function toBackend(dto: InstitutionDTO): Omit<InstitucionBackend, 'id'> & { id?:
   };
 }
 
+export interface InstitutionQuery {
+  page?: number;
+  size?: number;
+  /** Búsqueda por nombre de fantasía. Va server-side, igual que `obras-sociales.api.ts`. */
+  nombre?: string;
+  tipo?: InstitutionType | 'all';
+  /** Filtro de estado. La entidad solo persiste el booleano `activa` — ver getPage(). */
+  activa?: boolean;
+}
+
 @Injectable({ providedIn: 'root' })
 export class InstitutionsApiService {
   private http = inject(HttpClient);
@@ -189,6 +210,34 @@ export class InstitutionsApiService {
   getAll(): Observable<InstitutionDTO[]> {
     return this.http.get<InstitucionBackend[]>(`${this.base}?size=1000`).pipe(
       map(list => list.map(toDTO)),
+    );
+  }
+
+  /**
+   * Listado paginado y filtrado SERVER-SIDE (S0-12), siguiendo el patrón de
+   * `ObrasSocialesApiService.getPage`. Antes la pantalla pedía `?size=1000` y filtraba/paginaba
+   * en memoria: el contador de resultados describía lo que llegó al navegador, no el universo, y
+   * por encima de 1000 filas (el máximo real de `spring.data.web.pageable.max-page-size`, más
+   * bajo que el 1000 pedido) la carga quedaba truncada en silencio.
+   *
+   * `estadoInstitucional` (4 estados: ACTIVA/PENDIENTE_ACTIVACION/SUSPENDIDA/BAJA) no es un campo
+   * persistido en la entidad — solo existe el booleano `activa`. El filtro de estado del listado
+   * se resuelve entonces a ese booleano (ACTIVA/PENDIENTE_ACTIVACION → activa=true,
+   * SUSPENDIDA/BAJA → activa=false); no hay forma de distinguir los 4 estados server-side hasta
+   * que la entidad persista `estadoInstitucional` (fuera de alcance de esta tarea).
+   */
+  getPage(query: InstitutionQuery = {}): Observable<PagedResult<InstitutionDTO>> {
+    const params = buildParams({
+      page: query.page ?? 0,
+      size: query.size ?? 10,
+      sort: 'nombreFantasia,asc',
+      'nombreFantasia.contains': query.nombre?.trim(),
+      'tipoInstitucion.equals': query.tipo && query.tipo !== 'all' ? query.tipo : undefined,
+      'activa.equals': query.activa,
+    });
+    return this.http.get<InstitucionBackend[]>(this.base, { params, observe: 'response' }).pipe(
+      toPagedResult(),
+      map((paged) => ({ data: paged.data.map(toDTO), total: paged.total })),
     );
   }
 
@@ -343,18 +392,42 @@ export class InstitutionsApiService {
     return this.http.get<InstitucionEstadoCuentaDTO>(`${this.base}/${id}/estado-deuda`);
   }
 
-  suspenderPorDeuda(id: number, motivo: string, forzarConDeuda = false, autorizadoPor?: string): Observable<InstitutionDTO> {
+  suspenderPorDeuda(
+    id: number,
+    motivo: string,
+    forzarConDeuda = false,
+    autorizadoPor?: string,
+    autorizadoPorSegundo?: string,
+    vigenciaHorasExcepcion?: number,
+  ): Observable<InstitutionDTO> {
     return this.http.post<InstitucionBackend>(
       `${this.base}/${id}/suspender-por-deuda`,
-      { motivo, forzarConDeuda, autorizadoPor },
+      { motivo, forzarConDeuda, autorizadoPor, autorizadoPorSegundo, vigenciaHorasExcepcion },
     ).pipe(map(toDTO));
   }
 
-  reactivarInstitucion(id: number, motivo: string, forzarConDeuda = false, autorizadoPor?: string): Observable<InstitutionDTO> {
+  reactivarInstitucion(
+    id: number,
+    motivo: string,
+    forzarConDeuda = false,
+    autorizadoPor?: string,
+    autorizadoPorSegundo?: string,
+    vigenciaHorasExcepcion?: number,
+  ): Observable<InstitutionDTO> {
     return this.http.post<InstitucionBackend>(
       `${this.base}/${id}/reactivar`,
-      { motivo, forzarConDeuda, autorizadoPor },
+      { motivo, forzarConDeuda, autorizadoPor, autorizadoPorSegundo, vigenciaHorasExcepcion },
     ).pipe(map(toDTO));
+  }
+
+  getAutorizantes(): Observable<AutorizanteItem[]> {
+    return this.http.get<UsuarioEmpresaBackend[]>(`${environment.apiUrl}/api/usuario-empresas/autorizantes`).pipe(
+      map((items) => items.map((item) => ({
+        id: item.id,
+        login: item.user?.login ?? '',
+        nombreCompleto: [item.user?.firstName, item.user?.lastName].filter(Boolean).join(' ') || item.user?.login || `#${item.id}`,
+      }))),
+    );
   }
 
   importarPadron(contratoId: number, file: File): Observable<string> {

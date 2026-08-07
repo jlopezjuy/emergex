@@ -33,6 +33,18 @@ describe('FacturacionComponent (Comprehensive TDD Spec)', () => {
       ),
     generarAnual: vi.fn().mockName('generarAnual').mockReturnValue(of(null)),
     registrarPago: vi.fn().mockName('registrarPago').mockReturnValue(of(null)),
+    getFacturasPage: vi
+      .fn()
+      .mockName('getFacturasPage')
+      .mockReturnValue(
+        of({
+          data: [
+            { id: 1, numeroFactura: 'FAC-001', estado: 'EMITIDA', importeTotal: 1000, tipoPeriodo: 'MENSUAL' },
+            { id: 2, numeroFactura: 'FAC-002', estado: 'PAGADA', importeTotal: 500, tipoPeriodo: 'MENSUAL' },
+          ],
+          total: 42,
+        }),
+      ),
     getArcaStatus: vi
       .fn()
       .mockName('getArcaStatus')
@@ -222,6 +234,28 @@ describe('FacturacionComponent (Comprehensive TDD Spec)', () => {
     const component = fixture.componentInstance;
     expect(component.arcaModoPruebas()).toBe(false);
     expect(fixture.nativeElement.querySelector('.arca-warning-banner')).toBeNull();
+  });
+
+  it('carga la tabla server-side y el total viene de la respuesta paginada', () => {
+    const fixture = TestBed.createComponent(FacturacionComponent);
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance;
+    expect(facturacionApiMock.getFacturasPage).toHaveBeenCalledWith(null, 0, component.PAGE_SIZE);
+    expect(component.paged().length).toBe(2);
+    expect(component.tableTotal()).toBe(42);
+  });
+
+  it('cambiar el filtro de estado dispara una nueva request con el estado y resetea la página', () => {
+    const fixture = TestBed.createComponent(FacturacionComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+    facturacionApiMock.getFacturasPage.mockClear();
+
+    component.setEstadoFilter('PAGADA');
+
+    expect(component.page()).toBe(0);
+    expect(facturacionApiMock.getFacturasPage).toHaveBeenCalledWith('PAGADA', 0, component.PAGE_SIZE);
   });
 
   it('debería no romper el componente si el endpoint de estado ARCA falla', () => {

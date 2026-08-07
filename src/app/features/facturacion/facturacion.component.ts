@@ -348,7 +348,7 @@ function estadoColor(estado: string): string {
                 <button
                   class="filter-chip"
                   [attr.data-on]="estadoFilter() === s.value"
-                  (click)="estadoFilter.set(s.value); page.set(0)"
+                  (click)="setEstadoFilter(s.value)"
                 >
                   {{ s.label }}
                 </button>
@@ -360,7 +360,7 @@ function estadoColor(estado: string): string {
                 <button
                   class="filter-chip"
                   [attr.data-on]="periodoFilter() === t"
-                  (click)="periodoFilter.set(t); page.set(0)"
+                  (click)="periodoFilter.set(t); goToPage(0)"
                 >
                   {{ t === 'all' ? 'Todos' : t === 'MENSUAL' ? 'Mensual' : 'Anual' }}
                 </button>
@@ -463,19 +463,22 @@ function estadoColor(estado: string): string {
             <div class="ft-pagination">
               <div class="mono micro" style="color:var(--text-muted)">
                 Mostrando <strong style="color:var(--text-primary)">{{ paged().length }}</strong> de
-                <strong style="color:var(--text-primary)">{{ filtered().length }}</strong>
+                <strong style="color:var(--text-primary)">{{ tableTotal() }}</strong>
+                @if (periodoFilter() !== 'all') {
+                  <span style="color:var(--text-dim)"> (filtro de período aplicado solo sobre esta página)</span>
+                }
               </div>
               <div style="display:flex;gap:4px;align-items:center">
                 <button
                   class="btn btn--ghost btn--sm"
                   [disabled]="page() === 0"
                   [style.opacity]="page() === 0 ? '0.4' : '1'"
-                  (click)="page.set(page() - 1)"
+                  (click)="goToPage(page() - 1)"
                 >
                   ‹
                 </button>
                 @for (i of pageRange(); track i) {
-                  <button class="page-btn" [attr.data-active]="page() === i" (click)="page.set(i)">
+                  <button class="page-btn" [attr.data-active]="page() === i" (click)="goToPage(i)">
                     {{ i + 1 }}
                   </button>
                 }
@@ -483,7 +486,7 @@ function estadoColor(estado: string): string {
                   class="btn btn--ghost btn--sm"
                   [disabled]="page() >= totalPages() - 1"
                   [style.opacity]="page() >= totalPages() - 1 ? '0.4' : '1'"
-                  (click)="page.set(page() + 1)"
+                  (click)="goToPage(page() + 1)"
                 >
                   ›
                 </button>
@@ -1376,10 +1379,15 @@ export class FacturacionComponent implements OnInit {
 
   // ── Table state ──
   readonly loading = signal(false);
+  /** Carga sin paginar, solo para los KPIs de cabecera (facturado/cobrado/pendiente/vencidas). */
   readonly facturas = signal<FacturaDTO[]>([]);
   readonly estadoFilter = signal<EstadoFactura | 'all'>('all');
   readonly periodoFilter = signal<string>('all');
   readonly page = signal(0);
+
+  // Tabla paginada server-side (S0-12)
+  readonly tableRows = signal<FacturaDTO[]>([]);
+  readonly tableTotal = signal(0);
 
   // ── Generar modal ──
   readonly showGenerarModal = signal(false);
@@ -1414,23 +1422,23 @@ export class FacturacionComponent implements OnInit {
     };
   });
 
-  // ── Computed ──
-  readonly filtered = computed(() => {
-    const est = this.estadoFilter();
+  // ── Computed (tabla paginada server-side por estado, S0-12) ──
+  readonly PAGE_SIZE = 20;
+
+  /**
+   * El período (MENSUAL/ANUAL) no es una columna real — se deriva de `periodoDesde`/
+   * `periodoHasta` (ver {@link FacturacionApiService.getFacturasPage}) — así que no hay query
+   * param de backend para filtrarlo. Se aplica sobre la página ya traída del servidor, no sobre
+   * una carga completa: por eso, con este filtro activo, el contador de abajo puede mostrar menos
+   * filas que las que caben en la página sin que eso signifique que el resto no existe.
+   */
+  readonly paged = computed(() => {
     const per = this.periodoFilter();
-    return this.facturas().filter(
-      (f) => (est === 'all' || f.estado === est) && (per === 'all' || f.tipoPeriodo === per),
-    );
+    const rows = this.tableRows();
+    return per === 'all' ? rows : rows.filter((f) => f.tipoPeriodo === per);
   });
 
-  readonly PAGE_SIZE = 20;
-  readonly totalPages = computed(() =>
-    Math.max(1, Math.ceil(this.filtered().length / this.PAGE_SIZE)),
-  );
-  readonly paged = computed(() => {
-    const pg = Math.min(this.page(), this.totalPages() - 1);
-    return this.filtered().slice(pg * this.PAGE_SIZE, (pg + 1) * this.PAGE_SIZE);
-  });
+  readonly totalPages = computed(() => Math.max(1, Math.ceil(this.tableTotal() / this.PAGE_SIZE)));
   readonly pageRange = computed(() => Array.from({ length: this.totalPages() }, (_, i) => i));
 
   readonly kpis = computed(() => {
@@ -1457,8 +1465,41 @@ export class FacturacionComponent implements OnInit {
   ngOnInit(): void {
     this.loadArcaStatus();
     this.loadFacturas();
+    this.loadFacturasPage();
     this.loadFacturasInstitucionales();
     this.loadContratosActivos();
+  }
+
+  setEstadoFilter(v: EstadoFactura | 'all'): void {
+    this.estadoFilter.set(v);
+    this.page.set(0);
+    this.loadFacturasPage();
+  }
+
+  goToPage(p: number): void {
+    this.page.set(p);
+    this.loadFacturasPage();
+  }
+
+  /**
+   * Carga la página actual de la tabla server-side (S0-12): `estado` y paginación viajan como
+   * query params al backend, y el total viene de `X-Total-Count`. Separada de {@link loadFacturas},
+   * que sigue trayendo una carga sin paginar solo para los KPIs de cabecera.
+   */
+  private loadFacturasPage(): void {
+    this.loading.set(true);
+    const estado = this.estadoFilter();
+    this.api
+      .getFacturasPage(estado === 'all' ? null : estado, this.page(), this.PAGE_SIZE)
+      .pipe(
+        catchError(() => of({ data: [] as FacturaDTO[], total: 0 })),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe(({ data, total }) => {
+        this.tableRows.set(data);
+        this.tableTotal.set(total);
+        this.loading.set(false);
+      });
   }
 
   private loadArcaStatus(): void {
@@ -1623,7 +1664,6 @@ export class FacturacionComponent implements OnInit {
   }
 
   private loadFacturas(): void {
-    this.loading.set(true);
     this.api
       .listarFacturas(null, 0, 200)
       .pipe(
@@ -1632,7 +1672,6 @@ export class FacturacionComponent implements OnInit {
       )
       .subscribe((list) => {
         this.facturas.set(list);
-        this.loading.set(false);
       });
   }
 

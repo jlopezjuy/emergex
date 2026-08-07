@@ -3,6 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
+import { PagedResult, toPagedResult } from './pagination';
 
 // ─── Backend shapes ───────────────────────────────────────────────────────────
 
@@ -172,6 +173,38 @@ export class FacturacionApiService {
             ),
           ),
         ),
+      );
+  }
+
+  /**
+   * Listado paginado y filtrado SERVER-SIDE de facturas (S0-12).
+   *
+   * `facturacion.component.ts` pedía `listarFacturas(null, 0, 200)` una única vez y filtraba/
+   * paginaba en memoria por encima de esa carga topeada — el contador de resultados describía lo
+   * que llegó al navegador, no el universo real. El endpoint `/v1/facturacion/facturas` ya soporta
+   * `Pageable` + `estado` y devuelve `X-Total-Count`; sólo faltaba usarlos.
+   *
+   * El filtro de período (ANUAL/MENSUAL) sigue siendo client-side: no es una columna real, se
+   * deriva comparando `periodoDesde`/`periodoHasta` (ver {@link toFacturaDTO}), así que no hay
+   * forma de filtrarlo por query param sin agregar lógica nueva al backend — fuera de alcance de
+   * esta tarea. Se aplica sobre la página ya traída, no sobre una carga completa en memoria.
+   */
+  getFacturasPage(estado: EstadoFactura | null | undefined, page: number, size: number): Observable<PagedResult<FacturaDTO>> {
+    let params = new HttpParams()
+      .set('page', page)
+      .set('size', size)
+      .set('sort', 'fechaEmision,desc');
+    if (estado) params = params.set('estado', estado);
+    return this.http
+      .get<BackendFactura[]>(`${this.base}/facturas`, { params, observe: 'response' })
+      .pipe(
+        toPagedResult(),
+        map((paged) => ({
+          data: paged.data.map((f) =>
+            toFacturaDTO(f, f.periodoDesde && f.periodoHasta && this.isAnual(f.periodoDesde, f.periodoHasta) ? 'ANUAL' : 'MENSUAL'),
+          ),
+          total: paged.total,
+        })),
       );
   }
 

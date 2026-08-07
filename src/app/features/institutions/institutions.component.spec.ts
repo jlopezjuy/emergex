@@ -23,6 +23,20 @@ describe('InstitutionsComponent', () => {
     getEstadoDeudaInstitucion: vi.fn().mockName('getEstadoDeudaInstitucion').mockReturnValue(of({ totalFacturado: 50000, saldoPendiente: 12000 })),
     getAllFacturasInstitucionales: vi.fn().mockName('getAllFacturasInstitucionales').mockReturnValue(of([])),
     getPagosFacturaInstitucional: vi.fn().mockName('getPagosFacturaInstitucional').mockReturnValue(of([{ id: 1, montoTotal: 1000 }])),
+    getPage: vi.fn().mockName('getPage').mockReturnValue(of({
+      data: [
+        {
+          id: '1',
+          name: 'Colegio Norte',
+          razonSocial: 'Colegio Norte SA',
+          cuit: '20-12345678-9',
+          type: 'colegio',
+          status: 'ACTIVA',
+          plan: 'Plan Comercial Institucional',
+        },
+      ],
+      total: 37,
+    })),
   };
 
   const plansApiMock = {
@@ -72,5 +86,44 @@ describe('InstitutionsComponent', () => {
     component.onPaymentFacturaChange();
     expect(institutionsApiMock.getPagosFacturaInstitucional).toHaveBeenCalledWith(77);
     expect(component.pagosFacturaModal().length).toBe(1);
+  });
+
+  it('carga la tabla server-side y el total viene de la respuesta paginada, no del array', () => {
+    const fixture = TestBed.createComponent(InstitutionsComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    expect(institutionsApiMock.getPage).toHaveBeenCalledWith(
+      expect.objectContaining({ page: 0 }),
+    );
+    expect(component.paged().length).toBe(1);
+    expect(component.tableTotal()).toBe(37);
+  });
+
+  it('cambiar el filtro de estado dispara una nueva request con el estado y resetea la página', () => {
+    const fixture = TestBed.createComponent(InstitutionsComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+    institutionsApiMock.getPage.mockClear();
+
+    component.setStatus('SUSPENDIDA');
+
+    expect(component.page()).toBe(0);
+    expect(institutionsApiMock.getPage).toHaveBeenCalledWith(
+      expect.objectContaining({ page: 0, activa: false }),
+    );
+  });
+
+  it('cambiar el filtro de tipo dispara una nueva request con el tipo elegido', () => {
+    const fixture = TestBed.createComponent(InstitutionsComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+    institutionsApiMock.getPage.mockClear();
+
+    component.typeFilterValue = 'UNIVERSIDAD';
+
+    expect(institutionsApiMock.getPage).toHaveBeenCalledWith(
+      expect.objectContaining({ tipo: 'UNIVERSIDAD' }),
+    );
   });
 });

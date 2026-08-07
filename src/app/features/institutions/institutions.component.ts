@@ -1,7 +1,7 @@
 import { Component, OnInit, signal, computed, HostListener, inject, DestroyRef } from '@angular/core';
 import { SessionStore } from '../../core/stores/session.store';
 import { FormsModule } from '@angular/forms';
-import { catchError, map, of } from 'rxjs';
+import { Subject, catchError, debounceTime, distinctUntilChanged, map, of } from 'rxjs';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { InstitutionsApiService } from '../../data-access/api/institutions.api';
 import { PlanComercialApiService } from '../../data-access/api/plan-comercial.api';
@@ -10,9 +10,10 @@ import { DateUtils } from '../../core/utils/date.utils';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { InstitutionDetailDrawerComponent, DrawerInstitution } from './components/institution-detail-drawer/institution-detail-drawer.component';
 import { InstitutionFormModalComponent, InstitutionForm } from './components/institution-form-modal/institution-form-modal.component';
-import { EstadoInstitucion, FacturacionContratoDTO, InstitutionType } from '../../data-access/dto/institution.dto';
+import { EstadoInstitucion, FacturacionContratoDTO, InstitutionDTO, InstitutionType } from '../../data-access/dto/institution.dto';
 import { InstitutionContractModalComponent } from './components/institution-contract-modal/institution-contract-modal.component';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
+import { ExcepcionDeudaModalComponent } from './components/excepcion-deuda-modal/excepcion-deuda-modal.component';
 
 interface CommercialPlanItem {
   id: string;
@@ -138,7 +139,15 @@ const PAGE_SIZE = 10;
 @Component({
   selector: 'app-institutions',
   standalone: true,
-  imports: [FormsModule, StatusBadgeComponent, InstitutionDetailDrawerComponent, InstitutionFormModalComponent, InstitutionContractModalComponent, EmptyStateComponent],
+  imports: [
+    FormsModule,
+    StatusBadgeComponent,
+    InstitutionDetailDrawerComponent,
+    InstitutionFormModalComponent,
+    InstitutionContractModalComponent,
+    EmptyStateComponent,
+    ExcepcionDeudaModalComponent,
+  ],
   template: `
     <div class="screen">
 
@@ -218,10 +227,10 @@ const PAGE_SIZE = 10;
           </div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-          <button class="btn btn--ghost btn--sm" (click)="statusFilter.set('ACTIVA'); page.set(0)">Ver activas</button>
-          <button class="btn btn--ghost btn--sm" (click)="statusFilter.set('SUSPENDIDA'); page.set(0)">Ver suspendidas</button>
+          <button class="btn btn--ghost btn--sm" (click)="setStatus('ACTIVA')">Ver activas</button>
+          <button class="btn btn--ghost btn--sm" (click)="setStatus('SUSPENDIDA')">Ver suspendidas</button>
           <button class="btn btn--ghost btn--sm" (click)="showInstitucionesConDeuda()">Con deuda</button>
-          <button class="btn btn--ghost btn--sm" (click)="statusFilter.set('all'); page.set(0); searchQuery.set('')">Limpiar filtros</button>
+          <button class="btn btn--ghost btn--sm" (click)="searchQuery.set(''); setStatus('all')">Limpiar filtros</button>
         </div>
       </div>
 
@@ -234,9 +243,9 @@ const PAGE_SIZE = 10;
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-linecap="round"><circle cx="6" cy="6" r="4"/><path d="M9.5 9.5l3 3"/></svg>
             <input
               class="pt-search__input"
-              placeholder="Buscar por nombre, razón social o CUIT…"
+              placeholder="Buscar por nombre…"
               [(ngModel)]="searchQuery"
-              (ngModelChange)="page.set(0)"
+              (ngModelChange)="onSearchTextChange()"
             />
           </div>
 
@@ -253,7 +262,7 @@ const PAGE_SIZE = 10;
 
           <div class="pt-filters">
             <span class="eyebrow" style="white-space:nowrap">Tipo:</span>
-            <select class="qc-input" style="height:28px;font-size:11.5px;padding:0 8px;width:180px" [(ngModel)]="typeFilterValue" (ngModelChange)="page.set(0)">
+            <select class="qc-input" style="height:28px;font-size:11.5px;padding:0 8px;width:180px" [(ngModel)]="typeFilterValue">
               <option value="all">Todos los tipos</option>
               @for (t of institutionTypes; track t.id) {
                 <option [value]="t.id">{{ t.icon }} {{ t.label }}</option>
@@ -384,15 +393,19 @@ const PAGE_SIZE = 10;
         <!-- Pagination -->
         <div class="pt-pagination">
           <div class="mono micro" style="color:var(--text-muted)">
-            Mostrando <strong style="color:var(--text-primary)">{{ paged().length }}</strong> de
-            <strong style="color:var(--text-primary)">{{ filtered().length }}</strong> instituciones
+            @if (tableLoading()) {
+              Cargando…
+            } @else {
+              Mostrando <strong style="color:var(--text-primary)">{{ paged().length }}</strong> de
+              <strong style="color:var(--text-primary)">{{ tableTotal() }}</strong> instituciones
+            }
           </div>
           <div style="display:flex;align-items:center;gap:4px">
-            <button class="btn btn--ghost btn--sm" [disabled]="page() === 0" [style.opacity]="page() === 0 ? '0.4' : '1'" (click)="page.set(page() - 1)">‹ Anterior</button>
+            <button class="btn btn--ghost btn--sm" [disabled]="page() === 0" [style.opacity]="page() === 0 ? '0.4' : '1'" (click)="goToPage(page() - 1)">‹ Anterior</button>
             @for (i of pageRange(); track i) {
-              <button class="page-btn" [attr.data-active]="page() === i" (click)="page.set(i)">{{ i + 1 }}</button>
+              <button class="page-btn" [attr.data-active]="page() === i" (click)="goToPage(i)">{{ i + 1 }}</button>
             }
-            <button class="btn btn--ghost btn--sm" [disabled]="page() >= totalPages() - 1" [style.opacity]="page() >= totalPages() - 1 ? '0.4' : '1'" (click)="page.set(page() + 1)">Siguiente ›</button>
+            <button class="btn btn--ghost btn--sm" [disabled]="page() >= totalPages() - 1" [style.opacity]="page() >= totalPages() - 1 ? '0.4' : '1'" (click)="goToPage(page() + 1)">Siguiente ›</button>
           </div>
         </div>
       </div>
@@ -479,6 +492,20 @@ const PAGE_SIZE = 10;
         [initialForm]="form()"
         (close)="closeForm()"
         (save)="saveFormFromModal($event)"
+      />
+    }
+
+    <!-- ═══════════════════════════════════════════════════════
+         EXCEPCIÓN DE SUPERVISOR POR DEUDA
+         ═══════════════════════════════════════════════════════ -->
+    @if (excepcionDeudaModal(); as modal) {
+      <app-excepcion-deuda-modal
+        [institutionId]="modal.institutionId"
+        [institutionName]="modal.institutionName"
+        [accion]="modal.accion"
+        [motivoInicial]="modal.motivoInicial"
+        (closed)="excepcionDeudaModal.set(null)"
+        (confirmed)="onExcepcionDeudaConfirmada()"
       />
     }
 
@@ -1050,6 +1077,45 @@ export class InstitutionsComponent implements OnInit {
     this.loadInstitutions();
     this.loadPlans();
     this.loadFacturasInstitucionales();
+
+    this.searchSubject.pipe(
+      debounceTime(350),
+      distinctUntilChanged(),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe(() => this.loadTablePage());
+
+    this.loadTablePage();
+  }
+
+  onSearchTextChange(): void {
+    this.page.set(0);
+    this.searchSubject.next(this.searchQuery());
+  }
+
+  /**
+   * Carga la página actual de la tabla server-side (S0-12): filtro, orden y paginación viajan
+   * como query params, y el total viene de `X-Total-Count`, no de `array.length` sobre una carga
+   * topeada. Separado de {@link loadInstitutions}, que sigue trayendo el universo completo para
+   * los KPIs de cabecera (facturado, deuda, contratos 360) — esos cálculos no son parte de este
+   * hallazgo y no hay endpoint de agregados para reemplazarlos sin agregar una capacidad nueva.
+   */
+  loadTablePage(): void {
+    this.tableLoading.set(true);
+    const status = this.statusFilter();
+    this.api.getPage({
+      page: this.page(),
+      size: PAGE_SIZE,
+      nombre: this.searchQuery() || undefined,
+      tipo: this.typeFilter() as InstitutionType | 'all',
+      activa: status === 'all' ? undefined : (status === 'ACTIVA' || status === 'PENDIENTE_ACTIVACION'),
+    }).pipe(
+      catchError(() => of({ data: [] as InstitutionDTO[], total: 0 })),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe(({ data, total }) => {
+      this.tableRows.set(data.map(dto => this.toInstitution(dto)));
+      this.tableTotal.set(total);
+      this.tableLoading.set(false);
+    });
   }
 
   private loadPlans(): void {
@@ -1065,32 +1131,36 @@ export class InstitutionsComponent implements OnInit {
     });
   }
 
+  private toInstitution(dto: InstitutionDTO): Institution {
+    return {
+      id:           dto.id,
+      name:         dto.name,
+      razonSocial:  dto.razonSocial ?? '',
+      cuit:         dto.cuit ?? '',
+      type:         dto.type,
+      status:       dto.status,
+      plan:         dto.plan,
+      email:        dto.email ?? '',
+      phone:        dto.phone ?? '',
+      adminContact: dto.adminContact ?? '',
+      opsContact:   dto.opsContact ?? '',
+      address:      dto.address ?? '',
+      city:         '',
+      lat:          dto.lat ?? 0,
+      lng:          dto.lng ?? 0,
+      polygon:      dto.polygon,
+      members:      0,
+      sinceMonth:   '',
+      contract: {
+        code: '', plan: dto.plan, from: '', to: '',
+        status: 'active', monthlyPrice: 0, monthlyCap: 0, kpiMinutes: 0, conditions: '',
+      },
+    };
+  }
+
   private loadInstitutions(): void {
     this.api.getAll().pipe(takeUntilDestroyed(this.destroyRef)).subscribe(data => {
-            const mapped: Institution[] = data.map(dto => ({
-              id:           dto.id,
-              name:         dto.name,
-              razonSocial:  dto.razonSocial ?? '',
-              cuit:         dto.cuit ?? '',
-              type:         dto.type,
-              status:       dto.status,
-              plan:         dto.plan,
-              email:        dto.email ?? '',
-              phone:        dto.phone ?? '',
-              adminContact: dto.adminContact ?? '',
-              opsContact:   dto.opsContact ?? '',
-              address:      dto.address ?? '',
-              city:         '',
-              lat:          dto.lat ?? 0,
-              lng:          dto.lng ?? 0,
-              polygon:      dto.polygon,
-              members:      0,
-              sinceMonth:   '',
-              contract: {
-                code: '', plan: dto.plan, from: '', to: '',
-                status: 'active', monthlyPrice: 0, monthlyCap: 0, kpiMinutes: 0, conditions: '',
-              },
-            }));
+            const mapped: Institution[] = data.map(dto => this.toInstitution(dto));
             this.institutions.set(mapped);
 
             // Fetch real members counts asynchronously in parallel for each row
@@ -1167,8 +1237,22 @@ export class InstitutionsComponent implements OnInit {
   readonly page = signal(0);
   readonly menuOpen = signal<string | null>(null);
 
+  // Tabla paginada server-side (S0-12)
+  private readonly searchSubject = new Subject<string>();
+  readonly tableRows = signal<Institution[]>([]);
+  readonly tableTotal = signal(0);
+  readonly tableLoading = signal(false);
+
   // Drawer (360° view)
   readonly drawerInst = signal<Institution | null>(null);
+
+  // Excepción de supervisor por deuda (S0-10)
+  readonly excepcionDeudaModal = signal<{
+    institutionId: number;
+    institutionName: string;
+    accion: 'suspender' | 'reactivar';
+    motivoInicial: string;
+  } | null>(null);
 
   // Contract modal
   readonly contractInst = signal<Institution | null>(null);
@@ -1201,27 +1285,13 @@ export class InstitutionsComponent implements OnInit {
   set searchQuery_(v: string) { this.searchQuery.set(v); this.page.set(0); }
 
   get typeFilterValue(): string { return this.typeFilter(); }
-  set typeFilterValue(v: string) { this.typeFilter.set(v); this.page.set(0); }
+  set typeFilterValue(v: string) { this.typeFilter.set(v); this.page.set(0); this.loadTablePage(); }
 
 
-  // ── Computed ──
-  readonly filtered = computed(() => {
-    const q = this.searchQuery().toLowerCase();
-    const s = this.statusFilter();
-    const t = this.typeFilter();
-    return this.institutions().filter(i =>
-      (s === 'all' || i.status === s) &&
-      (t === 'all' || i.type === t) &&
-      (!q || i.name.toLowerCase().includes(q) || i.razonSocial.toLowerCase().includes(q) || i.cuit.includes(q))
-    );
-  });
+  // ── Computed (tabla paginada server-side, S0-12) ──
+  readonly paged = computed(() => this.tableRows());
 
-  readonly totalPages = computed(() => Math.max(1, Math.ceil(this.filtered().length / PAGE_SIZE)));
-
-  readonly paged = computed(() => {
-    const pg = Math.min(this.page(), this.totalPages() - 1);
-    return this.filtered().slice(pg * PAGE_SIZE, (pg + 1) * PAGE_SIZE);
-  });
+  readonly totalPages = computed(() => Math.max(1, Math.ceil(this.tableTotal() / PAGE_SIZE)));
 
   readonly pageRange = computed(() => Array.from({ length: this.totalPages() }, (_, i) => i));
 
@@ -1351,18 +1421,20 @@ export class InstitutionsComponent implements OnInit {
       takeUntilDestroyed(this.destroyRef),
     ).subscribe({
       next: () => this.loadInstitutions(),
-      error: (err) => {
-        const msg = err?.error?.detail ?? err?.error?.title ?? 'La institución mantiene deuda vencida.';
-        if (!confirm(`${msg}\n\n¿Registrar excepción de supervisor y reactivar igual?`)) return;
-        const autorizadoPor = prompt('Autorizado por (supervisor):', '') ?? '';
-        this.api.reactivarInstitucion(id, motivo.trim(), true, autorizadoPor.trim() || undefined).pipe(
-          takeUntilDestroyed(this.destroyRef),
-        ).subscribe({
-          next: () => this.loadInstitutions(),
-          error: (err2) => alert(err2?.error?.detail ?? err2?.error?.title ?? 'No se pudo reactivar la institución.'),
+      error: () => {
+        this.excepcionDeudaModal.set({
+          institutionId: id,
+          institutionName: inst.name,
+          accion: 'reactivar',
+          motivoInicial: motivo.trim(),
         });
       },
     });
+  }
+
+  onExcepcionDeudaConfirmada(): void {
+    this.excepcionDeudaModal.set(null);
+    this.loadInstitutions();
   }
 
   registrarPagoInstitucional(inst: Institution): void {
@@ -1502,6 +1574,12 @@ export class InstitutionsComponent implements OnInit {
   setStatus(v: string): void {
     this.statusFilter.set(v);
     this.page.set(0);
+    this.loadTablePage();
+  }
+
+  goToPage(p: number): void {
+    this.page.set(p);
+    this.loadTablePage();
   }
 
   // ── Detail drawer ──
