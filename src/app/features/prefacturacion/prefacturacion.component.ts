@@ -2,7 +2,7 @@ import { Component, OnInit, inject, signal, computed, DestroyRef } from '@angula
 import { CommonModule, DatePipe } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
+import { StatusBadgeComponent, BadgeVariant } from '../../shared/components/status-badge/status-badge.component';
 import { PrefacturacionApiService, LotePrefacturacionDTO } from '../../data-access/api/prefacturacion.api';
 
 @Component({
@@ -322,13 +322,13 @@ export class PrefacturacionComponent implements OnInit {
     });
   }
 
-  getStatusVariant(estado: string): 'info' | 'success' | 'warning' | 'danger' | 'default' {
+  getStatusVariant(estado: string): BadgeVariant {
     switch (estado) {
-      case 'BORRADOR': return 'warning';
-      case 'CONFIRMADO': return 'success';
-      case 'EMITIDO': return 'info';
-      case 'ANULADO': return 'danger';
-      default: return 'default';
+      case 'BORRADOR': return 'urgent';
+      case 'CONFIRMADO': return 'stable';
+      case 'EMITIDO': return 'cyan';
+      case 'ANULADO': return 'critical';
+      default: return 'info';
     }
   }
 }

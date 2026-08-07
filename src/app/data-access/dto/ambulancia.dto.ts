@@ -39,6 +39,8 @@ export interface UnidadMovilDTO {
   velocidad?: number;
   direccion?: number;
   enMovimiento?: boolean;
+  vtvVencimiento?: string | null;
+  seguroVencimiento?: string | null;
 }
 
 

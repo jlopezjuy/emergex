@@ -279,6 +279,18 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'tesoreria',
+        canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_ADMINISTRADOR', 'ROLE_PROPIETARIO')],
+        loadComponent: () =>
+          import('./features/tesoreria/tesoreria.component').then((m) => m.TesoreriaComponent),
+      },
+      {
+        path: 'inventario',
+        canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_ADMINISTRADOR', 'ROLE_PROPIETARIO', 'ROLE_ENFERMERO')],
+        loadComponent: () =>
+          import('./features/inventario/inventario.component').then((m) => m.InventarioComponent),
+      },
+      {
         path: '**',
         loadComponent: () =>
           import('./features/not-found/not-found.component').then((m) => m.NotFoundComponent),

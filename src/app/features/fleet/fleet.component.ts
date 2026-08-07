@@ -1,5 +1,6 @@
 import { Component, inject, signal, computed, OnInit, DestroyRef } from '@angular/core';
 import { catchError, of } from 'rxjs';
+import { CommonModule } from '@angular/common';
 import { FleetApiService } from '../../data-access/api/fleet.api';
 import {
   UnidadMovilDTO,
@@ -23,6 +24,7 @@ type FleetTab = 'TODAS' | 'DISPONIBLE' | 'SIN_COBERTURA' | 'EN_SERVICIO' | 'MANT
   selector: 'app-fleet',
   standalone: true,
   imports: [
+    CommonModule,
     FleetStatusDonutComponent,
     FleetTableComponent,
     KpiCardComponent,
@@ -265,6 +267,38 @@ type FleetTab = 'TODAS' | 'DISPONIBLE' | 'SIN_COBERTURA' | 'EN_SERVICIO' | 'MANT
               <div>
                 <div class="eyebrow">Última conex.</div>
                 <div class="font-mono" style="font-size:12px;color:var(--accent-emerald);margin-top:3px;">● 3s</div>
+              </div>
+            </div>
+
+            <!-- Expiration Badges -->
+            <div class="grid grid-cols-2 gap-[10px]">
+              <div>
+                <div class="eyebrow">VTV</div>
+                <div class="font-mono mt-1">
+                  @if (selectedUnit()!.vtvVencimiento) {
+                    <span class="px-2 py-0.5 rounded text-[10px] font-medium"
+                          [style.background]="isExpired(selectedUnit()!.vtvVencimiento!) ? 'var(--accent-red)' : 'var(--accent-emerald)'"
+                          style="color: white">
+                      {{ selectedUnit()!.vtvVencimiento | date:'shortDate' }}
+                    </span>
+                  } @else {
+                    <span class="text-[11px]" style="color: var(--text-muted)">Sin datos</span>
+                  }
+                </div>
+              </div>
+              <div>
+                <div class="eyebrow">Seguro</div>
+                <div class="font-mono mt-1">
+                  @if (selectedUnit()!.seguroVencimiento) {
+                    <span class="px-2 py-0.5 rounded text-[10px] font-medium"
+                          [style.background]="isExpired(selectedUnit()!.seguroVencimiento!) ? 'var(--accent-red)' : 'var(--accent-emerald)'"
+                          style="color: white">
+                      {{ selectedUnit()!.seguroVencimiento | date:'shortDate' }}
+                    </span>
+                  } @else {
+                    <span class="text-[11px]" style="color: var(--text-muted)">Sin datos</span>
+                  }
+                </div>
               </div>
             </div>
 
@@ -612,5 +646,11 @@ export class FleetComponent implements OnInit {
       { nombre: 'Morfina',     pct: unit.morfinaPct       ?? null },
       { nombre: 'Tubos',       pct: unit.tuboEndotraquealPct ?? null },
     ];
+  }
+
+  isExpired(dateString: string): boolean {
+    const exp = new Date(dateString);
+    const today = new Date();
+    return exp.getTime() < today.getTime();
   }
 }
