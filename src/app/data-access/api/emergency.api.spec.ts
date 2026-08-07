@@ -2,7 +2,7 @@ import { describe, beforeEach, afterEach, it, expect } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { EmergencyApiService } from './emergency.api';
-import { AltaRapidaRequest, CrearTicketRequest, DespacharRequest, CancelarTicketRequest } from '../dto/ticket.dto';
+import { AltaRapidaRequest, CrearTicketRequest, DespacharRequest, CancelarTicketRequest, DespachoMultiMovilRequest } from '../dto/ticket.dto';
 
 describe('EmergencyApiService - V2 & Adapters', () => {
   let service: EmergencyApiService;
@@ -131,6 +131,104 @@ describe('EmergencyApiService - V2 & Adapters', () => {
     const req = httpMock.expectOne((r) => r.url.endsWith('/api/v2/asistencias/202/agregar-nota'));
     expect(req.request.method).toBe('PATCH');
     expect(req.request.body).toEqual({ nota: 'Nota de prueba' });
+    req.flush(mockResponse);
+  });
+
+  it('should call despacho-multiple endpoint with the list of ambulance ids (V2)', () => {
+    const reqBody: DespachoMultiMovilRequest = { ambulanciaIds: [10, 11], nota: 'VIR + UTIM' };
+    const mockResponse = {
+      id: 202,
+      numeroTicket: 'T-202',
+      estadoActual: 'DESPACHADO',
+    };
+
+    service.despacharMultiple(202, reqBody).subscribe((ticket) => {
+      expect(ticket.id).toBe(202);
+      expect(ticket.estado).toBe('DESPACHADO');
+    });
+
+    const req = httpMock.expectOne((r) => r.url.endsWith('/api/v2/asistencias/202/despacho-multiple'));
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(reqBody);
+    req.flush(mockResponse);
+  });
+
+  it('should map the full ticket from raw.ticket in the alta rápida response (G1)', () => {
+    const mockRequest: AltaRapidaRequest = {
+      tipoAsistencia: 'EMERGENCIA_DOMICILIARIA',
+      nivelUrgencia: 'ROJO',
+      descripcionSintomas: 'Dolor precordial',
+    };
+
+    const mockResponse = {
+      ticketId: 303,
+      numeroTicket: 'E-000303',
+      estadoActual: 'RECIBIDO',
+      ticket: {
+        id: 303,
+        numeroTicket: 'E-000303',
+        estadoActual: 'RECIBIDO',
+        nivelUrgencia: 'ROJO',
+        tipoAsistencia: 'EMERGENCIA_DOMICILIARIA',
+        direccion: 'Av. San Martín 1234',
+        descripcionSintomas: 'Dolor precordial',
+        pacienteNombreSnapshot: 'Miguel Bustamante',
+        pacienteDniSnapshot: '7289503',
+        ambulancia: { id: 10, codigo: 'VIR-01' },
+        horaLlamada: new Date().toISOString(),
+      },
+    };
+
+    service.altaRapida(mockRequest).subscribe((ticket) => {
+      expect(ticket.id).toBe(303);
+      expect(ticket.codigo).toBe('E-000303');
+      expect(ticket.nivelUrgencia).toBe('ROJO');
+      expect(ticket.prioridad).toBe('CRITICA');
+      expect(ticket.tipoAsistencia).toBe('EMERGENCIA_DOMICILIARIA');
+      expect(ticket.direccion).toBe('Av. San Martín 1234');
+      expect(ticket.pacienteDniSnapshot).toBe('7289503');
+      expect(ticket.ambulanciaId).toBe(10);
+      expect(ticket.unidadAsignada).toBe('VIR-01');
+    });
+
+    const req = httpMock.expectOne((r) => r.url.endsWith('/api/operador-emergencias/tickets/alta-rapida'));
+    expect(req.request.method).toBe('POST');
+    req.flush(mockResponse);
+  });
+
+  it('should derive ambulancias from the active historialMoviles entries (multi-móvil)', () => {
+    const mockResponse = {
+      id: 400,
+      estadoActual: 'DESPACHADO',
+      historialMoviles: [
+        {
+          ambulanciaId: 10,
+          ambulanciaCodigo: 'VIR-01',
+          fechaAsignacion: '2026-08-06T10:00:00Z',
+          fechaLiberacion: null,
+        },
+        {
+          ambulanciaId: 11,
+          ambulanciaCodigo: 'UTIM-02',
+          fechaAsignacion: '2026-08-06T10:00:00Z',
+          fechaLiberacion: null,
+        },
+        {
+          ambulanciaId: 12,
+          ambulanciaCodigo: 'AMB-03',
+          fechaAsignacion: '2026-08-06T09:00:00Z',
+          fechaLiberacion: '2026-08-06T09:30:00Z',
+        },
+      ],
+    };
+
+    service.getById(400).subscribe((ticket) => {
+      expect(ticket.ambulancias?.map((a) => a.ambulanciaId)).toEqual([10, 11]);
+      expect(ticket.ambulancias?.[0].ambulanciaCodigo).toBe('VIR-01');
+    });
+
+    const req = httpMock.expectOne((r) => r.url.endsWith('/api/v2/asistencias/400'));
+    expect(req.request.method).toBe('GET');
     req.flush(mockResponse);
   });
 });

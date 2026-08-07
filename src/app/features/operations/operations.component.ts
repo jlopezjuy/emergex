@@ -18,6 +18,8 @@ import { LoadingStateComponent } from '../../shared/components/loading-state/loa
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { ModalShellComponent } from '../../shared/components/modal-shell/modal-shell.component';
 import { DispatchModalComponent } from '../../shared/components/emergency/dispatch-modal/dispatch-modal.component';
+import { NewEmergencyComponent } from './new-emergency/new-emergency.component';
+import { UserFeedbackService } from '../../core/notifications/user-feedback.service';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { catchError, of } from 'rxjs';
@@ -35,6 +37,7 @@ type FeedTab = 'TODAS' | 'INSTITUCIONALES' | 'PERSONAS' | 'SIN_ASIGNAR' | 'CRITI
     EmptyStateComponent,
     ModalShellComponent,
     DispatchModalComponent,
+    NewEmergencyComponent,
     FormsModule,
   ],
   template: `
@@ -68,6 +71,18 @@ type FeedTab = 'TODAS' | 'INSTITUCIONALES' | 'PERSONAS' | 'SIN_ASIGNAR' | 'CRITI
               >
             </div>
             <div class="flex items-center gap-1.5" style="pointer-events: auto;">
+              <button
+                type="button"
+                class="flex items-center gap-1 px-2 py-0.5 rounded font-mono text-xs"
+                title="Despacho múltiple simultáneo (VIR + UTIM) de la emergencia seleccionada"
+                style="background: rgba(167,139,250,0.14); color: var(--accent-purple, #a78bfa); border: 1px solid rgba(167,139,250,0.3);"
+                (click)="onMultiDispatch()"
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M2 6h8M6 2v8" />
+                </svg>
+                DESPACHO MÚLTIPLE
+              </button>
               <button
                 type="button"
                 class="flex items-center gap-1 px-2 py-0.5 rounded font-mono text-xs"
@@ -385,6 +400,11 @@ type FeedTab = 'TODAS' | 'INSTITUCIONALES' | 'PERSONAS' | 'SIN_ASIGNAR' | 'CRITI
       />
     }
 
+    <!-- Despacho múltiple (V2 — VIR + UTIM) -->
+    @if (showMultiDispatchModal() && multiDispatchEmergency()) {
+      <emx-new-emergency [emergency]="multiDispatchEmergency()!" (dispatched)="onMultiDispatched()" (closed)="closeMultiDispatch()" />
+    }
+
     <!-- Ambulance detail modal -->
     @if (selectedAmbulance()) {
       <emx-modal-shell (closed)="selectedAmbulanceId.set(null)">
@@ -537,6 +557,7 @@ export class OperationsComponent implements OnInit, OnDestroy {
   private dashboardApi = inject(DashboardApiService);
   private patientApi = inject(PatientApiService);
   private emergencyApi = inject(EmergencyApiService);
+  private feedback = inject(UserFeedbackService);
 
   readonly dashboard = signal<DashboardOperativoDTO | null>(null);
   readonly selectedAmbulanceId = signal<number | null>(null);
@@ -612,6 +633,10 @@ export class OperationsComponent implements OnInit, OnDestroy {
   // Dispatch modal state
   readonly showDispatchModal = signal(false);
   readonly dispatchingEmergency = signal<TicketAsistenciaDTO | null>(null);
+
+  // Despacho múltiple (V2) state
+  readonly showMultiDispatchModal = signal(false);
+  readonly multiDispatchEmergency = signal<TicketAsistenciaDTO | null>(null);
 
   private refreshInterval: any;
 
@@ -724,6 +749,35 @@ export class OperationsComponent implements OnInit, OnDestroy {
 
   onDispatched(): void {
     this.closeDispatch();
+    this.emergencyStore.loadActivos();
+    this.refreshDashboardAndFleet();
+  }
+
+  /**
+   * Abre el despacho múltiple sobre la emergencia seleccionada en el feed.
+   * Si no hay ninguna seleccionada, avisa al operador en vez de abrir el modal.
+   */
+  onMultiDispatch(): void {
+    const selected = this.emergencyStore.selected();
+    if (!selected) {
+      this.feedback.push({
+        type: 'warning',
+        title: 'Seleccioná una emergencia',
+        message: 'Para el despacho múltiple primero seleccioná la emergencia en el feed.',
+      });
+      return;
+    }
+    this.multiDispatchEmergency.set(selected);
+    this.showMultiDispatchModal.set(true);
+  }
+
+  closeMultiDispatch(): void {
+    this.showMultiDispatchModal.set(false);
+    this.multiDispatchEmergency.set(null);
+  }
+
+  onMultiDispatched(): void {
+    this.closeMultiDispatch();
     this.emergencyStore.loadActivos();
     this.refreshDashboardAndFleet();
   }

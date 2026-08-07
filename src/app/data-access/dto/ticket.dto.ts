@@ -78,6 +78,14 @@ export interface TicketAsistenciaDTO {
     fueDespachada?: boolean;
   }[];
 
+  // Unidades ACTIVAS del ticket (despacho múltiple V2): derivadas del historial
+  // sin fecha de liberación. La primaria sigue en ambulanciaId/unidadAsignada.
+  ambulancias?: {
+    ambulanciaId?: number;
+    ambulanciaCodigo?: string;
+    fechaAsignacion?: string;
+  }[];
+
   // Autorización especial (campos "decorados" a nivel raíz del ticket)
   autorizacionEspecial?: boolean;
   autorizadoPor?: string | null;
@@ -210,6 +218,18 @@ export interface CancelarTicketRequest {
 export interface DespacharRequest {
   ambulanciaId: number;
   notas?: string;
+}
+
+/**
+ * Request del despacho múltiple V2 (S2.1): asigna N unidades de forma simultánea
+ * a un mismo ticket (ej. VIR + UTIM). El backend valida mínimo 1 y máximo 5.
+ */
+export interface DespachoMultiMovilRequest {
+  /** Unidades a despachar en un solo paso (mínimo 1, máximo 5 en el backend). */
+  ambulanciaIds: number[];
+  /** Profesional responsable; si se omite, el backend lo resuelve de la tripulación. */
+  profesionalId?: number;
+  nota?: string;
 }
 
 export interface CerrarTicketRequest {

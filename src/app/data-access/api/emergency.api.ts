@@ -10,6 +10,7 @@ import {
   CrearTicketRequest,
   AltaRapidaRequest,
   DespacharRequest,
+  DespachoMultiMovilRequest,
   CerrarTicketRequest,
   CancelarTicketRequest,
   LogEstadoTicketDTO,
@@ -85,6 +86,15 @@ export class EmergencyApiService {
       tipoCoberturaEstadistica: raw.tipoCoberturaEstadistica,
       tipoPracticaEstadistica: raw.tipoPracticaEstadistica,
       historialMoviles:   raw.historialMoviles,
+      // Unidades ACTIVAS del ticket (despacho múltiple V2): las filas de historial
+      // sin fecha de liberación. La primaria sigue en ambulanciaId/unidadAsignada.
+      ambulancias:        (raw.historialMoviles ?? [])
+        .filter((m: any) => !m.fechaLiberacion)
+        .map((m: any) => ({
+          ambulanciaId: m.ambulanciaId,
+          ambulanciaCodigo: m.ambulanciaCodigo,
+          fechaAsignacion: m.fechaAsignacion,
+        })),
     };
   }
 
@@ -206,11 +216,29 @@ export class EmergencyApiService {
     return this.http.post<any>(
       `${environment.apiUrl}/api/operador-emergencias/tickets/alta-rapida`,
       req,
-    ).pipe(map((r) => this.mapTicket(r)));
+    ).pipe(
+      // El backend (G1) devuelve ahora el ticket completo en `ticket`; si no viene
+      // (versión vieja), se sigue mapeando el response mínimo como antes.
+      map((r) => this.mapTicket(r.ticket ?? r)),
+    );
   }
 
   despachar(id: number, req: DespacharRequest): Observable<TicketAsistenciaDTO> {
     return this.http.patch<any>(`${this.base}/${id}/despachar`, req).pipe(
+      map((r) => this.mapTicket(r))
+    );
+  }
+
+  /**
+   * Despacho múltiple V2 (S2.1): asigna N unidades (ej. VIR + UTIM) de forma
+   * simultánea a un mismo ticket mediante POST /api/v2/asistencias/{id}/despacho-multiple.
+   *
+   * @param id id del ticket en estado RECIBIDO
+   * @param req lista de unidades a despachar (mínimo 1, máximo 5)
+   * @returns el ticket despachado con su DTO completo
+   */
+  despacharMultiple(id: number, req: DespachoMultiMovilRequest): Observable<TicketAsistenciaDTO> {
+    return this.http.post<any>(`${this.base}/${id}/despacho-multiple`, req).pipe(
       map((r) => this.mapTicket(r))
     );
   }
