@@ -1,10 +1,9 @@
-import { Component, OnInit, inject } from '@angular/core';
+// MAQUETA SIN CABLEAR — datos ficticios. La tarea F3-05 la conecta. No montar antes.
+import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ComprasService } from '../../../../core/services/compras.service';
-import { OrdenDeCompra } from '../../../../core/models/compras.model';
 
 @Component({
-  selector: 'app-orden-compra-list',
+  selector: 'emx-orden-compra-list',
   standalone: true,
   imports: [CommonModule],
   template: `
@@ -50,11 +49,6 @@ import { OrdenDeCompra } from '../../../../core/models/compras.model';
     </div>
   `
 })
-export class OrdenCompraListComponent implements OnInit {
-  private comprasService = inject(ComprasService);
-  ordenes: OrdenDeCompra[] = [];
-
-  ngOnInit(): void {
-    this.comprasService.getOrdenes().subscribe(o => this.ordenes = o);
-  }
+export class OrdenCompraListComponent {
+  ordenes: Array<{ numeroOc: string; fechaEmision: string; proveedorId: number; montoTotal: number; moneda: string; estado: string; emitidaPor: string }> = [];
 }

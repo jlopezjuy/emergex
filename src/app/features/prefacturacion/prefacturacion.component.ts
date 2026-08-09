@@ -4,6 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { StatusBadgeComponent, BadgeVariant } from '../../shared/components/status-badge/status-badge.component';
 import { PrefacturacionApiService, LotePrefacturacionDTO } from '../../data-access/api/prefacturacion.api';
+import { UserFeedbackService } from '../../core/notifications/user-feedback.service';
 
 @Component({
   selector: 'app-prefacturacion',
@@ -198,8 +199,9 @@ import { PrefacturacionApiService, LotePrefacturacionDTO } from '../../data-acce
   `,
 })
 export class PrefacturacionComponent implements OnInit {
-  private destroyRef = inject(DestroyRef);
   private api = inject(PrefacturacionApiService);
+  private destroyRef = inject(DestroyRef);
+  private feedback = inject(UserFeedbackService);
 
   readonly lotes = signal<LotePrefacturacionDTO[]>([]);
   readonly searchQuery = signal('');
@@ -280,12 +282,13 @@ export class PrefacturacionComponent implements OnInit {
       next: (newLote) => {
         this.processing.set(false);
         this.showCreateModal.set(false);
+        this.feedback.push({ type: 'success', title: 'Lote creado', message: `Lote #${newLote.id} creado exitosamente.` });
         this.loadLotes();
         this.selectLote(newLote);
       },
-      error: () => {
+      error: (err) => {
         this.processing.set(false);
-        alert('Error al crear lote');
+        this.feedback.fromHttpError(err);
       }
     });
   }
@@ -297,27 +300,28 @@ export class PrefacturacionComponent implements OnInit {
       next: (updatedLote) => {
         this.processing.set(false);
         this.selectedLote.set(updatedLote);
+        this.feedback.push({ type: 'success', title: 'Lote confirmado', message: `Lote #${updatedLote.id} confirmado exitosamente.` });
         this.loadLotes(); // Reload list to update status
       },
-      error: () => {
+      error: (err) => {
         this.processing.set(false);
-        alert('Error al confirmar lote');
+        this.feedback.fromHttpError(err);
       }
     });
   }
 
   excluirTicket(loteId: number, ticketId: number): void {
     if (this.processing()) return;
-    if (!confirm('¿Seguro que desea excluir este ticket del lote?')) return;
     this.processing.set(true);
     this.api.excluirTicket(loteId, ticketId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
         this.processing.set(false);
+        this.feedback.push({ type: 'info', title: 'Ticket excluido', message: `Ticket #${ticketId} excluido del lote #${loteId}.` });
         this.loadLoteDetail(loteId); // Reload detail
       },
-      error: () => {
+      error: (err) => {
         this.processing.set(false);
-        alert('Error al excluir ticket');
+        this.feedback.fromHttpError(err);
       }
     });
   }

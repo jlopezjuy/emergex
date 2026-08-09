@@ -1,10 +1,11 @@
 import { Component, signal, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ComprasApiService, ComprobanteProveedorDTO, RecepcionBienesDTO } from '../../data-access/api/compras.api';
+import { ComprasApiService, ComprobanteProveedorDTO } from '../../data-access/api/compras.api';
+import { UserFeedbackService } from '../../core/notifications/user-feedback.service';
 
 @Component({
-  selector: 'app-compras',
+  selector: 'emx-compras',
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
@@ -74,6 +75,18 @@ import { ComprasApiService, ComprobanteProveedorDTO, RecepcionBienesDTO } from '
             </button>
           </div>
 
+          <!-- Formulario de Excepción Matching sin prompt() -->
+          @if (overrideModalId()) {
+            <div class="p-4 mb-4 bg-amber-50 border border-amber-200 rounded-lg">
+              <h3 class="text-sm font-bold text-amber-800 mb-2">Motivo de Excepción Gerencial (Comprobante #{{ overrideModalId() }})</h3>
+              <div class="flex gap-2">
+                <input type="text" [ngModel]="motivoOverride()" (ngModelChange)="motivoOverride.set($event)" placeholder="Ej: Diferencia autorizada por gerencia de compras" class="flex-1 border rounded-lg p-2 text-sm" />
+                <button (click)="confirmarOverride()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium">Confirmar Override</button>
+                <button (click)="cancelarOverride()" class="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm">Cancelar</button>
+              </div>
+            </div>
+          }
+
           <table class="w-full text-left text-sm border-collapse">
             <thead>
               <tr class="bg-slate-100 border-b border-slate-200 text-slate-600 font-semibold text-xs uppercase">
@@ -101,7 +114,7 @@ import { ComprasApiService, ComprobanteProveedorDTO, RecepcionBienesDTO } from '
                   </td>
                   <td class="p-3">
                     @if (c.estadoMatching === 'BLOQUEADO_DIFERENCIA') {
-                      <button (click)="onOverride(c.id!)" class="text-xs bg-red-600 hover:bg-red-700 text-white font-medium px-2.5 py-1 rounded-lg transition shadow">
+                      <button (click)="iniciarOverride(c.id!)" class="text-xs bg-red-600 hover:bg-red-700 text-white font-medium px-2.5 py-1 rounded-lg transition shadow">
                         Destrabar (Override)
                       </button>
                     }
@@ -117,9 +130,13 @@ import { ComprasApiService, ComprobanteProveedorDTO, RecepcionBienesDTO } from '
 })
 export class ComprasComponent implements OnInit {
   private comprasApi = inject(ComprasApiService);
+  private feedback = inject(UserFeedbackService);
 
   activeTab = signal<'remitos' | 'facturas' | 'matching'>('remitos');
   comprobantes = signal<ComprobanteProveedorDTO[]>([]);
+
+  overrideModalId = signal<number | null>(null);
+  motivoOverride = signal<string>('');
 
   newRecepcion = {
     ordenCompraId: 10,
@@ -142,18 +159,23 @@ export class ComprasComponent implements OnInit {
   loadComprobantes() {
     this.comprasApi.getComprobantesProveedor().subscribe({
       next: (data) => this.comprobantes.set(data),
-      error: (err) => console.error('Error al cargar comprobantes:', err),
+      error: (err) => this.feedback.fromHttpError(err),
     });
   }
 
   onSubmitRecepcion(event: Event) {
     event.preventDefault();
+    if (!this.newRecepcion.numeroRemito.trim()) {
+      this.feedback.push({ type: 'warning', title: 'Validación', message: 'Ingresá el número de remito físico.' });
+      return;
+    }
+
     this.comprasApi.registrarRecepcion({
       ordenCompraId: this.newRecepcion.ordenCompraId,
       recepcionBienes: {
-        numeroRemito: this.newRecepcion.numeroRemito,
+        numeroRemito: this.newRecepcion.numeroRemito.trim(),
         fechaRecepcion: this.newRecepcion.fechaRecepcion,
-        recibidoPor: this.newRecepcion.recibidoPor,
+        recibidoPor: this.newRecepcion.recibidoPor.trim() || 'Farmacia Central',
       },
       lineas: [
         {
@@ -166,27 +188,52 @@ export class ComprasComponent implements OnInit {
       esParcial: false,
     }).subscribe({
       next: () => {
-        alert('Recepción de bienes y remito registrado exitosamente.');
+        this.feedback.push({
+          type: 'success',
+          title: 'Recepción registrada',
+          message: 'Recepción de bienes y remito registrado exitosamente.',
+        });
         this.newRecepcion.numeroRemito = '';
       },
-      error: (err) => alert('Error al registrar recepción: ' + (err.error?.message || err.message)),
+      error: (err) => this.feedback.fromHttpError(err),
     });
   }
 
-  onOverride(comprobanteId: number) {
-    const motivo = prompt('Ingrese el motivo de la excepción gerencial para destrabar el 3-Way Match:');
-    if (!motivo) return;
+  iniciarOverride(comprobanteId: number): void {
+    this.overrideModalId.set(comprobanteId);
+    this.motivoOverride.set('');
+  }
+
+  cancelarOverride(): void {
+    this.overrideModalId.set(null);
+    this.motivoOverride.set('');
+  }
+
+  confirmarOverride(): void {
+    const id = this.overrideModalId();
+    const motivo = this.motivoOverride().trim();
+    if (!id) return;
+    if (!motivo) {
+      this.feedback.push({ type: 'warning', title: 'Validación', message: 'El motivo de excepción es obligatorio.' });
+      return;
+    }
 
     this.comprasApi.overrideMatching({
-      comprobanteId,
+      comprobanteId: id,
       motivoExcepcion: motivo,
       usuarioAprobador: 'gerente.aprobador',
     }).subscribe({
       next: () => {
-        alert('Comprobante destrabado exitosamente.');
+        this.feedback.push({
+          type: 'success',
+          title: 'Comprobante destrabado',
+          message: 'Comprobante destrabado exitosamente.',
+        });
+        this.overrideModalId.set(null);
+        this.motivoOverride.set('');
         this.loadComprobantes();
       },
-      error: (err) => alert('Error al destrabar comprobante: ' + (err.error?.message || err.message)),
+      error: (err) => this.feedback.fromHttpError(err),
     });
   }
 }

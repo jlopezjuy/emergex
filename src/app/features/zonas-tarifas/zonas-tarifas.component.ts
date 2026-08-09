@@ -1,16 +1,19 @@
 import { Component, signal, inject, OnInit } from '@angular/core';
 import { forkJoin } from 'rxjs';
-import { catchError, of } from 'rxjs';
+import { catchError } from 'rxjs';
 import {
   ZonesApiService,
   ZonaCoberturaDTO,
   TarifaPrestacionZonaDTO,
 } from '../../data-access/api/zones.api';
+import { LoadingStateComponent } from '../../shared/components/loading-state/loading-state.component';
+import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
+import { ErrorStateComponent } from '../../shared/components/error-state/error-state.component';
 
 @Component({
   selector: 'emx-zonas-tarifas',
   standalone: true,
-  imports: [],
+  imports: [LoadingStateComponent, EmptyStateComponent, ErrorStateComponent],
   template: `
     <div class="page-container">
       <div class="page-header">
@@ -37,9 +40,9 @@ import {
       </div>
 
       @if (loading()) {
-        <div class="loading-state">
-          <p class="loading-msg">Cargando datos…</p>
-        </div>
+        <emx-loading-state />
+      } @else if (error()) {
+        <emx-error-state [message]="error()!" (retry)="loadData()" />
       } @else {
 
         @if (activeTab() === 'zonas') {
@@ -48,11 +51,7 @@ import {
               <h2 class="section-title">Zonas de cobertura ({{ zonas().length }})</h2>
             </div>
             @if (zonas().length === 0) {
-              <div class="empty-state">
-                <p class="empty-icon">🗺️</p>
-                <p class="empty-title">Sin zonas configuradas</p>
-                <p class="empty-sub">Agregá zonas de cobertura para definir las áreas de servicio y calcular tarifas</p>
-              </div>
+              <emx-empty-state message="Sin zonas de cobertura configuradas" />
             } @else {
               <div class="zona-grid">
                 @for (zona of zonas(); track zona.id) {
@@ -72,11 +71,7 @@ import {
               <h2 class="section-title">Tarifas por prestación y zona ({{ tarifas().length }})</h2>
             </div>
             @if (tarifas().length === 0) {
-              <div class="empty-state">
-                <p class="empty-icon">💲</p>
-                <p class="empty-title">Sin tarifas configuradas</p>
-                <p class="empty-sub">Las tarifas se calculan combinando zona de cobertura y tipo de prestación</p>
-              </div>
+              <emx-empty-state message="Sin tarifas configuradas para las zonas actuales" />
             } @else {
               <div class="table-wrapper">
                 <table class="data-table">
@@ -125,15 +120,9 @@ import {
     }
     .tab-btn:hover { color: var(--text-primary); }
     .tab-btn.active { color: var(--accent-blue); border-bottom-color: var(--accent-blue); font-weight: 600; }
-    .loading-state { padding: 40px; text-align: center; }
-    .loading-msg { color: var(--text-muted); font-size: 14px; }
     .tab-content { }
     .section-header { margin-bottom: 16px; }
     .section-title { font-size: 16px; font-weight: 600; color: var(--text-primary); margin: 0; }
-    .empty-state { text-align: center; padding: 48px 24px; }
-    .empty-icon { font-size: 40px; margin: 0 0 12px; }
-    .empty-title { font-size: 15px; font-weight: 600; color: var(--text-primary); margin: 0 0 6px; }
-    .empty-sub { font-size: 13px; color: var(--text-muted); margin: 0; }
     .zona-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
     .zona-card {
       background: var(--bg-elevated); border: 1px solid var(--border-glass);
@@ -164,17 +153,35 @@ export class ZonasTarifasComponent implements OnInit {
 
   readonly activeTab = signal<'zonas' | 'tarifas'>('zonas');
   readonly loading = signal(true);
+  readonly error = signal<string | null>(null);
   readonly zonas = signal<ZonaCoberturaDTO[]>([]);
   readonly tarifas = signal<TarifaPrestacionZonaDTO[]>([]);
 
   ngOnInit(): void {
+    this.loadData();
+  }
+
+  loadData(): void {
+    this.loading.set(true);
+    this.error.set(null);
+
     forkJoin({
-      zonas: this.zonesApi.getZones().pipe(catchError(() => of([] as ZonaCoberturaDTO[]))),
-      tarifas: this.zonesApi.getTariffs().pipe(catchError(() => of([] as TarifaPrestacionZonaDTO[]))),
-    }).subscribe(({ zonas, tarifas }) => {
-      this.zonas.set(zonas);
-      this.tarifas.set(tarifas);
-      this.loading.set(false);
-    });
+      zonas: this.zonesApi.getZones(),
+      tarifas: this.zonesApi.getTariffs(),
+    })
+      .pipe(
+        catchError((err) => {
+          this.error.set(err?.error?.detail ?? err?.error?.title ?? 'Error al cargar zonas y tarifas.');
+          this.loading.set(false);
+          return [];
+        }),
+      )
+      .subscribe(({ zonas, tarifas }) => {
+        if (zonas && tarifas) {
+          this.zonas.set(zonas);
+          this.tarifas.set(tarifas);
+          this.loading.set(false);
+        }
+      });
   }
 }

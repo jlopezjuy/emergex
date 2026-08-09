@@ -1,46 +1,55 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
-export interface CajaStatus {
-  estado: 'ABIERTA' | 'CERRADA';
-  saldoActual: number;
+export interface Caja {
+  id: number;
+  nombre: string;
+  montoInicial: number;
 }
 
 export interface MovimientoCaja {
-  id: string;
-  fecha: string;
+  id: number;
   tipo: 'INGRESO' | 'EGRESO';
   monto: number;
   concepto: string;
 }
 
-export interface ArqueoRequest {
-  efectivoFisico: number;
-  observaciones?: string;
+export interface ArqueoCaja {
+  id: number;
+  montoFisicoContado: number;
 }
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class TesoreriaApi {
   private readonly http = inject(HttpClient);
-  private readonly apiUrl = `${environment.apiUrl}/tesoreria`;
+  private readonly apiUrl = `${environment.apiUrl}/api/v2/tesoreria`;
 
-  getStatus(): Observable<CajaStatus> {
-    return this.http.get<CajaStatus>(`${this.apiUrl}/status`);
+  abrirCaja(nombre: string, montoInicial: number): Observable<Caja> {
+    const params = new HttpParams()
+      .set('nombre', nombre)
+      .set('montoInicial', montoInicial);
+    return this.http.post<Caja>(`${this.apiUrl}/cajas`, null, { params });
   }
 
-  getMovimientos(): Observable<MovimientoCaja[]> {
-    return this.http.get<MovimientoCaja[]>(`${this.apiUrl}/movimientos`);
+  registrarMovimientoCaja(
+    cajaId: number,
+    tipo: 'INGRESO' | 'EGRESO',
+    monto: number,
+    concepto: string
+  ): Observable<MovimientoCaja> {
+    const params = new HttpParams()
+      .set('tipo', tipo)
+      .set('monto', monto)
+      .set('concepto', concepto);
+    return this.http.post<MovimientoCaja>(`${this.apiUrl}/cajas/${cajaId}/movimientos`, null, { params });
   }
 
-  registrarMovimiento(movimiento: Partial<MovimientoCaja>): Observable<MovimientoCaja> {
-    return this.http.post<MovimientoCaja>(`${this.apiUrl}/movimientos`, movimiento);
-  }
-
-  realizarArqueo(request: ArqueoRequest): Observable<any> {
-    return this.http.post(`${this.apiUrl}/arqueo`, request);
+  realizarArqueoCaja(cajaId: number, montoFisicoContado: number): Observable<ArqueoCaja> {
+    const params = new HttpParams().set('montoFisicoContado', montoFisicoContado);
+    return this.http.post<ArqueoCaja>(`${this.apiUrl}/cajas/${cajaId}/arqueo`, null, { params });
   }
 }

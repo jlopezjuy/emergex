@@ -1,12 +1,16 @@
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, provideRouter } from '@angular/router';
 import { Subject, of } from 'rxjs';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SurveyAdminApiService } from '../../../data-access/api/survey-admin.api';
 import { EncuestaDetalle } from '../../../data-access/dto/survey.dto';
 import { SurveyDetailComponent } from './survey-detail.component';
 
 describe('SurveyDetailComponent question controls', () => {
+  beforeEach(() => {
+    TestBed.resetTestingModule();
+  });
+
   it('limpia y deshabilita opciones ocultas, y las reactiva al volver a selección', () => {
     TestBed.configureTestingModule({
       imports: [SurveyDetailComponent],
@@ -39,6 +43,10 @@ const survey = (estado: EncuestaDetalle['estado']): EncuestaDetalle => ({
 });
 
 describe('SurveyDetailComponent definition editing', () => {
+  beforeEach(() => {
+    TestBed.resetTestingModule();
+  });
+
   it('precarga el borrador y evita doble submit', () => {
     const pending = new Subject<unknown>();
     const api = { surveyDetail: () => of(survey('BORRADOR')), updateSurvey: vi.fn(() => pending) };

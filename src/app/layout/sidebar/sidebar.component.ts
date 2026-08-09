@@ -8,6 +8,7 @@ import { toObservable, takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { switchMap, of, map } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { MenuService, IMenuItem } from '../../core/menu/menu.service';
+import { SessionStore } from '../../core/stores/session.store';
 
 @Component({
   selector: 'emx-sidebar',
@@ -172,6 +173,7 @@ export class SidebarComponent {
   private readonly fleet = inject(FleetStore);
   private readonly menuService = inject(MenuService);
   private readonly authService = inject(AuthService);
+  private readonly sessionStore = inject(SessionStore);
 
   readonly expanded = signal(false);
   readonly fleetAlert = computed(() =>
@@ -192,45 +194,56 @@ export class SidebarComponent {
               map(items => {
                 const newItems = [...items];
                 
-                // Add Auditoría Médica after clinico or anywhere before admin stuff
+                // NOTA DE ARQUITECTURA (F0-03): Los ítems inyectados a mano deben filtrarse por los mismos roles
+                // que protegen su ruta en `app.routes.ts`. Lo correcto a futuro es mover estos ítems al
+                // `MenuService` del backend para centralizar la navegación por perfil de usuario y tenant.
+
                 const insertIndex = newItems.findIndex(i => i.id === 'facturacion' || i.id === 'staff');
                 const finalIndex = insertIndex !== -1 ? insertIndex : newItems.length;
-                
-                newItems.splice(finalIndex, 0, {
-                  id: 'auditoria-medica',
-                  label: 'Auditoría',
-                  title: 'Auditoría Médica',
-                  icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>',
-                  route: '/auditoria-medica',
-                  order: 90
-                });
-                
-                newItems.splice(finalIndex + 1, 0, {
-                  id: 'prefacturacion',
-                  label: 'Prefacturación',
-                  title: 'Prefacturación',
-                  icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>',
-                  route: '/prefacturacion',
-                  order: 91
-                });
-                
-                newItems.push({
-                  id: 'tesoreria',
-                  label: 'Tesorería',
-                  title: 'Tesorería',
-                  icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>',
-                  route: '/tesoreria',
-                  order: 100
-                });
 
-                newItems.push({
-                  id: 'inventario',
-                  label: 'Inventario',
-                  title: 'Inventario y FEFO',
-                  icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>',
-                  route: '/inventario',
-                  order: 101
-                });
+                if (this.sessionStore.hasAnyRole(['ROLE_ADMIN', 'ROLE_AUDITOR', 'ROLE_ADMINISTRADOR'])) {
+                  newItems.splice(finalIndex, 0, {
+                    id: 'auditoria-medica',
+                    label: 'Auditoría',
+                    title: 'Auditoría Médica',
+                    icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>',
+                    route: '/auditoria-medica',
+                    order: 90
+                  });
+                }
+                
+                if (this.sessionStore.hasAnyRole(['ROLE_ADMIN', 'ROLE_ADMINISTRADOR', 'ROLE_PROPIETARIO'])) {
+                  newItems.splice(finalIndex + 1, 0, {
+                    id: 'prefacturacion',
+                    label: 'Prefacturación',
+                    title: 'Prefacturación',
+                    icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>',
+                    route: '/prefacturacion',
+                    order: 91
+                  });
+                }
+                
+                if (this.sessionStore.hasAnyRole(['ROLE_ADMIN', 'ROLE_GERENTE', 'ROLE_CONTADOR'])) {
+                  newItems.push({
+                    id: 'tesoreria',
+                    label: 'Tesorería',
+                    title: 'Tesorería',
+                    icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>',
+                    route: '/tesoreria',
+                    order: 100
+                  });
+                }
+
+                if (this.sessionStore.hasAnyRole(['ROLE_ADMIN', 'ROLE_ADMINISTRADOR', 'ROLE_PROPIETARIO'])) {
+                  newItems.push({
+                    id: 'inventario',
+                    label: 'Inventario',
+                    title: 'Inventario y FEFO',
+                    icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>',
+                    route: '/inventario',
+                    order: 101
+                  });
+                }
                 return newItems;
               })
             );

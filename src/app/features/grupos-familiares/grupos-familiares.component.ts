@@ -1,8 +1,10 @@
 import { Component, signal, computed, inject, OnInit } from '@angular/core';
-import { RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { catchError, of } from 'rxjs';
+import { catchError } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { LoadingStateComponent } from '../../shared/components/loading-state/loading-state.component';
+import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
+import { ErrorStateComponent } from '../../shared/components/error-state/error-state.component';
 
 interface GrupoFamiliarRow {
   id: number;
@@ -18,7 +20,7 @@ interface GrupoFamiliarRow {
 @Component({
   selector: 'emx-grupos-familiares',
   standalone: true,
-  imports: [RouterLink],
+  imports: [LoadingStateComponent, EmptyStateComponent, ErrorStateComponent],
   template: `
     <div class="page-container">
       <div class="page-header">
@@ -45,18 +47,11 @@ interface GrupoFamiliarRow {
       </div>
 
       @if (loading()) {
-        <div class="loading-state">
-          <p class="loading-msg">Cargando grupos…</p>
-        </div>
+        <emx-loading-state />
+      } @else if (error()) {
+        <emx-error-state [message]="error()!" (retry)="loadData()" />
       } @else if (filtered().length === 0) {
-        <div class="empty-state">
-          <p class="empty-icon">👨‍👩‍👧</p>
-          <p class="empty-title">Sin grupos familiares</p>
-          <p class="empty-sub">
-            Los grupos se crean automáticamente al dar de alta un afiliado.<br>
-            <a routerLink="/patients" class="link-inline">Ir al listado de afiliados →</a>
-          </p>
-        </div>
+        <emx-empty-state message="Sin grupos familiares registrados. Los grupos se generan automáticamente al dar de alta un afiliado." />
       } @else {
         <div class="grupos-grid">
           @for (g of filtered(); track g.id) {
@@ -101,14 +96,6 @@ interface GrupoFamiliarRow {
       background: var(--surface-glass); border: 1px solid var(--border-glass);
       border-radius: 8px; padding: 9px 14px; font-size: 13px; color: var(--text-primary); outline: none;
     }
-    .loading-state { text-align: center; padding: 40px; }
-    .loading-msg { color: var(--text-muted); font-size: 14px; }
-    .empty-state { text-align: center; padding: 48px 24px; }
-    .empty-icon { font-size: 40px; margin: 0 0 12px; }
-    .empty-title { font-size: 15px; font-weight: 600; color: var(--text-primary); margin: 0 0 6px; }
-    .empty-sub { font-size: 13px; color: var(--text-muted); margin: 0; line-height: 1.6; }
-    .link-inline { color: var(--accent-blue); text-decoration: none; }
-    .link-inline:hover { text-decoration: underline; }
     .grupos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
     .grupo-card {
       background: var(--bg-elevated); border: 1px solid var(--border-glass);
@@ -135,6 +122,7 @@ export class GruposFamiliaresComponent implements OnInit {
   private readonly http = inject(HttpClient);
 
   readonly loading = signal(true);
+  readonly error = signal<string | null>(null);
   readonly grupos = signal<GrupoFamiliarRow[]>([]);
   readonly searchQ = signal('');
   readonly statusFilter = signal('');
@@ -149,12 +137,26 @@ export class GruposFamiliaresComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    this.loadData();
+  }
+
+  loadData(): void {
+    this.loading.set(true);
+    this.error.set(null);
     this.http
       .get<GrupoFamiliarRow[]>(`${environment.apiUrl}/api/grupo-familiars`)
-      .pipe(catchError(() => of([] as GrupoFamiliarRow[])))
+      .pipe(
+        catchError((err) => {
+          this.error.set(err?.error?.detail ?? err?.error?.title ?? 'No se pudieron cargar los grupos familiares.');
+          this.loading.set(false);
+          return [];
+        })
+      )
       .subscribe(data => {
-        this.grupos.set(data);
-        this.loading.set(false);
+        if (data) {
+          this.grupos.set(data);
+          this.loading.set(false);
+        }
       });
   }
 

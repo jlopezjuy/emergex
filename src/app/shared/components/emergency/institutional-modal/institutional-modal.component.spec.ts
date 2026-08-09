@@ -110,6 +110,7 @@ describe('InstitutionalModalComponent', () => {
   });
 
   it('debería mostrar instituciones suspendidas o de baja en los resultados pero no permitir seleccionarlas', async () => {
+    component.patchForm({ prio: 'green' });
     component.onInstitutionInput('Institución');
     fixture.detectChanges();
 

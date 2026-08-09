@@ -1,11 +1,10 @@
+// MAQUETA SIN CABLEAR — datos ficticios. La tarea F3-02 la conecta. No montar antes.
 import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
-import { TerceroService } from '../../../../core/services/tercero.service';
-import { EstadoCuentaBancaria } from '../../../../core/models/cuenta-bancaria.model';
 
 @Component({
-  selector: 'app-cbu-maker-checker-modal',
+  selector: 'emx-cbu-maker-checker-modal',
   standalone: true,
   imports: [CommonModule, FormsModule, ReactiveFormsModule],
   template: `
@@ -48,7 +47,6 @@ export class CbuMakerCheckerModalComponent {
   @Output() closed = new EventEmitter<void>();
 
   private fb = inject(FormBuilder);
-  private terceroService = inject(TerceroService);
 
   submitting = false;
 
@@ -61,24 +59,7 @@ export class CbuMakerCheckerModalComponent {
 
   onSubmitSolicitud(): void {
     if (this.cbuForm.invalid) return;
-    this.submitting = true;
-
-    const req = {
-      terceroEmpresaId: this.terceroEmpresaId,
-      bancoNombre: this.cbuForm.value.bancoNombre!,
-      cbu: this.cbuForm.value.cbu!,
-      titularNombre: this.cbuForm.value.titularNombre!,
-      alias: this.cbuForm.value.alias || undefined,
-      moneda: 'ARS'
-    };
-
-    this.terceroService.solicitarAltaCbu(req).subscribe({
-      next: () => {
-        this.submitting = false;
-        this.closed.emit();
-      },
-      error: () => this.submitting = false
-    });
+    this.closed.emit();
   }
 
   closeModal(): void {

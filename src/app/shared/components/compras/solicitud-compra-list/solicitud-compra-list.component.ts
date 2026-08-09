@@ -1,10 +1,9 @@
-import { Component, OnInit, inject } from '@angular/core';
+// MAQUETA SIN CABLEAR — datos ficticios. La tarea F3-04 la conecta. No montar antes.
+import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ComprasService } from '../../../../core/services/compras.service';
-import { SolicitudCompra } from '../../../../core/models/compras.model';
 
 @Component({
-  selector: 'app-solicitud-compra-list',
+  selector: 'emx-solicitud-compra-list',
   standalone: true,
   imports: [CommonModule],
   template: `
@@ -25,7 +24,6 @@ import { SolicitudCompra } from '../../../../core/models/compras.model';
               <th class="px-4 py-3">Justificación</th>
               <th class="px-4 py-3 text-right">Monto Estimado</th>
               <th class="px-4 py-3">Estado</th>
-              <th class="px-4 py-3 text-center">Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -44,14 +42,9 @@ import { SolicitudCompra } from '../../../../core/models/compras.model';
                   {{ s.estado }}
                 </span>
               </td>
-              <td class="px-4 py-3 text-center">
-                <button *ngIf="s.estado === 'PRESENTADA'" (click)="aprobar(s.id!)" class="px-3 py-1 bg-green-600 text-white text-xs font-semibold rounded-lg hover:bg-green-700">
-                  Aprobar (SoD)
-                </button>
-              </td>
             </tr>
             <tr *ngIf="solicitudes.length === 0">
-              <td colspan="6" class="text-center py-6 text-gray-400">No hay solicitudes de compra registradas.</td>
+              <td colspan="5" class="text-center py-6 text-gray-400">No hay solicitudes de compra registradas.</td>
             </tr>
           </tbody>
         </table>
@@ -59,19 +52,6 @@ import { SolicitudCompra } from '../../../../core/models/compras.model';
     </div>
   `
 })
-export class SolicitudCompraListComponent implements OnInit {
-  private comprasService = inject(ComprasService);
-  solicitudes: SolicitudCompra[] = [];
-
-  ngOnInit(): void {
-    this.cargarSolicitudes();
-  }
-
-  cargarSolicitudes(): void {
-    this.comprasService.getSolicitudes().subscribe(s => this.solicitudes = s);
-  }
-
-  aprobar(id: number): void {
-    this.comprasService.aprobarSolicitud(id).subscribe(() => this.cargarSolicitudes());
-  }
+export class SolicitudCompraListComponent {
+  solicitudes: Array<{ id: number; numeroSolicitud: string; solicitante: string; justificacion: string; montoEstimado: number; estado: string }> = [];
 }

@@ -133,19 +133,19 @@ export const routes: Routes = [
       },
       {
         path: 'institutions',
-        canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_PROPIETARIO', 'ROLE_ADMINISTRADOR')],
+        canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_PROPIETARIO', 'ROLE_ADMINISTRADOR', 'ROLE_CONTADOR')],
         loadComponent: () =>
           import('./features/institutions/institutions.component').then((m) => m.InstitutionsComponent),
       },
       {
         path: 'plans',
-        canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_PROPIETARIO', 'ROLE_ADMINISTRADOR')],
+        canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_PROPIETARIO', 'ROLE_ADMINISTRADOR', 'ROLE_CONTADOR')],
         loadComponent: () =>
           import('./features/plans/plans.component').then((m) => m.PlansComponent),
       },
       {
         path: 'facturacion',
-        canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_ADMINISTRADOR')],
+        canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_ADMINISTRADOR', 'ROLE_CONTADOR')],
         loadComponent: () =>
           import('./features/facturacion/facturacion.component').then((m) => m.FacturacionComponent),
       },
@@ -165,15 +165,21 @@ export const routes: Routes = [
       },
       {
         path: 'compras',
-        canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_ADMINISTRADOR', 'ROLE_PROPIETARIO')],
+        canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_ADMINISTRADOR', 'ROLE_PROPIETARIO', 'ROLE_CONTADOR')],
         loadComponent: () =>
           import('./features/compras/compras.component').then((m) => m.ComprasComponent),
       },
       {
         path: 'cuentas-corrientes',
-        canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_ADMINISTRADOR', 'ROLE_PROPIETARIO')],
+        canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_ADMINISTRADOR', 'ROLE_PROPIETARIO', 'ROLE_CONTADOR')],
         loadComponent: () =>
           import('./features/cuentas-corrientes/cuentas-corrientes.component').then((m) => m.CuentasCorrientesComponent),
+      },
+      {
+        path: 'tesoreria',
+        canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_GERENTE', 'ROLE_CONTADOR')],
+        loadComponent: () =>
+          import('./features/tesoreria/tesoreria.component').then((m) => m.TesoreriaComponent),
       },
       {
         path: 'hospitals',
@@ -184,10 +190,8 @@ export const routes: Routes = [
       },
       {
         path: 'obras-sociales',
-        // Mismo criterio que institutions/plans: catálogo administrativo, no operativo.
-        // ROLE_CONTADOR no existe como authority Spring (RolCentro.CONTADOR es un rol
-        // de negocio por empresa, no un GrantedAuthority) — no se agrega acá.
-        canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_PROPIETARIO', 'ROLE_ADMINISTRADOR')],
+        // Catálogo administrativo habilitado para administración y contabilidad (ROLE_CONTADOR).
+        canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_PROPIETARIO', 'ROLE_ADMINISTRADOR', 'ROLE_CONTADOR')],
         loadComponent: () =>
           import('./features/obras-sociales/obras-sociales.component').then(
             (m) => m.ObrasSocialesComponent,

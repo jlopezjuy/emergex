@@ -1,8 +1,9 @@
-import { Component, OnInit, inject } from '@angular/core';
+// MAQUETA SIN CABLEAR — datos ficticios. La tarea F4-01 la conecta. No montar antes.
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 @Component({
-  selector: 'app-cxp-aging-dashboard',
+  selector: 'emx-cxp-aging-dashboard',
   standalone: true,
   imports: [CommonModule],
   template: `

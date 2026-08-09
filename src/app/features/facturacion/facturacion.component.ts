@@ -27,6 +27,7 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { InstitutionsApiService } from '../../data-access/api/institutions.api';
 import { ReportesApiService } from '../../data-access/api/reportes.api';
+import { UserFeedbackService } from '../../core/notifications/user-feedback.service';
 import {
   ContractDTO,
   FacturacionContratoDTO,
@@ -228,7 +229,7 @@ function estadoColor(estado: string): string {
           [attr.data-active]="tabActivo() === 'debitos'"
           (click)="tabActivo.set('debitos')"
         >
-          Débitos Automáticos
+          Débito automático
         </button>
         <button
           class="ft-tab"
@@ -1310,6 +1311,7 @@ export class FacturacionComponent implements OnInit {
   private api = inject(FacturacionApiService);
   private institutionsApi = inject(InstitutionsApiService);
   private reportesApi = inject(ReportesApiService);
+  private feedback = inject(UserFeedbackService);
 
   onExportCitiVentas(): void {
     const anio = DateUtils.now().year;
@@ -1324,7 +1326,7 @@ export class FacturacionComponent implements OnInit {
         window.URL.revokeObjectURL(url);
       },
       error: (err) =>
-        alert('Error al exportar CITI Ventas: ' + (err.error?.message || err.message)),
+        this.feedback.fromHttpError(err),
     });
   }
 
@@ -1341,7 +1343,7 @@ export class FacturacionComponent implements OnInit {
         window.URL.revokeObjectURL(url);
       },
       error: (err) =>
-        alert('Error al exportar CITI Compras: ' + (err.error?.message || err.message)),
+        this.feedback.fromHttpError(err),
     });
   }
 

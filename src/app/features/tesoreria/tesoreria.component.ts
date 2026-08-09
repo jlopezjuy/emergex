@@ -1,117 +1,196 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { TesoreriaApi, CajaStatus, MovimientoCaja } from '../../data-access/api/tesoreria.api';
 import { FormsModule } from '@angular/forms';
+import { TesoreriaApi, Caja, MovimientoCaja, ArqueoCaja } from '../../data-access/api/tesoreria.api';
 import { GlassCardComponent } from '../../shared/components/glass-card/glass-card.component';
+import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
+import { UserFeedbackService } from '../../core/notifications/user-feedback.service';
 
 @Component({
   selector: 'emx-tesoreria',
   standalone: true,
-  imports: [CommonModule, FormsModule, GlassCardComponent],
+  imports: [CommonModule, FormsModule, GlassCardComponent, EmptyStateComponent],
   template: `
     <div class="p-6">
-      <h1 class="text-2xl font-bold mb-4" style="color: var(--text-primary)">Tesorería</h1>
-      
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        <emx-glass-card>
-          <div class="flex justify-between items-center mb-4">
-            <h2 class="text-lg font-semibold" style="color: var(--text-primary)">Estado de Caja</h2>
-            <span class="px-3 py-1 rounded-full text-sm font-medium"
-                  [ngClass]="cajaStatus()?.estado === 'ABIERTA' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'">
-              {{ cajaStatus()?.estado || 'DESCONOCIDO' }}
-            </span>
-          </div>
-          <div class="text-3xl font-bold" style="color: var(--accent-cyan)">
-            @if (modoArqueoCiego()) {
-              <span>••••••</span>
-            } @else {
-              {{ cajaStatus()?.saldoActual | currency }}
-            }
-          </div>
+      <div class="mb-6">
+        <h1 class="text-2xl font-bold" style="color: var(--text-primary)">Tesorería</h1>
+        <p class="text-sm" style="color: var(--text-muted)">Operaciones de apertura de caja, registro de movimientos y arqueos</p>
+      </div>
 
-          <div class="mt-4 flex items-center gap-2">
-            <button (click)="toggleModoArqueoCiego()" class="text-xs text-muted hover:text-white underline">
-              {{ modoArqueoCiego() ? '👁️ Mostrar Saldo Teórico' : '🙈 Modo Arqueo Ciego (Ocultar Saldo)' }}
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <!-- Card 1: Abrir Caja -->
+        <emx-glass-card>
+          <h2 class="text-lg font-semibold mb-4" style="color: var(--text-primary)">Apertura de Caja</h2>
+          <div class="space-y-4">
+            <div>
+              <label class="block text-xs font-semibold uppercase mb-1" style="color: var(--text-muted)">Nombre de Caja</label>
+              <input type="text" [ngModel]="cajaNombre()" (ngModelChange)="cajaNombre.set($event)" placeholder="Ej: Caja Central"
+                     class="w-full px-3 py-2 border rounded-lg text-sm bg-transparent" style="border-color: var(--border-glass); color: var(--text-primary)" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold uppercase mb-1" style="color: var(--text-muted)">Monto Inicial ($)</label>
+              <input type="number" [ngModel]="montoInicial()" (ngModelChange)="montoInicial.set($event)" placeholder="0.00"
+                     class="w-full px-3 py-2 border rounded-lg text-sm bg-transparent font-mono" style="border-color: var(--border-glass); color: var(--text-primary)" />
+            </div>
+            <button (click)="ejecutarAbrirCaja()" [disabled]="loadingAbrir()" class="btn-primary w-full text-sm font-medium py-2 rounded-lg">
+              {{ loadingAbrir() ? 'Abriendo...' : 'Abrir Caja' }}
             </button>
           </div>
-          
-          <div class="mt-4 flex gap-2">
-            <button (click)="openMovimientoModal('INGRESO')" class="btn-primary flex-1">Ingreso</button>
-            <button (click)="openMovimientoModal('EGRESO')" class="btn-danger flex-1">Egreso</button>
-            <button (click)="openArqueoModal()" class="btn-secondary flex-1">Arqueo Ciego</button>
+        </emx-glass-card>
+
+        <!-- Card 2: Registrar Movimiento -->
+        <emx-glass-card>
+          <h2 class="text-lg font-semibold mb-4" style="color: var(--text-primary)">Registrar Movimiento</h2>
+          <div class="space-y-3">
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-xs font-semibold uppercase mb-1" style="color: var(--text-muted)">ID Caja</label>
+                <input type="number" [ngModel]="movCajaId()" (ngModelChange)="movCajaId.set($event)" placeholder="1"
+                       class="w-full px-3 py-2 border rounded-lg text-sm bg-transparent" style="border-color: var(--border-glass); color: var(--text-primary)" />
+              </div>
+              <div>
+                <label class="block text-xs font-semibold uppercase mb-1" style="color: var(--text-muted)">Tipo</label>
+                <select [ngModel]="movTipo()" (ngModelChange)="movTipo.set($event)"
+                        class="w-full px-3 py-2 border rounded-lg text-sm bg-transparent" style="border-color: var(--border-glass); color: var(--text-primary)">
+                  <option value="INGRESO">INGRESO</option>
+                  <option value="EGRESO">EGRESO</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold uppercase mb-1" style="color: var(--text-muted)">Monto ($)</label>
+              <input type="number" [ngModel]="movMonto()" (ngModelChange)="movMonto.set($event)" placeholder="0.00"
+                     class="w-full px-3 py-2 border rounded-lg text-sm bg-transparent font-mono" style="border-color: var(--border-glass); color: var(--text-primary)" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold uppercase mb-1" style="color: var(--text-muted)">Concepto</label>
+              <input type="text" [ngModel]="movConcepto()" (ngModelChange)="movConcepto.set($event)" placeholder="Concepto del movimiento"
+                     class="w-full px-3 py-2 border rounded-lg text-sm bg-transparent" style="border-color: var(--border-glass); color: var(--text-primary)" />
+            </div>
+            <button (click)="ejecutarRegistrarMovimiento()" [disabled]="loadingMovimiento()" class="btn-primary w-full text-sm font-medium py-2 rounded-lg">
+              {{ loadingMovimiento() ? 'Registrando...' : 'Registrar Movimiento' }}
+            </button>
+          </div>
+        </emx-glass-card>
+
+        <!-- Card 3: Realizar Arqueo -->
+        <emx-glass-card>
+          <h2 class="text-lg font-semibold mb-4" style="color: var(--text-primary)">Realizar Arqueo</h2>
+          <div class="space-y-4">
+            <div>
+              <label class="block text-xs font-semibold uppercase mb-1" style="color: var(--text-muted)">ID Caja</label>
+              <input type="number" [ngModel]="arqCajaId()" (ngModelChange)="arqCajaId.set($event)" placeholder="1"
+                     class="w-full px-3 py-2 border rounded-lg text-sm bg-transparent" style="border-color: var(--border-glass); color: var(--text-primary)" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold uppercase mb-1" style="color: var(--text-muted)">Monto Físico Contado ($)</label>
+              <input type="number" [ngModel]="arqMontoFisico()" (ngModelChange)="arqMontoFisico.set($event)" placeholder="0.00"
+                     class="w-full px-3 py-2 border rounded-lg text-sm bg-transparent font-mono" style="border-color: var(--border-glass); color: var(--text-primary)" />
+            </div>
+            <button (click)="ejecutarArqueo()" [disabled]="loadingArqueo()" class="btn-primary w-full text-sm font-medium py-2 rounded-lg">
+              {{ loadingArqueo() ? 'Procesando...' : 'Cerrar Arqueo' }}
+            </button>
           </div>
         </emx-glass-card>
       </div>
 
+      <!-- Honest state banner -->
       <emx-glass-card>
-        <h2 class="text-lg font-semibold mb-4" style="color: var(--text-primary)">Historial de Movimientos</h2>
-        <div class="overflow-x-auto">
-          <table class="w-full text-left border-collapse">
-            <thead>
-              <tr style="border-bottom: 1px solid var(--border-glass)">
-                <th class="py-2 px-4">Fecha</th>
-                <th class="py-2 px-4">Tipo</th>
-                <th class="py-2 px-4">Concepto</th>
-                <th class="py-2 px-4 text-right">Monto</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (mov of movimientos(); track mov.id) {
-                <tr style="border-bottom: 1px solid var(--border-glass)">
-                  <td class="py-2 px-4">{{ mov.fecha | date:'short' }}</td>
-                  <td class="py-2 px-4">
-                    <span [class]="mov.tipo === 'INGRESO' ? 'text-green-400' : 'text-red-400'">
-                      {{ mov.tipo }}
-                    </span>
-                  </td>
-                  <td class="py-2 px-4">{{ mov.concepto }}</td>
-                  <td class="py-2 px-4 text-right">{{ mov.monto | currency }}</td>
-                </tr>
-              }
-            </tbody>
-          </table>
+        <div class="mb-4">
+          <h2 class="text-lg font-semibold" style="color: var(--text-primary)">Estado de Caja y Movimientos</h2>
         </div>
+        <emx-empty-state message="La lectura de estado de caja e historial no está expuesta en el backend (TesoreriaResource carece de GET /cajas). Podés operar aperturas, movimientos y arqueos desde las fichas superiores."></emx-empty-state>
       </emx-glass-card>
-
-      <!-- Modals for Modifying State could go here, simplified for this implementation -->
     </div>
   `,
   styles: [`
-    .btn-primary { background: var(--accent-blue); color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; transition: opacity 0.2s; }
-    .btn-primary:hover { opacity: 0.9; }
-    .btn-secondary { background: var(--surface-glass); color: var(--text-primary); border: 1px solid var(--border-glass); padding: 0.5rem 1rem; border-radius: 0.5rem; }
-    .btn-secondary:hover { background: rgba(255,255,255,0.1); }
-    .btn-danger { background: var(--accent-red); color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; transition: opacity 0.2s; }
-    .btn-danger:hover { opacity: 0.9; }
+    .btn-primary { background: var(--accent-blue); color: white; transition: opacity 0.2s; }
+    .btn-primary:hover:not(:disabled) { opacity: 0.9; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
   `]
 })
-export class TesoreriaComponent implements OnInit {
+export class TesoreriaComponent {
   private readonly api = inject(TesoreriaApi);
+  private readonly feedback = inject(UserFeedbackService);
 
-  cajaStatus = signal<CajaStatus | null>(null);
-  movimientos = signal<MovimientoCaja[]>([]);
-  modoArqueoCiego = signal<boolean>(false);
+  // Form states
+  cajaNombre = signal<string>('Caja Principal');
+  montoInicial = signal<number>(0);
+  loadingAbrir = signal<boolean>(false);
 
-  ngOnInit() {
-    this.loadData();
+  movCajaId = signal<number>(1);
+  movTipo = signal<'INGRESO' | 'EGRESO'>('INGRESO');
+  movMonto = signal<number>(0);
+  movConcepto = signal<string>('');
+  loadingMovimiento = signal<boolean>(false);
+
+  arqCajaId = signal<number>(1);
+  arqMontoFisico = signal<number>(0);
+  loadingArqueo = signal<boolean>(false);
+
+  ejecutarAbrirCaja(): void {
+    if (!this.cajaNombre().trim()) {
+      this.feedback.push({ type: 'warning', title: 'Validación', message: 'Ingresá el nombre de la caja.' });
+      return;
+    }
+    this.loadingAbrir.set(true);
+    this.api.abrirCaja(this.cajaNombre().trim(), this.montoInicial()).subscribe({
+      next: (caja: Caja) => {
+        this.loadingAbrir.set(false);
+        this.feedback.push({
+          type: 'success',
+          title: 'Caja abierta',
+          message: `Caja "${caja.nombre}" (ID #${caja.id}) abierta con monto inicial $${caja.montoInicial}.`,
+        });
+      },
+      error: (err) => {
+        this.loadingAbrir.set(false);
+        this.feedback.fromHttpError(err);
+      },
+    });
   }
 
-  toggleModoArqueoCiego() {
-    this.modoArqueoCiego.update(val => !val);
+  ejecutarRegistrarMovimiento(): void {
+    if (!this.movConcepto().trim() || this.movMonto() <= 0) {
+      this.feedback.push({ type: 'warning', title: 'Validación', message: 'Ingresá un concepto válido y un monto mayor a 0.' });
+      return;
+    }
+    this.loadingMovimiento.set(true);
+    this.api.registrarMovimientoCaja(this.movCajaId(), this.movTipo(), this.movMonto(), this.movConcepto().trim()).subscribe({
+      next: (mov: MovimientoCaja) => {
+        this.loadingMovimiento.set(false);
+        this.feedback.push({
+          type: 'success',
+          title: 'Movimiento registrado',
+          message: `Movimiento #${mov.id} (${mov.tipo}) de $${mov.monto} registrado exitosamente.`,
+        });
+      },
+      error: (err) => {
+        this.loadingMovimiento.set(false);
+        this.feedback.fromHttpError(err);
+      },
+    });
   }
 
-  private loadData() {
-    this.api.getStatus().subscribe(status => this.cajaStatus.set(status));
-    this.api.getMovimientos().subscribe(movs => this.movimientos.set(movs));
-  }
-
-  openMovimientoModal(tipo: 'INGRESO' | 'EGRESO') {
-    // Implement modal logic
-    console.log('Open modal for', tipo);
-  }
-
-  openArqueoModal() {
-    // Implement arqueo logic
-    console.log('Open arqueo modal');
+  ejecutarArqueo(): void {
+    if (this.arqMontoFisico() < 0) {
+      this.feedback.push({ type: 'warning', title: 'Validación', message: 'El monto físico contado debe ser igual o mayor a 0.' });
+      return;
+    }
+    this.loadingArqueo.set(true);
+    this.api.realizarArqueoCaja(this.arqCajaId(), this.arqMontoFisico()).subscribe({
+      next: (arq: ArqueoCaja) => {
+        this.loadingArqueo.set(false);
+        this.feedback.push({
+          type: 'success',
+          title: 'Arqueo realizado',
+          message: `Arqueo #${arq.id} procesado con un conteo de $${arq.montoFisicoContado}.`,
+        });
+      },
+      error: (err) => {
+        this.loadingArqueo.set(false);
+        this.feedback.fromHttpError(err);
+      },
+    });
   }
 }

@@ -1,9 +1,10 @@
+// MAQUETA SIN CABLEAR — datos ficticios. La tarea F3-03 la conecta. No montar antes.
 import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 
 @Component({
-  selector: 'app-orden-pago-form-modal',
+  selector: 'emx-orden-pago-form-modal',
   standalone: true,
   imports: [CommonModule, FormsModule, ReactiveFormsModule],
   template: `

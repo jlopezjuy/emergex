@@ -42,6 +42,9 @@ describe('EmergencyDetailComponent', () => {
       snapshot: {
         paramMap: {
           get: () => '1'
+        },
+        queryParamMap: {
+          get: () => null
         }
       }
     };

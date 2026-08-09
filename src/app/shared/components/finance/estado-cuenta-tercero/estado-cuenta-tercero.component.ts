@@ -1,10 +1,9 @@
-import { Component, Input, OnInit, inject } from '@angular/core';
+// MAQUETA SIN CABLEAR — datos ficticios. La tarea F2-03 la conecta. No montar antes.
+import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { LedgerService } from '../../../../core/services/ledger.service';
-import { LedgerCuentaCorriente } from '../../../../core/models/ledger.model';
 
 @Component({
-  selector: 'app-estado-cuenta-tercero',
+  selector: 'emx-estado-cuenta-tercero',
   standalone: true,
   imports: [CommonModule],
   template: `
@@ -55,22 +54,9 @@ import { LedgerCuentaCorriente } from '../../../../core/models/ledger.model';
     </div>
   `
 })
-export class EstadoCuentaTerceroComponent implements OnInit {
+export class EstadoCuentaTerceroComponent {
   @Input() terceroId!: number;
 
-  private ledgerService = inject(LedgerService);
-
   saldo: number = 0;
-  movimientos: LedgerCuentaCorriente[] = [];
-
-  ngOnInit(): void {
-    if (this.terceroId) {
-      this.cargarEstadoCuenta();
-    }
-  }
-
-  cargarEstadoCuenta(): void {
-    this.ledgerService.getSaldoTercero(this.terceroId).subscribe(s => this.saldo = s);
-    this.ledgerService.getMovimientosTercero(this.terceroId).subscribe(m => this.movimientos = m);
-  }
+  movimientos: Array<{ fechaContable: string; tipoMovimiento: string; concepto: string; montoDebe: number; montoHaber: number }> = [];
 }

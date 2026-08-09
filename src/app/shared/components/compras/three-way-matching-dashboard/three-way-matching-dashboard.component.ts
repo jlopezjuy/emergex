@@ -1,10 +1,9 @@
-import { Component, OnInit, inject } from '@angular/core';
+// MAQUETA SIN CABLEAR — datos ficticios. La tarea F3-06 la conecta. No montar antes.
+import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatchingService } from '../../../../core/services/matching.service';
-import { ComprobanteProveedor } from '../../../../core/models/recepcion-matching.model';
 
 @Component({
-  selector: 'app-three-way-matching-dashboard',
+  selector: 'emx-three-way-matching-dashboard',
   standalone: true,
   imports: [CommonModule],
   template: `
@@ -53,11 +52,6 @@ import { ComprobanteProveedor } from '../../../../core/models/recepcion-matching
     </div>
   `
 })
-export class ThreeWayMatchingDashboardComponent implements OnInit {
-  private matchingService = inject(MatchingService);
-  comprobantes: ComprobanteProveedor[] = [];
-
-  ngOnInit(): void {
-    this.matchingService.getComprobantesProveedor().subscribe(c => this.comprobantes = c);
-  }
+export class ThreeWayMatchingDashboardComponent {
+  comprobantes: Array<{ tipoDocumento: string; puntoVenta: number; numeroDocumento: number; fechaComprobante: string; montoTotal: number; estadoMatching: string; motivoBloqueo?: string }> = [];
 }

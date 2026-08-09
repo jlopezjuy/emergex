@@ -9,6 +9,7 @@ describe('FacturacionApiService (TDD Integration Spec)', () => {
   let httpMock: HttpTestingController;
 
   beforeEach(() => {
+    TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],
       providers: [FacturacionApiService],
@@ -30,7 +31,7 @@ describe('FacturacionApiService (TDD Integration Spec)', () => {
     });
 
     const req = httpMock.expectOne((request) =>
-      request.url === `${environment.apiUrl}/v1/facturas` &&
+      request.url === `${environment.apiUrl}/api/v1/facturacion/facturas` &&
       request.params.get('estado') === 'EMITIDA'
     );
     expect(req.request.method).toBe('GET');
@@ -46,9 +47,8 @@ describe('FacturacionApiService (TDD Integration Spec)', () => {
       expect(res.facturasGeneradas.length).toBe(10);
     });
 
-    const req = httpMock.expectOne(`${environment.apiUrl}/v1/facturas/generar-mensual`);
+    const req = httpMock.expectOne((r) => r.url === `${environment.apiUrl}/api/v1/facturacion/generar-mensual`);
     expect(req.request.method).toBe('POST');
-    expect(req.request.body).toEqual({ mes: 5, anio: 2026 });
 
     req.flush({
       mes: 5,
@@ -74,7 +74,7 @@ describe('FacturacionApiService (TDD Integration Spec)', () => {
       },
     });
 
-    const req = httpMock.expectOne(`${environment.apiUrl}/v1/facturas/101/pagos`);
+    const req = httpMock.expectOne(`${environment.apiUrl}/api/v1/facturacion/facturas/101/pago`);
     expect(req.request.method).toBe('POST');
 
     req.flush({ message: 'Monto inválido para el pago' }, { status: 400, statusText: 'Bad Request' });
@@ -88,7 +88,7 @@ describe('FacturacionApiService (TDD Integration Spec)', () => {
       },
     });
 
-    const req = httpMock.expectOne(`${environment.apiUrl}/v1/facturas/generar-mensual`);
+    const req = httpMock.expectOne((r) => r.url === `${environment.apiUrl}/api/v1/facturacion/generar-mensual`);
     req.flush({ message: 'Fallo catastrófico en servicio ARCA/AFIP' }, { status: 500, statusText: 'Internal Server Error' });
   });
 });

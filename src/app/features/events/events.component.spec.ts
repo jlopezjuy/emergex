@@ -14,6 +14,7 @@ describe('EventsComponent', () => {
   let institutionsApiMock: any;
 
   beforeEach(async () => {
+    TestBed.resetTestingModule();
     eventsApiMock = {
       getAll: vi.fn().mockReturnValue(of([])),
       getIncidentsByEvent: vi.fn().mockReturnValue(of([])),

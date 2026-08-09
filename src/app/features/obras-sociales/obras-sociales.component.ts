@@ -15,6 +15,8 @@ import { PlanObraSocialModalComponent } from './plan-obra-social-modal.component
 import { ConvenioObraSocialModalComponent } from './convenio-obra-social-modal.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
+import { LoadingStateComponent } from '../../shared/components/loading-state/loading-state.component';
+import { ErrorStateComponent } from '../../shared/components/error-state/error-state.component';
 import { UserFeedbackService } from '../../core/notifications/user-feedback.service';
 
 type ActivaFilter = 'TODAS' | 'ACTIVAS' | 'INACTIVAS';
@@ -29,6 +31,8 @@ type ActivaFilter = 'TODAS' | 'ACTIVAS' | 'INACTIVAS';
     ConvenioObraSocialModalComponent,
     StatusBadgeComponent,
     EmptyStateComponent,
+    LoadingStateComponent,
+    ErrorStateComponent,
   ],
   template: `
     <div class="screen">
@@ -138,10 +142,9 @@ type ActivaFilter = 'TODAS' | 'ACTIVAS' | 'INACTIVAS';
         </div>
 
         @if (loading()) {
-          <div class="os-loading-bar"></div>
-        }
-        @if (error()) {
-          <div class="os-error">{{ error() }}</div>
+          <emx-loading-state />
+        } @else if (error()) {
+          <emx-error-state [message]="error()!" (retry)="reload()" />
         }
 
         <!-- Table -->
