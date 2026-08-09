@@ -18,10 +18,27 @@ export class LedgerApiService {
   private base = `${environment.apiUrl}/api/ledger`;
 
   getSaldo(terceroId: number): Observable<number> {
-    return this.http.get<number>(`${this.base}/terceros/${terceroId}/saldo`);
+    return this.http.get<number>(`${this.base}/terceros/${terceroId}/cxc/saldo`);
+  }
+
+  getSaldoCxc(terceroId: number): Observable<number> {
+    return this.http.get<number>(`${this.base}/terceros/${terceroId}/cxc/saldo`);
+  }
+
+  getSaldoCxp(terceroId: number): Observable<number> {
+    return this.http.get<number>(`${this.base}/terceros/${terceroId}/cxp/saldo`);
   }
 
   getMovimientos(terceroId: number): Observable<LedgerMovimientoDTO[]> {
-    return this.http.get<LedgerMovimientoDTO[]>(`${this.base}/terceros/${terceroId}/movimientos`);
+    return this.http.get<LedgerMovimientoDTO[]>(`${this.base}/terceros/${terceroId}/cxc/movimientos`);
+  }
+
+  getMovimientosCxc(terceroId: number): Observable<LedgerMovimientoDTO[]> {
+    return this.http.get<LedgerMovimientoDTO[]>(`${this.base}/terceros/${terceroId}/cxc/movimientos`);
+  }
+
+  getMovimientosCxp(terceroId: number): Observable<LedgerMovimientoDTO[]> {
+    return this.http.get<LedgerMovimientoDTO[]>(`${this.base}/terceros/${terceroId}/cxp/movimientos`);
   }
 }
+
