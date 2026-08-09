@@ -9,8 +9,17 @@ import { SessionStore } from './core/stores/session.store';
 export const routes: Routes = [
   {
     path: '',
-    redirectTo: 'dashboard',
     pathMatch: 'full',
+    canActivate: [
+      () => {
+        const sessionStore = inject(SessionStore);
+        const router = inject(Router);
+        if (sessionStore.hasAnyRole(['ROLE_ADMIN', 'ROLE_PROPIETARIO', 'ROLE_ADMINISTRADOR', 'ROLE_CONTADOR'])) {
+          return router.parseUrl('/administracion');
+        }
+        return router.parseUrl('/dashboard');
+      }
+    ]
   },
   {
     path: 'access-denied',
@@ -46,6 +55,14 @@ export const routes: Routes = [
     component: ShellComponent,
     canActivate: [authGuard],
     children: [
+      {
+        path: 'administracion',
+        canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_PROPIETARIO', 'ROLE_ADMINISTRADOR', 'ROLE_CONTADOR', 'ROLE_OPERADOR')],
+        loadChildren: () =>
+          import('./features/administracion/administracion.routes').then(
+            (m) => m.ADMINISTRACION_ROUTES
+          ),
+      },
       {
         path: 'dashboard',
         canActivate: [roleGuard('ROLE_DESPACHANTE', 'ROLE_OPERADOR', 'ROLE_ADMIN', 'ROLE_ADMINISTRADOR', 'ROLE_PROPIETARIO')],

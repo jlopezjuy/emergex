@@ -1,0 +1,331 @@
+import { Component, signal, computed, inject, OnInit, DestroyRef } from '@angular/core';
+import { Router } from '@angular/router';
+import { catchError, of } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { BandejasApi } from '../../../data-access/api/bandejas.api';
+import { BandejaTrabajoResumenDTO, ItemBandejaDTO } from '../../../data-access/dto/bandejas.dto';
+import { KpiCardComponent } from '../../../shared/components/kpi-card/kpi-card.component';
+import { StatusBadgeComponent } from '../../../shared/components/status-badge/status-badge.component';
+import { LoadingStateComponent } from '../../../shared/components/loading-state/loading-state.component';
+import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
+import { ErrorStateComponent } from '../../../shared/components/error-state/error-state.component';
+
+export type SeveridadFiltro = 'TODAS' | 'ALTA' | 'MEDIA' | 'BAJA';
+
+@Component({
+  selector: 'emx-centro-administrativo',
+  standalone: true,
+  imports: [
+    KpiCardComponent,
+    StatusBadgeComponent,
+    LoadingStateComponent,
+    EmptyStateComponent,
+    ErrorStateComponent
+  ],
+  template: `
+    <div class="p-6 max-w-7xl mx-auto flex flex-col gap-6">
+      <!-- Encabezado de la Consola Administrativa -->
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 class="text-xl font-bold" style="color: var(--text-primary);">
+            Centro Administrativo y Bandejas de Excepción
+          </h1>
+          <p class="text-xs" style="color: var(--text-muted);">
+            Consola centralizada para gestión de desvíos en facturación, cobranzas, compras y contratos.
+          </p>
+        </div>
+
+        <!-- Filtro por severidad -->
+        <div class="flex items-center gap-1.5 glass rounded-panel p-1 border" style="border-color: var(--border-glass);">
+          <span class="text-xs font-semibold px-2 uppercase tracking-wider" style="color: var(--text-muted);">Severidad:</span>
+          @for (op of severidadOptions; track op) {
+            <button
+              type="button"
+              class="px-2.5 py-1 text-xs font-semibold rounded transition-colors"
+              [class.bg-blue-600]="severidadFiltro() === op"
+              [class.text-white]="severidadFiltro() === op"
+              [style.color]="severidadFiltro() === op ? '#ffffff' : 'var(--text-secondary)'"
+              (click)="severidadFiltro.set(op)"
+            >
+              {{ op }}
+            </button>
+          }
+        </div>
+      </div>
+
+      @if (loading()) {
+        <emx-loading-state />
+      } @else if (error()) {
+        <emx-error-state [message]="error()!" (retry)="cargarResumen()" />
+      } @else {
+        <!-- Fila 1: 9 KPIs Consolidados -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-3">
+          <emx-kpi-card label="Tarifación" [value]="resumen()?.ticketsPendientesTarifacion" accentColor="cyan" />
+          <emx-kpi-card label="Fact. Pendiente" [value]="resumen()?.facturasPendientesCobro" accentColor="red" />
+          <emx-kpi-card label="Débitos Recl." [value]="resumen()?.debitosPendientesReclamo" accentColor="amber" />
+          <emx-kpi-card label="Prom. Incumpl." [value]="resumen()?.promesasIncumplidas" accentColor="red" />
+          <emx-kpi-card label="Mora Crítica" [value]="resumen()?.clientesEnMoraCritica" accentColor="red" />
+          <emx-kpi-card label="OC Aprobación" [value]="resumen()?.ordenesCompraPendientesAprobacion" accentColor="blue" />
+          <emx-kpi-card label="OP Aprobación" [value]="resumen()?.ordenesPagoPendientesAprobacion" accentColor="amber" />
+          <emx-kpi-card label="Contratos x Vencer" [value]="resumen()?.contratosPorVencer" accentColor="amber" />
+          <emx-kpi-card label="Contratos Vencidos" [value]="resumen()?.contratosVencidos" accentColor="red" />
+        </div>
+
+        <!-- Fila 2: Las 4 Bandejas de Trabajo por Excepción -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <!-- Bandeja 1: Facturación por Excepción -->
+          <div class="glass rounded-panel p-4 flex flex-col gap-3 border" style="border-color: var(--border-glass);">
+            <div class="flex items-center justify-between border-b pb-2" style="border-color: var(--border-glass);">
+              <h3 class="text-sm font-bold uppercase tracking-wider flex items-center gap-2" style="color: var(--text-primary);">
+                <span>🧾</span> Facturación y Tarifación
+              </h3>
+              <span class="text-xs font-mono font-semibold px-2 py-0.5 rounded" style="background: var(--bg-elevated); color: var(--text-secondary);">
+                {{ filteredFacturacion().length }} ítems
+              </span>
+            </div>
+
+            @if (filteredFacturacion().length === 0) {
+              <emx-empty-state message="Sin excepciones de facturación." />
+            } @else {
+              <div class="flex flex-col gap-2 overflow-y-auto max-h-80 pr-1">
+                @for (item of filteredFacturacion(); track $index) {
+                  <div
+                    class="p-3 rounded-lg border flex flex-col gap-1.5 transition-all"
+                    [class.cursor-pointer]="getRouteForItem(item) !== null"
+                    [class.hover:border-blue-500]="getRouteForItem(item) !== null"
+                    style="background: var(--bg-elevated); border-color: var(--border-glass);"
+                    (click)="onSelectItem(item)"
+                  >
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="text-xs font-bold" style="color: var(--text-primary);">{{ item.titulo }}</span>
+                      <emx-status-badge [variant]="mapSeveridadBadge(item.severidad)">
+                        {{ item.severidad }}
+                      </emx-status-badge>
+                    </div>
+                    @if (item.detalle) {
+                      <p class="text-xs leading-relaxed" style="color: var(--text-muted);">{{ item.detalle }}</p>
+                    }
+                    <div class="flex items-center justify-between text-[11px] font-mono mt-1 pt-1 border-t" style="border-color: var(--border-glass); color: var(--text-muted);">
+                      <span>{{ item.categoria || 'FACTURACIÓN' }}</span>
+                      @if (getRouteForItem(item)) {
+                        <span class="font-semibold" style="color: var(--accent-blue);">Ver Ficha →</span>
+                      } @else {
+                        <span style="color: var(--text-muted);">Sin ficha 360</span>
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+
+          <!-- Bandeja 2: Cobranzas y Mora -->
+          <div class="glass rounded-panel p-4 flex flex-col gap-3 border" style="border-color: var(--border-glass);">
+            <div class="flex items-center justify-between border-b pb-2" style="border-color: var(--border-glass);">
+              <h3 class="text-sm font-bold uppercase tracking-wider flex items-center gap-2" style="color: var(--text-primary);">
+                <span>💳</span> Cobranzas y Gestión de Mora
+              </h3>
+              <span class="text-xs font-mono font-semibold px-2 py-0.5 rounded" style="background: var(--bg-elevated); color: var(--text-secondary);">
+                {{ filteredCobranzas().length }} ítems
+              </span>
+            </div>
+
+            @if (filteredCobranzas().length === 0) {
+              <emx-empty-state message="Sin excepciones de cobranzas." />
+            } @else {
+              <div class="flex flex-col gap-2 overflow-y-auto max-h-80 pr-1">
+                @for (item of filteredCobranzas(); track $index) {
+                  <div
+                    class="p-3 rounded-lg border flex flex-col gap-1.5 transition-all"
+                    [class.cursor-pointer]="getRouteForItem(item) !== null"
+                    [class.hover:border-blue-500]="getRouteForItem(item) !== null"
+                    style="background: var(--bg-elevated); border-color: var(--border-glass);"
+                    (click)="onSelectItem(item)"
+                  >
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="text-xs font-bold" style="color: var(--text-primary);">{{ item.titulo }}</span>
+                      <emx-status-badge [variant]="mapSeveridadBadge(item.severidad)">
+                        {{ item.severidad }}
+                      </emx-status-badge>
+                    </div>
+                    @if (item.detalle) {
+                      <p class="text-xs leading-relaxed" style="color: var(--text-muted);">{{ item.detalle }}</p>
+                    }
+                    <div class="flex items-center justify-between text-[11px] font-mono mt-1 pt-1 border-t" style="border-color: var(--border-glass); color: var(--text-muted);">
+                      <span>{{ item.categoria || 'COBRANZAS' }}</span>
+                      @if (getRouteForItem(item)) {
+                        <span class="font-semibold" style="color: var(--accent-blue);">Ver Ficha →</span>
+                      } @else {
+                        <span style="color: var(--text-muted);">Sin ficha 360</span>
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+
+          <!-- Bandeja 3: Compras y Ordenes de Pago -->
+          <div class="glass rounded-panel p-4 flex flex-col gap-3 border" style="border-color: var(--border-glass);">
+            <div class="flex items-center justify-between border-b pb-2" style="border-color: var(--border-glass);">
+              <h3 class="text-sm font-bold uppercase tracking-wider flex items-center gap-2" style="color: var(--text-primary);">
+                <span>🛒</span> Compras y Aprobación de Pagos
+              </h3>
+              <span class="text-xs font-mono font-semibold px-2 py-0.5 rounded" style="background: var(--bg-elevated); color: var(--text-secondary);">
+                {{ filteredCompras().length }} ítems
+              </span>
+            </div>
+
+            @if (filteredCompras().length === 0) {
+              <emx-empty-state message="Sin excepciones de compras." />
+            } @else {
+              <div class="flex flex-col gap-2 overflow-y-auto max-h-80 pr-1">
+                @for (item of filteredCompras(); track $index) {
+                  <div
+                    class="p-3 rounded-lg border flex flex-col gap-1.5 transition-all"
+                    [class.cursor-pointer]="getRouteForItem(item) !== null"
+                    [class.hover:border-blue-500]="getRouteForItem(item) !== null"
+                    style="background: var(--bg-elevated); border-color: var(--border-glass);"
+                    (click)="onSelectItem(item)"
+                  >
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="text-xs font-bold" style="color: var(--text-primary);">{{ item.titulo }}</span>
+                      <emx-status-badge [variant]="mapSeveridadBadge(item.severidad)">
+                        {{ item.severidad }}
+                      </emx-status-badge>
+                    </div>
+                    @if (item.detalle) {
+                      <p class="text-xs leading-relaxed" style="color: var(--text-muted);">{{ item.detalle }}</p>
+                    }
+                    <div class="flex items-center justify-between text-[11px] font-mono mt-1 pt-1 border-t" style="border-color: var(--border-glass); color: var(--text-muted);">
+                      <span>{{ item.categoria || 'COMPRAS' }}</span>
+                      @if (getRouteForItem(item)) {
+                        <span class="font-semibold" style="color: var(--accent-blue);">Ver Ficha →</span>
+                      } @else {
+                        <span style="color: var(--text-muted);">Sin ficha 360</span>
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+
+          <!-- Bandeja 4: Contratos y Convenios -->
+          <div class="glass rounded-panel p-4 flex flex-col gap-3 border" style="border-color: var(--border-glass);">
+            <div class="flex items-center justify-between border-b pb-2" style="border-color: var(--border-glass);">
+              <h3 class="text-sm font-bold uppercase tracking-wider flex items-center gap-2" style="color: var(--text-primary);">
+                <span>📄</span> Contratos y Vencimientos
+              </h3>
+              <span class="text-xs font-mono font-semibold px-2 py-0.5 rounded" style="background: var(--bg-elevated); color: var(--text-secondary);">
+                {{ filteredContratos().length }} ítems
+              </span>
+            </div>
+
+            @if (filteredContratos().length === 0) {
+              <emx-empty-state message="Sin excepciones de contratos." />
+            } @else {
+              <div class="flex flex-col gap-2 overflow-y-auto max-h-80 pr-1">
+                @for (item of filteredContratos(); track $index) {
+                  <div
+                    class="p-3 rounded-lg border flex flex-col gap-1.5 transition-all"
+                    [class.cursor-pointer]="getRouteForItem(item) !== null"
+                    [class.hover:border-blue-500]="getRouteForItem(item) !== null"
+                    style="background: var(--bg-elevated); border-color: var(--border-glass);"
+                    (click)="onSelectItem(item)"
+                  >
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="text-xs font-bold" style="color: var(--text-primary);">{{ item.titulo }}</span>
+                      <emx-status-badge [variant]="mapSeveridadBadge(item.severidad)">
+                        {{ item.severidad }}
+                      </emx-status-badge>
+                    </div>
+                    @if (item.detalle) {
+                      <p class="text-xs leading-relaxed" style="color: var(--text-muted);">{{ item.detalle }}</p>
+                    }
+                    <div class="flex items-center justify-between text-[11px] font-mono mt-1 pt-1 border-t" style="border-color: var(--border-glass); color: var(--text-muted);">
+                      <span>{{ item.categoria || 'CONTRATOS' }}</span>
+                      @if (getRouteForItem(item)) {
+                        <span class="font-semibold" style="color: var(--accent-blue);">Ver Ficha →</span>
+                      } @else {
+                        <span style="color: var(--text-muted);">Sin ficha 360</span>
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      }
+    </div>
+  `,
+})
+export class CentroAdministrativoComponent implements OnInit {
+  private readonly api = inject(BandejasApi);
+  private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
+
+  readonly loading = signal(true);
+  readonly error = signal<string | null>(null);
+  readonly resumen = signal<BandejaTrabajoResumenDTO | null>(null);
+
+  readonly severidadOptions: SeveridadFiltro[] = ['TODAS', 'ALTA', 'MEDIA', 'BAJA'];
+  readonly severidadFiltro = signal<SeveridadFiltro>('TODAS');
+
+  private filterList(items: ItemBandejaDTO[] = []): ItemBandejaDTO[] {
+    const f = this.severidadFiltro();
+    if (f === 'TODAS') return items;
+    return items.filter((i) => i.severidad?.toUpperCase() === f);
+  }
+
+  readonly filteredFacturacion = computed(() => this.filterList(this.resumen()?.itemsFacturacion));
+  readonly filteredCobranzas = computed(() => this.filterList(this.resumen()?.itemsCobranzas));
+  readonly filteredCompras = computed(() => this.filterList(this.resumen()?.itemsCompras));
+  readonly filteredContratos = computed(() => this.filterList(this.resumen()?.itemsContratos));
+
+  ngOnInit(): void {
+    this.cargarResumen();
+  }
+
+  cargarResumen(): void {
+    this.loading.set(true);
+    this.error.set(null);
+
+    this.api
+      .getResumen()
+      .pipe(
+        catchError(() => {
+          this.error.set('No se pudo cargar el resumen del centro administrativo.');
+          this.loading.set(false);
+          return of(null);
+        }),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe((res) => {
+        if (res) this.resumen.set(res);
+        this.loading.set(false);
+      });
+  }
+
+  mapSeveridadBadge(severidad?: string): 'critical' | 'urgent' | 'info' {
+    const sev = severidad?.toUpperCase();
+    if (sev === 'ALTA') return 'critical';
+    if (sev === 'MEDIA') return 'urgent';
+    return 'info';
+  }
+
+  getRouteForItem(item: ItemBandejaDTO): string | null {
+    if (item.entidadTipo === 'AFILIADO' && item.entidadId) {
+      return `/patients/${item.entidadId}`;
+    }
+    return null;
+  }
+
+  onSelectItem(item: ItemBandejaDTO): void {
+    const route = this.getRouteForItem(item);
+    if (route) {
+      this.router.navigateByUrl(route);
+    }
+  }
+}

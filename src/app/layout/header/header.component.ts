@@ -1,13 +1,16 @@
-import { Component, input, output, inject, signal, computed, OnInit, OnDestroy } from '@angular/core';
+import { Component, input, output, inject, signal, computed, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { Router } from '@angular/router';
 import { NotificationStore } from '../../core/stores/notification.store';
+import { SessionStore } from '../../core/stores/session.store';
 import { AuthService } from '../../core/auth/auth.service';
 import { EmergencyModalService } from '../../shared/components/emergency/emergency-modal.service';
+import { GlobalSearchComponent } from '../../shared/components/global-search/global-search.component';
 import { DateUtils } from '../../core/utils/date.utils';
 
 @Component({
   selector: 'emx-header',
   standalone: true,
+  imports: [GlobalSearchComponent],
   template: `
     <header
       class="flex items-center justify-between px-3 py-2 border-b flex-shrink-0 relative min-h-14"
@@ -82,6 +85,30 @@ import { DateUtils } from '../../core/utils/date.utils';
           <span class="dot"></span>
           Sistema OK
         </div>
+
+        <!-- Buscador Global -->
+        @if (canSearch()) {
+          <button
+            type="button"
+            class="btn btn--ghost btn--sm flex items-center gap-1.5"
+            style="border-color: var(--border-glass); color: var(--text-secondary);"
+            title="Búsqueda global (Ctrl+K)"
+            (click)="openSearchModal()"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            <span class="hide-below-md">Buscar</span>
+            <span
+              class="font-mono text-xs ml-1 px-1 rounded"
+              style="background: var(--surface-glass); border: 1px solid var(--border-glass); color: var(--text-muted);"
+            >⌘K</span>
+          </button>
+        }
+
+        @if (searchModalOpen()) {
+          <emx-global-search (closed)="closeSearchModal()" />
+        }
 
         <!-- Institucional -->
         <button
@@ -251,10 +278,23 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
   readonly emergencyModalService = inject(EmergencyModalService);
   readonly notifications = inject(NotificationStore);
+  private sessionStore = inject(SessionStore);
   private auth = inject(AuthService);
   private router = inject(Router);
 
   readonly menuOpen = signal(false);
+  readonly searchModalOpen = signal(false);
+
+  readonly canSearch = computed(() =>
+    this.sessionStore.hasAnyRole([
+      'ROLE_ADMIN',
+      'ROLE_PROPIETARIO',
+      'ROLE_ADMINISTRADOR',
+      'ROLE_CONTADOR',
+      'ROLE_OPERADOR',
+      'ROLE_DESPACHANTE'
+    ])
+  );
 
   readonly tenantName = computed(() =>
     this.auth.currentAccount()?.empresa?.nombre?.toUpperCase() ?? 'EMERGEX DEMO',
@@ -316,6 +356,26 @@ export class HeaderComponent implements OnInit, OnDestroy {
     this.router.navigateByUrl('/login').catch(() => {
       window.location.href = '/login';
     });
+  }
+
+  openSearchModal(): void {
+    if (this.canSearch()) {
+      this.searchModalOpen.set(true);
+    }
+  }
+
+  closeSearchModal(): void {
+    this.searchModalOpen.set(false);
+  }
+
+  @HostListener('window:keydown', ['$event'])
+  onKeydown(event: KeyboardEvent): void {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+      if (this.canSearch()) {
+        event.preventDefault();
+        this.searchModalOpen.update((v) => !v);
+      }
+    }
   }
 
   openProfile(): void {

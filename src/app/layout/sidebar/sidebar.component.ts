@@ -1,7 +1,6 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, OnInit } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { FleetStore } from '../../core/stores/fleet.store';
-
 import { ThemeService } from '../../core/theme/theme.service';
 import { SafeHtmlPipe } from '../../shared/pipes/safe-html.pipe';
 import { toObservable, takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -10,6 +9,8 @@ import { AuthService } from '../../core/auth/auth.service';
 import { MenuService, IMenuItem } from '../../core/menu/menu.service';
 import { SessionStore } from '../../core/stores/session.store';
 
+const STORAGE_KEY_SECTIONS = 'emx_sidebar_sections';
+
 @Component({
   selector: 'emx-sidebar',
   standalone: true,
@@ -17,9 +18,10 @@ import { SessionStore } from '../../core/stores/session.store';
   template: `
     <aside
       class="h-screen border-r flex-shrink-0 transition-all duration-200 flex flex-col"
-      [style.width.px]="expanded() ? 228 : 72"
+      [style.width.px]="expanded() ? 240 : 72"
       style="background: var(--bg-elevated); border-color: var(--border-glass);"
     >
+      <!-- Header -->
       <div class="px-3 pt-3 pb-2 border-b" style="border-color: var(--border-glass);">
         <div class="flex items-center gap-2">
           <div
@@ -56,25 +58,78 @@ import { SessionStore } from '../../core/stores/session.store';
         </div>
       </div>
 
-      <div class="flex-1 overflow-y-auto px-2 py-2 space-y-1">
-        @for (item of visibleItems(); track item.id) {
-          <a
-            [routerLink]="item.route || ''"
-            routerLinkActive="nav-active"
-            class="nav-item"
-            [title]="item.title"
-          >
-            <span class="icon" [innerHTML]="item.icon | safeHtml"></span>
-            @if (expanded()) {
-              <span class="label">{{ item.label }}</span>
-            }
-            @if ((item.id === 'fleet' || item.id === 'ambulancias') && fleetAlert()) {
-              <span class="alert-dot"></span>
-            }
-          </a>
+      <!-- Navigation Content -->
+      <div class="flex-1 overflow-y-auto px-2 py-2 space-y-3">
+        @if (expanded()) {
+          <!-- Expanded Mode: Grouped Sections -->
+          @for (sec of groupedItems(); track sec.id) {
+            <div class="space-y-1">
+              <!-- Section Header -->
+              <button
+                type="button"
+                class="w-full flex items-center justify-between px-2 py-1 text-[11px] font-bold uppercase tracking-wider rounded transition-colors"
+                style="color: var(--text-secondary);"
+                (click)="toggleSection(sec.id)"
+              >
+                <div class="flex items-center gap-1.5 truncate">
+                  <span class="w-4 h-4 flex items-center justify-center opacity-70" [innerHTML]="sec.icon | safeHtml"></span>
+                  <span class="truncate">{{ sec.label }}</span>
+                </div>
+                <svg
+                  class="w-3 h-3 transition-transform duration-200"
+                  [class.rotate-180]="!isSectionExpanded(sec.id)"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+              </button>
+
+              <!-- Section Children -->
+              @if (isSectionExpanded(sec.id)) {
+                <div class="space-y-0.5 pl-1">
+                  @for (item of sec.children || []; track item.id) {
+                    <a
+                      [routerLink]="item.route || ''"
+                      routerLinkActive="nav-active"
+                      class="nav-item"
+                      [title]="item.title"
+                    >
+                      <span class="icon" [innerHTML]="item.icon | safeHtml"></span>
+                      <span class="label">{{ item.label }}</span>
+                      @if ((item.id === 'fleet' || item.id === 'ambulancias') && fleetAlert()) {
+                        <span class="alert-dot"></span>
+                      }
+                    </a>
+                  }
+                </div>
+              }
+            </div>
+          }
+        } @else {
+          <!-- Collapsed Mode: Flat icons for quick access -->
+          @for (sec of groupedItems(); track sec.id) {
+            <div class="space-y-1 py-1 border-b" style="border-color: var(--border-glass);">
+              @for (item of sec.children || []; track item.id) {
+                <a
+                  [routerLink]="item.route || ''"
+                  routerLinkActive="nav-active"
+                  class="nav-item"
+                  [title]="sec.label + ': ' + item.title"
+                >
+                  <span class="icon" [innerHTML]="item.icon | safeHtml"></span>
+                  @if ((item.id === 'fleet' || item.id === 'ambulancias') && fleetAlert()) {
+                    <span class="alert-dot"></span>
+                  }
+                </a>
+              }
+            </div>
+          }
         }
       </div>
 
+      <!-- Footer Actions -->
       <div class="px-2 pb-2 pt-1 border-t space-y-1" style="border-color: var(--border-glass);">
         <button type="button" class="nav-item" title="Cambiar tema" (click)="theme.toggleTheme()">
           <span class="icon">
@@ -105,13 +160,13 @@ import { SessionStore } from '../../core/stores/session.store';
       align-items: center;
       gap: 10px;
       width: 100%;
-      min-height: 38px;
-      border-radius: 10px;
+      min-height: 36px;
+      border-radius: 8px;
       color: var(--text-muted);
       text-decoration: none;
       border: 1px solid transparent;
       background: transparent;
-      padding: 0 10px;
+      padding: 0 8px;
       transition: all 0.15s ease;
       font-size: 12px;
       cursor: pointer;
@@ -168,22 +223,58 @@ import { SessionStore } from '../../core/stores/session.store';
     }
   `],
 })
-export class SidebarComponent {
+export class SidebarComponent implements OnInit {
   readonly theme = inject(ThemeService);
   private readonly fleet = inject(FleetStore);
   private readonly menuService = inject(MenuService);
   private readonly authService = inject(AuthService);
   private readonly sessionStore = inject(SessionStore);
 
-  readonly expanded = signal(false);
+  readonly expanded = signal(true);
+  readonly expandedSections = signal<Record<string, boolean>>({});
+
   readonly fleetAlert = computed(() =>
     this.fleet.ambulances().some(
       a => a.estado === 'MANTENIMIENTO' || (a.bateria != null && a.bateria < 20),
     ),
   );
 
-  readonly menuItems = signal<IMenuItem[]>([]);
-  readonly visibleItems = computed(() => this.menuItems());
+  readonly flatMenuItems = signal<IMenuItem[]>([]);
+  readonly groupedItems = computed(() =>
+    this.menuService.groupMenuItems(this.flatMenuItems())
+  );
+
+  ngOnInit(): void {
+    this.loadSavedSectionStates();
+  }
+
+  isSectionExpanded(sectionId: string): boolean {
+    const states = this.expandedSections();
+    return states[sectionId] !== false;
+  }
+
+  toggleSection(sectionId: string): void {
+    this.expandedSections.update((curr) => {
+      const next = { ...curr, [sectionId]: !this.isSectionExpanded(sectionId) };
+      try {
+        localStorage.setItem(STORAGE_KEY_SECTIONS, JSON.stringify(next));
+      } catch {
+        // Ignorar si localStorage no está disponible
+      }
+      return next;
+    });
+  }
+
+  private loadSavedSectionStates(): void {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_SECTIONS);
+      if (saved) {
+        this.expandedSections.set(JSON.parse(saved));
+      }
+    } catch {
+      // Ignorar errores de parseo
+    }
+  }
 
   constructor() {
     toObservable(this.authService.currentAccount)
@@ -193,10 +284,17 @@ export class SidebarComponent {
             return this.menuService.getMenu().pipe(
               map(items => {
                 const newItems = [...items];
-                
-                // NOTA DE ARQUITECTURA (F0-03): Los ítems inyectados a mano deben filtrarse por los mismos roles
-                // que protegen su ruta en `app.routes.ts`. Lo correcto a futuro es mover estos ítems al
-                // `MenuService` del backend para centralizar la navegación por perfil de usuario y tenant.
+
+                if (this.sessionStore.hasAnyRole(['ROLE_ADMIN', 'ROLE_ADMINISTRADOR', 'ROLE_PROPIETARIO', 'ROLE_CONTADOR', 'ROLE_OPERADOR'])) {
+                  newItems.unshift({
+                    id: 'administracion',
+                    label: 'Centro Adm.',
+                    title: 'Centro Administrativo y Bandejas',
+                    icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>',
+                    route: '/administracion',
+                    order: 1
+                  });
+                }
 
                 const insertIndex = newItems.findIndex(i => i.id === 'facturacion' || i.id === 'staff');
                 const finalIndex = insertIndex !== -1 ? insertIndex : newItems.length;
@@ -211,7 +309,7 @@ export class SidebarComponent {
                     order: 90
                   });
                 }
-                
+
                 if (this.sessionStore.hasAnyRole(['ROLE_ADMIN', 'ROLE_ADMINISTRADOR', 'ROLE_PROPIETARIO'])) {
                   newItems.splice(finalIndex + 1, 0, {
                     id: 'prefacturacion',
@@ -222,7 +320,7 @@ export class SidebarComponent {
                     order: 91
                   });
                 }
-                
+
                 if (this.sessionStore.hasAnyRole(['ROLE_ADMIN', 'ROLE_GERENTE', 'ROLE_CONTADOR'])) {
                   newItems.push({
                     id: 'tesoreria',
@@ -253,10 +351,10 @@ export class SidebarComponent {
         takeUntilDestroyed()
       )
       .subscribe({
-        next: (items) => this.menuItems.set(items),
+        next: (items) => this.flatMenuItems.set(items),
         error: (err) => {
           console.error('Error fetching menu:', err);
-          this.menuItems.set([]);
+          this.flatMenuItems.set([]);
         }
       });
   }
