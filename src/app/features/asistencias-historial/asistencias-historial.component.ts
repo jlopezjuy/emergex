@@ -115,7 +115,7 @@ import { DateUtils } from '../../core/utils/date.utils';
               </thead>
               <tbody>
                 @for (item of data()!.historial.items; track item.id) {
-                  <tr class="border-t hover:bg-[var(--surface-hover)] cursor-pointer" style="border-color: var(--border-glass); color: var(--text-primary);"
+                  <tr class="border-t hover:bg-[var(--surface-glass)] cursor-pointer" style="border-color: var(--border-glass); color: var(--text-primary);"
                       (click)="verDetalle(item.id)">
                     <td class="td">{{ item.fechaHora | date:'dd/MM HH:mm' }}</td>
                     <td class="td font-mono font-medium">{{ item.numeroTicket }}</td>

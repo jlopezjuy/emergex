@@ -11,7 +11,7 @@
   <!-- 2x2 Grid -->
   <div class="grid grid-cols-2 gap-3" [class.mb-4]="showHistory()">
     <!-- FC -->
-    <div class="rounded-lg p-3" style="background: var(--bg-glass);">
+    <div class="rounded-lg p-3" style="background: var(--surface-glass);">
       <p class="text-xs font-mono mb-1" style="color: var(--text-muted);">FC · bpm</p>
       <p class="font-mono font-bold" style="font-size: 28px; line-height:1;"
          [style.color]="vitalColor(lastSigno()?.frecuenciaCardiaca, 60, 100)">
@@ -27,7 +27,7 @@
       }
     </div>
     <!-- SpO2 -->
-    <div class="rounded-lg p-3" style="background: var(--bg-glass);">
+    <div class="rounded-lg p-3" style="background: var(--surface-glass);">
       <p class="text-xs font-mono mb-1" style="color: var(--text-muted);">SpO₂ · %</p>
       <p class="font-mono font-bold" style="font-size: 28px; line-height:1;"
          [style.color]="vitalColor(lastSigno()?.saturacionO2, 95, 100)">
@@ -43,7 +43,7 @@
       }
     </div>
     <!-- PA -->
-    <div class="rounded-lg p-3" style="background: var(--bg-glass);">
+    <div class="rounded-lg p-3" style="background: var(--surface-glass);">
       <p class="text-xs font-mono mb-1" style="color: var(--text-muted);">PA · mmHg</p>
       <p class="font-mono font-bold" style="font-size: 28px; line-height:1;"
          [style.color]="vitalColor(lastSigno()?.presionSistolica, 90, 140)">
@@ -59,7 +59,7 @@
       }
     </div>
     <!-- Temp -->
-    <div class="rounded-lg p-3" style="background: var(--bg-glass);">
+    <div class="rounded-lg p-3" style="background: var(--surface-glass);">
       <p class="text-xs font-mono mb-1" style="color: var(--text-muted);">Temp · °C</p>
       <p class="font-mono font-bold" style="font-size: 28px; line-height:1;"
          [style.color]="vitalColor(lastSigno()?.temperatura, 36, 37.5)">

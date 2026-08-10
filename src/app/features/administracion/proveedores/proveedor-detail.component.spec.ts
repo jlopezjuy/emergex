@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ProveedorDetailComponent } from './proveedor-detail.component';
 import { OrdenesPagoApiService } from '../../../data-access/api/ordenes-pago.api';
+import { OrdenDePagoDTO } from '../../../data-access/dto/ordenes-pago.dto';
 import { TercerosApiService } from '../../../data-access/api/terceros.api';
 import { of } from 'rxjs';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
@@ -11,6 +12,7 @@ describe('ProveedorDetailComponent', () => {
   let component: ProveedorDetailComponent;
   let fixture: ComponentFixture<ProveedorDetailComponent>;
   let ordenesPagoApiMock: any;
+  let tercerosApiMock: any;
 
   beforeEach(async () => {
     ordenesPagoApiMock = {
@@ -21,6 +23,12 @@ describe('ProveedorDetailComponent', () => {
       ejecutarOrdenDePago: () => of({ id: 1, estado: 'EJECUTADA' })
     };
 
+    tercerosApiMock = {
+      buscar: vi.fn().mockReturnValue(of([
+        { id: 1, razonSocial: 'Proveedor Test SA', cuit: '30-12345678-9', nombreComercial: 'Test Insumos' }
+      ]))
+    };
+
     await TestBed.configureTestingModule({
       imports: [ProveedorDetailComponent],
       providers: [
@@ -28,6 +36,7 @@ describe('ProveedorDetailComponent', () => {
         provideHttpClientTesting(),
         provideRouter([]),
         { provide: OrdenesPagoApiService, useValue: ordenesPagoApiMock },
+        { provide: TercerosApiService, useValue: tercerosApiMock },
         {
           provide: ActivatedRoute,
           useValue: {
@@ -42,8 +51,50 @@ describe('ProveedorDetailComponent', () => {
     fixture.detectChanges();
   });
 
+  it('debería cargar la identidad del proveedor mediante la API de terceros', () => {
+    expect(tercerosApiMock.buscar).toHaveBeenCalled();
+    expect(component.proveedorInfo()?.razonSocial).toBe('Proveedor Test SA');
+    expect(component.proveedorInfo()?.cuit).toBe('30-12345678-9');
+  });
+
   it('debería cargar órdenes de pago en la solapa correspondiente', () => {
     expect(component.ordenesPago().length).toBe(1);
     expect(component.ordenesPago()[0].numeroOp).toBe('OP-001');
+  });
+
+  it('abrirModalEjecutar debe establecer la OP a ejecutar y no llamar a la API directamente', () => {
+    const spy = vi.spyOn(ordenesPagoApiMock, 'ejecutarOrdenDePago');
+    const op: OrdenDePagoDTO = { id: 1, numeroOp: 'OP-001', comprobanteId: 10, montoBruto: 5000, montoNeto: 5000, estado: 'APROBADA' };
+
+    component.abrirModalEjecutar(op);
+
+    expect(component.opAEjecutar()).toBe(op);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('confirmarEjecucionOp debe ejecutar la OP con medioPago y referenciaTransf provistos', () => {
+    const spy = vi.spyOn(ordenesPagoApiMock, 'ejecutarOrdenDePago');
+    const op: OrdenDePagoDTO = { id: 1, numeroOp: 'OP-001', comprobanteId: 10, montoBruto: 5000, montoNeto: 5000, estado: 'APROBADA' };
+
+    component.abrirModalEjecutar(op);
+    component.confirmarEjecucionOp({ medioPago: 'CHEQUE', referenciaTransf: 'CHQ-9876' });
+
+    expect(spy).toHaveBeenCalledWith(
+      1,
+      { medioPago: 'CHEQUE', referenciaTransf: 'CHQ-9876' },
+      expect.stringMatching(/^OP-EXEC-1-/)
+    );
+    expect(component.opAEjecutar()).toBeNull();
+  });
+
+  it('cerrarModalEjecutar debe limpiar la OP seleccionada sin llamar a la API', () => {
+    const spy = vi.spyOn(ordenesPagoApiMock, 'ejecutarOrdenDePago');
+    const op: OrdenDePagoDTO = { id: 1, numeroOp: 'OP-001', comprobanteId: 10, montoBruto: 5000, montoNeto: 5000, estado: 'APROBADA' };
+
+    component.abrirModalEjecutar(op);
+    component.cerrarModalEjecutar();
+
+    expect(component.opAEjecutar()).toBeNull();
+    expect(spy).not.toHaveBeenCalled();
   });
 });

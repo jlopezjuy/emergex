@@ -37,7 +37,10 @@ describe('OrdenPagoFormModalComponent', () => {
     fixture.detectChanges();
   });
 
-  it('debería emitir orden de pago exitosamente', () => {
+  it('debería emitir orden de pago exitosamente en modo emisión', () => {
+    component.comprobanteId = 10;
+    component.ngOnInit();
+
     ordenesPagoApiMock.emitirOrdenDePago.mockReturnValue(of({
       id: 1,
       numeroOp: 'OP-2026-001',
@@ -47,7 +50,7 @@ describe('OrdenPagoFormModalComponent', () => {
       estado: 'PENDIENTE_APROBACION'
     }));
 
-    component.opForm.setValue({
+    component.opForm.patchValue({
       numeroOp: 'OP-2026-001',
       montoRetenciones: 100
     });
@@ -64,12 +67,36 @@ describe('OrdenPagoFormModalComponent', () => {
     expect(emitSpy).toHaveBeenCalled();
   });
 
-  it('debería mostrar error si falla la emisión', () => {
+  it('debería emitir el evento executed con medioPago y referenciaTransf en modo ejecución', () => {
+    component.opId = 5;
+    component.numeroOp = 'OP-005';
+    component.montoNeto = 4500;
+    component.ngOnInit();
+
+    const executedSpy = vi.spyOn(component.executed, 'emit');
+
+    component.opForm.patchValue({
+      medioPago: 'CHEQUE',
+      referenciaTransf: 'CHQ-12345'
+    });
+
+    component.onSubmit();
+
+    expect(executedSpy).toHaveBeenCalledWith({
+      medioPago: 'CHEQUE',
+      referenciaTransf: 'CHQ-12345'
+    });
+  });
+
+  it('debería mostrar error si falla la emisión en modo emisión', () => {
+    component.comprobanteId = 10;
+    component.ngOnInit();
+
     ordenesPagoApiMock.emitirOrdenDePago.mockReturnValue(throwError(() => ({
       error: { detail: 'El comprobante ya posee una OP emitida.' }
     })));
 
-    component.opForm.setValue({
+    component.opForm.patchValue({
       numeroOp: 'OP-2026-001',
       montoRetenciones: 0
     });

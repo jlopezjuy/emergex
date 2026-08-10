@@ -22,13 +22,15 @@ describe('CentroAdministrativoComponent', () => {
     contratosPorVencer: 6,
     contratosVencidos: 1,
     itemsFacturacion: [
-      { categoria: 'TARIFACION', titulo: 'Ticket #101 sin precio', detalle: 'Emergencia sin valorizar', severidad: 'ALTA', entidadTipo: 'AFILIADO', entidadId: 10 }
+      { categoria: 'TARIFACION', titulo: 'Ticket #101 sin precio', detalle: 'Emergencia sin valorizar', severidad: 'URGENTE', entidadTipo: 'TICKET', entidadId: 10 }
     ],
     itemsCobranzas: [
-      { categoria: 'MORA', titulo: 'Cliente en Mora 90+ días', detalle: 'Saldo $50.000', severidad: 'MEDIA', entidadTipo: 'TERCERO', entidadId: 5 }
+      { categoria: 'MORA', titulo: 'Débito pendiente', detalle: 'Saldo $50.000', severidad: 'ATENCION', entidadTipo: 'DEBITO', entidadId: 5 }
     ],
     itemsCompras: [],
-    itemsContratos: []
+    itemsContratos: [
+      { categoria: 'CONTRATOS', titulo: 'Contrato vencido', detalle: 'Renovación requerida', severidad: 'CRITICA', entidadTipo: 'CONTRATO', entidadId: 2 }
+    ]
   };
 
   beforeEach(() => {
@@ -59,16 +61,45 @@ describe('CentroAdministrativoComponent', () => {
     expect(component.resumen()?.itemsFacturacion.length).toBe(1);
   });
 
-  it('debería filtrar ítems por severidad', async () => {
+  it('debería filtrar ítems por severidades reales (CRITICA, URGENTE, ATENCION, TODAS)', async () => {
     await setup();
     const fixture = TestBed.createComponent(CentroAdministrativoComponent);
     fixture.detectChanges();
 
     const component = fixture.componentInstance;
-    component.severidadFiltro.set('ALTA');
-
+    
+    // TODAS
+    component.severidadFiltro.set('TODAS');
     expect(component.filteredFacturacion().length).toBe(1);
+    expect(component.filteredCobranzas().length).toBe(1);
+    expect(component.filteredContratos().length).toBe(1);
+
+    // CRITICA
+    component.severidadFiltro.set('CRITICA');
+    expect(component.filteredContratos().length).toBe(1);
+    expect(component.filteredFacturacion().length).toBe(0);
     expect(component.filteredCobranzas().length).toBe(0);
+
+    // URGENTE
+    component.severidadFiltro.set('URGENTE');
+    expect(component.filteredFacturacion().length).toBe(1);
+    expect(component.filteredContratos().length).toBe(0);
+
+    // ATENCION
+    component.severidadFiltro.set('ATENCION');
+    expect(component.filteredCobranzas().length).toBe(1);
+    expect(component.filteredContratos().length).toBe(0);
+  });
+
+  it('debería mapear severidades reales a badges correspondientes (CRITICA->critical, URGENTE->urgent, ATENCION->info)', async () => {
+    await setup();
+    const fixture = TestBed.createComponent(CentroAdministrativoComponent);
+    const component = fixture.componentInstance;
+
+    expect(component.mapSeveridadBadge('CRITICA')).toBe('critical');
+    expect(component.mapSeveridadBadge('URGENTE')).toBe('urgent');
+    expect(component.mapSeveridadBadge('ATENCION')).toBe('info');
+    expect(component.mapSeveridadBadge('DESCONOCIDA')).toBe('info');
   });
 
   it('debería manejar errores de la API estableciendo el estado de error', async () => {

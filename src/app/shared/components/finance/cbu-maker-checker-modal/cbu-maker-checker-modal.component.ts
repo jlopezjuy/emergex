@@ -12,24 +12,24 @@ import { StatusBadgeComponent } from '../../status-badge/status-badge.component'
   imports: [CommonModule, FormsModule, ReactiveFormsModule, StatusBadgeComponent],
   template: `
     <div class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div class="bg-[var(--color-bg-card)] rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-[var(--color-border)] text-[var(--color-text-main)]">
+      <div class="bg-[var(--bg-elevated)] rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-[var(--border-glass)] text-[var(--text-primary)]">
         <div class="flex justify-between items-center mb-6">
-          <h3 class="text-lg font-bold text-[var(--color-text-main)]">Workflow Maker-Checker de CBU</h3>
-          <button (click)="closeModal()" class="text-[var(--color-text-muted)] hover:text-[var(--color-text-main)]">✕</button>
+          <h3 class="text-lg font-bold text-[var(--text-primary)]">Workflow Maker-Checker de CBU</h3>
+          <button (click)="closeModal()" class="text-[var(--text-muted)] hover:text-[var(--text-primary)]">✕</button>
         </div>
 
         @if (cuentas && cuentas.length > 0) {
           <div class="mb-6 space-y-3">
-            <h4 class="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Cuentas Registradas</h4>
+            <h4 class="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">Cuentas Registradas</h4>
             @for (cta of cuentas; track cta.id) {
-              <div class="p-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-surface)] flex justify-between items-center">
+              <div class="p-3 rounded-lg border border-[var(--border-glass)] bg-[var(--surface-glass)] flex justify-between items-center">
                 <div>
-                  <div class="font-medium text-sm text-[var(--color-text-main)]">{{ cta.bancoNombre }} - {{ cta.titularNombre }}</div>
-                  <div class="font-mono text-xs text-[var(--color-text-muted)]">{{ cta.cbuMasked || cta.cbu }}</div>
+                  <div class="font-medium text-sm text-[var(--text-primary)]">{{ cta.bancoNombre }} - {{ cta.titularNombre }}</div>
+                  <div class="font-mono text-xs text-[var(--text-muted)]">{{ cta.cbuMasked || cta.cbu }}</div>
                 </div>
                 <div class="flex items-center gap-2">
                   <emx-status-badge [variant]="cta.estado === 'VERIFICADA' ? 'stable' : 'pending'">{{ cta.estado === 'VERIFICADA' ? 'VERIFICADA' : 'PENDIENTE' }}</emx-status-badge>
-                  @if (cta.estado === 'PENDIENTE_VERIFICACION') {
+                  @if (cta.estado !== 'VERIFICADA') {
                     <button
                       type="button"
                       (click)="onAprobarCbu(cta.id)"
@@ -46,45 +46,45 @@ import { StatusBadgeComponent } from '../../status-badge/status-badge.component'
         }
 
         <form [formGroup]="cbuForm" (ngSubmit)="onSubmitSolicitud()" class="space-y-4">
-          <h4 class="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Solicitar Nuevo CBU / CVU</h4>
+          <h4 class="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">Solicitar Nuevo CBU / CVU</h4>
           <div>
-            <label class="block text-xs font-semibold text-[var(--color-text-muted)] uppercase mb-1">Nombre del Banco</label>
+            <label class="block text-xs font-semibold text-[var(--text-muted)] uppercase mb-1">Nombre del Banco</label>
             <input
               type="text"
               formControlName="bancoNombre"
               placeholder="Ej: Banco Galicia"
-              class="w-full px-3 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-input)] text-[var(--color-text-main)] text-sm"
+              class="w-full px-3 py-2 border border-[var(--border-glass)] rounded-lg bg-[var(--surface-inset)] text-[var(--text-primary)] text-sm"
             />
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-[var(--color-text-muted)] uppercase mb-1">CBU / CVU (22 dígitos)</label>
+            <label class="block text-xs font-semibold text-[var(--text-muted)] uppercase mb-1">CBU / CVU (22 dígitos)</label>
             <input
               type="text"
               formControlName="cbu"
               placeholder="0070000000000000000012"
               maxlength="22"
-              class="w-full px-3 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-input)] text-[var(--color-text-main)] text-sm font-mono"
+              class="w-full px-3 py-2 border border-[var(--border-glass)] rounded-lg bg-[var(--surface-inset)] text-[var(--text-primary)] text-sm font-mono"
             />
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-[var(--color-text-muted)] uppercase mb-1">Titular de la Cuenta</label>
+            <label class="block text-xs font-semibold text-[var(--text-muted)] uppercase mb-1">Titular de la Cuenta</label>
             <input
               type="text"
               formControlName="titularNombre"
               placeholder="Nombre completo o Razón Social"
-              class="w-full px-3 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-input)] text-[var(--color-text-main)] text-sm"
+              class="w-full px-3 py-2 border border-[var(--border-glass)] rounded-lg bg-[var(--surface-inset)] text-[var(--text-primary)] text-sm"
             />
           </div>
 
           <div>
-            <label class="block text-xs font-semibold text-[var(--color-text-muted)] uppercase mb-1">Alias (opcional)</label>
+            <label class="block text-xs font-semibold text-[var(--text-muted)] uppercase mb-1">Alias (opcional)</label>
             <input
               type="text"
               formControlName="alias"
               placeholder="MI.ALIAS.MP"
-              class="w-full px-3 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-bg-input)] text-[var(--color-text-main)] text-sm"
+              class="w-full px-3 py-2 border border-[var(--border-glass)] rounded-lg bg-[var(--surface-inset)] text-[var(--text-primary)] text-sm"
             />
           </div>
 
@@ -92,7 +92,7 @@ import { StatusBadgeComponent } from '../../status-badge/status-badge.component'
             <button
               type="button"
               (click)="closeModal()"
-              class="px-4 py-2 text-sm font-medium text-[var(--color-text-main)] bg-[var(--color-bg-surface)] border border-[var(--color-border)] rounded-lg hover:bg-[var(--color-bg-muted)]"
+              class="px-4 py-2 text-sm font-medium text-[var(--text-primary)] bg-[var(--surface-glass)] border border-[var(--border-glass)] rounded-lg hover:bg-[var(--surface-glass)]"
             >
               Cancelar
             </button>

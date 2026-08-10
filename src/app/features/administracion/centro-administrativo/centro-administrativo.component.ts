@@ -9,11 +9,12 @@ import { StatusBadgeComponent } from '../../../shared/components/status-badge/st
 import { LoadingStateComponent } from '../../../shared/components/loading-state/loading-state.component';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../../shared/components/error-state/error-state.component';
+import { rutaParaEntidad } from '../../../core/navigation/entidad-ruta';
 
 import { CxcAgingDashboardComponent } from '../../../shared/components/finance/cxc-aging-dashboard/cxc-aging-dashboard.component';
 import { CxpAgingDashboardComponent } from '../../../shared/components/finance/cxp-aging-dashboard/cxp-aging-dashboard.component';
 
-export type SeveridadFiltro = 'TODAS' | 'ALTA' | 'MEDIA' | 'BAJA';
+export type SeveridadFiltro = 'TODAS' | 'CRITICA' | 'URGENTE' | 'ATENCION';
 
 @Component({
   selector: 'emx-centro-administrativo',
@@ -281,7 +282,7 @@ export class CentroAdministrativoComponent implements OnInit {
   readonly error = signal<string | null>(null);
   readonly resumen = signal<BandejaTrabajoResumenDTO | null>(null);
 
-  readonly severidadOptions: SeveridadFiltro[] = ['TODAS', 'ALTA', 'MEDIA', 'BAJA'];
+  readonly severidadOptions: SeveridadFiltro[] = ['TODAS', 'CRITICA', 'URGENTE', 'ATENCION'];
   readonly severidadFiltro = signal<SeveridadFiltro>('TODAS');
 
   private filterList(items: ItemBandejaDTO[] = []): ItemBandejaDTO[] {
@@ -321,16 +322,13 @@ export class CentroAdministrativoComponent implements OnInit {
 
   mapSeveridadBadge(severidad?: string): 'critical' | 'urgent' | 'info' {
     const sev = severidad?.toUpperCase();
-    if (sev === 'ALTA') return 'critical';
-    if (sev === 'MEDIA') return 'urgent';
+    if (sev === 'CRITICA') return 'critical';
+    if (sev === 'URGENTE') return 'urgent';
     return 'info';
   }
 
   getRouteForItem(item: ItemBandejaDTO): string | null {
-    if (item.entidadTipo === 'AFILIADO' && item.entidadId) {
-      return `/patients/${item.entidadId}`;
-    }
-    return null;
+    return rutaParaEntidad(item.entidadTipo, item.entidadId);
   }
 
   onSelectItem(item: ItemBandejaDTO): void {

@@ -68,11 +68,20 @@ describe('GlobalSearchComponent', () => {
     expect(route).toBe('/patients/123');
   });
 
-  it('debería retornar null para tipos sin ficha implementada todavía (ej. TERCERO)', () => {
+  it('debería mapear correctamente tipo TERCERO a la ruta real /administracion/proveedores/:id', () => {
     const route = component.obtenerRutaReal({
       tipo: 'TERCERO',
       id: 456,
       titulo: 'Pérez Insumos'
+    });
+    expect(route).toBe('/administracion/proveedores/456');
+  });
+
+  it('debería retornar null para tipos sin ficha implementada todavía (ej. DOCUMENTO_COMERCIAL)', () => {
+    const route = component.obtenerRutaReal({
+      tipo: 'DOCUMENTO_COMERCIAL',
+      id: 789,
+      titulo: 'Factura 0001-00001234'
     });
     expect(route).toBeNull();
   });
@@ -106,9 +115,9 @@ describe('GlobalSearchComponent', () => {
     component.closed.subscribe(() => (closedTriggered = true));
 
     component.seleccionarResultado({
-      tipo: 'TERCERO',
-      id: 456,
-      titulo: 'Pérez Insumos'
+      tipo: 'DOCUMENTO_COMERCIAL',
+      id: 789,
+      titulo: 'Factura'
     });
 
     expect(routerMock.navigateByUrl).not.toHaveBeenCalled();

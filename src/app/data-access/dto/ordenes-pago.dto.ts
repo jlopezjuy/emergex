@@ -13,8 +13,6 @@ export interface OrdenDePagoDTO {
   id: number;
   numeroOp: string;
   comprobanteId: number;
-  proveedorId?: number;
-  proveedorNombre?: string;
   montoBruto: number;
   montoRetenciones?: number;
   montoNeto: number;

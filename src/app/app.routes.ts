@@ -202,7 +202,7 @@ export const routes: Routes = [
       },
       {
         path: 'tesoreria',
-        canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_GERENTE', 'ROLE_CONTADOR')],
+        canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_ADMINISTRADOR', 'ROLE_CONTADOR')],
         loadComponent: () =>
           import('./features/tesoreria/tesoreria.component').then((m) => m.TesoreriaComponent),
       },
@@ -307,12 +307,7 @@ export const routes: Routes = [
             (m) => m.CoverageOperationsComponent,
           ),
       },
-      {
-        path: 'tesoreria',
-        canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_ADMINISTRADOR', 'ROLE_PROPIETARIO')],
-        loadComponent: () =>
-          import('./features/tesoreria/tesoreria.component').then((m) => m.TesoreriaComponent),
-      },
+
       {
         path: 'inventario',
         canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_ADMINISTRADOR', 'ROLE_PROPIETARIO', 'ROLE_ENFERMERO')],

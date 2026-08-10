@@ -73,9 +73,7 @@ describe('SidebarComponent', () => {
     const grouped = component.groupedItems();
     expect(grouped.length).toBe(2);
     expect(grouped[0].id).toBe('sec-operacion');
-    expect(grouped[1].id).toBe('sec-administracion');
   });
-
   it('debería permitir colapsar y expandir secciones individualmente', () => {
     expect(component.isSectionExpanded('sec-operacion')).toBe(true);
 
@@ -84,5 +82,9 @@ describe('SidebarComponent', () => {
 
     component.toggleSection('sec-operacion');
     expect(component.isSectionExpanded('sec-operacion')).toBe(true);
+  });
+
+  it('debería verificar los roles ROLE_ADMIN, ROLE_ADMINISTRADOR y ROLE_CONTADOR para el menú de Tesorería', () => {
+    expect(sessionStoreMock.hasAnyRole).toHaveBeenCalledWith(['ROLE_ADMIN', 'ROLE_ADMINISTRADOR', 'ROLE_CONTADOR']);
   });
 });

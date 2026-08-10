@@ -162,7 +162,7 @@
   user-select: none;
 }
 .authority-label:hover {
-  color: var(--text-strong);
+  color: var(--text-primary);
 }
 .authority-checkbox {
   width: 16px;

@@ -42,7 +42,7 @@
           [value]="inst.status"
           [disabled]="savingEstado()"
           (change)="onCambiarEstado($any($event.target).value)"
-          style="font-size:11px;font-weight:600;border-radius:6px;padding:3px 8px;border:1px solid var(--border-glass);background:var(--bg-surface);color:var(--text-primary);cursor:pointer"
+          style="font-size:11px;font-weight:600;border-radius:6px;padding:3px 8px;border:1px solid var(--border-glass);background:var(--surface-glass);color:var(--text-primary);cursor:pointer"
           [style.opacity]="savingEstado() ? '0.5' : '1'"
           title="Cambiar estado institucional"
         >
@@ -222,17 +222,17 @@
                 <div>
                   <div style="font-size:10px;color:var(--text-muted);margin-bottom:3px">Período desde</div>
                   <input type="date" [(ngModel)]="facturaForm.periodoDesde"
-                    style="width:100%;font-size:11px;padding:4px 6px;border-radius:5px;border:1px solid var(--border-glass);background:var(--bg-surface);color:var(--text-primary)" />
+                    style="width:100%;font-size:11px;padding:4px 6px;border-radius:5px;border:1px solid var(--border-glass);background:var(--surface-glass);color:var(--text-primary)" />
                 </div>
                 <div>
                   <div style="font-size:10px;color:var(--text-muted);margin-bottom:3px">Período hasta</div>
                   <input type="date" [(ngModel)]="facturaForm.periodoHasta"
-                    style="width:100%;font-size:11px;padding:4px 6px;border-radius:5px;border:1px solid var(--border-glass);background:var(--bg-surface);color:var(--text-primary)" />
+                    style="width:100%;font-size:11px;padding:4px 6px;border-radius:5px;border:1px solid var(--border-glass);background:var(--surface-glass);color:var(--text-primary)" />
                 </div>
                 <div style="grid-column:1/-1">
                   <div style="font-size:10px;color:var(--text-muted);margin-bottom:3px">Observaciones (opcional)</div>
                   <input type="text" [(ngModel)]="facturaForm.observaciones" placeholder="ej. Julio 2025"
-                    style="width:100%;font-size:11px;padding:4px 6px;border-radius:5px;border:1px solid var(--border-glass);background:var(--bg-surface);color:var(--text-primary)" />
+                    style="width:100%;font-size:11px;padding:4px 6px;border-radius:5px;border:1px solid var(--border-glass);background:var(--surface-glass);color:var(--text-primary)" />
                 </div>
               </div>
               <div style="display:flex;gap:6px">

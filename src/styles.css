@@ -44,6 +44,20 @@
     --warning-text: #FBBF24;
     --error-text: #F87171;
 
+    /* Legacy design token aliases for theme consistency */
+    --accent-purple: #A78BFA;
+    --accent-purple-dim: rgba(167, 139, 250, 0.16);
+    --accent-orange: #F97316;
+    --bg-base: var(--bg-deep);
+    --bg-card: var(--bg-elevated);
+    --bg-panel: var(--bg-elevated);
+    --bg-glass: var(--surface-glass);
+    --bg-surface: var(--surface-glass);
+    --surface-card: var(--bg-elevated);
+    --surface-hover: var(--surface-glass);
+    --color-primary: var(--accent-blue);
+    --r-input: 8px;
+
     /* Glow halos */
     --glow-red: 0 0 24px rgba(239, 68, 68, 0.55);
     --glow-emerald: 0 0 18px rgba(16, 185, 129, 0.45);

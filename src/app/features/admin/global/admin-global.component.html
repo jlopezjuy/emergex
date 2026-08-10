@@ -111,7 +111,7 @@
             </button>
 
             @if (selectedEmpresa()!.estado === 'ACTIVA') {
-              <button class="btn btn--secondary btn--sm" (click)="changeEmpresaEstado(selectedEmpresa()!, 'SUSPENDIDA')" title="Suspender empresa" style="color: var(--accent-orange); border-color: rgba(245, 158, 11, 0.3);">
+              <button class="btn btn--secondary btn--sm" (click)="changeEmpresaEstado(selectedEmpresa()!, 'SUSPENDIDA')" title="Suspender empresa" style="color: var(--accent-amber); border-color: rgba(245, 158, 11, 0.3);">
                 Suspender
               </button>
             } @else {

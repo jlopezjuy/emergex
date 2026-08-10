@@ -17,6 +17,7 @@ import { Subject, Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
 import { BusquedaGlobalApi } from '../../../data-access/api/busqueda-global.api';
 import { ResultadoBusquedaItemDTO } from '../../../data-access/dto/busqueda-global.dto';
+import { rutaParaEntidad } from '../../../core/navigation/entidad-ruta';
 import { ModalShellComponent } from '../modal-shell/modal-shell.component';
 import { LoadingStateComponent } from '../loading-state/loading-state.component';
 import { EmptyStateComponent } from '../empty-state/empty-state.component';
@@ -217,10 +218,7 @@ export class GlobalSearchComponent implements OnInit, OnDestroy {
   }
 
   obtenerRutaReal(item: Partial<ResultadoBusquedaItemDTO>): string | null {
-    if (item.tipo === 'AFILIADO' && item.id) {
-      return `/patients/${item.id}`;
-    }
-    return null;
+    return rutaParaEntidad(item.tipo, item.id ?? 0);
   }
 
   seleccionarResultado(item: ResultadoBusquedaItemDTO): void {
