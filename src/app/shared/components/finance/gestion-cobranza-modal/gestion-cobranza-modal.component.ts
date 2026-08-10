@@ -1,7 +1,9 @@
-// MAQUETA SIN CABLEAR — datos ficticios. La tarea F2-03 la conecta. No montar antes.
-import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
+import { Component, EventEmitter, Input, Output, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
+import { catchError, of } from 'rxjs';
+import { CobranzasApiService } from '../../../../data-access/api/cobranzas.api';
+import { UserFeedbackService } from '../../../../core/notifications/user-feedback.service';
 
 @Component({
   selector: 'emx-gestion-cobranza-modal',
@@ -43,8 +45,8 @@ import { FormsModule, ReactiveFormsModule, FormBuilder, Validators } from '@angu
 
           <div class="pt-4 flex justify-end gap-3">
             <button type="button" (click)="closeModal()" class="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200">Cancelar</button>
-            <button type="submit" [disabled]="gestionForm.invalid" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">
-              Registrar Gestión
+            <button type="submit" [disabled]="gestionForm.invalid || guardando()" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+              {{ guardando() ? 'Guardando...' : 'Registrar Gestión' }}
             </button>
           </div>
         </form>
@@ -53,10 +55,15 @@ import { FormsModule, ReactiveFormsModule, FormBuilder, Validators } from '@angu
   `
 })
 export class GestionCobranzaModalComponent {
-  @Input() clienteId!: number;
+  @Input({ required: true }) clienteId!: number;
   @Output() closed = new EventEmitter<void>();
+  @Output() saved = new EventEmitter<void>();
 
   private fb = inject(FormBuilder);
+  private cobranzasApi = inject(CobranzasApiService);
+  private feedback = inject(UserFeedbackService);
+
+  readonly guardando = signal(false);
 
   gestionForm = this.fb.group({
     tipoGestion: ['PROMESA_PAGO', Validators.required],
@@ -66,8 +73,34 @@ export class GestionCobranzaModalComponent {
   });
 
   onSubmitGestion(): void {
-    if (this.gestionForm.invalid) return;
-    this.closed.emit();
+    if (this.gestionForm.invalid || !this.clienteId) return;
+    this.guardando.set(true);
+
+    const val = this.gestionForm.value;
+    this.cobranzasApi
+      .registrarGestion({
+        clienteId: this.clienteId,
+        tipoGestion: val.tipoGestion!,
+        fechaPromesaPago: val.fechaPromesaPago || undefined,
+        montoPrometido: val.montoPrometido || undefined,
+        observaciones: val.observaciones!
+      })
+      .pipe(
+        catchError((err) => {
+          const message = err?.error?.detail || 'Error al registrar la gestión de cobranza.';
+          this.feedback.push({ type: 'error', title: 'Error de Cobranza', message });
+          this.guardando.set(false);
+          return of(null);
+        })
+      )
+      .subscribe((res) => {
+        this.guardando.set(false);
+        if (res) {
+          this.feedback.push({ type: 'success', title: 'Gestión Registrada', message: 'Se guardó la gestión de cobranza.' });
+          this.saved.emit();
+          this.closed.emit();
+        }
+      });
   }
 
   closeModal(): void {

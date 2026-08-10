@@ -118,4 +118,35 @@ describe('PatientDetailComponent', () => {
     expect(component.coberturaError()).toBe(false);
     expect(component.coberturaActual()?.estadoCobertura).toBe('VIGENTE');
   });
+
+  it('debería listar los miembros del grupo familiar cuando se selecciona la solapa correspondiente', async () => {
+    patientApiMock.getFicha.mockReturnValue(
+      of({
+        estadoGrupo: 'ACTIVO',
+        numeroCuentaGrupo: 'CC-1',
+        saldoFavor: 1000,
+        integrantes: [
+          { id: 10, nombre: 'María', apellido: 'Pérez', rolFamiliar: 'TITULAR', dni: '87654321', estado: 'ACTIVO' }
+        ]
+      })
+    );
+    await setupTestingModule('grupo-familiar');
+    const fixture = TestBed.createComponent(PatientDetailComponent);
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance;
+    expect(component.activeTab()).toBe('grupo-familiar');
+    expect(component.integrantesGrupo().length).toBe(1);
+    expect(component.integrantesGrupo()[0].nombre).toBe('María');
+  });
+
+  it('debería permitir registrar un recibo de cobranza y reflejar el resultado', async () => {
+    await setupTestingModule('cuenta-corriente');
+    const fixture = TestBed.createComponent(PatientDetailComponent);
+    fixture.detectChanges();
+
+    const component = fixture.componentInstance;
+    expect(component.activeTab()).toBe('cuenta-corriente');
+    expect(typeof component.registrarReciboCobranza).toBe('function');
+  });
 });

@@ -1,8 +1,12 @@
 import { Component, signal, inject, OnInit, computed, DestroyRef } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { FormsModule, ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { catchError, of } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { PatientApiService } from '../../../data-access/api/patient.api';
+import { LedgerApiService } from '../../../data-access/api/ledger.api';
+import { CobranzasApiService, CobranzaDTO, GestionCobranzaDTO } from '../../../data-access/api/cobranzas.api';
+import { UserFeedbackService } from '../../../core/notifications/user-feedback.service';
 import {
   PacienteDTO,
   FichaAfiliadoDTO,
@@ -10,11 +14,15 @@ import {
   ConsumoMensualDTO,
   CoberturaVigenteDTO
 } from '../../../data-access/dto/patient.dto';
+import { LedgerMovimientoDTO } from '../../../data-access/dto/ledger.dto';
 import { KpiCardComponent } from '../../../shared/components/kpi-card/kpi-card.component';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge/status-badge.component';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../../shared/components/error-state/error-state.component';
 import { LoadingStateComponent } from '../../../shared/components/loading-state/loading-state.component';
+import { ModalShellComponent } from '../../../shared/components/modal-shell/modal-shell.component';
+import { DocumentosAdjuntosComponent } from '../../../shared/components/documentos-adjuntos/documentos-adjuntos.component';
+import { GestionCobranzaModalComponent } from '../../../shared/components/finance/gestion-cobranza-modal/gestion-cobranza-modal.component';
 
 export type PatientDetailTab =
   | 'cobertura'
@@ -33,11 +41,16 @@ function fmtCurrency(n?: number): string {
   standalone: true,
   imports: [
     RouterLink,
+    FormsModule,
+    ReactiveFormsModule,
     KpiCardComponent,
     StatusBadgeComponent,
     EmptyStateComponent,
     ErrorStateComponent,
-    LoadingStateComponent
+    LoadingStateComponent,
+    ModalShellComponent,
+    DocumentosAdjuntosComponent,
+    GestionCobranzaModalComponent
   ],
   template: `
     <div class="p-6 max-w-7xl mx-auto flex flex-col gap-6">
@@ -75,16 +88,24 @@ function fmtCurrency(n?: number): string {
               </span>
             </div>
 
-            <!-- Identificación rápida -->
-            <div class="flex items-center gap-4 text-xs">
-              <div class="flex flex-col">
-                <span style="color: var(--text-muted);">Teléfono</span>
-                <span class="font-medium" style="color: var(--text-primary);">{{ paciente()?.telefono || ficha()?.telefono || '—' }}</span>
-              </div>
-              <div class="flex flex-col">
-                <span style="color: var(--text-muted);">Cuenta Grupo</span>
-                <span class="font-mono font-medium" style="color: var(--text-primary);">{{ ficha()?.numeroCuentaGrupo || '—' }}</span>
-              </div>
+            <!-- Acciones directas Ficha 360 -->
+            <div class="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors"
+                style="background-color: var(--accent-blue); color: #fff;"
+                (click)="mostrarModalRecibo.set(true)"
+              >
+                + Registrar Recibo
+              </button>
+              <button
+                type="button"
+                class="px-3 py-1.5 text-xs font-semibold rounded-lg border"
+                style="background-color: var(--bg-panel); color: var(--text-primary); border-color: var(--border-glass);"
+                (click)="mostrarModalGestion.set(true)"
+              >
+                Registrar Gestión Mora
+              </button>
             </div>
           </div>
 
@@ -116,7 +137,7 @@ function fmtCurrency(n?: number): string {
             [style.color]="activeTab() === 'grupo-familiar' ? 'var(--accent-blue)' : 'var(--text-muted)'"
             (click)="selectTab('grupo-familiar')"
           >
-            Grupo Familiar
+            Grupo Familiar ({{ integrantesGrupo().length }})
           </button>
 
           <button
@@ -126,7 +147,7 @@ function fmtCurrency(n?: number): string {
             [style.color]="activeTab() === 'facturas' ? 'var(--accent-blue)' : 'var(--text-muted)'"
             (click)="selectTab('facturas')"
           >
-            Facturas y Pagos
+            Facturas y Pagos ({{ facturas().length }})
           </button>
 
           <button
@@ -209,29 +230,307 @@ function fmtCurrency(n?: number): string {
           }
 
           @case ('grupo-familiar') {
-            <emx-empty-state message="Solapa Grupo familiar — La tarea F2-02 la habilita con miembros y acciones." />
+            <div class="glass rounded-panel p-5 flex flex-col gap-4">
+              <h3 class="text-sm font-bold uppercase tracking-wider" style="color: var(--text-primary);">
+                Integrantes del Grupo Familiar
+              </h3>
+
+              @if (integrantesGrupo().length === 0) {
+                <emx-empty-state message="Este afiliado no tiene familiares asociados en su grupo." />
+              } @else {
+                <div class="overflow-x-auto">
+                  <table class="w-full text-xs text-left" style="color: var(--text-primary);">
+                    <thead>
+                      <tr class="border-b" style="border-color: var(--border-glass); color: var(--text-muted);">
+                        <th class="py-2 px-3 font-semibold">Nombre Completo</th>
+                        <th class="py-2 px-3 font-semibold">DNI</th>
+                        <th class="py-2 px-3 font-semibold">Rol Familiar</th>
+                        <th class="py-2 px-3 font-semibold">Estado</th>
+                        <th class="py-2 px-3 font-semibold text-right">Ficha</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (m of integrantesGrupo(); track m.id || m.dni) {
+                        <tr class="border-b transition-colors hover:bg-white/5" style="border-color: var(--border-glass);">
+                          <td class="py-2 px-3 font-medium">{{ m.apellido || m.nombreCompleto || m.nombre }}, {{ m.nombre || '' }}</td>
+                          <td class="py-2 px-3 font-mono">{{ m.dni || '—' }}</td>
+                          <td class="py-2 px-3">{{ m.rolFamiliar || m.rol || 'DEPENDIENTE' }}</td>
+                          <td class="py-2 px-3">
+                            <emx-status-badge [variant]="m.estado === 'ACTIVO' || m.estado === 'ACTIVA' ? 'stable' : 'critical'">
+                              {{ m.estado || 'ACTIVO' }}
+                            </emx-status-badge>
+                          </td>
+                          <td class="py-2 px-3 text-right">
+                            @if (m.id) {
+                              <a [routerLink]="['/patients', m.id]" class="text-xs font-semibold hover:underline" style="color: var(--accent-blue);">
+                                Ver Ficha →
+                              </a>
+                            }
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
+            </div>
           }
 
           @case ('facturas') {
             @if (facturasError()) {
               <emx-error-state message="Error al cargar el listado de facturas y pagos." (retry)="cargarFacturas()" />
+            } @else if (facturas().length === 0) {
+              <emx-empty-state message="No hay facturas registradas para este afiliado." />
             } @else {
-              <emx-empty-state message="Solapa Facturas y pagos — La tarea F2-02 la habilita con paginación server-side y acciones." />
+              <div class="glass rounded-panel p-5 flex flex-col gap-4">
+                <div class="flex items-center justify-between">
+                  <h3 class="text-sm font-bold uppercase tracking-wider" style="color: var(--text-primary);">
+                    Comprobantes y Facturación
+                  </h3>
+                  <button
+                    type="button"
+                    class="px-3 py-1 text-xs font-semibold rounded-lg"
+                    style="background-color: var(--accent-blue); color: #fff;"
+                    (click)="mostrarModalRecibo.set(true)"
+                  >
+                    + Registrar Pago / Recibo
+                  </button>
+                </div>
+
+                <div class="overflow-x-auto">
+                  <table class="w-full text-xs text-left" style="color: var(--text-primary);">
+                    <thead>
+                      <tr class="border-b" style="border-color: var(--border-glass); color: var(--text-muted);">
+                        <th class="py-2 px-3 font-semibold">Comprobante N°</th>
+                        <th class="py-2 px-3 font-semibold">Fecha Emisión</th>
+                        <th class="py-2 px-3 font-semibold">Importe Total</th>
+                        <th class="py-2 px-3 font-semibold">Saldo Pendiente</th>
+                        <th class="py-2 px-3 font-semibold">Estado</th>
+                        <th class="py-2 px-3 font-semibold text-right">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (f of facturas(); track f.id) {
+                        <tr class="border-b transition-colors hover:bg-white/5" style="border-color: var(--border-glass);">
+                          <td class="py-2 px-3 font-mono font-medium">{{ f.numeroFactura || ('FAC-' + f.id) }}</td>
+                          <td class="py-2 px-3" style="color: var(--text-muted);">{{ f.fechaEmision || '—' }}</td>
+                          <td class="py-2 px-3 font-mono font-semibold">{{ fmtCurrency(f.importeTotal) }}</td>
+                          <td class="py-2 px-3 font-mono font-semibold" [style.color]="(f.saldoPendiente ?? 0) > 0 ? 'var(--accent-red, #ef4444)' : 'var(--text-primary)'">
+                            {{ fmtCurrency(f.saldoPendiente) }}
+                          </td>
+                          <td class="py-2 px-3">
+                            <emx-status-badge [variant]="f.estado === 'COBRADA' || f.estado === 'PAGADA' ? 'stable' : 'critical'">
+                              {{ f.estado || 'PENDIENTE' }}
+                            </emx-status-badge>
+                          </td>
+                          <td class="py-2 px-3 text-right">
+                            @if ((f.saldoPendiente ?? f.importeTotal ?? 0) > 0) {
+                              <button
+                                type="button"
+                                class="text-xs font-semibold hover:underline"
+                                style="color: var(--accent-blue);"
+                                (click)="abrirImputacion(f.id)"
+                              >
+                                Imputar Cobro
+                              </button>
+                            } @else {
+                              <span style="color: var(--text-muted);">Completa</span>
+                            }
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             }
           }
 
           @case ('cuenta-corriente') {
-            <emx-empty-state message="Solapa Cuenta corriente — La tarea F2-03 la conecta con cobranzas y recibos." />
+            <div class="glass rounded-panel p-5 flex flex-col gap-4">
+              <div class="flex flex-wrap items-center justify-between gap-4 border-b pb-3" style="border-color: var(--border-glass);">
+                <div class="flex items-center gap-3">
+                  <h3 class="text-sm font-bold uppercase tracking-wider" style="color: var(--text-primary);">
+                    Cuenta Corriente / Ledger
+                  </h3>
+                  <emx-status-badge [variant]="saldoPendiente() > 0 ? 'critical' : 'stable'">
+                    {{ saldoPendiente() > 0 ? 'NOS DEBE SALDO' : 'CUENTA AL DÍA' }}
+                  </emx-status-badge>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button
+                    type="button"
+                    class="px-3 py-1.5 text-xs font-semibold rounded-lg"
+                    style="background-color: var(--accent-blue); color: #fff;"
+                    (click)="mostrarModalRecibo.set(true)"
+                  >
+                    + Registrar Recibo
+                  </button>
+                  <button
+                    type="button"
+                    class="px-3 py-1.5 text-xs font-semibold rounded-lg border"
+                    style="background-color: var(--bg-panel); color: var(--text-primary); border-color: var(--border-glass);"
+                    (click)="mostrarModalGestion.set(true)"
+                  >
+                    + Registrar Gestión
+                  </button>
+                </div>
+              </div>
+
+              @if (ledgerError()) {
+                <emx-error-state message="Error al consultar los movimientos de cuenta corriente." (retry)="cargarLedger()" />
+              } @else if (movimientosLedger().length === 0) {
+                <emx-empty-state message="No hay movimientos registrados en la cuenta corriente de este afiliado." />
+              } @else {
+                <div class="overflow-x-auto">
+                  <table class="w-full text-xs text-left" style="color: var(--text-primary);">
+                    <thead>
+                      <tr class="border-b" style="border-color: var(--border-glass); color: var(--text-muted);">
+                        <th class="py-2 px-3 font-semibold">Fecha</th>
+                        <th class="py-2 px-3 font-semibold">Tipo Movimiento</th>
+                        <th class="py-2 px-3 font-semibold">Concepto / Referencia</th>
+                        <th class="py-2 px-3 font-semibold text-right">Debe ($)</th>
+                        <th class="py-2 px-3 font-semibold text-right">Haber ($)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (m of movimientosLedger(); track m.id || m.fechaContable) {
+                        <tr class="border-b transition-colors hover:bg-white/5" style="border-color: var(--border-glass);">
+                          <td class="py-2 px-3" style="color: var(--text-muted);">{{ m.fechaContable }}</td>
+                          <td class="py-2 px-3 font-semibold">{{ m.tipoMovimiento }}</td>
+                          <td class="py-2 px-3">{{ m.concepto || '—' }}</td>
+                          <td class="py-2 px-3 text-right font-mono">{{ m.montoDebe ? fmtCurrency(m.montoDebe) : '—' }}</td>
+                          <td class="py-2 px-3 text-right font-mono">{{ m.montoHaber ? fmtCurrency(m.montoHaber) : '—' }}</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
+            </div>
           }
 
           @case ('documentacion') {
-            <emx-empty-state message="Solapa Documentación — La tarea F2-05 la conecta con el repositorio adjunto." />
+            <emx-documentos-adjuntos [entidadTipo]="'AFILIADO'" [entidadId]="pacienteId()!" />
           }
 
           @case ('historial') {
-            <emx-empty-state message="Solapa Historial de asistencias — Enlazado directo al log médico del paciente." />
+            <div class="glass rounded-panel p-5 flex flex-col gap-4">
+              <h3 class="text-sm font-bold uppercase tracking-wider" style="color: var(--text-primary);">
+                Historial de Asistencias Médicas
+              </h3>
+              <p class="text-xs" style="color: var(--text-muted);">
+                Registro histórico de llamadas y atenciones del paciente.
+              </p>
+              <emx-empty-state message="Sin asistencias médicas recientes asociadas a la ficha." />
+            </div>
           }
         }
+      }
+
+      <!-- Modal Registrar Recibo de Cobranza -->
+      @if (mostrarModalRecibo()) {
+        <emx-modal-shell title="Registrar Recibo de Cobranza (CxC)" (close)="mostrarModalRecibo.set(false)">
+          <form [formGroup]="reciboForm" (ngSubmit)="registrarReciboCobranza()" class="space-y-4">
+            <div>
+              <label class="block text-xs font-semibold uppercase mb-1" style="color: var(--text-muted);">Número de Recibo</label>
+              <input
+                type="text"
+                formControlName="numeroRecibo"
+                placeholder="Ej: REC-2026-0001"
+                class="w-full px-3 py-2 text-xs border rounded-lg"
+                style="background-color: var(--bg-card); color: var(--text-primary); border-color: var(--border-glass);"
+              />
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold uppercase mb-1" style="color: var(--text-muted);">Monto Cobrado ($)</label>
+              <input
+                type="number"
+                formControlName="montoCobrado"
+                placeholder="0.00"
+                class="w-full px-3 py-2 text-xs border rounded-lg font-mono"
+                style="background-color: var(--bg-card); color: var(--text-primary); border-color: var(--border-glass);"
+              />
+            </div>
+
+            <div class="pt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                class="px-4 py-2 text-xs font-medium rounded-lg"
+                style="background-color: var(--bg-panel); color: var(--text-muted);"
+                (click)="mostrarModalRecibo.set(false)"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                [disabled]="reciboForm.invalid || guardandoRecibo()"
+                class="px-4 py-2 text-xs font-medium text-white rounded-lg disabled:opacity-50"
+                style="background-color: var(--accent-blue);"
+              >
+                {{ guardandoRecibo() ? 'Registrando...' : 'Registrar Recibo' }}
+              </button>
+            </div>
+          </form>
+        </emx-modal-shell>
+      }
+
+      <!-- Modal Imputar Cobro -->
+      @if (mostrarModalImputacion() && facturaSeleccionadaId()) {
+        <emx-modal-shell title="Imputar Cobro a Documento" (close)="mostrarModalImputacion.set(false)">
+          <form [formGroup]="imputacionForm" (ngSubmit)="confirmarImputacion()" class="space-y-4">
+            <div>
+              <label class="block text-xs font-semibold uppercase mb-1" style="color: var(--text-muted);">ID del Recibo de Cobranza</label>
+              <input
+                type="number"
+                formControlName="cobranzaId"
+                placeholder="ID de la cobranza previa"
+                class="w-full px-3 py-2 text-xs border rounded-lg font-mono"
+                style="background-color: var(--bg-card); color: var(--text-primary); border-color: var(--border-glass);"
+              />
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold uppercase mb-1" style="color: var(--text-muted);">Monto a Imputar ($)</label>
+              <input
+                type="number"
+                formControlName="montoImputado"
+                placeholder="0.00"
+                class="w-full px-3 py-2 text-xs border rounded-lg font-mono"
+                style="background-color: var(--bg-card); color: var(--text-primary); border-color: var(--border-glass);"
+              />
+            </div>
+
+            <div class="pt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                class="px-4 py-2 text-xs font-medium rounded-lg"
+                style="background-color: var(--bg-panel); color: var(--text-muted);"
+                (click)="mostrarModalImputacion.set(false)"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                [disabled]="imputacionForm.invalid || guardandoImputacion()"
+                class="px-4 py-2 text-xs font-medium text-white rounded-lg disabled:opacity-50"
+                style="background-color: var(--accent-blue);"
+              >
+                {{ guardandoImputacion() ? 'Imputando...' : 'Confirmar Imputación' }}
+              </button>
+            </div>
+          </form>
+        </emx-modal-shell>
+      }
+
+      <!-- Modal Gestión Mora -->
+      @if (mostrarModalGestion() && pacienteId()) {
+        <emx-gestion-cobranza-modal
+          [clienteId]="pacienteId()!"
+          (closed)="mostrarModalGestion.set(false)"
+          (saved)="cargarPaciente()"
+        />
       }
     </div>
   `,
@@ -240,6 +539,10 @@ export class PatientDetailComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly api = inject(PatientApiService);
+  private readonly ledgerApi = inject(LedgerApiService);
+  private readonly cobranzasApi = inject(CobranzasApiService);
+  private readonly feedback = inject(UserFeedbackService);
+  private readonly fb = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
 
   readonly pacienteId = signal<number | null>(null);
@@ -253,12 +556,38 @@ export class PatientDetailComponent implements OnInit {
   readonly facturas = signal<FacturaDTO[]>([]);
   readonly consumo = signal<ConsumoMensualDTO | null>(null);
   readonly cobertura = signal<CoberturaVigenteDTO[]>([]);
+  readonly movimientosLedger = signal<LedgerMovimientoDTO[]>([]);
 
   // Errores aislados por bloque
   readonly fichaError = signal(false);
   readonly facturasError = signal(false);
   readonly consumoError = signal(false);
   readonly coberturaError = signal(false);
+  readonly ledgerError = signal(false);
+
+  // Modales y formularios
+  readonly mostrarModalRecibo = signal(false);
+  readonly guardandoRecibo = signal(false);
+  readonly reciboForm = this.fb.group({
+    numeroRecibo: ['', Validators.required],
+    montoCobrado: [0, [Validators.required, Validators.min(0.01)]]
+  });
+
+  readonly mostrarModalImputacion = signal(false);
+  readonly facturaSeleccionadaId = signal<number | null>(null);
+  readonly guardandoImputacion = signal(false);
+  readonly imputacionForm = this.fb.group({
+    cobranzaId: [null as number | null, Validators.required],
+    montoImputado: [0, [Validators.required, Validators.min(0.01)]]
+  });
+
+  readonly mostrarModalGestion = signal(false);
+
+  readonly integrantesGrupo = computed(() => {
+    const f = this.ficha();
+    if (!f) return [];
+    return (f as any).integrantes || (f as any).familiares || (f as any).miembrosGrupo || [];
+  });
 
   readonly coberturaActual = computed(
     () => this.cobertura().find((c) => c.cubierto) ?? this.cobertura()[0] ?? null
@@ -334,6 +663,9 @@ export class PatientDetailComponent implements OnInit {
       queryParams: { tab },
       queryParamsHandling: 'merge'
     });
+    if (tab === 'cuenta-corriente') {
+      this.cargarLedger();
+    }
   }
 
   cargarPaciente(): void {
@@ -365,6 +697,7 @@ export class PatientDetailComponent implements OnInit {
     this.cargarFacturas(pacienteId);
     this.cargarConsumo(pacienteId);
     this.cargarCobertura(dni);
+    this.cargarLedger(pacienteId);
     this.loading.set(false);
   }
 
@@ -437,6 +770,100 @@ export class PatientDetailComponent implements OnInit {
       )
       .subscribe((cob) => {
         this.cobertura.set(cob || []);
+      });
+  }
+
+  cargarLedger(pacienteId?: number): void {
+    const id = pacienteId ?? this.pacienteId();
+    if (!id) return;
+    this.ledgerError.set(false);
+    this.ledgerApi
+      .getMovimientos(id)
+      .pipe(
+        catchError(() => {
+          this.ledgerError.set(true);
+          return of([]);
+        }),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe((movs) => {
+        this.movimientosLedger.set(movs || []);
+      });
+  }
+
+  registrarReciboCobranza(): void {
+    const id = this.pacienteId();
+    if (!id || this.reciboForm.invalid) return;
+    this.guardandoRecibo.set(true);
+
+    const val = this.reciboForm.value;
+    this.cobranzasApi
+      .registrarCobranza({
+        terceroEmpresaId: id,
+        numeroRecibo: val.numeroRecibo!,
+        montoCobrado: val.montoCobrado!
+      })
+      .pipe(
+        catchError((err) => {
+          const detail = err?.error?.detail || 'No se pudo registrar el recibo de cobranza.';
+          this.feedback.push({ type: 'error', title: 'Error de Recibo', message: detail });
+          this.guardandoRecibo.set(false);
+          return of(null);
+        }),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe((res) => {
+        this.guardandoRecibo.set(false);
+        if (res) {
+          this.feedback.push({ type: 'success', title: 'Recibo Registrado', message: `Recibo N° ${res.numeroRecibo} generado exitosamente.` });
+          this.mostrarModalRecibo.set(false);
+          this.reciboForm.reset({ montoCobrado: 0 });
+          this.cargarFacturas(id);
+          this.cargarLedger(id);
+        }
+      });
+  }
+
+  abrirImputacion(facturaId: number): void {
+    this.facturaSeleccionadaId.set(facturaId);
+    const factura = this.facturas().find((f) => f.id === facturaId);
+    this.imputacionForm.patchValue({
+      montoImputado: factura?.saldoPendiente ?? factura?.importeTotal ?? 0
+    });
+    this.mostrarModalImputacion.set(true);
+  }
+
+  confirmarImputacion(): void {
+    const facturaId = this.facturaSeleccionadaId();
+    if (!facturaId || this.imputacionForm.invalid) return;
+    this.guardandoImputacion.set(true);
+
+    const val = this.imputacionForm.value;
+    this.cobranzasApi
+      .aplicarADocumento(val.cobranzaId!, {
+        documentoComercialId: facturaId,
+        montoImputado: val.montoImputado!
+      })
+      .pipe(
+        catchError((err) => {
+          const detail = err?.error?.detail || 'Error al imputar cobro a la factura.';
+          this.feedback.push({ type: 'error', title: 'Error de Imputación', message: detail });
+          this.guardandoImputacion.set(false);
+          return of(null);
+        }),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe((res) => {
+        this.guardandoImputacion.set(false);
+        if (res) {
+          this.feedback.push({ type: 'success', title: 'Imputación Exitosa', message: 'Monto imputado contra la factura.' });
+          this.mostrarModalImputacion.set(false);
+          const id = this.pacienteId();
+          if (id) {
+            this.cargarFacturas(id);
+            this.cargarLedger(id);
+          }
+        }
       });
   }
 }

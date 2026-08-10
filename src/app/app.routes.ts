@@ -155,6 +155,14 @@ export const routes: Routes = [
           import('./features/institutions/institutions.component').then((m) => m.InstitutionsComponent),
       },
       {
+        path: 'institutions/:id',
+        canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_PROPIETARIO', 'ROLE_ADMINISTRADOR', 'ROLE_CONTADOR')],
+        loadComponent: () =>
+          import('./features/institutions/institution-detail/institution-detail.component').then(
+            (m) => m.InstitutionDetailComponent,
+          ),
+      },
+      {
         path: 'plans',
         canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_PROPIETARIO', 'ROLE_ADMINISTRADOR', 'ROLE_CONTADOR')],
         loadComponent: () =>

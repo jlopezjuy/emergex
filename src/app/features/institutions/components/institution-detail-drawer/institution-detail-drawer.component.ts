@@ -41,10 +41,12 @@ export interface DrawerInstitution {
   };
 }
 
+import { RouterLink } from '@angular/router';
+
 @Component({
   selector: 'app-institution-detail-drawer',
   standalone: true,
-  imports: [StatusBadgeComponent, DecimalPipe, FormsModule],
+  imports: [StatusBadgeComponent, DecimalPipe, FormsModule, RouterLink],
   templateUrl: './institution-detail-drawer.component.html',
 })
 export class InstitutionDetailDrawerComponent implements OnChanges {

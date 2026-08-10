@@ -37,8 +37,26 @@ export interface AplicacionCobranzaDTO {
   createdAt: string;
 }
 
+export interface RegistrarGestionCobranzaDTO {
+  clienteId: number;
+  tipoGestion: string;
+  fechaPromesaPago?: string;
+  montoPrometido?: number;
+  observaciones: string;
+}
+
+export interface GestionCobranzaDTO {
+  id: number;
+  clienteId: number;
+  tipoGestion: string;
+  fechaPromesaPago?: string;
+  montoPrometido?: number;
+  observaciones: string;
+  createdAt?: string;
+}
+
 /**
- * Servicio de llamadas HTTP para el ciclo de cobranzas y su aplicación (S2-04 / S2-05).
+ * Servicio de llamadas HTTP para el ciclo de cobranzas y su aplicación (S2-04 / S2-05 / F2-03).
  */
 @Injectable({ providedIn: 'root' })
 export class CobranzasApiService {
@@ -55,5 +73,13 @@ export class CobranzasApiService {
 
   revertirAplicacion(aplicacionId: number, req: RevertirAplicacionRequestDTO): Observable<void> {
     return this.http.post<void>(`${this.base}/aplicaciones/${aplicacionId}/reversa`, req);
+  }
+
+  registrarGestion(req: RegistrarGestionCobranzaDTO): Observable<GestionCobranzaDTO> {
+    return this.http.post<GestionCobranzaDTO>(`${this.base}/gestiones`, req);
+  }
+
+  getGestionesByCliente(clienteId: number): Observable<GestionCobranzaDTO[]> {
+    return this.http.get<GestionCobranzaDTO[]>(`${this.base}/gestiones/cliente/${clienteId}`);
   }
 }
