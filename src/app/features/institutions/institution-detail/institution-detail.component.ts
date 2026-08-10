@@ -172,12 +172,17 @@ function fmtCurrency(n?: number): string {
                 Contrato de Cobertura Vigente
               </h3>
 
-              @if (contratos().length === 0) {
+              @if (contratosError()) {
+                <emx-error-state
+                  message="No se pudo cargar la información de contratos."
+                  (retry)="cargarBloques(institucionId()!)"
+                />
+              } @else if (contratos().length === 0) {
                 <emx-empty-state message="No hay contratos activos registrados para este convenio." />
               } @else {
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                   @for (c of contratos(); track c.id || c.code) {
-                    <div class="p-4 rounded-lg border flex flex-col gap-2" style="background-color: var(--bg-card); border-color: var(--border-glass);">
+                    <div class="p-4 rounded-lg border flex flex-col gap-2" style="background-color: var(--bg-elevated); border-color: var(--border-glass);">
                       <div class="flex items-center justify-between">
                         <span class="font-bold font-mono text-sm" style="color: var(--text-primary);">{{ c.code }}</span>
                         <emx-status-badge [variant]="c.status === 'active' ? 'stable' : 'critical'">
@@ -207,11 +212,16 @@ function fmtCurrency(n?: number): string {
                   (ngModelChange)="filtrarMiembros($event)"
                   placeholder="Buscar por DNI o Nombre..."
                   class="px-3 py-1.5 text-xs border rounded-lg max-w-xs"
-                  style="background-color: var(--bg-card); color: var(--text-primary); border-color: var(--border-glass);"
+                  style="background-color: var(--surface-inset); color: var(--text-primary); border-color: var(--border-glass);"
                 />
               </div>
 
-              @if (miembrosFiltrados().length === 0) {
+              @if (miembrosError()) {
+                <emx-error-state
+                  message="No se pudo cargar el padrón de beneficiarios."
+                  (retry)="cargarBloques(institucionId()!)"
+                />
+              } @else if (miembrosFiltrados().length === 0) {
                 <emx-empty-state message="Sin beneficiarios registrados en el padrón de este convenio." />
               } @else {
                 <div class="overflow-x-auto">
@@ -287,31 +297,40 @@ function fmtCurrency(n?: number): string {
                 <h3 class="text-sm font-bold uppercase tracking-wider" style="color: var(--text-primary);">
                   Estado de Cuenta y Deuda Corporativa
                 </h3>
-                <emx-status-badge [variant]="(estadoCuenta()?.saldoPendiente ?? 0) > 0 ? 'critical' : 'stable'">
-                  {{ (estadoCuenta()?.saldoPendiente ?? 0) > 0 ? 'EN MORA' : 'CONVENIO AL DÍA' }}
-                </emx-status-badge>
+                @if (!estadoCuentaError()) {
+                  <emx-status-badge [variant]="(estadoCuenta()?.saldoPendiente ?? 0) > 0 ? 'critical' : 'stable'">
+                    {{ (estadoCuenta()?.saldoPendiente ?? 0) > 0 ? 'EN MORA' : 'CONVENIO AL DÍA' }}
+                  </emx-status-badge>
+                }
               </div>
 
-              <div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-xs">
-                <div class="p-4 rounded-lg border" style="background-color: var(--bg-card); border-color: var(--border-glass);">
-                  <span style="color: var(--text-muted);">Total Cobrado Histórico:</span>
-                  <div class="text-lg font-bold font-mono mt-1" style="color: var(--accent-emerald);">
-                    {{ fmtCurrency(estadoCuenta()?.totalPagado) }}
+              @if (estadoCuentaError()) {
+                <emx-error-state
+                  message="No se pudo cargar el estado de cuenta."
+                  (retry)="cargarBloques(institucionId()!)"
+                />
+              } @else {
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-xs">
+                  <div class="p-4 rounded-lg border" style="background-color: var(--bg-elevated); border-color: var(--border-glass);">
+                    <span style="color: var(--text-muted);">Total Cobrado Histórico:</span>
+                    <div class="text-lg font-bold font-mono mt-1" style="color: var(--accent-emerald);">
+                      {{ fmtCurrency(estadoCuenta()?.totalPagado) }}
+                    </div>
+                  </div>
+                  <div class="p-4 rounded-lg border" style="background-color: var(--bg-elevated); border-color: var(--border-glass);">
+                    <span style="color: var(--text-muted);">Saldo Pendiente:</span>
+                    <div class="text-lg font-bold font-mono mt-1" style="color: var(--accent-red);">
+                      {{ fmtCurrency(estadoCuenta()?.saldoPendiente) }}
+                    </div>
+                  </div>
+                  <div class="p-4 rounded-lg border" style="background-color: var(--bg-elevated); border-color: var(--border-glass);">
+                    <span style="color: var(--text-muted);">Facturas Vencidas:</span>
+                    <div class="text-lg font-bold font-mono mt-1" style="color: var(--accent-amber);">
+                      {{ estadoCuenta()?.cantidadVencidas ?? 0 }}
+                    </div>
                   </div>
                 </div>
-                <div class="p-4 rounded-lg border" style="background-color: var(--bg-card); border-color: var(--border-glass);">
-                  <span style="color: var(--text-muted);">Saldo Pendiente:</span>
-                  <div class="text-lg font-bold font-mono mt-1" style="color: var(--accent-red);">
-                    {{ fmtCurrency(estadoCuenta()?.saldoPendiente) }}
-                  </div>
-                </div>
-                <div class="p-4 rounded-lg border" style="background-color: var(--bg-card); border-color: var(--border-glass);">
-                  <span style="color: var(--text-muted);">Facturas Vencidas:</span>
-                  <div class="text-lg font-bold font-mono mt-1" style="color: var(--accent-amber);">
-                    {{ estadoCuenta()?.cantidadVencidas ?? 0 }}
-                  </div>
-                </div>
-              </div>
+              }
             </div>
           }
 
@@ -360,6 +379,11 @@ export class InstitutionDetailComponent implements OnInit {
   readonly miembros = signal<InstitucionMiembroItem[]>([]);
   readonly facturasContrato = signal<FacturacionContratoDTO[]>([]);
   readonly estadoCuenta = signal<InstitucionEstadoCuentaDTO | null>(null);
+
+  // Error por bloque — patrón de patient-detail.component.ts:711-788
+  readonly contratosError = signal(false);
+  readonly miembrosError = signal(false);
+  readonly estadoCuentaError = signal(false);
 
   readonly busquedaMiembro = signal('');
   readonly mostrarModalExcepcion = signal(false);
@@ -439,26 +463,38 @@ export class InstitutionDetailComponent implements OnInit {
   }
 
   cargarBloques(id: number): void {
+    this.contratosError.set(false);
     this.api
       .getContratosByInstitucion(id)
       .pipe(
-        catchError(() => of([])),
+        catchError(() => {
+          this.contratosError.set(true);
+          return of([]);
+        }),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe((c: ContractDTO[]) => this.contratos.set(c || []));
 
+    this.miembrosError.set(false);
     this.api
       .getMiembros(id)
       .pipe(
-        catchError(() => of([])),
+        catchError(() => {
+          this.miembrosError.set(true);
+          return of([]);
+        }),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe((m: InstitucionMiembroItem[]) => this.miembros.set(m || []));
 
+    this.estadoCuentaError.set(false);
     this.api
       .getEstadoCuentaInstitucion(id)
       .pipe(
-        catchError(() => of(null)),
+        catchError(() => {
+          this.estadoCuentaError.set(true);
+          return of(null);
+        }),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe((e: InstitucionEstadoCuentaDTO | null) => this.estadoCuenta.set(e));

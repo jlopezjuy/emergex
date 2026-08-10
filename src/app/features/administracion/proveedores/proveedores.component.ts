@@ -1,13 +1,17 @@
-import { Component, OnInit, signal, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule, ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
+import { Subject, Subscription } from 'rxjs';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { TercerosApiService } from '../../../data-access/api/terceros.api';
 import { UserFeedbackService } from '../../../core/notifications/user-feedback.service';
+import { SessionStore } from '../../../core/stores/session.store';
 import { TerceroResumenDTO } from '../../../data-access/dto/ledger.dto';
 import { LoadingStateComponent } from '../../../shared/components/loading-state/loading-state.component';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../../shared/components/error-state/error-state.component';
+import { ModalShellComponent } from '../../../shared/components/modal-shell/modal-shell.component';
 
 @Component({
   selector: 'emx-proveedores',
@@ -19,35 +23,43 @@ import { ErrorStateComponent } from '../../../shared/components/error-state/erro
     ReactiveFormsModule,
     LoadingStateComponent,
     EmptyStateComponent,
-    ErrorStateComponent
+    ErrorStateComponent,
+    ModalShellComponent
   ],
   template: `
-    <div class="p-6 space-y-6 bg-[var(--bg-deep)] min-h-screen text-[var(--text-primary)]">
+    <div class="p-6 space-y-6" style="background: var(--bg-deep); min-height: 100vh; color: var(--text-primary);">
       <!-- Header -->
       <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 class="text-2xl font-bold text-[var(--text-primary)]">Gestión de Proveedores</h1>
-          <p class="text-sm text-[var(--text-muted)]">Catálogo de terceros con rol proveedor y gestión fiscal.</p>
+          <h1 class="text-2xl font-bold" style="color: var(--text-primary);">Gestión de Proveedores</h1>
+          <p class="text-sm" style="color: var(--text-muted);">Catálogo de terceros con rol proveedor y gestión fiscal.</p>
         </div>
-        <button
-          (click)="showModal = true"
-          class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm rounded-lg shadow transition"
-        >
-          + Nuevo Proveedor
-        </button>
+        @if (puedeCrearProveedor()) {
+          <button
+            id="btn-nuevo-proveedor"
+            type="button"
+            (click)="showModal.set(true)"
+            class="px-4 py-2 font-medium text-sm rounded-lg shadow transition"
+            style="background: var(--accent-blue); color: #fff;"
+          >
+            + Nuevo Proveedor
+          </button>
+        }
       </div>
 
       <!-- Filtro Búsqueda -->
-      <div class="bg-[var(--bg-elevated)] p-4 rounded-xl border border-[var(--border-glass)] shadow-sm">
+      <div class="p-4 rounded-xl border" style="background: var(--bg-elevated); border-color: var(--border-glass);">
         <div class="relative max-w-md">
           <input
+            id="search-proveedores"
             type="text"
             [value]="searchTerm()"
             (input)="onSearchChange($event)"
             placeholder="Buscar por Razón Social, CUIT o Nombre Comercial..."
-            class="w-full pl-9 pr-4 py-2 bg-[var(--surface-inset)] border border-[var(--border-glass)] rounded-lg text-sm text-[var(--text-primary)]"
+            class="w-full pl-9 pr-4 py-2 border rounded-lg text-sm"
+            style="background: var(--surface-inset); border-color: var(--border-glass); color: var(--text-primary);"
           />
-          <span class="absolute left-3 top-2.5 text-[var(--text-muted)]">🔍</span>
+          <span class="absolute left-3 top-2.5" style="color: var(--text-muted);">🔍</span>
         </div>
       </div>
 
@@ -59,9 +71,9 @@ import { ErrorStateComponent } from '../../../shared/components/error-state/erro
       } @else if (proveedores().length === 0) {
         <emx-empty-state title="Sin proveedores registrados" message="No se encontraron proveedores activos con la búsqueda."></emx-empty-state>
       } @else {
-        <div class="bg-[var(--bg-elevated)] rounded-xl border border-[var(--border-glass)] overflow-hidden shadow-sm">
+        <div class="rounded-xl border overflow-hidden" style="background: var(--bg-elevated); border-color: var(--border-glass);">
           <table class="w-full text-left text-sm">
-            <thead class="bg-[var(--surface-glass)] text-xs uppercase font-semibold text-[var(--text-muted)] border-b border-[var(--border-glass)]">
+            <thead class="text-xs uppercase font-semibold border-b" style="background: var(--surface-glass); color: var(--text-muted); border-color: var(--border-glass);">
               <tr>
                 <th class="px-6 py-3">Razón Social</th>
                 <th class="px-6 py-3">CUIT / Identificador</th>
@@ -69,17 +81,18 @@ import { ErrorStateComponent } from '../../../shared/components/error-state/erro
                 <th class="px-6 py-3 text-right">Acciones</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-[var(--border-glass)]">
+            <tbody>
               @for (prov of proveedores(); track prov.id) {
-                <tr class="hover:bg-[var(--surface-glass)] transition">
-                  <td class="px-6 py-4 font-medium text-[var(--text-primary)]">{{ prov.razonSocial }}</td>
-                  <td class="px-6 py-4 font-mono text-xs text-[var(--text-muted)]">{{ prov.cuit }}</td>
-                  <td class="px-6 py-4 text-[var(--text-muted)]">{{ prov.nombreComercial || '-' }}</td>
+                <tr class="border-b transition" style="border-color: var(--border-glass);">
+                  <td class="px-6 py-4 font-medium" style="color: var(--text-primary);">{{ prov.razonSocial }}</td>
+                  <td class="px-6 py-4 font-mono text-xs" style="color: var(--text-muted);">{{ prov.cuit }}</td>
+                  <td class="px-6 py-4" style="color: var(--text-muted);">{{ prov.nombreComercial || '-' }}</td>
                   <td class="px-6 py-4 text-right">
                     <a
                       [routerLink]="['/administracion/proveedores', prov.id]"
                       [state]="{ proveedor: prov }"
-                      class="text-blue-500 hover:text-blue-600 font-medium text-xs"
+                      class="font-medium text-xs"
+                      style="color: var(--accent-blue);"
                     >
                       Ver Ficha 360 →
                     </a>
@@ -91,82 +104,84 @@ import { ErrorStateComponent } from '../../../shared/components/error-state/erro
         </div>
       }
 
-      <!-- Modal Alta Proveedor -->
-      @if (showModal) {
-        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div class="bg-[var(--bg-elevated)] rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-[var(--border-glass)]">
-            <div class="flex justify-between items-center mb-4">
-              <h3 class="text-lg font-bold text-[var(--text-primary)]">Alta de Proveedor</h3>
-              <button (click)="showModal = false" class="text-[var(--text-muted)] hover:text-[var(--text-primary)]">✕</button>
+      <!-- Modal Alta Proveedor (usando modal-shell) -->
+      @if (showModal()) {
+        <emx-modal-shell title="Alta de Proveedor" (closed)="showModal.set(false)">
+          <form [formGroup]="provForm" (ngSubmit)="onSubmit()" class="flex flex-col gap-4">
+            <div>
+              <label class="block text-xs font-semibold uppercase mb-1" style="color: var(--text-muted);">Razón Social</label>
+              <input
+                type="text"
+                formControlName="razonSocialCanonica"
+                placeholder="Proveedor S.A."
+                class="w-full px-3 py-2 border rounded-lg text-sm"
+                style="background: var(--surface-inset); border-color: var(--border-glass); color: var(--text-primary);"
+              />
             </div>
 
-            <form [formGroup]="provForm" (ngSubmit)="onSubmit()" class="space-y-4">
-              <div>
-                <label class="block text-xs font-semibold uppercase text-[var(--text-muted)] mb-1">Razón Social</label>
-                <input
-                  type="text"
-                  formControlName="razonSocialCanonica"
-                  placeholder="Proveedor S.A."
-                  class="w-full px-3 py-2 border border-[var(--border-glass)] rounded-lg bg-[var(--surface-inset)] text-sm text-[var(--text-primary)]"
-                />
-              </div>
+            <div>
+              <label class="block text-xs font-semibold uppercase mb-1" style="color: var(--text-muted);">Nombre Comercial</label>
+              <input
+                type="text"
+                formControlName="nombreComercial"
+                placeholder="Proveedor Express"
+                class="w-full px-3 py-2 border rounded-lg text-sm"
+                style="background: var(--surface-inset); border-color: var(--border-glass); color: var(--text-primary);"
+              />
+            </div>
 
-              <div>
-                <label class="block text-xs font-semibold uppercase text-[var(--text-muted)] mb-1">Nombre Comercial</label>
-                <input
-                  type="text"
-                  formControlName="nombreComercial"
-                  placeholder="Proveedor Express"
-                  class="w-full px-3 py-2 border border-[var(--border-glass)] rounded-lg bg-[var(--surface-inset)] text-sm text-[var(--text-primary)]"
-                />
-              </div>
+            <div>
+              <label class="block text-xs font-semibold uppercase mb-1" style="color: var(--text-muted);">CUIT / Identificador</label>
+              <input
+                type="text"
+                formControlName="identificador"
+                placeholder="30-12345678-9"
+                class="w-full px-3 py-2 border rounded-lg text-sm font-mono"
+                style="background: var(--surface-inset); border-color: var(--border-glass); color: var(--text-primary);"
+              />
+            </div>
+          </form>
 
-              <div>
-                <label class="block text-xs font-semibold uppercase text-[var(--text-muted)] mb-1">CUIT / Identificador</label>
-                <input
-                  type="text"
-                  formControlName="identificador"
-                  placeholder="30-12345678-9"
-                  class="w-full px-3 py-2 border border-[var(--border-glass)] rounded-lg bg-[var(--surface-inset)] text-sm font-mono text-[var(--text-primary)]"
-                />
-              </div>
-
-              <div class="pt-4 flex justify-end gap-3">
-                <button
-                  type="button"
-                  (click)="showModal = false"
-                  class="px-4 py-2 text-sm font-medium text-[var(--text-primary)] bg-[var(--surface-glass)] border border-[var(--border-glass)] rounded-lg"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  [disabled]="provForm.invalid || saving"
-                  class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                >
-                  Registrar
-                </button>
-              </div>
-            </form>
+          <div footer class="flex justify-end gap-3">
+            <button
+              type="button"
+              (click)="showModal.set(false)"
+              class="px-4 py-2 text-sm font-medium rounded-lg border"
+              style="color: var(--text-primary); background: var(--surface-glass); border-color: var(--border-glass);"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              [disabled]="provForm.invalid || saving()"
+              (click)="onSubmit()"
+              class="px-4 py-2 text-sm font-medium rounded-lg disabled:opacity-50 transition"
+              style="background: var(--accent-blue); color: #fff;"
+            >
+              {{ saving() ? 'Registrando...' : 'Registrar' }}
+            </button>
           </div>
-        </div>
+        </emx-modal-shell>
       }
     </div>
   `
 })
-export class ProveedoresComponent implements OnInit {
+export class ProveedoresComponent implements OnInit, OnDestroy {
   proveedores = signal<TerceroResumenDTO[]>([]);
   loading = signal(true);
   error = signal(false);
   errorMessage = signal('');
   searchTerm = signal('');
+  showModal = signal(false);
+  saving = signal(false);
 
-  showModal = false;
-  saving = false;
+  private readonly tercerosApi = inject(TercerosApiService);
+  private readonly feedbackService = inject(UserFeedbackService);
+  private readonly sessionStore = inject(SessionStore);
+  private readonly fb = inject(FormBuilder);
 
-  private tercerosApi = inject(TercerosApiService);
-  private feedbackService = inject(UserFeedbackService);
-  private fb = inject(FormBuilder);
+  /** Solo ROLE_ADMIN, ROLE_ADMINISTRADOR y ROLE_PROPIETARIO pueden dar de alta proveedores */
+  readonly puedeCrearProveedor = this.sessionStore.isAdmin;
 
   provForm = this.fb.group({
     razonSocialCanonica: ['', Validators.required],
@@ -174,8 +189,19 @@ export class ProveedoresComponent implements OnInit {
     identificador: ['', Validators.required]
   });
 
+  private readonly searchSubject = new Subject<string>();
+  private searchSubscription?: Subscription;
+
   ngOnInit(): void {
+    this.searchSubscription = this.searchSubject
+      .pipe(debounceTime(300), distinctUntilChanged())
+      .subscribe(() => this.cargarProveedores());
+
     this.cargarProveedores();
+  }
+
+  ngOnDestroy(): void {
+    this.searchSubscription?.unsubscribe();
   }
 
   cargarProveedores(): void {
@@ -198,13 +224,13 @@ export class ProveedoresComponent implements OnInit {
   onSearchChange(evt: Event): void {
     const val = (evt.target as HTMLInputElement).value;
     this.searchTerm.set(val);
-    this.cargarProveedores();
+    this.searchSubject.next(val);
   }
 
   onSubmit(): void {
     if (this.provForm.invalid) return;
 
-    this.saving = true;
+    this.saving.set(true);
     const val = this.provForm.value;
 
     this.tercerosApi.registrarTercero({
@@ -216,8 +242,8 @@ export class ProveedoresComponent implements OnInit {
       roles: ['PROVEEDOR']
     }).subscribe({
       next: () => {
-        this.saving = false;
-        this.showModal = false;
+        this.saving.set(false);
+        this.showModal.set(false);
         this.provForm.reset();
         this.feedbackService.push({
           type: 'success',
@@ -227,7 +253,7 @@ export class ProveedoresComponent implements OnInit {
         this.cargarProveedores();
       },
       error: (err) => {
-        this.saving = false;
+        this.saving.set(false);
         this.feedbackService.push({
           type: 'error',
           title: 'Error al registrar',

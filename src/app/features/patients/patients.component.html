@@ -663,3 +663,39 @@
     </div>
   </div>
 }
+
+<!-- Modal Confirmación de Baja de Afiliado (G1-05) -->
+@if (pendingBaja(); as pb) {
+  <emx-modal-shell
+    title="Confirmar Baja de Afiliado"
+    maxWidthClass="max-w-md"
+    (closed)="pendingBaja.set(null)"
+  >
+    <div class="flex flex-col gap-3">
+      <p class="text-sm" style="color: var(--text-primary);">
+        ¿Confirmás la baja del afiliado <strong style="color: var(--accent-red);">{{ pb.name }}</strong>?
+      </p>
+      <p class="text-xs" style="color: var(--text-muted);">
+        DNI: <span class="font-mono">{{ pb.dni }}</span> · Plan: {{ pb.planNombre }}
+      </p>
+    </div>
+    <div footer class="flex justify-end gap-2">
+      <button
+        type="button"
+        class="px-4 py-2 text-xs font-semibold rounded-lg border"
+        style="color: var(--text-primary); background: var(--surface-glass); border-color: var(--border-glass);"
+        (click)="pendingBaja.set(null)"
+      >
+        Cancelar
+      </button>
+      <button
+        type="button"
+        class="px-4 py-2 text-xs font-semibold rounded-lg text-white"
+        style="background: var(--accent-red);"
+        (click)="ejecutarBaja()"
+      >
+        Confirmar Baja
+      </button>
+    </div>
+  </emx-modal-shell>
+}

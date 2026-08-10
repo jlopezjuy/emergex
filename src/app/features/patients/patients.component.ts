@@ -8,6 +8,7 @@ import { PatientApiService } from '../../data-access/api/patient.api';
 import { PlanComercialApiService } from '../../data-access/api/plan-comercial.api';
 import { AuthService } from '../../core/auth/auth.service';
 import { SessionStore } from '../../core/stores/session.store';
+import { UserFeedbackService } from '../../core/notifications/user-feedback.service';
 import { PacienteDTO, FichaAfiliadoDTO, FacturaDTO, CoberturaFichaDTO, MiembroGrupoFamiliarDTO, ConsumoMensualDTO, OrdenMedicaDTO, AltaAfiliadoCompletaRequest, AltaAfiliadoCompletaResponse, DependienteAltaRequest } from '../../data-access/dto/patient.dto';
 import { PlanComercialDTO, PlanCoverages } from '../../data-access/dto/plan-comercial.dto';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
@@ -17,6 +18,7 @@ import { PatientDetailDrawerComponent } from './components/patient-detail-drawer
 import { PatientFormModalComponent } from './components/patient-form-modal/patient-form-modal.component';
 import { QuickPaymentModalComponent, QuickPaymentPayload } from './components/quick-payment-modal/quick-payment-modal.component';
 import { PatientWizardComponent } from './components/patient-wizard/patient-wizard.component';
+import { ModalShellComponent } from '../../shared/components/modal-shell/modal-shell.component';
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -140,6 +142,7 @@ function sexoFromGender(g: 'M' | 'F' | 'X'): 'MASCULINO' | 'FEMENINO' | 'OTRO' {
     PatientFormModalComponent,
     QuickPaymentModalComponent,
     PatientWizardComponent,
+    ModalShellComponent,
   ],
   templateUrl: './patients.component.html',
   styleUrl: './patients.component.scss'
@@ -152,6 +155,10 @@ export class PatientsComponent implements OnInit {
   private router      = inject(Router);
   private route       = inject(ActivatedRoute);
   private readonly session = inject(SessionStore);
+  private readonly feedback = inject(UserFeedbackService);
+
+  // Modal de confirmación de baja (reemplaza confirm nativo — G1-05)
+  readonly pendingBaja = signal<PatientRow | null>(null);
 
   readonly canEdit = computed(() =>
     this.session.hasAnyRole(['ROLE_ADMIN','ROLE_PROPIETARIO','ROLE_ADMINISTRADOR','ROLE_DESPACHANTE'])
@@ -702,14 +709,19 @@ export class PatientsComponent implements OnInit {
   }
 
   confirmBaja(row: PatientRow): void {
-    const msg = `¿Confirmás la baja del afiliado ${row.name}?`;
-    if (confirm(msg)) {
-      this.patientApi.removeMiembro(row.pacienteId).pipe(
-        catchError(() => of(null)), takeUntilDestroyed(this.destroyRef)
-      ).subscribe(() => {
-        this.loadPatients();
-      });
-    }
+    // Reemplaza confirm() nativo — G1-05: abre modal de confirmación
+    this.pendingBaja.set(row);
+  }
+
+  ejecutarBaja(): void {
+    const row = this.pendingBaja();
+    if (!row) return;
+    this.pendingBaja.set(null);
+    this.patientApi.removeMiembro(row.pacienteId).pipe(
+      catchError(() => of(null)), takeUntilDestroyed(this.destroyRef)
+    ).subscribe(() => {
+      this.loadPatients();
+    });
   }
 
   // ── Wizard alta (nuevo afiliado) ──
@@ -1173,7 +1185,7 @@ export class PatientsComponent implements OnInit {
     this.loadingFicha.set(true);
     this.patientApi.generarFacturaIndividual(pacienteId).pipe(
       catchError(err => {
-        alert(err?.error?.detail ?? err?.error?.title ?? 'Error al generar la factura mensual. Verifique el plan y la cobertura del afiliado.');
+        this.feedback.push({ type: 'error', title: 'Error de facturación', message: err?.error?.detail ?? err?.error?.title ?? 'Error al generar la factura mensual. Verifique el plan y la cobertura del afiliado.' });
         this.loadingFicha.set(false);
         return of(null);
       }),
@@ -1238,7 +1250,7 @@ export class PatientsComponent implements OnInit {
       }),
       concatMap(() => this.patientApi.updateMiembroRol(nuevoTitularId, 'TITULAR')),
       catchError(err => {
-        alert(err?.error?.detail ?? err?.error?.title ?? 'Error al procesar el traspaso de titularidad.');
+        this.feedback.push({ type: 'error', title: 'Error de traspaso', message: err?.error?.detail ?? err?.error?.title ?? 'Error al procesar el traspaso de titularidad.' });
         return of(null);
       }),
       takeUntilDestroyed(this.destroyRef)

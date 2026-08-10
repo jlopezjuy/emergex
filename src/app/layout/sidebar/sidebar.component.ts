@@ -286,14 +286,32 @@ export class SidebarComponent implements OnInit {
                 const newItems = [...items];
 
                 if (this.sessionStore.hasAnyRole(['ROLE_ADMIN', 'ROLE_ADMINISTRADOR', 'ROLE_PROPIETARIO', 'ROLE_CONTADOR', 'ROLE_OPERADOR'])) {
-                  newItems.unshift({
-                    id: 'administracion',
-                    label: 'Centro Adm.',
-                    title: 'Centro Administrativo y Bandejas',
-                    icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>',
-                    route: '/administracion',
-                    order: 1
-                  });
+                  newItems.unshift(
+                    {
+                      id: 'administracion',
+                      label: 'Centro Adm.',
+                      title: 'Centro Administrativo y Bandejas',
+                      icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>',
+                      route: '/administracion',
+                      order: 1
+                    },
+                    {
+                      id: 'proveedores',
+                      label: 'Proveedores',
+                      title: 'Catálogo de Proveedores',
+                      icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm-8 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/></svg>',
+                      route: '/administracion/proveedores',
+                      order: 2
+                    },
+                    {
+                      id: 'reportes-admin',
+                      label: 'Reportes',
+                      title: 'Reportes Administrativos',
+                      icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>',
+                      route: '/administracion/reportes',
+                      order: 3
+                    }
+                  );
                 }
 
                 const insertIndex = newItems.findIndex(i => i.id === 'facturacion' || i.id === 'staff');

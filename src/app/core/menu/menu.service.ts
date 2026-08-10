@@ -66,7 +66,8 @@ export const DEFAULT_MENU_SECTIONS: MenuSection[] = [
       'inventario',
       'management',
       'administracion',
-      'proveedores'
+      'proveedores',
+      'reportes-admin'
     ]
   },
   {

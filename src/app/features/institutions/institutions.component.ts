@@ -5,6 +5,7 @@ import { Subject, catchError, debounceTime, distinctUntilChanged, map, of } from
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { InstitutionsApiService } from '../../data-access/api/institutions.api';
 import { PlanComercialApiService } from '../../data-access/api/plan-comercial.api';
+import { UserFeedbackService } from '../../core/notifications/user-feedback.service';
 import { environment } from '../../../environments/environment';
 import { DateUtils } from '../../core/utils/date.utils';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
@@ -14,6 +15,7 @@ import { EstadoInstitucion, FacturacionContratoDTO, InstitutionDTO, InstitutionT
 import { InstitutionContractModalComponent } from './components/institution-contract-modal/institution-contract-modal.component';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { ExcepcionDeudaModalComponent } from './components/excepcion-deuda-modal/excepcion-deuda-modal.component';
+import { ModalShellComponent } from '../../shared/components/modal-shell/modal-shell.component';
 
 interface CommercialPlanItem {
   id: string;
@@ -147,6 +149,7 @@ const PAGE_SIZE = 10;
     InstitutionContractModalComponent,
     EmptyStateComponent,
     ExcepcionDeudaModalComponent,
+    ModalShellComponent,
   ],
   template: `
     <div class="screen">
@@ -493,6 +496,49 @@ const PAGE_SIZE = 10;
         (close)="closeForm()"
         (save)="saveFormFromModal($event)"
       />
+    }
+
+    <!-- ═══════════════════════════════════════════════════════
+         MODAL MOTIVO SUSPENSIÓN / REACTIVACIÓN (reemplaza prompt nativo — G1-05)
+         ═══════════════════════════════════════════════════════ -->
+    @if (suspensionModal(); as sm) {
+      <emx-modal-shell
+        [title]="sm.accion === 'suspender' ? 'Suspender institución por deuda' : 'Reactivar institución'"
+        maxWidthClass="max-w-lg"
+        (closed)="suspensionModal.set(null)"
+      >
+        <div class="flex flex-col gap-3">
+          <p class="text-sm" style="color: var(--text-secondary);">
+            {{ sm.accion === 'suspender' ? 'Suspender' : 'Reactivar' }}:
+            <strong style="color: var(--text-primary);">{{ sm.inst.name }}</strong>
+          </p>
+          <label class="text-xs font-semibold uppercase" style="color: var(--text-muted);">Motivo</label>
+          <input
+            type="text"
+            [(ngModel)]="suspensionMotivoInput"
+            class="w-full px-3 py-2 border rounded-lg text-sm"
+            style="background: var(--surface-inset); border-color: var(--border-glass); color: var(--text-primary);"
+            placeholder="Ingresá el motivo..."
+          />
+        </div>
+        <div footer class="flex justify-end gap-2">
+          <button
+            type="button"
+            class="btn btn--ghost btn--sm"
+            (click)="suspensionModal.set(null)"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            class="btn btn--primary btn--sm"
+            [disabled]="!suspensionMotivoInput.trim()"
+            (click)="submitSuspensionModal()"
+          >
+            Confirmar
+          </button>
+        </div>
+      </emx-modal-shell>
     }
 
     <!-- ═══════════════════════════════════════════════════════
@@ -1044,6 +1090,11 @@ export class InstitutionsComponent implements OnInit {
   private readonly api = inject(InstitutionsApiService);
   private readonly plansApi = inject(PlanComercialApiService);
   private readonly session = inject(SessionStore);
+  private readonly feedback = inject(UserFeedbackService);
+
+  // Modal de motivo de suspención/reactivación (reemplaza prompt nativo)
+  readonly suspensionModal = signal<{ inst: Institution; accion: 'suspender' | 'reactivar'; motivo: string } | null>(null);
+  suspensionMotivoInput = '';
 
   readonly canEdit = computed(() =>
     this.session.hasAnyRole(['ROLE_ADMIN','ROLE_PROPIETARIO','ROLE_ADMINISTRADOR','ROLE_DESPACHANTE'])
@@ -1415,36 +1466,49 @@ export class InstitutionsComponent implements OnInit {
   }
 
   suspenderPorDeuda(inst: Institution): void {
-    const id = Number(inst.id);
-    if (!id) return;
-    const motivo = prompt(`Motivo de suspensión por deuda para ${inst.name}:`, 'Deuda institucional vencida');
-    if (motivo === null || !motivo.trim()) return;
-    this.api.suspenderPorDeuda(id, motivo.trim()).pipe(
-      takeUntilDestroyed(this.destroyRef),
-    ).subscribe({
-      next: () => this.loadInstitutions(),
-      error: (err) => alert(err?.error?.detail ?? err?.error?.title ?? 'No se pudo suspender la institución por deuda.'),
-    });
+    if (!Number(inst.id)) return;
+    this.suspensionMotivoInput = 'Deuda institucional vencida';
+    this.suspensionModal.set({ inst, accion: 'suspender', motivo: 'Deuda institucional vencida' });
   }
 
   reactivarPorDeuda(inst: Institution): void {
-    const id = Number(inst.id);
-    if (!id) return;
-    const motivo = prompt(`Motivo de reactivación para ${inst.name}:`, 'Pago registrado');
-    if (motivo === null || !motivo.trim()) return;
-    this.api.reactivarInstitucion(id, motivo.trim()).pipe(
-      takeUntilDestroyed(this.destroyRef),
-    ).subscribe({
-      next: () => this.loadInstitutions(),
-      error: () => {
-        this.excepcionDeudaModal.set({
-          institutionId: id,
-          institutionName: inst.name,
-          accion: 'reactivar',
-          motivoInicial: motivo.trim(),
-        });
-      },
-    });
+    if (!Number(inst.id)) return;
+    this.suspensionMotivoInput = 'Pago registrado';
+    this.suspensionModal.set({ inst, accion: 'reactivar', motivo: 'Pago registrado' });
+  }
+
+  submitSuspensionModal(): void {
+    const modal = this.suspensionModal();
+    if (!modal || !this.suspensionMotivoInput.trim()) return;
+    const id = Number(modal.inst.id);
+    const motivo = this.suspensionMotivoInput.trim();
+
+    if (modal.accion === 'suspender') {
+      this.api.suspenderPorDeuda(id, motivo).pipe(
+        takeUntilDestroyed(this.destroyRef),
+      ).subscribe({
+        next: () => { this.suspensionModal.set(null); this.loadInstitutions(); },
+        error: (err) => {
+          this.suspensionModal.set(null);
+          this.feedback.push({ type: 'error', title: 'Error de suspensión', message: err?.error?.detail ?? err?.error?.title ?? 'No se pudo suspender la institución por deuda.' });
+        },
+      });
+    } else {
+      this.api.reactivarInstitucion(id, motivo).pipe(
+        takeUntilDestroyed(this.destroyRef),
+      ).subscribe({
+        next: () => { this.suspensionModal.set(null); this.loadInstitutions(); },
+        error: () => {
+          this.suspensionModal.set(null);
+          this.excepcionDeudaModal.set({
+            institutionId: id,
+            institutionName: modal.inst.name,
+            accion: 'reactivar',
+            motivoInicial: motivo,
+          });
+        },
+      });
+    }
   }
 
   onExcepcionDeudaConfirmada(): void {
@@ -1469,7 +1533,7 @@ export class InstitutionsComponent implements OnInit {
     ).subscribe((contratos) => {
       const contrato = contratos[0];
       if (!contrato?.id) {
-        alert('No hay contrato institucional para registrar pagos.');
+        this.feedback.push({ type: 'warning', title: 'Sin contrato', message: 'No hay contrato institucional para registrar pagos.' });
         this.closePaymentModal();
         return;
       }
@@ -1478,7 +1542,7 @@ export class InstitutionsComponent implements OnInit {
         takeUntilDestroyed(this.destroyRef),
       ).subscribe((facturas) => {
         if (!facturas.length) {
-          alert('No hay facturas institucionales para este contrato.');
+          this.feedback.push({ type: 'warning', title: 'Sin facturas', message: 'No hay facturas institucionales para este contrato.' });
           this.closePaymentModal();
           return;
         }
@@ -1555,11 +1619,11 @@ export class InstitutionsComponent implements OnInit {
         this.loadInstitutions();
         this.loadFacturasInstitucionales();
         this.onPaymentFacturaChange();
-        alert(`Pago registrado. Saldo pendiente factura: ${this.fmtCurrency(res.saldoPendienteFactura ?? 0)}`);
+        this.feedback.push({ type: 'success', title: 'Pago registrado', message: `Saldo pendiente factura: ${this.fmtCurrency(res.saldoPendienteFactura ?? 0)}` });
       },
       error: (err) => {
         this.loadingPayment.set(false);
-        alert(err?.error?.detail ?? err?.error?.title ?? 'No se pudo registrar el pago institucional.');
+        this.feedback.push({ type: 'error', title: 'Error de pago', message: err?.error?.detail ?? err?.error?.title ?? 'No se pudo registrar el pago institucional.' });
       },
     });
   }

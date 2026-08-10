@@ -132,4 +132,34 @@ describe('GlobalSearchComponent', () => {
     expect(component.error()).toBe(true);
     expect(component.cargando()).toBe(false);
   });
+
+  it('el botón de reintento debe llamar a la API incluso con la misma query (G1-02)', async () => {
+    // Primera búsqueda: configura la query
+    component.onQueryInput('Pérez');
+    await new Promise((r) => setTimeout(r, 350));
+    const primerasLlamadas = apiMock.buscar.mock.calls.length;
+    expect(primerasLlamadas).toBeGreaterThan(0);
+
+    // El botón de reintento llama a ejecutarBusqueda (retrySubject), no a onQueryInput.
+    // retrySubject NO tiene distinctUntilChanged, así que siempre dispara la API.
+    component.ejecutarBusqueda('Pérez');
+    await new Promise((r) => setTimeout(r, 250));
+
+    // El reintento debe haber hecho UNA nueva llamada a la API
+    expect(apiMock.buscar.mock.calls.length).toBeGreaterThan(primerasLlamadas);
+  });
+
+  it('ejecutarBusqueda debe disparar búsqueda incluso si la query es idéntica a la anterior (G1-02 reintento)', async () => {
+    // Primera búsqueda exitosa
+    component.onQueryInput('CUIT123');
+    await new Promise((r) => setTimeout(r, 350));
+    const llamadasAntes = apiMock.buscar.mock.calls.length;
+
+    // Llamada directa a ejecutarBusqueda (botón de reintento)
+    component.ejecutarBusqueda('CUIT123');
+    await new Promise((r) => setTimeout(r, 350));
+
+    // Debe haber una llamada adicional
+    expect(apiMock.buscar.mock.calls.length).toBeGreaterThan(llamadasAntes);
+  });
 });
