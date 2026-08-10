@@ -8,4 +8,18 @@ export const ADMINISTRACION_ROUTES: Routes = [
         (m) => m.CentroAdministrativoComponent
       ),
   },
+  {
+    path: 'proveedores',
+    loadComponent: () =>
+      import('./proveedores/proveedores.component').then(
+        (m) => m.ProveedoresComponent
+      ),
+  },
+  {
+    path: 'proveedores/:id',
+    loadComponent: () =>
+      import('./proveedores/proveedor-detail.component').then(
+        (m) => m.ProveedorDetailComponent
+      ),
+  },
 ];
