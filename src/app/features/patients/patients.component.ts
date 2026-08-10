@@ -275,6 +275,21 @@ export class PatientsComponent implements OnInit {
 
   readonly pageRange = computed(() => Array.from({ length: this.totalPages() }, (_, i) => i));
 
+  // NOTA F4-04: Exportación de página/lista visible actual según decisión humana #6.
+  exportarCsvPage(): void {
+    const list = this.patients();
+    if (!list || list.length === 0) return;
+    let csv = 'data:text/csv;charset=utf-8,ID,Nombre,DNI,Plan,Estado,Tipo\n';
+    list.forEach((p) => {
+      csv += `${p.id},"${p.name || ''}","${p.dni || ''}","${p.planNombre || ''}","${p.status || ''}","${p.type || ''}"\n`;
+    });
+    const encoded = encodeURI(csv);
+    const a = document.createElement('a');
+    a.href = encoded;
+    a.download = `afiliados-pagina-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+  }
+
   readonly counts = computed(() => {
     const list = this.patients();
     return {

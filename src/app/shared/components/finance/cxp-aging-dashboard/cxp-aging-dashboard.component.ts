@@ -1,41 +1,101 @@
-// MAQUETA SIN CABLEAR — datos ficticios. La tarea F4-01 la conecta. No montar antes.
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, signal, inject, DestroyRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { catchError, of } from 'rxjs';
+import { ReportesApiService } from '../../../../data-access/api/reportes.api';
+import { ReporteComprasDTO } from '../../../../data-access/dto/reportes.dto';
+import { LoadingStateComponent } from '../../loading-state/loading-state.component';
+import { ErrorStateComponent } from '../../error-state/error-state.component';
+import { EmptyStateComponent } from '../../empty-state/empty-state.component';
 
 @Component({
   selector: 'emx-cxp-aging-dashboard',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, LoadingStateComponent, ErrorStateComponent, EmptyStateComponent],
   template: `
-    <div class="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700">
-      <div class="flex justify-between items-center mb-6">
+    <div class="p-6 glass rounded-panel border flex flex-col gap-6" style="border-color: var(--border-glass);">
+      <div class="flex justify-between items-center">
         <div>
-          <h2 class="text-xl font-bold text-gray-900 dark:text-white">Cuentas por Pagar — Aging de Deuda Proveedores</h2>
-          <p class="text-sm text-gray-500">Antigüedad de saldos a pagar con validación de 3-Way Match</p>
+          <h2 class="text-xl font-bold" style="color: var(--text-primary);">
+            Cuentas por Pagar — Aging de Deuda Proveedores
+          </h2>
+          <p class="text-xs" style="color: var(--text-muted);">
+            Antigüedad de saldos a pagar con validación de 3-Way Match y resumen por proveedor
+          </p>
         </div>
       </div>
 
-      <div class="grid grid-cols-4 gap-4 mb-6">
-        <div class="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-          <span class="text-xs font-semibold text-green-600 uppercase">0 - 30 Días</span>
-          <p class="text-xl font-extrabold text-green-700 dark:text-green-300">$ 0.00</p>
+      @if (loading()) {
+        <emx-loading-state />
+      } @else if (error()) {
+        <emx-error-state [message]="error()!" (retry)="cargarReporte()" />
+      } @else if (!compras()) {
+        <emx-empty-state message="Sin información de CxP disponible." />
+      } @else {
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+          <div class="p-4 rounded-lg border flex flex-col gap-1" style="background: var(--bg-elevated); border-color: var(--border-glass);">
+            <span class="text-xs font-semibold uppercase tracking-wider text-green-600">Total Cuentas x Pagar</span>
+            <p class="text-xl font-extrabold" style="color: var(--text-primary);">
+              {{ totalCuentasPorPagar() | currency:'ARS':'symbol-narrow':'1.2-2' }}
+            </p>
+          </div>
+          <div class="p-4 rounded-lg border flex flex-col gap-1" style="background: var(--bg-elevated); border-color: var(--border-glass);">
+            <span class="text-xs font-semibold uppercase tracking-wider text-blue-600">Proveedores Activos</span>
+            <p class="text-xl font-extrabold" style="color: var(--text-primary);">
+              {{ compras()?.gastoPorProveedor?.length || 0 }}
+            </p>
+          </div>
+          <div class="p-4 rounded-lg border flex flex-col gap-1" style="background: var(--bg-elevated); border-color: var(--border-glass);">
+            <span class="text-xs font-semibold uppercase tracking-wider text-amber-600">Centros de Costo</span>
+            <p class="text-xl font-extrabold" style="color: var(--text-primary);">
+              {{ compras()?.gastoPorCentroCosto?.length || 0 }}
+            </p>
+          </div>
+          <div class="p-4 rounded-lg border flex flex-col gap-1" style="background: var(--bg-elevated); border-color: var(--border-glass);">
+            <span class="text-xs font-semibold uppercase tracking-wider text-purple-600">Próximos Pagos</span>
+            <p class="text-xl font-extrabold" style="color: var(--text-primary);">
+              {{ compras()?.pagosProximos?.length || 0 }}
+            </p>
+          </div>
         </div>
-        <div class="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-          <span class="text-xs font-semibold text-yellow-600 uppercase">31 - 60 Días</span>
-          <p class="text-xl font-extrabold text-yellow-700 dark:text-yellow-300">$ 0.00</p>
-        </div>
-        <div class="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-          <span class="text-xs font-semibold text-orange-600 uppercase">61 - 90 Días</span>
-          <p class="text-xl font-extrabold text-orange-700 dark:text-orange-300">$ 0.00</p>
-        </div>
-        <div class="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
-          <span class="text-xs font-semibold text-red-600 uppercase">+90 Días</span>
-          <p class="text-xl font-extrabold text-red-700 dark:text-red-300">$ 0.00</p>
-        </div>
-      </div>
+      }
     </div>
   `
 })
 export class CxpAgingDashboardComponent implements OnInit {
-  ngOnInit(): void {}
+  private readonly reportesApi = inject(ReportesApiService);
+  private readonly destroyRef = inject(DestroyRef);
+
+  readonly loading = signal(true);
+  readonly error = signal<string | null>(null);
+  readonly compras = signal<ReporteComprasDTO | null>(null);
+
+  readonly totalCuentasPorPagar = signal<number>(0);
+
+  ngOnInit(): void {
+    this.cargarReporte();
+  }
+
+  cargarReporte(): void {
+    this.loading.set(true);
+    this.error.set(null);
+
+    this.reportesApi
+      .compras()
+      .pipe(
+        catchError(() => {
+          this.error.set('No se pudo cargar el reporte de CxP de proveedores.');
+          this.loading.set(false);
+          return of(null);
+        }),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe((res) => {
+        if (res) {
+          this.compras.set(res);
+          this.totalCuentasPorPagar.set(res.totalCuentasPorPagar || 0);
+        }
+        this.loading.set(false);
+      });
+  }
 }

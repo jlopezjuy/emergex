@@ -10,6 +10,9 @@ import { LoadingStateComponent } from '../../../shared/components/loading-state/
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../../shared/components/error-state/error-state.component';
 
+import { CxcAgingDashboardComponent } from '../../../shared/components/finance/cxc-aging-dashboard/cxc-aging-dashboard.component';
+import { CxpAgingDashboardComponent } from '../../../shared/components/finance/cxp-aging-dashboard/cxp-aging-dashboard.component';
+
 export type SeveridadFiltro = 'TODAS' | 'ALTA' | 'MEDIA' | 'BAJA';
 
 @Component({
@@ -20,7 +23,9 @@ export type SeveridadFiltro = 'TODAS' | 'ALTA' | 'MEDIA' | 'BAJA';
     StatusBadgeComponent,
     LoadingStateComponent,
     EmptyStateComponent,
-    ErrorStateComponent
+    ErrorStateComponent,
+    CxcAgingDashboardComponent,
+    CxpAgingDashboardComponent
   ],
   template: `
     <div class="p-6 max-w-7xl mx-auto flex flex-col gap-6">
@@ -256,6 +261,12 @@ export type SeveridadFiltro = 'TODAS' | 'ALTA' | 'MEDIA' | 'BAJA';
               </div>
             }
           </div>
+        </div>
+
+        <!-- Fila 3: Dashboards de Aging CxC y CxP -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mt-2">
+          <emx-cxc-aging-dashboard />
+          <emx-cxp-aging-dashboard />
         </div>
       }
     </div>

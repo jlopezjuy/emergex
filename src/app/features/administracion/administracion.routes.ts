@@ -22,4 +22,11 @@ export const ADMINISTRACION_ROUTES: Routes = [
         (m) => m.ProveedorDetailComponent
       ),
   },
+  {
+    path: 'reportes',
+    loadComponent: () =>
+      import('./reportes/reportes-admin.component').then(
+        (m) => m.ReportesAdminComponent
+      ),
+  },
 ];

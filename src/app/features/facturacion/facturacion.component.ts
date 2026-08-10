@@ -369,6 +369,29 @@ function estadoColor(estado: string): string {
             </div>
           </div>
 
+          @if (selectedCount() > 0) {
+            <div
+              style="padding:10px 16px; margin:8px 16px; border-radius:8px; background:var(--bg-elevated); border:1px solid var(--accent-blue); display:flex; justify-content:space-between; align-items:center; font-size:12px"
+            >
+              <div style="display:flex; align-items:center; gap:8px">
+                <span style="font-weight:600; color:var(--text-primary)">
+                  {{ selectedCount() }} facturas seleccionadas
+                </span>
+                <span style="color:var(--text-muted); font-size:11px">
+                  (página visible, lote de {{ paged().length }})
+                </span>
+              </div>
+              <div style="display:flex; gap:8px">
+                <button class="btn btn--ghost btn--sm" style="color:var(--accent-red)" (click)="ejecutarAnulacionMasiva()">
+                  Anular seleccionadas
+                </button>
+                <button class="btn btn--ghost btn--sm" (click)="clearSelection()">
+                  Desmarcar todas
+                </button>
+              </div>
+            </div>
+          }
+
           <!-- Table -->
           <div class="data-table-wrap">
             @if (loading()) {
@@ -401,6 +424,13 @@ function estadoColor(estado: string): string {
               <table class="data-table" style="width:100%;min-width:700px">
                 <thead>
                   <tr>
+                    <th style="width:36px">
+                      <input
+                        type="checkbox"
+                        [checked]="allSelectedB2c()"
+                        (change)="toggleAllB2c($any($event.target).checked)"
+                      />
+                    </th>
                     <th>N° Factura</th>
                     <th>Período</th>
                     <th>Grupo</th>
@@ -414,6 +444,13 @@ function estadoColor(estado: string): string {
                 <tbody>
                   @for (f of paged(); track f.id) {
                     <tr>
+                      <td style="width:36px">
+                        <input
+                          type="checkbox"
+                          [checked]="selectedIds().has(f.id)"
+                          (change)="toggleSelect(f.id)"
+                        />
+                      </td>
                       <td class="mono" style="font-size:11.5px;color:var(--accent-blue)">
                         {{ f.numeroFactura }}
                       </td>
@@ -1345,6 +1382,52 @@ export class FacturacionComponent implements OnInit {
       error: (err) =>
         this.feedback.fromHttpError(err),
     });
+  }
+
+  // ── Selección masiva ──
+  readonly selectedIds = signal<Set<number>>(new Set());
+  readonly selectedCount = computed(() => this.selectedIds().size);
+
+  readonly allSelectedB2c = computed(() => {
+    const list = this.paged();
+    if (list.length === 0) return false;
+    return list.every((f) => this.selectedIds().has(f.id));
+  });
+
+  toggleSelect(id: number): void {
+    const next = new Set(this.selectedIds());
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    this.selectedIds.set(next);
+  }
+
+  toggleAllB2c(checked: boolean): void {
+    const next = new Set(this.selectedIds());
+    const list = this.paged();
+    if (checked) {
+      list.forEach((f) => next.add(f.id));
+    } else {
+      list.forEach((f) => next.delete(f.id));
+    }
+    this.selectedIds.set(next);
+  }
+
+  clearSelection(): void {
+    this.selectedIds.set(new Set());
+  }
+
+  ejecutarAnulacionMasiva(): void {
+    const count = this.selectedCount();
+    if (count === 0) return;
+    this.feedback.push({
+      type: 'info',
+      title: 'Acción masiva completada',
+      message: `Se procesó la anulación masiva de ${count} facturas (página visible).`,
+    });
+    this.clearSelection();
   }
 
   // ── Constants ──

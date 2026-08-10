@@ -99,9 +99,14 @@ import { LedgerMovimientoDTO, TerceroResumenDTO } from '../../data-access/dto/le
                 </span>
                 <span class="text-2xl font-extrabold text-slate-800">$ {{ saldo() | number: '1.2-2' }}</span>
               </div>
-              <span class="text-xs px-3 py-1 font-semibold rounded-full bg-slate-200 text-slate-700">
-                Submayor {{ tipoSubmayor() }}
-              </span>
+              <div class="flex items-center gap-2">
+                <button type="button" class="px-3 py-1.5 text-xs font-bold text-slate-700 bg-white hover:bg-slate-100 rounded-lg transition border border-slate-300" (click)="exportarCsvPage()">
+                  📥 Exportar CSV (Página)
+                </button>
+                <span class="text-xs px-3 py-1 font-semibold rounded-full bg-slate-200 text-slate-700">
+                  Submayor {{ tipoSubmayor() }}
+                </span>
+              </div>
             </div>
 
             <table class="w-full text-left text-sm border-collapse">
@@ -239,5 +244,21 @@ export class CuentasCorrientesComponent implements OnInit {
           this.loadingCuenta.set(false);
         },
       });
+  }
+
+  // NOTA F4-04: Exportación de página/lista visible actual según decisión humana #6.
+  // Para iterar todo el filtro server-side a futuro, extender con llamadas paginadas.
+  exportarCsvPage(): void {
+    const list = this.movimientos();
+    if (!list || list.length === 0) return;
+    let csv = 'data:text/csv;charset=utf-8,ID,Fecha Contable,Tipo Movimiento,Concepto,Debe,Haber\n';
+    list.forEach((m) => {
+      csv += `${m.id},"${m.fechaContable || ''}","${m.tipoMovimiento || ''}","${m.concepto || ''}",${m.montoDebe || 0},${m.montoHaber || 0}\n`;
+    });
+    const encoded = encodeURI(csv);
+    const a = document.createElement('a');
+    a.href = encoded;
+    a.download = `cuentas-corrientes-${this.tipoSubmayor()}-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
   }
 }

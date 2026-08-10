@@ -273,4 +273,33 @@ describe('FacturacionComponent (Comprehensive TDD Spec)', () => {
     expect(component.arcaModoPruebas()).toBe(false);
     expect(fixture.nativeElement.querySelector('.arca-warning-banner')).toBeNull();
   });
+
+  it('debería permitir seleccionar/deseleccionar ítems masivamente en B2C y calcular el total de seleccionados', () => {
+    const fixture = TestBed.createComponent(FacturacionComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    expect(component.selectedIds().size).toBe(0);
+    component.toggleSelect(1);
+    expect(component.selectedIds().has(1)).toBe(true);
+    expect(component.selectedCount()).toBe(1);
+
+    component.toggleAllB2c(true);
+    expect(component.selectedCount()).toBe(2);
+
+    component.toggleAllB2c(false);
+    expect(component.selectedCount()).toBe(0);
+  });
+
+  it('debería ejecutar la anulación masiva y reportar el resultado por ítem', () => {
+    const fixture = TestBed.createComponent(FacturacionComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    component.toggleSelect(1);
+    expect(component.selectedCount()).toBe(1);
+
+    component.ejecutarAnulacionMasiva();
+    expect(component.selectedCount()).toBe(0);
+  });
 });

@@ -188,7 +188,7 @@ const PAGE_SIZE = 10;
         </div>
 
         <div class="screen-head__actions">
-          <button class="btn btn--ghost btn--sm">Exportar</button>
+          <button class="btn btn--ghost btn--sm" (click)="exportarCsvPage()">Exportar CSV</button>
           @if (canEdit()) {
             <button class="btn btn--primary btn--sm" (click)="openNewForm()">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="1" x2="6" y2="11"/><line x1="1" y1="6" x2="11" y2="6"/></svg>
@@ -1051,6 +1051,21 @@ export class InstitutionsComponent implements OnInit {
   readonly canAdmin = computed(() =>
     this.session.hasAnyRole(['ROLE_ADMIN','ROLE_PROPIETARIO','ROLE_ADMINISTRADOR'])
   );
+
+  // NOTA F4-04: Exportación de página/lista visible actual según decisión humana #6.
+  exportarCsvPage(): void {
+    const list = this.institutions();
+    if (!list || list.length === 0) return;
+    let csv = 'data:text/csv;charset=utf-8,ID,Nombre,Razon Social,CUIT,Estado,Tipo\n';
+    list.forEach((i) => {
+      csv += `${i.id},"${i.name || ''}","${i.razonSocial || ''}","${i.cuit || ''}","${i.status || ''}","${i.type || ''}"\n`;
+    });
+    const encoded = encodeURI(csv);
+    const a = document.createElement('a');
+    a.href = encoded;
+    a.download = `instituciones-pagina-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+  }
 
   // ── State ──
   private readonly _commercialPlans = signal<CommercialPlanItem[]>([]);
