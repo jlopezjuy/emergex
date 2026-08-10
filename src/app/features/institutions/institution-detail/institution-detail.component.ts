@@ -22,6 +22,8 @@ import { TarifasContratoApiService } from '../../../data-access/api/tarifas-cont
 import { TarifaContratoDTO } from '../../../data-access/dto/tarifas-contrato.dto';
 import { AreaProtegidaApiService } from '../../../data-access/api/area-protegida.api';
 import { AreaProtegidaDTO } from '../../../data-access/dto/area-protegida.dto';
+import { ConciliacionCierreApiService } from '../../../data-access/api/conciliacion-cierre.api';
+import { ConciliacionInstitucionalCierreDTO } from '../../../data-access/dto/conciliacion-cierre.dto';
 import { SessionStore } from '../../../core/stores/session.store';
 import { UserFeedbackService } from '../../../core/notifications/user-feedback.service';
 
@@ -33,7 +35,8 @@ export type InstitutionDetailTab =
   | 'documentacion'
   | 'historial'
   | 'tarifario'
-  | 'areas-protegidas';
+  | 'areas-protegidas'
+  | 'cierres-conciliacion';
 
 function fmtCurrency(n?: number): string {
   return '$' + (n ?? 0).toLocaleString('es-AR', { maximumFractionDigits: 0 });
@@ -189,6 +192,16 @@ function fmtCurrency(n?: number): string {
             (click)="selectTab('areas-protegidas')"
           >
             Áreas Protegidas
+          </button>
+
+          <button
+            type="button"
+            class="px-4 py-2 text-xs font-semibold rounded-t-lg transition-colors border-b-2 border-transparent"
+            [class.border-blue-500]="activeTab() === 'cierres-conciliacion'"
+            [style.color]="activeTab() === 'cierres-conciliacion' ? 'var(--accent-blue)' : 'var(--text-muted)'"
+            (click)="selectTab('cierres-conciliacion')"
+          >
+            Cierres de Período
           </button>
         </div>
 
@@ -509,6 +522,80 @@ function fmtCurrency(n?: number): string {
               }
             </div>
           }
+
+          @case ('cierres-conciliacion') {
+            <div class="glass rounded-panel p-5 flex flex-col gap-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h3 class="text-sm font-bold uppercase tracking-wider" style="color: var(--text-primary);">
+                    Cierres de Período Institucional
+                  </h3>
+                  <p class="text-xs" style="color: var(--text-muted);">
+                    Historial de cierres de conciliación del convenio
+                  </p>
+                </div>
+                @if (canClosePeriod()) {
+                  <button
+                    type="button"
+                    class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors border"
+                    style="background-color: var(--accent-blue); color: white; border-color: var(--accent-blue);"
+                    (click)="ejecutarCierrePeriodo()"
+                  >
+                    Ejecutar Cierre de Período
+                  </button>
+                }
+              </div>
+
+              @if (loadingCierres()) {
+                <emx-loading-state />
+              } @else if (cierresError()) {
+                <emx-error-state [message]="cierresError()!" (retry)="cargarCierres()" />
+              } @else if (cierresConciliacion().length === 0) {
+                <emx-empty-state message="No hay cierres de período registrados para esta institución." />
+              } @else {
+                <table class="w-full text-left text-xs">
+                  <thead>
+                    <tr class="border-b" style="border-color: var(--border-glass); color: var(--text-muted);">
+                      <th class="pb-2">ID Cierre</th>
+                      <th class="pb-2">Período Desde</th>
+                      <th class="pb-2">Período Hasta</th>
+                      <th class="pb-2">Total Facturado</th>
+                      <th class="pb-2">Total Pagado</th>
+                      <th class="pb-2">Saldo</th>
+                      <th class="pb-2">Fecha Cierre</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (c of cierresConciliacion(); track c.id) {
+                      <tr class="border-b" style="border-color: var(--border-glass);">
+                        <td class="py-2 font-mono font-bold" style="color: var(--text-primary);">
+                          #{{ c.id }}
+                        </td>
+                        <td class="py-2" style="color: var(--text-secondary);">
+                          {{ c.periodoDesde || '—' }}
+                        </td>
+                        <td class="py-2" style="color: var(--text-secondary);">
+                          {{ c.periodoHasta || '—' }}
+                        </td>
+                        <td class="py-2 font-mono" style="color: var(--text-primary);">
+                          {{ fmtCurrency(c.totalFacturado) }}
+                        </td>
+                        <td class="py-2 font-mono" style="color: var(--accent-emerald);">
+                          {{ fmtCurrency(c.totalPagado) }}
+                        </td>
+                        <td class="py-2 font-mono font-bold" style="color: var(--accent-amber);">
+                          {{ fmtCurrency(c.saldo) }}
+                        </td>
+                        <td class="py-2" style="color: var(--text-muted);">
+                          {{ c.cerradoAt || '—' }}
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              }
+            </div>
+          }
         }
       }
 
@@ -531,6 +618,7 @@ export class InstitutionDetailComponent implements OnInit {
   private readonly api = inject(InstitutionsApiService);
   private readonly tarifasApi = inject(TarifasContratoApiService);
   private readonly areasApi = inject(AreaProtegidaApiService);
+  private readonly cierresApi = inject(ConciliacionCierreApiService);
   private readonly sessionStore = inject(SessionStore);
   private readonly feedback = inject(UserFeedbackService);
   private readonly destroyRef = inject(DestroyRef);
@@ -556,6 +644,14 @@ export class InstitutionDetailComponent implements OnInit {
   readonly areasProtegidas = signal<AreaProtegidaDTO[]>([]);
   readonly loadingAreas = signal(false);
   readonly areasError = signal<string | null>(null);
+
+  // G2-04: Cierres de conciliación
+  readonly cierresConciliacion = signal<ConciliacionInstitucionalCierreDTO[]>([]);
+  readonly loadingCierres = signal(false);
+  readonly cierresError = signal<string | null>(null);
+  readonly canClosePeriod = computed(() =>
+    this.sessionStore.hasAnyRole(['ROLE_ADMIN', 'ROLE_PROPIETARIO', 'ROLE_ADMINISTRADOR', 'ROLE_CONTADOR'])
+  );
 
   readonly isAdmin = computed(() => this.sessionStore.hasAnyRole(['ROLE_ADMIN']));
 
@@ -602,6 +698,7 @@ export class InstitutionDetailComponent implements OnInit {
         'historial',
         'tarifario',
         'areas-protegidas',
+        'cierres-conciliacion',
       ].includes(tabParam)
     ) {
       this.activeTab.set(tabParam);
@@ -619,6 +716,7 @@ export class InstitutionDetailComponent implements OnInit {
     });
     if (tab === 'tarifario') this.cargarTarifas();
     if (tab === 'areas-protegidas') this.cargarAreasProtegidas();
+    if (tab === 'cierres-conciliacion') this.cargarCierres();
   }
 
   cargarTarifas(): void {
@@ -677,6 +775,50 @@ export class InstitutionDetailComponent implements OnInit {
       },
       error: (err) => this.feedback.fromHttpError(err),
     });
+  }
+
+  cargarCierres(): void {
+    const id = this.institucionId();
+    if (!id) return;
+    this.loadingCierres.set(true);
+    this.cierresError.set(null);
+    this.cierresApi
+      .getByInstitucion(id)
+      .pipe(
+        catchError(() => {
+          this.cierresError.set('Error al cargar cierres de conciliación del convenio.');
+          this.loadingCierres.set(false);
+          return of([]);
+        }),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe((data: ConciliacionInstitucionalCierreDTO[]) => {
+        this.cierresConciliacion.set(data || []);
+        this.loadingCierres.set(false);
+      });
+  }
+
+  ejecutarCierrePeriodo(): void {
+    const id = this.institucionId();
+    if (!id || !this.canClosePeriod()) return;
+    this.loadingCierres.set(true);
+    this.cierresApi
+      .crearCierre({ institucion: { id } })
+      .subscribe({
+        next: (cierre) => {
+          this.cierresConciliacion.update((list) => [cierre, ...list]);
+          this.loadingCierres.set(false);
+          this.feedback.push({
+            type: 'success',
+            title: 'Cierre de período ejecutado',
+            message: `Se registró el cierre de conciliación #${cierre.id}.`,
+          });
+        },
+        error: (err) => {
+          this.loadingCierres.set(false);
+          this.feedback.fromHttpError(err);
+        },
+      });
   }
 
   cargarInstitucion(): void {
@@ -743,6 +885,7 @@ export class InstitutionDetailComponent implements OnInit {
     this.loading.set(false);
     if (this.activeTab() === 'tarifario') this.cargarTarifas();
     if (this.activeTab() === 'areas-protegidas') this.cargarAreasProtegidas();
+    if (this.activeTab() === 'cierres-conciliacion') this.cargarCierres();
   }
 
   filtrarMiembros(q: string): void {

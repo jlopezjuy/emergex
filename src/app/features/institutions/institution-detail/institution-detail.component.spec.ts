@@ -6,6 +6,7 @@ import { InstitutionDetailComponent } from './institution-detail.component';
 import { InstitutionsApiService } from '../../../data-access/api/institutions.api';
 import { TarifasContratoApiService } from '../../../data-access/api/tarifas-contrato.api';
 import { AreaProtegidaApiService } from '../../../data-access/api/area-protegida.api';
+import { ConciliacionCierreApiService } from '../../../data-access/api/conciliacion-cierre.api';
 
 const baseInstitucion = {
   id: '1',
@@ -37,6 +38,10 @@ describe('InstitutionDetailComponent', () => {
     createAreaProtegida: ReturnType<typeof vi.fn>;
     deleteAreaProtegida: ReturnType<typeof vi.fn>;
   };
+  let cierreApiMock: {
+    getByInstitucion: ReturnType<typeof vi.fn>;
+    crearCierre: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(() => {
     apiMock = {
@@ -66,6 +71,13 @@ describe('InstitutionDetailComponent', () => {
       createAreaProtegida: vi.fn().mockReturnValue(of({ id: 2 })),
       deleteAreaProtegida: vi.fn().mockReturnValue(of(null)),
     };
+
+    cierreApiMock = {
+      getByInstitucion: vi.fn().mockReturnValue(of([
+        { id: 1, institucion: { id: 1 }, totalFacturado: 10000, totalPagado: 8000, saldo: 2000, cerradoAt: '2026-01-31T00:00:00Z' }
+      ])),
+      crearCierre: vi.fn().mockReturnValue(of({ id: 2, institucion: { id: 1 } })),
+    };
   });
 
   const setupTestingModule = async (id = '1') => {
@@ -76,6 +88,7 @@ describe('InstitutionDetailComponent', () => {
         { provide: InstitutionsApiService, useValue: apiMock },
         { provide: TarifasContratoApiService, useValue: tarifasApiMock },
         { provide: AreaProtegidaApiService, useValue: areaProtegidaApiMock },
+        { provide: ConciliacionCierreApiService, useValue: cierreApiMock },
         {
           provide: ActivatedRoute,
           useValue: {
@@ -153,5 +166,16 @@ describe('InstitutionDetailComponent', () => {
     component.selectTab('areas-protegidas');
     expect(component.activeTab()).toBe('areas-protegidas');
     expect(areaProtegidaApiMock.getByInstitucion).toHaveBeenCalledWith(1);
+  });
+
+  it('debería cargar cierres de conciliación al activar la solapa cierres-conciliacion (G2-04)', async () => {
+    await setupTestingModule();
+    const fixture = TestBed.createComponent(InstitutionDetailComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    component.selectTab('cierres-conciliacion');
+    expect(component.activeTab()).toBe('cierres-conciliacion');
+    expect(cierreApiMock.getByInstitucion).toHaveBeenCalledWith(1);
   });
 });
