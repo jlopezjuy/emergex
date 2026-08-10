@@ -33,6 +33,8 @@ import {
   FacturacionContratoDTO,
   GenerarFacturaContratoRequest,
 } from '../../data-access/dto/institution.dto';
+import { DebitosApiService } from '../../data-access/api/debitos.api';
+import { DebitoDocumentoDTO, EstadoDebito } from '../../data-access/dto/debitos.dto';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -230,6 +232,13 @@ function estadoColor(estado: string): string {
           (click)="tabActivo.set('debitos')"
         >
           Débito automático
+        </button>
+        <button
+          class="ft-tab"
+          [attr.data-active]="tabActivo() === 'debitos-os'"
+          (click)="seleccionarTabDebitosOs()"
+        >
+          Débitos OS
         </button>
         <button
           class="ft-tab"
@@ -536,6 +545,91 @@ function estadoColor(estado: string): string {
 
         @if (tabActivo() === 'particulares') {
           <app-servicios-particulares />
+        }
+
+        @if (tabActivo() === 'debitos-os') {
+          <div style="padding:20px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+              <div>
+                <h3 style="margin:0;font-size:16px;font-weight:600;color:var(--text-primary)">Gestión de Débitos OS</h3>
+                <p style="margin:4px 0 0 0;font-size:13px;color:var(--text-muted)">
+                  Débitos y rechazos administrativos y de obra social
+                </p>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center">
+                <label style="font-size:13px;color:var(--text-muted)">Estado:</label>
+                <select
+                  [ngModel]="filtroEstadoDebito()"
+                  (ngModelChange)="filtroEstadoDebito.set($event)"
+                  class="form-control"
+                  style="width:auto"
+                >
+                  <option value="TODOS">Todos</option>
+                  <option value="PENDIENTE">PENDIENTE</option>
+                  <option value="RECLAMADO">RECLAMADO</option>
+                  <option value="ACEPTADO">ACEPTADO</option>
+                  <option value="RECUPERADO">RECUPERADO</option>
+                </select>
+              </div>
+            </div>
+
+            @if (loadingDebitosOs()) {
+              <div style="text-align:center;padding:32px;color:var(--text-muted)">Cargando débitos OS...</div>
+            } @else if (debitosOsError()) {
+              <div style="padding:16px;background:var(--accent-red-dim);color:var(--accent-red);border-radius:8px">
+                {{ debitosOsError() }}
+              </div>
+            } @else if (debitosOsFiltrados().length === 0) {
+              <div style="text-align:center;padding:32px;color:var(--text-muted)">No se encontraron débitos de obra social.</div>
+            } @else {
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Doc ID</th>
+                    <th>Monto Débito</th>
+                    <th>Motivo / Causa</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (d of debitosOsFiltrados(); track d.id) {
+                    <tr>
+                      <td>#{{ d.id }}</td>
+                      <td>Doc #{{ d.documentoId }}</td>
+                      <td>\${{ d.montoDebito | number:'1.2-2' }}</td>
+                      <td>{{ d.motivo || d.causaPrincipal || 'Sin motivo' }}</td>
+                      <td>
+                        <span class="status-badge" [attr.data-status]="d.estado.toLowerCase()">
+                          {{ d.estado }}
+                        </span>
+                      </td>
+                      <td>
+                        <div style="display:flex;gap:4px">
+                          @if (d.estado !== 'ACEPTADO') {
+                            <button class="btn btn-sm btn-ghost" (click)="actualizarEstadoDebito(d.id, 'ACEPTADO')">
+                              Aceptar
+                            </button>
+                          }
+                          @if (d.estado !== 'RECLAMADO') {
+                            <button class="btn btn-sm btn-ghost" (click)="actualizarEstadoDebito(d.id, 'RECLAMADO')">
+                              Reclamar
+                            </button>
+                          }
+                          @if (d.estado !== 'RECUPERADO') {
+                            <button class="btn btn-sm btn-ghost" (click)="actualizarEstadoDebito(d.id, 'RECUPERADO', d.montoDebito)">
+                              Recuperar
+                            </button>
+                          }
+                        </div>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            }
+          </div>
         }
 
         @if (tabActivo() === 'debitos') {
@@ -1348,6 +1442,7 @@ export class FacturacionComponent implements OnInit {
   private api = inject(FacturacionApiService);
   private institutionsApi = inject(InstitutionsApiService);
   private reportesApi = inject(ReportesApiService);
+  private debitosApi = inject(DebitosApiService);
   private feedback = inject(UserFeedbackService);
 
   onExportCitiVentas(): void {
@@ -1435,7 +1530,54 @@ export class FacturacionComponent implements OnInit {
   readonly meses = MESES;
 
   // ── Tab ──
-  readonly tabActivo = signal<'b2c' | 'b2b' | 'debitos' | 'particulares'>('b2c');
+  readonly tabActivo = signal<'b2c' | 'b2b' | 'debitos' | 'debitos-os' | 'particulares'>('b2c');
+
+  // ── Débitos OS ──
+  readonly debitosOs = signal<DebitoDocumentoDTO[]>([]);
+  readonly loadingDebitosOs = signal(false);
+  readonly debitosOsError = signal<string | null>(null);
+  readonly filtroEstadoDebito = signal<string>('TODOS');
+
+  readonly debitosOsFiltrados = computed(() => {
+    const estado = this.filtroEstadoDebito();
+    const list = this.debitosOs();
+    if (estado === 'TODOS') return list;
+    return list.filter((d) => d.estado === estado);
+  });
+
+  seleccionarTabDebitosOs(): void {
+    this.tabActivo.set('debitos-os');
+    this.cargarDebitosOs();
+  }
+
+  cargarDebitosOs(): void {
+    this.loadingDebitosOs.set(true);
+    this.debitosOsError.set(null);
+    this.debitosApi.getDebitos().subscribe({
+      next: (data) => {
+        this.debitosOs.set(data || []);
+        this.loadingDebitosOs.set(false);
+      },
+      error: (_err) => {
+        this.debitosOsError.set('Error al cargar débitos de obra social.');
+        this.loadingDebitosOs.set(false);
+      },
+    });
+  }
+
+  actualizarEstadoDebito(id: number, nuevoEstado: EstadoDebito, montoRecuperado?: number): void {
+    this.debitosApi.actualizarEstado(id, { nuevoEstado, montoRecuperado }).subscribe({
+      next: (actualizado) => {
+        this.debitosOs.update((list) => list.map((d) => (d.id === id ? actualizado : d)));
+        this.feedback.push({
+          type: 'success',
+          title: 'Estado actualizado',
+          message: `Débito #${id} actualizado a ${nuevoEstado}.`,
+        });
+      },
+      error: (err) => this.feedback.fromHttpError(err),
+    });
+  }
 
   // ── Débitos Automáticos ──
   readonly genDebitoMes = signal<number>(DateUtils.now().month);

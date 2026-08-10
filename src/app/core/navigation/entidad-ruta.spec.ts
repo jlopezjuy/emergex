@@ -22,8 +22,8 @@ describe('rutaParaEntidad', () => {
     expect(rutaParaEntidad('TICKET', 1)).toBeNull();
   });
 
-  it('mapea DEBITO a null', () => {
-    expect(rutaParaEntidad('DEBITO', 2)).toBeNull();
+  it('mapea DEBITO a /facturacion', () => {
+    expect(rutaParaEntidad('DEBITO', 2)).toBe('/facturacion');
   });
 
   it('mapea DOCUMENTO_COMERCIAL a null', () => {

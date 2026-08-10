@@ -1,9 +1,11 @@
-import { vi } from 'vitest';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { convertToParamMap, ActivatedRoute, provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { InstitutionDetailComponent } from './institution-detail.component';
 import { InstitutionsApiService } from '../../../data-access/api/institutions.api';
+import { TarifasContratoApiService } from '../../../data-access/api/tarifas-contrato.api';
+import { AreaProtegidaApiService } from '../../../data-access/api/area-protegida.api';
 
 const baseInstitucion = {
   id: '1',
@@ -12,7 +14,7 @@ const baseInstitucion = {
   cuit: '30-12345678-9',
   status: 'ACTIVA',
   address: 'Av. Libertador 1234',
-  members: 150
+  members: 150,
 };
 
 describe('InstitutionDetailComponent', () => {
@@ -24,6 +26,17 @@ describe('InstitutionDetailComponent', () => {
     getMiembros: ReturnType<typeof vi.fn>;
     getFacturasByContrato: ReturnType<typeof vi.fn>;
   };
+  let tarifasApiMock: {
+    getTarifasByContrato: ReturnType<typeof vi.fn>;
+    createTarifa: ReturnType<typeof vi.fn>;
+    updateTarifa: ReturnType<typeof vi.fn>;
+    deleteTarifa: ReturnType<typeof vi.fn>;
+  };
+  let areaProtegidaApiMock: {
+    getByInstitucion: ReturnType<typeof vi.fn>;
+    createAreaProtegida: ReturnType<typeof vi.fn>;
+    deleteAreaProtegida: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(() => {
     apiMock = {
@@ -31,10 +44,27 @@ describe('InstitutionDetailComponent', () => {
       getEstadoCuentaInstitucion: vi.fn().mockReturnValue(
         of({ saldoPendiente: 0, facturasVencidas: 0, totalPagosHistorico: 50000 })
       ),
-      getContratosActivos: vi.fn().mockReturnValue(of([])),
-      getContratosByInstitucion: vi.fn().mockReturnValue(of([])),
+      getContratosActivos: vi.fn().mockReturnValue(of([{ id: 10, nombre: 'Contrato 10' }])),
+      getContratosByInstitucion: vi.fn().mockReturnValue(of([{ id: 10, nombre: 'Contrato 10' }])),
       getMiembros: vi.fn().mockReturnValue(of([])),
-      getFacturasByContrato: vi.fn().mockReturnValue(of([]))
+      getFacturasByContrato: vi.fn().mockReturnValue(of([])),
+    };
+
+    tarifasApiMock = {
+      getTarifasByContrato: vi.fn().mockReturnValue(of([
+        { id: 1, contratoCobertura: { id: 10 }, prestacion: { id: 2, nombre: 'Consulta' }, importe: 2000, vigenciaDesde: '2026-01-01' }
+      ])),
+      createTarifa: vi.fn().mockReturnValue(of({ id: 2 })),
+      updateTarifa: vi.fn().mockReturnValue(of({ id: 1, importe: 2500 })),
+      deleteTarifa: vi.fn().mockReturnValue(of(null)),
+    };
+
+    areaProtegidaApiMock = {
+      getByInstitucion: vi.fn().mockReturnValue(of([
+        { id: 1, nombre: 'Sede Principal', institucionId: 1, estado: 'ACTIVA' }
+      ])),
+      createAreaProtegida: vi.fn().mockReturnValue(of({ id: 2 })),
+      deleteAreaProtegida: vi.fn().mockReturnValue(of(null)),
     };
   });
 
@@ -44,16 +74,18 @@ describe('InstitutionDetailComponent', () => {
       providers: [
         provideRouter([]),
         { provide: InstitutionsApiService, useValue: apiMock },
+        { provide: TarifasContratoApiService, useValue: tarifasApiMock },
+        { provide: AreaProtegidaApiService, useValue: areaProtegidaApiMock },
         {
           provide: ActivatedRoute,
           useValue: {
             snapshot: {
               paramMap: convertToParamMap({ id }),
-              queryParamMap: convertToParamMap({})
-            }
-          }
-        }
-      ]
+              queryParamMap: convertToParamMap({}),
+            },
+          },
+        },
+      ],
     }).compileComponents();
   };
 
@@ -99,5 +131,27 @@ describe('InstitutionDetailComponent', () => {
     const component = fixture.componentInstance;
     expect(component.estadoCuentaError()).toBe(true);
     expect(component.estadoCuenta()).toBeNull();
+  });
+
+  it('debería cambiar a la solapa tarifario y cargar tarifas por contrato (G2-02)', async () => {
+    await setupTestingModule();
+    const fixture = TestBed.createComponent(InstitutionDetailComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    component.selectTab('tarifario');
+    expect(component.activeTab()).toBe('tarifario');
+    expect(tarifasApiMock.getTarifasByContrato).toHaveBeenCalled();
+  });
+
+  it('debería cambiar a la solapa áreas protegidas y cargar áreas por institución (G2-03)', async () => {
+    await setupTestingModule();
+    const fixture = TestBed.createComponent(InstitutionDetailComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    component.selectTab('areas-protegidas');
+    expect(component.activeTab()).toBe('areas-protegidas');
+    expect(areaProtegidaApiMock.getByInstitucion).toHaveBeenCalledWith(1);
   });
 });

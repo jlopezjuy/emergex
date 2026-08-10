@@ -22,8 +22,9 @@ export function rutaParaEntidad(tipo: string | null | undefined, id: number | st
     case 'CONTRATO':
       // Un contratoId no es un institucionId; se reporta como carencia de API
       return null;
-    case 'TICKET':
     case 'DEBITO':
+      return `/facturacion`;
+    case 'TICKET':
     case 'DOCUMENTO_COMERCIAL':
     case 'ORDEN_COMPRA':
       return null;

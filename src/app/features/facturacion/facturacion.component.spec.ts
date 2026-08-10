@@ -4,6 +4,7 @@ import { of, throwError } from 'rxjs';
 import { FacturacionComponent } from './facturacion.component';
 import { FacturacionApiService } from '../../data-access/api/facturacion.api';
 import { InstitutionsApiService } from '../../data-access/api/institutions.api';
+import { DebitosApiService } from '../../data-access/api/debitos.api';
 
 describe('FacturacionComponent (Comprehensive TDD Spec)', () => {
   const facturacionApiMock = {
@@ -85,6 +86,11 @@ describe('FacturacionComponent (Comprehensive TDD Spec)', () => {
       ),
   };
 
+  const debitosApiMock = {
+    getDebitos: vi.fn().mockReturnValue(of([{ id: 1, documentoId: 10, montoDebito: 500, estado: 'PENDIENTE', causaPrincipal: 'VALOR_EXCESIVO' }])),
+    actualizarEstado: vi.fn().mockReturnValue(of({ id: 1, documentoId: 10, montoDebito: 500, estado: 'ACEPTADO', montoRecuperado: 500 }))
+  };
+
   beforeEach(async () => {
     vi.clearAllMocks();
     await TestBed.configureTestingModule({
@@ -92,6 +98,7 @@ describe('FacturacionComponent (Comprehensive TDD Spec)', () => {
       providers: [
         { provide: FacturacionApiService, useValue: facturacionApiMock },
         { provide: InstitutionsApiService, useValue: institutionsApiMock },
+        { provide: DebitosApiService, useValue: debitosApiMock },
       ],
     }).compileComponents();
   });
@@ -301,5 +308,26 @@ describe('FacturacionComponent (Comprehensive TDD Spec)', () => {
 
     component.ejecutarAnulacionMasiva();
     expect(component.selectedCount()).toBe(0);
+  });
+
+  it('debería cargar débitos OS al activar la solapa debitos-os (G2-01)', () => {
+    const fixture = TestBed.createComponent(FacturacionComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    component.seleccionarTabDebitosOs();
+    fixture.detectChanges();
+
+    expect(debitosApiMock.getDebitos).toHaveBeenCalled();
+    expect(component.debitosOs().length).toBe(1);
+  });
+
+  it('debería permitir actualizar el estado de un débito OS (G2-01)', () => {
+    const fixture = TestBed.createComponent(FacturacionComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    component.actualizarEstadoDebito(1, 'ACEPTADO', 500);
+    expect(debitosApiMock.actualizarEstado).toHaveBeenCalledWith(1, { nuevoEstado: 'ACEPTADO', montoRecuperado: 500 });
   });
 });

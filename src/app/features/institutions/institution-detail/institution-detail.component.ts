@@ -18,6 +18,12 @@ import { ErrorStateComponent } from '../../../shared/components/error-state/erro
 import { LoadingStateComponent } from '../../../shared/components/loading-state/loading-state.component';
 import { DocumentosAdjuntosComponent } from '../../../shared/components/documentos-adjuntos/documentos-adjuntos.component';
 import { ExcepcionDeudaModalComponent } from '../components/excepcion-deuda-modal/excepcion-deuda-modal.component';
+import { TarifasContratoApiService } from '../../../data-access/api/tarifas-contrato.api';
+import { TarifaContratoDTO } from '../../../data-access/dto/tarifas-contrato.dto';
+import { AreaProtegidaApiService } from '../../../data-access/api/area-protegida.api';
+import { AreaProtegidaDTO } from '../../../data-access/dto/area-protegida.dto';
+import { SessionStore } from '../../../core/stores/session.store';
+import { UserFeedbackService } from '../../../core/notifications/user-feedback.service';
 
 export type InstitutionDetailTab =
   | 'contrato'
@@ -25,7 +31,9 @@ export type InstitutionDetailTab =
   | 'facturacion-capita'
   | 'pagos-deuda'
   | 'documentacion'
-  | 'historial';
+  | 'historial'
+  | 'tarifario'
+  | 'areas-protegidas';
 
 function fmtCurrency(n?: number): string {
   return '$' + (n ?? 0).toLocaleString('es-AR', { maximumFractionDigits: 0 });
@@ -162,6 +170,26 @@ function fmtCurrency(n?: number): string {
           >
             Historial de Suspensiones
           </button>
+
+          <button
+            type="button"
+            class="px-4 py-2 text-xs font-semibold rounded-t-lg transition-colors border-b-2 border-transparent"
+            [class.border-blue-500]="activeTab() === 'tarifario'"
+            [style.color]="activeTab() === 'tarifario' ? 'var(--accent-blue)' : 'var(--text-muted)'"
+            (click)="selectTab('tarifario')"
+          >
+            Tarifario
+          </button>
+
+          <button
+            type="button"
+            class="px-4 py-2 text-xs font-semibold rounded-t-lg transition-colors border-b-2 border-transparent"
+            [class.border-blue-500]="activeTab() === 'areas-protegidas'"
+            [style.color]="activeTab() === 'areas-protegidas' ? 'var(--accent-blue)' : 'var(--text-muted)'"
+            (click)="selectTab('areas-protegidas')"
+          >
+            Áreas Protegidas
+          </button>
         </div>
 
         <!-- Tab Content -->
@@ -186,7 +214,7 @@ function fmtCurrency(n?: number): string {
                       <div class="flex items-center justify-between">
                         <span class="font-bold font-mono text-sm" style="color: var(--text-primary);">{{ c.code }}</span>
                         <emx-status-badge [variant]="c.status === 'active' ? 'stable' : 'critical'">
-                          {{ c.status.toUpperCase() }}
+                          {{ c.status?.toUpperCase() || 'ACTIVO' }}
                         </emx-status-badge>
                       </div>
                       <div><span style="color: var(--text-muted);">Vigencia:</span> <strong style="color: var(--text-primary);">{{ c.from }} al {{ c.to }}</strong></div>
@@ -346,6 +374,141 @@ function fmtCurrency(n?: number): string {
               <emx-empty-state message="Sin registro de suspensiones por mora recientes." />
             </div>
           }
+
+          @case ('tarifario') {
+            <div class="glass rounded-panel p-5 flex flex-col gap-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h3 class="text-sm font-bold uppercase tracking-wider" style="color: var(--text-primary);">
+                    Tarifario Específico por Convenio (S4-01)
+                  </h3>
+                  <p class="text-xs" style="color: var(--text-muted);">
+                    Tarifas diferenciales aplicadas al convenio con vigencia temporal
+                  </p>
+                </div>
+              </div>
+
+              @if (loadingTarifas()) {
+                <emx-loading-state />
+              } @else if (tarifasError()) {
+                <emx-error-state [message]="tarifasError()!" (retry)="cargarTarifas()" />
+              } @else if (tarifas().length === 0) {
+                <emx-empty-state message="No hay tarifas específicas registradas para este convenio." />
+              } @else {
+                <table class="w-full text-left text-xs">
+                  <thead>
+                    <tr class="border-b" style="border-color: var(--border-glass); color: var(--text-muted);">
+                      <th class="pb-2">Prestación</th>
+                      <th class="pb-2">Zona</th>
+                      <th class="pb-2">Importe</th>
+                      <th class="pb-2">Vigencia Desde</th>
+                      <th class="pb-2">Vigencia Hasta</th>
+                      <th class="pb-2">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (t of tarifas(); track t.id) {
+                      <tr class="border-b" style="border-color: var(--border-glass);">
+                        <td class="py-2 font-medium" style="color: var(--text-primary);">
+                          {{ t.prestacion?.nombre || ('Prestación #' + t.prestacion?.id) }}
+                        </td>
+                        <td class="py-2" style="color: var(--text-secondary);">
+                          {{ t.zona?.nombre || 'General (Sin Zona)' }}
+                        </td>
+                        <td class="py-2 font-mono font-bold" style="color: var(--accent-blue);">
+                          {{ fmtCurrency(t.importe) }}
+                        </td>
+                        <td class="py-2" style="color: var(--text-secondary);">
+                          {{ t.vigenciaDesde }}
+                        </td>
+                        <td class="py-2" style="color: var(--text-secondary);">
+                          {{ t.vigenciaHasta || 'Indefinida' }}
+                        </td>
+                        <td class="py-2">
+                          <emx-status-badge [variant]="'stable'">
+                            Vigente
+                          </emx-status-badge>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              }
+            </div>
+          }
+
+          @case ('areas-protegidas') {
+            <div class="glass rounded-panel p-5 flex flex-col gap-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h3 class="text-sm font-bold uppercase tracking-wider" style="color: var(--text-primary);">
+                    Áreas Protegidas del Convenio
+                  </h3>
+                  <p class="text-xs" style="color: var(--text-muted);">
+                    Zonas geográficas y establecimientos con cobertura del convenio
+                  </p>
+                </div>
+              </div>
+
+              @if (loadingAreas()) {
+                <emx-loading-state />
+              } @else if (areasError()) {
+                <emx-error-state [message]="areasError()!" (retry)="cargarAreasProtegidas()" />
+              } @else if (areasProtegidas().length === 0) {
+                <emx-empty-state message="No hay áreas protegidas asociadas a este convenio." />
+              } @else {
+                <table class="w-full text-left text-xs">
+                  <thead>
+                    <tr class="border-b" style="border-color: var(--border-glass); color: var(--text-muted);">
+                      <th class="pb-2">Nombre</th>
+                      <th class="pb-2">Dirección</th>
+                      <th class="pb-2">Teléfono</th>
+                      <th class="pb-2">Contacto</th>
+                      <th class="pb-2">Estado</th>
+                      @if (isAdmin()) {
+                        <th class="pb-2">Acciones</th>
+                      }
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (a of areasProtegidas(); track a.id) {
+                      <tr class="border-b" style="border-color: var(--border-glass);">
+                        <td class="py-2 font-medium" style="color: var(--text-primary);">
+                          {{ a.nombre }}
+                        </td>
+                        <td class="py-2" style="color: var(--text-secondary);">
+                          {{ a.direccion || '—' }}
+                        </td>
+                        <td class="py-2 font-mono" style="color: var(--text-secondary);">
+                          {{ a.telefono || '—' }}
+                        </td>
+                        <td class="py-2" style="color: var(--text-secondary);">
+                          {{ a.contactoResponsable || '—' }}
+                        </td>
+                        <td class="py-2">
+                          <emx-status-badge [variant]="a.estado === 'ACTIVA' ? 'stable' : 'critical'">
+                            {{ a.estado || 'ACTIVA' }}
+                          </emx-status-badge>
+                        </td>
+                        @if (isAdmin()) {
+                          <td class="py-2">
+                            <button
+                              type="button"
+                              class="text-xs px-2 py-1 rounded border hover:bg-red-500/10 transition-colors"
+                              style="color: var(--accent-red); border-color: var(--border-glass);"
+                              (click)="eliminarAreaProtegida(a.id!)"
+                            >
+                              Eliminar
+                            </button>
+                          </td>
+                        }
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              }
+            </div>
+          }
         }
       }
 
@@ -366,6 +529,10 @@ export class InstitutionDetailComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly api = inject(InstitutionsApiService);
+  private readonly tarifasApi = inject(TarifasContratoApiService);
+  private readonly areasApi = inject(AreaProtegidaApiService);
+  private readonly sessionStore = inject(SessionStore);
+  private readonly feedback = inject(UserFeedbackService);
   private readonly destroyRef = inject(DestroyRef);
 
   readonly institucionId = signal<number | null>(null);
@@ -379,6 +546,18 @@ export class InstitutionDetailComponent implements OnInit {
   readonly miembros = signal<InstitucionMiembroItem[]>([]);
   readonly facturasContrato = signal<FacturacionContratoDTO[]>([]);
   readonly estadoCuenta = signal<InstitucionEstadoCuentaDTO | null>(null);
+
+  // G2-02: Tarifario
+  readonly tarifas = signal<TarifaContratoDTO[]>([]);
+  readonly loadingTarifas = signal(false);
+  readonly tarifasError = signal<string | null>(null);
+
+  // G2-03: Áreas protegidas
+  readonly areasProtegidas = signal<AreaProtegidaDTO[]>([]);
+  readonly loadingAreas = signal(false);
+  readonly areasError = signal<string | null>(null);
+
+  readonly isAdmin = computed(() => this.sessionStore.hasAnyRole(['ROLE_ADMIN']));
 
   // Error por bloque — patrón de patient-detail.component.ts:711-788
   readonly contratosError = signal(false);
@@ -420,7 +599,9 @@ export class InstitutionDetailComponent implements OnInit {
         'facturacion-capita',
         'pagos-deuda',
         'documentacion',
-        'historial'
+        'historial',
+        'tarifario',
+        'areas-protegidas',
       ].includes(tabParam)
     ) {
       this.activeTab.set(tabParam);
@@ -434,7 +615,67 @@ export class InstitutionDetailComponent implements OnInit {
     this.router.navigate([], {
       relativeTo: this.route,
       queryParams: { tab },
-      queryParamsHandling: 'merge'
+      queryParamsHandling: 'merge',
+    });
+    if (tab === 'tarifario') this.cargarTarifas();
+    if (tab === 'areas-protegidas') this.cargarAreasProtegidas();
+  }
+
+  cargarTarifas(): void {
+    const id = this.institucionId();
+    if (!id) return;
+    this.loadingTarifas.set(true);
+    this.tarifasError.set(null);
+    const contratoId = this.contratos()[0]?.id || id;
+    this.tarifasApi
+      .getTarifasByContrato(contratoId)
+      .pipe(
+        catchError(() => {
+          this.tarifasError.set('Error al cargar tarifas por convenio.');
+          this.loadingTarifas.set(false);
+          return of([]);
+        }),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe((data: TarifaContratoDTO[]) => {
+        this.tarifas.set(data || []);
+        this.loadingTarifas.set(false);
+      });
+  }
+
+  cargarAreasProtegidas(): void {
+    const id = this.institucionId();
+    if (!id) return;
+    this.loadingAreas.set(true);
+    this.areasError.set(null);
+    this.areasApi
+      .getByInstitucion(id)
+      .pipe(
+        catchError(() => {
+          this.areasError.set('Error al cargar áreas protegidas del convenio.');
+          this.loadingAreas.set(false);
+          return of([]);
+        }),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe((data: AreaProtegidaDTO[]) => {
+        this.areasProtegidas.set(data || []);
+        this.loadingAreas.set(false);
+      });
+  }
+
+  eliminarAreaProtegida(areaId: number): void {
+    if (!this.isAdmin()) return;
+    this.areasApi.deleteAreaProtegida(areaId).subscribe({
+      next: () => {
+        this.areasProtegidas.update((list) => list.filter((a) => a.id !== areaId));
+        this.feedback.push({
+          type: 'success',
+          title: 'Área protegida eliminada',
+          message: 'Se eliminó el área protegida exitosamente.',
+        });
+      },
+      error: (err) => this.feedback.fromHttpError(err),
     });
   }
 
@@ -500,6 +741,8 @@ export class InstitutionDetailComponent implements OnInit {
       .subscribe((e: InstitucionEstadoCuentaDTO | null) => this.estadoCuenta.set(e));
 
     this.loading.set(false);
+    if (this.activeTab() === 'tarifario') this.cargarTarifas();
+    if (this.activeTab() === 'areas-protegidas') this.cargarAreasProtegidas();
   }
 
   filtrarMiembros(q: string): void {
