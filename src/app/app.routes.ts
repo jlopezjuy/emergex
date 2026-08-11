@@ -19,7 +19,8 @@ export const routes: Routes = [
         }
         return router.parseUrl('/dashboard');
       }
-    ]
+    ],
+    children: [],
   },
   {
     path: 'access-denied',

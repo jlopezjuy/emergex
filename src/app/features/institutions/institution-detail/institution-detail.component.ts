@@ -227,7 +227,7 @@ function fmtCurrency(n?: number): string {
                       <div class="flex items-center justify-between">
                         <span class="font-bold font-mono text-sm" style="color: var(--text-primary);">{{ c.code }}</span>
                         <emx-status-badge [variant]="c.status === 'active' ? 'stable' : 'critical'">
-                          {{ c.status?.toUpperCase() || 'ACTIVO' }}
+                          {{ c.status.toUpperCase() || 'ACTIVO' }}
                         </emx-status-badge>
                       </div>
                       <div><span style="color: var(--text-muted);">Vigencia:</span> <strong style="color: var(--text-primary);">{{ c.from }} al {{ c.to }}</strong></div>
@@ -423,7 +423,7 @@ function fmtCurrency(n?: number): string {
                     @for (t of tarifas(); track t.id) {
                       <tr class="border-b" style="border-color: var(--border-glass);">
                         <td class="py-2 font-medium" style="color: var(--text-primary);">
-                          {{ t.prestacion?.nombre || ('Prestación #' + t.prestacion?.id) }}
+                          {{ t.prestacion.nombre || ('Prestación #' + t.prestacion.id) }}
                         </td>
                         <td class="py-2" style="color: var(--text-secondary);">
                           {{ t.zona?.nombre || 'General (Sin Zona)' }}
