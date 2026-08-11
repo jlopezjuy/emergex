@@ -5,12 +5,14 @@ import { Subject, debounceTime, distinctUntilChanged, forkJoin } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { LedgerApiService } from '../../data-access/api/ledger.api';
 import { TercerosApiService } from '../../data-access/api/terceros.api';
-import { LedgerMovimientoDTO, TerceroResumenDTO } from '../../data-access/dto/ledger.dto';
+import { LedgerMovimientoDTO, TerceroResumenDTO, AgingDeudaDTO } from '../../data-access/dto/ledger.dto';
+import { CobranzasApiService, DocumentoPendienteDTO } from '../../data-access/api/cobranzas.api';
+import { RegistrarCobranzaModalComponent } from './components/registrar-cobranza-modal/registrar-cobranza-modal.component';
 
 @Component({
   selector: 'app-cuentas-corrientes',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RegistrarCobranzaModalComponent],
   template: `
     <div class="cxp-container p-6 space-y-6">
       <header class="flex justify-between items-center bg-slate-900 text-white p-6 rounded-xl shadow-lg border border-slate-800">
@@ -49,6 +51,36 @@ import { LedgerMovimientoDTO, TerceroResumenDTO } from '../../data-access/dto/le
         }
       </section>
 
+      <!-- Aging de Deuda KPIs -->
+      @if (!terceroSeleccionado() && agingDeuda()) {
+        <section class="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div class="bg-green-50 border border-green-200 rounded-xl p-4 shadow-sm">
+            <p class="text-xs font-semibold text-green-700 uppercase">No Vencido</p>
+            <p class="text-xl font-bold text-green-900 mt-1">$ {{ agingDeuda()?.noVencido | number:'1.2-2' }}</p>
+          </div>
+          <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 shadow-sm">
+            <p class="text-xs font-semibold text-amber-700 uppercase">0–30 días</p>
+            <p class="text-xl font-bold text-amber-900 mt-1">$ {{ agingDeuda()?.tramo0a30 | number:'1.2-2' }}</p>
+          </div>
+          <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 shadow-sm">
+            <p class="text-xs font-semibold text-amber-700 uppercase">31–60 días</p>
+            <p class="text-xl font-bold text-amber-900 mt-1">$ {{ agingDeuda()?.tramo31a60 | number:'1.2-2' }}</p>
+          </div>
+          <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 shadow-sm">
+            <p class="text-xs font-semibold text-amber-700 uppercase">61–90 días</p>
+            <p class="text-xl font-bold text-amber-900 mt-1">$ {{ agingDeuda()?.tramo61a90 | number:'1.2-2' }}</p>
+          </div>
+          <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 shadow-sm">
+            <p class="text-xs font-semibold text-amber-700 uppercase">+90 días</p>
+            <p class="text-xl font-bold text-amber-900 mt-1">$ {{ agingDeuda()?.tramo90plus | number:'1.2-2' }}</p>
+          </div>
+          <div class="bg-red-50 border border-red-200 rounded-xl p-4 shadow-sm md:col-span-5 flex justify-between items-center">
+            <p class="text-sm font-semibold text-red-700 uppercase">Total Vencido</p>
+            <p class="text-2xl font-bold text-red-900">$ {{ agingDeuda()?.totalVencido | number:'1.2-2' }}</p>
+          </div>
+        </section>
+      }
+
       @if (terceroSeleccionado(); as tercero) {
         <section class="bg-white rounded-xl shadow p-6 border border-slate-200 space-y-4">
           <div class="flex justify-between items-start">
@@ -56,7 +88,12 @@ import { LedgerMovimientoDTO, TerceroResumenDTO } from '../../data-access/dto/le
               <h2 class="text-lg font-semibold text-slate-800">{{ tercero.nombreComercial || tercero.razonSocial }}</h2>
               <p class="text-sm text-slate-500">{{ tercero.razonSocial }} · CUIT {{ tercero.cuit }}</p>
             </div>
-            <button type="button" class="px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition" (click)="limpiarSeleccion()">Cambiar tercero</button>
+            <div class="flex gap-2">
+              @if (tipoSubmayor() === 'CXC') {
+                <button type="button" class="px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition" (click)="abrirModalCobranza(tercero.id)">Registrar Cobro</button>
+              }
+              <button type="button" class="px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition" (click)="limpiarSeleccion()">Cambiar tercero</button>
+            </div>
           </div>
 
           <!-- Selector de Submayor CxC / CxP -->
@@ -144,12 +181,22 @@ import { LedgerMovimientoDTO, TerceroResumenDTO } from '../../data-access/dto/le
           }
         </section>
       }
+
+      @if (mostrarModalCobranza()) {
+        <app-registrar-cobranza-modal
+          [terceroEmpresaId]="terceroSeleccionado()!.id"
+          [documentosPendientes]="documentosPendientes()"
+          (cerrar)="mostrarModalCobranza.set(false)"
+          (cobranzaRegistrada)="onCobranzaRegistrada(terceroSeleccionado()!.id)"
+        ></app-registrar-cobranza-modal>
+      }
     </div>
   `,
 })
 export class CuentasCorrientesComponent implements OnInit {
   private readonly ledgerApi = inject(LedgerApiService);
   private readonly tercerosApi = inject(TercerosApiService);
+  private readonly cobranzasApi = inject(CobranzasApiService);
   private readonly destroyRef = inject(DestroyRef);
 
   private readonly searchSubject = new Subject<string>();
@@ -165,7 +212,15 @@ export class CuentasCorrientesComponent implements OnInit {
   readonly saldo = signal(0);
   readonly movimientos = signal<LedgerMovimientoDTO[]>([]);
 
+  readonly agingDeuda = signal<AgingDeudaDTO | null>(null);
+  readonly loadingAging = signal(false);
+  
+  readonly mostrarModalCobranza = signal(false);
+  readonly documentosPendientes = signal<DocumentoPendienteDTO[]>([]);
+
   ngOnInit(): void {
+    this.cargarAging();
+
     this.searchSubject
       .pipe(debounceTime(350), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
       .subscribe((texto) => this.buscarTerceros(texto));
@@ -244,6 +299,38 @@ export class CuentasCorrientesComponent implements OnInit {
           this.loadingCuenta.set(false);
         },
       });
+  }
+
+  private cargarAging(): void {
+    this.loadingAging.set(true);
+    this.ledgerApi.getAgingDeuda().subscribe({
+      next: (aging) => {
+        this.agingDeuda.set(aging);
+        this.loadingAging.set(false);
+      },
+      error: () => {
+        this.agingDeuda.set(null);
+        this.loadingAging.set(false);
+      }
+    });
+  }
+
+  abrirModalCobranza(terceroId: number): void {
+    this.cobranzasApi.getDocumentosPendientes(terceroId).subscribe({
+      next: (docs) => {
+        this.documentosPendientes.set(docs);
+        this.mostrarModalCobranza.set(true);
+      },
+      error: (err) => {
+        this.error.set('No se pudieron cargar los documentos pendientes: ' + (err?.error?.detail || err.message));
+      }
+    });
+  }
+
+  onCobranzaRegistrada(terceroId: number): void {
+    this.mostrarModalCobranza.set(false);
+    this.cargarEstadoCuenta(terceroId);
+    this.cargarAging(); // Update aging numbers as well
   }
 
   // NOTA F4-04: Exportación de página/lista visible actual según decisión humana #6.

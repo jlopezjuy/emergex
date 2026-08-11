@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { LedgerMovimientoDTO } from '../dto/ledger.dto';
+import { LedgerMovimientoDTO, AgingDeudaDTO } from '../dto/ledger.dto';
 
 /**
  * Cliente HTTP del submayor de cuentas corrientes (S0-11).
@@ -39,6 +39,10 @@ export class LedgerApiService {
 
   getMovimientosCxp(terceroId: number): Observable<LedgerMovimientoDTO[]> {
     return this.http.get<LedgerMovimientoDTO[]>(`${this.base}/terceros/${terceroId}/cxp/movimientos`);
+  }
+
+  getAgingDeuda(): Observable<AgingDeudaDTO> {
+    return this.http.get<AgingDeudaDTO>(`${this.base}/cxc/aging`);
   }
 }
 

@@ -55,6 +55,16 @@ export interface GestionCobranzaDTO {
   createdAt?: string;
 }
 
+export interface DocumentoPendienteDTO {
+  id: number;
+  numeroDocumento: string;
+  fechaEmision: string;
+  fechaVencimiento?: string;
+  montoTotal: number;
+  saldoPendiente: number;
+  moneda: string;
+}
+
 /**
  * Servicio de llamadas HTTP para el ciclo de cobranzas y su aplicación (S2-04 / S2-05 / F2-03).
  */
@@ -81,5 +91,9 @@ export class CobranzasApiService {
 
   getGestionesByCliente(clienteId: number): Observable<GestionCobranzaDTO[]> {
     return this.http.get<GestionCobranzaDTO[]>(`${this.base}/gestiones/cliente/${clienteId}`);
+  }
+
+  getDocumentosPendientes(terceroEmpresaId: number): Observable<DocumentoPendienteDTO[]> {
+    return this.http.get<DocumentoPendienteDTO[]>(`${this.base}/documentos-pendientes?terceroEmpresaId=${terceroEmpresaId}`);
   }
 }

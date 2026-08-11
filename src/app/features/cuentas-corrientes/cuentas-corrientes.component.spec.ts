@@ -19,10 +19,20 @@ describe('CuentasCorrientesComponent (F0-07)', () => {
     getMovimientosCxp: vi.fn().mockName('getMovimientosCxp').mockReturnValue(
       of([{ id: 2, fechaContable: '2026-08-02', tipoMovimiento: 'CREDITO_DOCUMENTO', concepto: 'Factura Proveedor B', montoDebe: 0, montoHaber: 45000 }]),
     ),
+    // Método agregado al LedgerApiService en V3-S1-03 para el dashboard de aging
+    getAgingDeuda: vi.fn().mockName('getAgingDeuda').mockReturnValue(
+      of({ noVencido: 0, tramo0a30: 5000, tramo31a60: 3000, tramo61a90: 1000, tramo90plus: 500, totalVencido: 9500 }),
+    ),
   };
 
   const tercerosApiMock = {
     buscar: vi.fn().mockName('buscar').mockReturnValue(of([tercero])),
+  };
+
+  // Mock de CobranzasApiService inyectado en el componente para las operaciones del modal
+  const cobranzasApiMock = {
+    getDocumentosPendientes: vi.fn().mockName('getDocumentosPendientes').mockReturnValue(of([])),
+    registrarCobranza: vi.fn().mockName('registrarCobranza').mockReturnValue(of({ id: 1 })),
   };
 
   beforeEach(async () => {
@@ -30,7 +40,9 @@ describe('CuentasCorrientesComponent (F0-07)', () => {
     ledgerApiMock.getSaldoCxp.mockClear();
     ledgerApiMock.getMovimientosCxc.mockClear();
     ledgerApiMock.getMovimientosCxp.mockClear();
+    ledgerApiMock.getAgingDeuda.mockClear();
     tercerosApiMock.buscar.mockClear();
+    cobranzasApiMock.getDocumentosPendientes.mockClear();
 
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
@@ -38,6 +50,11 @@ describe('CuentasCorrientesComponent (F0-07)', () => {
       providers: [
         { provide: LedgerApiService, useValue: ledgerApiMock },
         { provide: TercerosApiService, useValue: tercerosApiMock },
+        // Proveer el mock de CobranzasApiService por token para que inject() funcione
+        {
+          provide: (await import('../../data-access/api/cobranzas.api')).CobranzasApiService,
+          useValue: cobranzasApiMock,
+        },
       ],
     }).compileComponents();
   });
@@ -86,5 +103,14 @@ describe('CuentasCorrientesComponent (F0-07)', () => {
 
     expect(component.error()).toBe('Tercero no encontrado');
     expect(component.loadingCuenta()).toBe(false);
+  });
+
+  it('carga el aging de deuda al inicializar el componente', () => {
+    const fixture = TestBed.createComponent(CuentasCorrientesComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+
+    expect(ledgerApiMock.getAgingDeuda).toHaveBeenCalledOnce();
+    expect(component.agingDeuda()?.totalVencido).toBe(9500);
   });
 });

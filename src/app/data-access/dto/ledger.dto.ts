@@ -15,3 +15,12 @@ export interface TerceroResumenDTO {
   cuit: string;
   nombreComercial?: string;
 }
+
+export interface AgingDeudaDTO {
+  noVencido: number;
+  tramo0a30: number;
+  tramo31a60: number;
+  tramo61a90: number;
+  tramo90plus: number;
+  totalVencido: number;
+}
