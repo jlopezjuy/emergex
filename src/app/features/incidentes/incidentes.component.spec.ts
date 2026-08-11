@@ -1,11 +1,11 @@
-import { beforeEach, describe, it, expect, vi } from 'vitest';
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { IncidentesComponent } from './incidentes.component';
 import { IncidentesApiService } from '../../data-access/api/incidentes.api';
+import { IncidenteEventoDTO } from '../../data-access/api/incidentes.api';
 
 describe('IncidentesComponent', () => {
-  let apiMock: any;
+  let apiMock: Record<string, ReturnType<typeof vi.fn>>;
 
   const incidenteAbierto = (overrides: Record<string, unknown> = {}) => ({
     id: 1,
@@ -36,7 +36,7 @@ describe('IncidentesComponent', () => {
   });
 
   it('debería listar los incidentes al iniciar y exponer KPIs', () => {
-    apiMock.getIncidentes.mockReturnValue(of([
+    apiMock['getIncidentes'].mockReturnValue(of([
       incidenteAbierto(),
       incidenteAbierto({ id: 2, numeroIncidente: 'IN-000002', estado: 'CERRADO', descripcion: 'Vuelco en curva' }),
     ]));
@@ -51,13 +51,13 @@ describe('IncidentesComponent', () => {
   });
 
   it('debería soportar error y reintento al cargar la lista', () => {
-    apiMock.getIncidentes.mockReturnValue(throwError(() => new Error('Error de red')));
+    apiMock['getIncidentes'].mockReturnValue(throwError(() => new Error('Error de red')));
 
     const fixture = TestBed.createComponent(IncidentesComponent);
     fixture.detectChanges();
     expect(component(fixture).error()).toBeTruthy();
 
-    apiMock.getIncidentes.mockReturnValue(of([incidenteAbierto()]));
+    apiMock['getIncidentes'].mockReturnValue(of([incidenteAbierto()]));
     component(fixture).loadIncidentes();
 
     expect(component(fixture).incidentes().length).toBe(1);
@@ -81,15 +81,15 @@ describe('IncidentesComponent', () => {
 
     comp.submitCreate();
 
-    expect(apiMock.crearIncidente).toHaveBeenCalledWith(
+    expect(apiMock['crearIncidente']).toHaveBeenCalledWith(
       expect.objectContaining({ descripcion: 'Nuevo choque', direccion: 'Av. 19 de Abril' })
     );
     expect(comp.createOpen()).toBe(false);
-    expect(apiMock.getIncidentes).toHaveBeenCalled();
+    expect(apiMock['getIncidentes']).toHaveBeenCalled();
   });
 
   it('debería abrir el detalle y cargar los tickets vinculados', () => {
-    apiMock.getTicketsIncidente.mockReturnValue(of([
+    apiMock['getTicketsIncidente'].mockReturnValue(of([
       { id: 99, codigo: 'E-000001', estado: 'RECIBIDO', nivelUrgencia: 'ROJO', pacienteDescripcion: 'Pérez, Juan' },
     ]));
 
@@ -97,7 +97,7 @@ describe('IncidentesComponent', () => {
     fixture.detectChanges();
     const comp = component(fixture);
 
-    comp.openDetail(incidenteAbierto() as any);
+    comp.openDetail(incidenteAbierto() as unknown as IncidenteEventoDTO);
 
     expect(comp.selected()).not.toBeNull();
     expect(comp.tickets().length).toBe(1);
@@ -109,12 +109,12 @@ describe('IncidentesComponent', () => {
     fixture.detectChanges();
     const comp = component(fixture);
 
-    comp.selected.set(incidenteAbierto() as any);
+    comp.selected.set(incidenteAbierto() as unknown as IncidenteEventoDTO);
     comp.cerrar(1);
 
-    expect(apiMock.cerrarIncidente).toHaveBeenCalledWith(1);
+    expect(apiMock['cerrarIncidente']).toHaveBeenCalledWith(1);
     expect(comp.selected()).toBeNull();
-    expect(apiMock.getIncidentes).toHaveBeenCalled();
+    expect(apiMock['getIncidentes']).toHaveBeenCalled();
   });
 
   it('debería vincular y desvincular tickets', () => {
@@ -122,16 +122,16 @@ describe('IncidentesComponent', () => {
     fixture.detectChanges();
     const comp = component(fixture);
 
-    comp.selected.set(incidenteAbierto() as any);
+    comp.selected.set(incidenteAbierto() as unknown as IncidenteEventoDTO);
     comp.vincularInput.set('77');
     comp.vincularTicket(1);
-    expect(apiMock.vincularTicket).toHaveBeenCalledWith(1, 77);
+    expect(apiMock['vincularTicket']).toHaveBeenCalledWith(1, 77);
 
     comp.desvincularTicket(1, 77);
-    expect(apiMock.desvincularTicket).toHaveBeenCalledWith(1, 77);
+    expect(apiMock['desvincularTicket']).toHaveBeenCalledWith(1, 77);
   });
 
-  function component(fixture: any): IncidentesComponent {
+  function component(fixture: ComponentFixture<IncidentesComponent>): IncidentesComponent {
     return fixture.componentInstance;
   }
 });

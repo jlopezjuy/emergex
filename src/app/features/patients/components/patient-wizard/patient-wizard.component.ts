@@ -730,14 +730,14 @@ export class PatientWizardComponent implements OnInit {
       telefono:        v.telefono || undefined,
       direccion:       this.selectedLocation()?.address || v.direccion || undefined,
       planComercialId: Number(this.selectedPlanId()),
-      dependientes:    this.dependientesForm.value.map((d: any) => ({
-        nombre:          d.nombre,
-        apellido:        d.apellido,
+      dependientes:    this.dependientesForm.value.map((d: { nombre?: string; apellido?: string; dni?: string; tipoDocumento?: string; sexo?: string; fechaNacimiento?: string; rolFamiliar?: string }) => ({
+        nombre:          d.nombre || '',
+        apellido:        d.apellido || '',
         dni:             this.normalizeDni(d.dni || ''),
-        tipoDocumento:   d.tipoDocumento ?? 'DNI',
-        sexo:            d.sexo ?? 'MASCULINO',
+        tipoDocumento:   (d.tipoDocumento as 'DNI' | 'PASAPORTE' | 'CEDULA' | 'OTRO') ?? 'DNI',
+        sexo:            (d.sexo as 'MASCULINO' | 'FEMENINO' | 'OTRO') ?? 'MASCULINO',
         fechaNacimiento: d.fechaNacimiento || undefined,
-        rolFamiliar:     d.rolFamiliar ?? 'DEPENDIENTE',
+        rolFamiliar:     (d.rolFamiliar as 'DEPENDIENTE' | 'TITULAR' | 'CO_TITULAR') ?? 'DEPENDIENTE',
       })),
     };
 

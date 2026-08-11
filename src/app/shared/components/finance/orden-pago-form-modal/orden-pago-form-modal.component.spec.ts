@@ -10,8 +10,8 @@ import { vi } from 'vitest';
 describe('OrdenPagoFormModalComponent', () => {
   let component: OrdenPagoFormModalComponent;
   let fixture: ComponentFixture<OrdenPagoFormModalComponent>;
-  let ordenesPagoApiMock: any;
-  let feedbackServiceMock: any;
+  let ordenesPagoApiMock: { emitirOrdenDePago: ReturnType<typeof vi.fn> };
+  let feedbackServiceMock: { push: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
     ordenesPagoApiMock = {

@@ -2,7 +2,7 @@ import { Component, input, inject, signal, DestroyRef } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { DatePipe } from '@angular/common';
 import { InternacionApiService } from '../../../../data-access/api/internacion.api';
-import { InternacionDomiciliariaDTO, EquipoTratanteDTO, DisciplinaSalud } from '../../../../data-access/dto/internacion.dto';
+import { InternacionDomiciliariaDTO } from '../../../../data-access/dto/internacion.dto';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 @Component({

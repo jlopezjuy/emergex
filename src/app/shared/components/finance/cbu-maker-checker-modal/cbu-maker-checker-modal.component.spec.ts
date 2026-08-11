@@ -10,8 +10,8 @@ import { vi } from 'vitest';
 describe('CbuMakerCheckerModalComponent', () => {
   let component: CbuMakerCheckerModalComponent;
   let fixture: ComponentFixture<CbuMakerCheckerModalComponent>;
-  let tercerosApiMock: any;
-  let feedbackServiceMock: any;
+  let tercerosApiMock: { solicitarAltaCbu: ReturnType<typeof vi.fn>; aprobarCbu: ReturnType<typeof vi.fn> };
+  let feedbackServiceMock: { push: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
     tercerosApiMock = {

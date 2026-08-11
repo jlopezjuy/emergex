@@ -1178,7 +1178,7 @@ export class PlansComponent implements OnInit {
 
   private syncPlanPrestaciones(planId: number): Observable<void> {
     const rows = this.planPrestacionRows();
-    const ops: Observable<any>[] = [];
+    const ops: Observable<unknown>[] = [];
 
     for (const row of rows) {
       const base: PlanPrestacionDTO = {

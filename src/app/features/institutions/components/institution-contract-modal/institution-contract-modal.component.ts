@@ -1,4 +1,4 @@
-import { Component, input, output, signal, computed, OnInit, effect, untracked } from '@angular/core';
+import { Component, input, output, signal, effect, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Institution, InstitutionContract } from '../../institutions.component';
 
@@ -257,7 +257,7 @@ export class InstitutionContractModalComponent {
   readonly close = output<void>();
   readonly save  = output<InstitutionContract>();
 
-  readonly ctr = signal<InstitutionContract>(null as any);
+  readonly ctr = signal<InstitutionContract>({ id: 0, code: '', plan: '', from: '', to: '', status: 'active', monthlyPrice: 0, monthlyCap: 0, kpiMinutes: 0, conditions: '' });
 
   readonly contractStatuses = [
     { value: 'active',    label: 'Activo',     color: 'var(--accent-emerald)' },

@@ -219,8 +219,9 @@ export class InstitutionDetailDrawerComponent implements OnChanges {
     });
   }
 
-  onPadronFileSelected(event: any): void {
-    const files = event.target?.files;
+  onPadronFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const files = input?.files;
     if (!files || files.length === 0) return;
     const file = files[0];
     this.importarPadron(file);

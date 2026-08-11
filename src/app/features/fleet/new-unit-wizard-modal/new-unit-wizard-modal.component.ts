@@ -403,7 +403,7 @@ export class NewUnitWizardModalComponent implements OnInit {
   readonly profesionalesDisponibles = signal<ProfesionalDisponibleDTO[]>([]);
   readonly checkingPatente = signal(false);
   readonly patenteDuplicada = signal(false);
-  private patenteTimeout: any;
+  private patenteTimeout: ReturnType<typeof setTimeout> | null = null;
 
   readonly steps = [
     { num: 1, label: 'Datos Unidad' },

@@ -5,7 +5,7 @@ import { catchError, of } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { PatientApiService } from '../../../data-access/api/patient.api';
 import { LedgerApiService } from '../../../data-access/api/ledger.api';
-import { CobranzasApiService, CobranzaDTO, GestionCobranzaDTO } from '../../../data-access/api/cobranzas.api';
+import { CobranzasApiService } from '../../../data-access/api/cobranzas.api';
 import { UserFeedbackService } from '../../../core/notifications/user-feedback.service';
 import {
   PacienteDTO,
@@ -584,9 +584,10 @@ export class PatientDetailComponent implements OnInit {
   readonly mostrarModalGestion = signal(false);
 
   readonly integrantesGrupo = computed(() => {
-    const f = this.ficha();
+    type MiembroItem = { id?: number; dni?: string; apellido?: string; nombreCompleto?: string; nombre?: string; rolFamiliar?: string; rol?: string; estado?: string };
+    const f = this.ficha() as (FichaAfiliadoDTO & { integrantes?: MiembroItem[]; familiares?: MiembroItem[]; miembrosGrupo?: MiembroItem[] }) | null;
     if (!f) return [];
-    return (f as any).integrantes || (f as any).familiares || (f as any).miembrosGrupo || [];
+    return f.integrantes || f.familiares || f.miembrosGrupo || [];
   });
 
   readonly coberturaActual = computed(

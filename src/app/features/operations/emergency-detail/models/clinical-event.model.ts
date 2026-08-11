@@ -5,5 +5,6 @@ export interface ClinicalEvent {
   description?: string;
   details?: string[];
   badgeClass?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   rawData?: any;
 }

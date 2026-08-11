@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, computed, inject, DestroyRef } from '@angular/core';
+import { Component, OnInit, signal, inject, DestroyRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -6,7 +6,6 @@ import { catchError, of, forkJoin } from 'rxjs';
 import { ReportesApiService } from '../../../data-access/api/reportes.api';
 import { ReporteFinancieroDTO, ReporteComprasDTO, ReportePadronContratosDTO } from '../../../data-access/dto/reportes.dto';
 import { KpiCardComponent } from '../../../shared/components/kpi-card/kpi-card.component';
-import { StatusBadgeComponent } from '../../../shared/components/status-badge/status-badge.component';
 import { LoadingStateComponent } from '../../../shared/components/loading-state/loading-state.component';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../../shared/components/error-state/error-state.component';

@@ -14,8 +14,10 @@ import { GlassCardComponent } from '../../../../../shared/components/glass-card/
 export class ClinicalEvolutionTimelineComponent {
   readonly events = input<ClinicalEvent[]>([]);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   readonly viewDocument = output<any>();
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   descargarDocumento(rawData: any): void {
     ClinicalUtils.abrirDocumentoFirmado(rawData);
     this.viewDocument.emit(rawData);

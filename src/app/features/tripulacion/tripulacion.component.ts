@@ -234,7 +234,7 @@ export class TripulacionComponent implements OnInit, OnDestroy {
   gpsTransmitting = signal<boolean>(false);
   simLat = -34.60372;
   simLon = -58.38159;
-  private trackingInterval: any;
+  private trackingInterval: ReturnType<typeof setInterval> | null = null;
 
   // Computed: Obtener el primer ticket activo
   ticketActivo = computed(() => {
@@ -257,7 +257,7 @@ export class TripulacionComponent implements OnInit, OnDestroy {
         this.loading.set(false);
         this.evaluarTransmisionGps();
       },
-      error: (err) => {
+      error: (_err) => {
         this.errorMsg.set('No se pudo recuperar las asignaciones activas.');
         this.loading.set(false);
       }
@@ -349,7 +349,7 @@ export class TripulacionComponent implements OnInit, OnDestroy {
       saturacionO2: this.signos.saturacionO2,
     };
 
-    this.emergencyApi.cerrar(active.id, req as any).subscribe({
+    this.emergencyApi.cerrar(active.id, req as Parameters<typeof this.emergencyApi.cerrar>[1]).subscribe({
       next: () => {
         this.diagnostico = '';
         this.signos = { presionSistolica: undefined, presionDiastolica: undefined, frecuenciaCardiaca: undefined, saturacionO2: undefined };

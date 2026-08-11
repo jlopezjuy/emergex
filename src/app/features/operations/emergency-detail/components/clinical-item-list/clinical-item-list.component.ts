@@ -11,6 +11,7 @@ import { GlassCardComponent } from '../../../../../shared/components/glass-card/
 })
 export class ClinicalItemListComponent {
   readonly title = input.required<string>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   readonly items = input<any[]>([]);
   readonly canEdit = input<boolean>(false);
   readonly type = input<'PROCEDIMIENTO' | 'MEDICACION'>('PROCEDIMIENTO');

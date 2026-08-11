@@ -31,14 +31,6 @@ const EVENT_TYPE_COLORS: Record<string, string> = {
   'Privado / Social':    'var(--accent-cyan)',
 };
 
-const EVENT_ORGS = [
-  'Gimnasia y Esgrima de Jujuy', 'Liga Jujueña de Fútbol',
-  'Universidad Nacional de Jujuy', 'UCSE Sede Jujuy',
-  'Municipalidad de San Salvador de Jujuy', 'Gobierno de la Provincia de Jujuy',
-  'Cámara de Comercio de Jujuy', 'Casino del Sol Producciones',
-  'Tabacal Music', 'Cervecería Salón Norte',
-];
-
 const EV_MONTH_NAMES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
@@ -64,13 +56,6 @@ interface EventItem {
   status: 'scheduled' | 'inprogress' | 'closed';
 }
 
-interface AmbUnit {
-  id: string;
-  crew: string;
-  type: 'ALS' | 'BLS';
-  status: string;
-}
-
 interface NewEventForm {
   name: string;
   type: string;
@@ -86,23 +71,15 @@ interface NewEventForm {
   institucionId?: number;
 }
 
-// ─── Static data ──────────────────────────────────────────────────────────────
-
-const AMBULANCES: AmbUnit[] = [
-  { id: 'U-04', crew: 'Soto · Vega',       type: 'ALS', status: 'available'    },
-  { id: 'U-07', crew: 'Lara · Ríos',       type: 'ALS', status: 'enroute'      },
-  { id: 'U-09', crew: 'Mora · Cano',       type: 'BLS', status: 'available'    },
-  { id: 'U-12', crew: 'Ortega · Paz',      type: 'ALS', status: 'onscene'      },
-  { id: 'U-14', crew: 'Bello · Sosa',      type: 'ALS', status: 'available'    },
-  { id: 'U-18', crew: 'Téllez · Mar',      type: 'ALS', status: 'transport'    },
-  { id: 'U-21', crew: 'Gil · Núñez',       type: 'BLS', status: 'available'    },
-  { id: 'U-22', crew: 'Aro · Domínguez',   type: 'BLS', status: 'onscene'      },
-  { id: 'U-25', crew: 'Pino · Vidal',      type: 'ALS', status: 'available'    },
-  { id: 'U-30', crew: '—',                 type: 'BLS', status: 'maintenance'  },
-  { id: 'U-31', crew: 'Rojas · Mena',      type: 'ALS', status: 'available'    },
-  { id: 'U-33', crew: 'Ávila · Cruz',      type: 'ALS', status: 'enroute'      },
-];
-
+interface AmbUnit {
+  id: string;
+  code?: string;
+  type: string;
+  driver?: string;
+  medic?: string;
+  crew?: string;
+  status: string;
+}
 // ─── Constants and helpers ───────────────────────────────────────────────────
 
 function initialForm(): NewEventForm {

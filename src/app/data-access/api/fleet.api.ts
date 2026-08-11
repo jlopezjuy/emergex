@@ -26,6 +26,7 @@ export class FleetApiService {
   private base = `${environment.apiUrl}/api/flota`;
   private v1Base = `${environment.apiUrl}/api/flota`;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private mapAmbu(raw: any): UnidadMovilDTO {
     return {
       id:                  raw.ambulanciaId,
@@ -37,6 +38,7 @@ export class FleetApiService {
       turnoActual:         raw.turnoActual ?? null,
       bateria:             raw.bateriaPct ?? 75,
       combustible:         raw.combustiblePct ?? 65,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       tripulacion:         (raw.tripulacionActual ?? []).map((m: any) => m.profesionalNombre).join(', '),
       tripulacionActual:   raw.tripulacionActual ?? [],
       eta:                 raw.objetivoEta ?? null,
@@ -60,12 +62,15 @@ export class FleetApiService {
 
 
   dashboard(): Observable<FlotaDashboardDTO> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return this.http.get<any>(`${this.base}/dashboard`).pipe(
       map((raw) => {
         const unidades = Array.isArray(raw?.unidades) ? raw.unidades : [];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const countByEstado = (estado: string) => unidades.filter((u: any) => u?.estado === estado).length;
         const disponibles = typeof raw?.disponibles === 'number'
           ? raw.disponibles
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           : unidades.filter((u: any) => u?.disponibleParaDespacho === true).length;
 
         return {
@@ -84,7 +89,7 @@ export class FleetApiService {
 
   ambulancias(): Observable<UnidadMovilDTO[]> {
     return this.http
-      .get<any[]>(`${this.base}/ambulancias`)
+      .get<unknown[]>(`${this.base}/ambulancias`)
       .pipe(map((list) => list.map((item) => this.mapAmbu(item))));
   }
 
@@ -95,40 +100,40 @@ export class FleetApiService {
   }
 
   ambulanciasDisponibles(): Observable<UnidadMovilDTO[]> {
-    return this.http.get<any[]>(`${this.base}/ambulancias-disponibles`).pipe(
+    return this.http.get<unknown[]>(`${this.base}/ambulancias-disponibles`).pipe(
       map((items) => (items ?? []).map((r) => this.mapAmbu(r))),
     );
   }
 
   crearAmbulancia(req: CrearAmbulanciaRequest): Observable<UnidadMovilDTO> {
-    return this.http.post<any>(`${this.base}/ambulancias`, req).pipe(
+    return this.http.post<unknown>(`${this.base}/ambulancias`, req).pipe(
       map((r) => this.mapAmbu(r)),
     );
   }
 
-  crearAmbulanciaWizard(req: any): Observable<UnidadMovilDTO> {
-    return this.http.post<any>(`${this.base}/ambulancias/wizard`, req).pipe(
+  crearAmbulanciaWizard(req: unknown): Observable<UnidadMovilDTO> {
+    return this.http.post<unknown>(`${this.base}/ambulancias/wizard`, req).pipe(
       map((r) => this.mapAmbu(r)),
     );
   }
 
 
   getAmbulancia(id: number): Observable<UnidadMovilDTO> {
-    return this.http.get<any>(`${this.base}/ambulancias/${id}`).pipe(
+    return this.http.get<unknown>(`${this.base}/ambulancias/${id}`).pipe(
       map((r) => this.mapAmbu(r)),
     );
   }
 
   metricas(): Observable<FlotaMetricasDTO> {
-    return this.http.get<any>(`${this.base}/metricas`).pipe(
+    return this.http.get<Record<string, unknown>>(`${this.base}/metricas`).pipe(
       map((raw) => ({
-        tiempoRespuestaPromedio: raw.tiempoRespuestaPromedioSegundos != null
-          ? raw.tiempoRespuestaPromedioSegundos / 60
+        tiempoRespuestaPromedio: raw['tiempoRespuestaPromedioSegundos'] != null
+          ? (raw['tiempoRespuestaPromedioSegundos'] as number) / 60
           : undefined,
-        distanciaRecorrida: raw.distanciaRecorrida,
-        ticketsAtendidos:   raw.enServicio,
-        eficiencia:         raw.cargaSistema,
-      } as FlotaMetricasDTO)),
+        distanciaRecorrida: raw['distanciaRecorrida'] as number,
+        ticketsAtendidos:   raw['enServicio'] as number,
+        eficiencia:         raw['cargaSistema'] as number,
+      })),
     );
   }
 

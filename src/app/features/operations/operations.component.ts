@@ -638,7 +638,7 @@ export class OperationsComponent implements OnInit, OnDestroy {
   readonly showMultiDispatchModal = signal(false);
   readonly multiDispatchEmergency = signal<TicketAsistenciaDTO | null>(null);
 
-  private refreshInterval: any;
+  private refreshInterval: ReturnType<typeof setInterval> | null = null;
 
   ngOnInit(): void {
     this.hydrateFleetFromCache();

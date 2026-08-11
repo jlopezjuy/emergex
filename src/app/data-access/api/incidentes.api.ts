@@ -94,7 +94,7 @@ export class IncidentesApiService {
 
   /** Tickets de asistencia vinculados al siniestro (multi-tenant). */
   getTicketsIncidente(incidenteId: number): Observable<TicketAsistenciaDTO[]> {
-    return this.http.get<any[]>(`${this.base}/${incidenteId}/tickets`).pipe(map(list => (list ?? []).map(r => this.mapTicket(r))));
+    return this.http.get<Array<Record<string, unknown>>>(`${this.base}/${incidenteId}/tickets`).pipe(map(list => (list ?? []).map(r => this.mapTicket(r))));
   }
 
   /**
@@ -104,6 +104,7 @@ export class IncidentesApiService {
    * estado, urgencia, unidad, descripción del paciente e incidente. El resto de los
    * campos quedan undefined y no afectan al operativo.</p>
    */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private mapTicket(raw: any): TicketAsistenciaDTO {
     return {
       id: raw.id ?? raw.ticketId,

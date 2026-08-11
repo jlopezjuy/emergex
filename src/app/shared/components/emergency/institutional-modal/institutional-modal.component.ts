@@ -98,7 +98,7 @@ function avatarOf(name: string): string {
   return name.split(' ').filter(Boolean).slice(0, 2).map(p => p[0]?.toUpperCase() ?? '').join('');
 }
 
-function parseApiError(err: any): string {
+function parseApiError(err: { error?: { detail?: string; title?: string; message?: string } } | null | undefined): string {
   return err?.error?.detail
     ?? err?.error?.title
     ?? err?.error?.message

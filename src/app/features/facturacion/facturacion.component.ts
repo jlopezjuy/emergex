@@ -15,7 +15,6 @@ import {
   QuickPaymentPayload,
 } from '../patients/components/quick-payment-modal/quick-payment-modal.component';
 import { catchError, of } from 'rxjs';
-import { localDateYmd } from '../../shared/utils/date-local.util';
 import { DateUtils } from '../../core/utils/date.utils';
 import {
   FacturacionApiService,
@@ -80,10 +79,6 @@ function fmtPeriodo(desde?: string, hasta?: string, tipoPeriodo?: string): strin
   const d = DateUtils.fromISO(desde);
   if (tipoPeriodo === 'ANUAL') return `Anual ${d.year}`;
   return `${MESES[d.month - 1]} ${d.year}`;
-}
-
-function todayISO(): string {
-  return localDateYmd();
 }
 
 function estadoColor(estado: string): string {
@@ -1785,7 +1780,7 @@ export class FacturacionComponent implements OnInit {
     this.api
       .generarLoteDebito(mes, anio)
       .pipe(
-        catchError((err) => {
+        catchError((_err) => {
           this.debitoError.set('Error al generar el lote de débitos.');
           this.generandoLoteDebito.set(false);
           return of(null);
@@ -1811,8 +1806,9 @@ export class FacturacionComponent implements OnInit {
       });
   }
 
-  onFileSelected(event: any): void {
-    const files = event.target?.files;
+  onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const files = input?.files;
     if (!files || files.length === 0) return;
     const file = files[0];
     this.procesarRendicion(file);
@@ -2009,7 +2005,7 @@ export class FacturacionComponent implements OnInit {
       });
   }
 
-  private translatePayError(err: any): string {
+  private translatePayError(err: { error?: { message?: string; detail?: string; title?: string } } | null | undefined): string {
     const key = err?.error?.message ?? err?.error?.detail ?? '';
     if (key.includes('montoExcedeSaldo') || key.includes('monto excede')) {
       const f = this.payFactura();

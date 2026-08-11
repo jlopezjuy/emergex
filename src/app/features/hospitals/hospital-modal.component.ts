@@ -349,7 +349,7 @@ export class HospitalModalComponent implements OnInit {
 
     const val = this.form.value;
     const dto: HospitalDTO = {
-      id: this.hospital()?.id || (undefined as any),
+      id: this.hospital()?.id,
       nombre: val.nombre!,
       cuit: val.cuit || undefined,
       tipo: val.tipo || undefined,
@@ -362,7 +362,7 @@ export class HospitalModalComponent implements OnInit {
       nivel: val.nivel || undefined,
       latitud: val.latitud != null ? Number(val.latitud) : undefined,
       longitud: val.longitud != null ? Number(val.longitud) : undefined,
-      estado: val.estado as any || undefined,
+      estado: (val.estado as HospitalDTO['estado']) || undefined,
       ocupacionUrgencias: val.ocupacionUrgencias != null ? Number(val.ocupacionUrgencias) : undefined,
       tiempoEsperaMin: val.tiempoEsperaMin != null ? Number(val.tiempoEsperaMin) : undefined,
       especialidades: val.especialidades || undefined,

@@ -8,10 +8,10 @@ import { EmergencyApiService } from '../../data-access/api/emergency.api';
 import { InstitutionsApiService } from '../../data-access/api/institutions.api';
 
 describe('EventsComponent', () => {
-  let eventsApiMock: any;
-  let fleetApiMock: any;
-  let emergencyApiMock: any;
-  let institutionsApiMock: any;
+  let eventsApiMock: Record<string, ReturnType<typeof vi.fn>>;
+  let fleetApiMock: Record<string, ReturnType<typeof vi.fn>>;
+  let emergencyApiMock: Record<string, ReturnType<typeof vi.fn>>;
+  let institutionsApiMock: Record<string, ReturnType<typeof vi.fn>>;
 
   beforeEach(async () => {
     TestBed.resetTestingModule();
@@ -42,7 +42,7 @@ describe('EventsComponent', () => {
 
   it('debería soportar estados de loading, error y retry al obtener eventos', async () => {
     // Configuramos el mock para fallar
-    eventsApiMock.getAll.mockReturnValue(throwError(() => new Error('Error de red')));
+    eventsApiMock['getAll'].mockReturnValue(throwError(() => new Error('Error de red')));
 
     const fixture = TestBed.createComponent(EventsComponent);
     const component = fixture.componentInstance;
@@ -59,7 +59,7 @@ describe('EventsComponent', () => {
     expect(component.errorEvents()).toBe(true);
 
     // Ahora mockeamos éxito
-    eventsApiMock.getAll.mockReturnValue(of([
+    eventsApiMock['getAll'].mockReturnValue(of([
       { id: '100', name: 'Maratón de Jujuy', type: 'Deportivo', status: 'scheduled', units: [] }
     ]));
 

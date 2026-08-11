@@ -237,7 +237,7 @@ export class AdminGlobalComponent implements OnInit {
     this.saving.set(true);
     const payload: EmpresaDTO = {
       ...this.createEmpresaForm,
-      id: null as any, // El ID se genera en backend
+      id: undefined, // El ID se genera en backend
       cuit: this.createEmpresaForm.cuit.trim()
     };
 
@@ -355,7 +355,7 @@ export class AdminGlobalComponent implements OnInit {
 
   changeEmpresaEstado(empresa: EmpresaDTO, nuevoEstado: EstadoEmpresa): void {
     this.empresaApi.partialUpdate(empresa.id, { estado: nuevoEstado }).subscribe({
-      next: (res) => {
+      next: (_res) => {
         this.empresas.update(list => list.map(e => e.id === empresa.id ? { ...e, estado: nuevoEstado } : e));
 
         const current = this.selectedEmpresa();

@@ -22,8 +22,8 @@ export class ClinicoComponent implements OnInit, OnDestroy {
 
   // Mode A - Dashboard signals
   readonly waitlistTab = signal<'all' | 'red' | 'amber' | 'green'>('all');
-  readonly waitlist = signal<any[]>([]);
-  readonly schedule = signal<any[]>([]);
+  readonly waitlist = signal<unknown[]>([]);
+  readonly schedule = signal<unknown[]>([]);
 
   // Mode B - EHR Active Session signals
   readonly activeEpisode = signal<EpisodioClinicoDTO | null>(null);
@@ -110,9 +110,9 @@ export class ClinicoComponent implements OnInit, OnDestroy {
     };
   });
 
-  private clockInterval: any;
-  private sessionInterval: any;
-  private autoSaveInterval: any;
+  private clockInterval: ReturnType<typeof setInterval> | null = null;
+  private sessionInterval: ReturnType<typeof setInterval> | null = null;
+  private autoSaveInterval: ReturnType<typeof setInterval> | null = null;
 
   ngOnInit(): void {
     // Clock Ticker
@@ -287,12 +287,10 @@ export class ClinicoComponent implements OnInit, OnDestroy {
 
   pauseConsultation(): void {
     // Placeholder action
-    console.log('Consulta pausada');
   }
 
   requestStudy(): void {
     // Placeholder action
-    console.log('Estudio Rx solicitado');
   }
 
   finalizeConsultation(): void {

@@ -63,11 +63,11 @@ export class ZonesApiService {
     return this.http.get<TarifaPrestacionZonaDTO[]>(this.tariffsBase);
   }
 
-  createTariff(dto: any): Observable<TarifaPrestacionZonaDTO> {
+  createTariff(dto: Partial<TarifaPrestacionZonaDTO>): Observable<TarifaPrestacionZonaDTO> {
     return this.http.post<TarifaPrestacionZonaDTO>(this.tariffsBase, dto);
   }
 
-  updateTariff(id: number, dto: any): Observable<TarifaPrestacionZonaDTO> {
+  updateTariff(id: number, dto: Partial<TarifaPrestacionZonaDTO>): Observable<TarifaPrestacionZonaDTO> {
     return this.http.put<TarifaPrestacionZonaDTO>(`${this.tariffsBase}/${id}`, dto);
   }
 

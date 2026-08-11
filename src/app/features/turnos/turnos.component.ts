@@ -148,7 +148,7 @@ export class TurnosComponent implements OnInit, OnDestroy {
   };
 
   // Validaciones de slots
-  readonly slotsDisponibles = signal<any[]>([]);
+  readonly slotsDisponibles = signal<Array<{ horaInicio: string; disponible: boolean }>>([]);
   readonly loadingSlots = signal<boolean>(false);
 
   searchPacienteQuery = '';
@@ -170,7 +170,7 @@ export class TurnosComponent implements OnInit, OnDestroy {
     minuto: '15'
   };
 
-  private clockInterval: any;
+  private clockInterval: ReturnType<typeof setInterval> | null = null;
 
   // ============================================================
   // LIFECYCLE
@@ -298,10 +298,11 @@ export class TurnosComponent implements OnInit, OnDestroy {
     
     // Formulate Tags dynamically based on boolean flags
     const tags: Tag[] = [];
-    if ((dto as any).requiereAyuno) {
+    const dtoExt = dto as unknown as Record<string, boolean>;
+    if (dtoExt['requiereAyuno']) {
       tags.push({ k: 'amber', l: 'Ayuno 8 h' });
     }
-    if ((dto as any).requiereAcompanante) {
+    if (dtoExt['requiereAcompanante']) {
       tags.push({ k: 'blue', l: 'Acompañante' });
     }
     
@@ -795,7 +796,7 @@ export class TurnosComponent implements OnInit, OnDestroy {
     });
   }
 
-  selectSlot(slot: any): void {
+  selectSlot(slot: { horaInicio: string; disponible: boolean }): void {
     if (!slot.disponible) return;
     const dateObj = new Date(slot.horaInicio);
     this.newTurno.hora = String(dateObj.getHours());
@@ -834,7 +835,7 @@ export class TurnosComponent implements OnInit, OnDestroy {
     };
 
     this.turnoApiService.crear(request).subscribe({
-      next: (response) => {
+      next: (_response) => {
         // Success: reload month from backend
         this.loadAppointmentsForMonth(this.cursorDate());
         this.selectedDay.set(localDate.getDate());

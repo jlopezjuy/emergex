@@ -12,6 +12,7 @@ import { GlassCardComponent } from '../../../../../shared/components/glass-card/
 })
 export class AssignedUnitCardComponent {
   readonly ticket = input<TicketAsistenciaDTO | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   readonly tripulacion = input<any[]>([]);
   readonly canDispatch = input<boolean>(false);
   readonly canChangeUnit = input<boolean>(false);

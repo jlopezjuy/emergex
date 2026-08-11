@@ -11,16 +11,18 @@ import { provideRouter, ActivatedRoute } from '@angular/router';
 describe('ProveedorDetailComponent', () => {
   let component: ProveedorDetailComponent;
   let fixture: ComponentFixture<ProveedorDetailComponent>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let ordenesPagoApiMock: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let tercerosApiMock: any;
 
   beforeEach(async () => {
     ordenesPagoApiMock = {
-      getOrdenesDePago: () => of([
+      getOrdenesDePago: vi.fn().mockReturnValue(of([
         { id: 1, numeroOp: 'OP-001', comprobanteId: 10, montoBruto: 5000, montoNeto: 5000, estado: 'PENDIENTE_APROBACION' }
-      ]),
-      aprobarOrdenDePago: () => of({ id: 1, estado: 'APROBADA' }),
-      ejecutarOrdenDePago: () => of({ id: 1, estado: 'EJECUTADA' })
+      ])),
+      aprobarOrdenDePago: vi.fn().mockReturnValue(of({ id: 1, estado: 'APROBADA' })),
+      ejecutarOrdenDePago: vi.fn().mockReturnValue(of({ id: 1, estado: 'EJECUTADA' }))
     };
 
     tercerosApiMock = {
@@ -96,5 +98,10 @@ describe('ProveedorDetailComponent', () => {
 
     expect(component.opAEjecutar()).toBeNull();
     expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('debería cambiar a la solapa de documentación adjunta', () => {
+    component.activeTab.set('docs');
+    expect(component.activeTab()).toBe('docs');
   });
 });

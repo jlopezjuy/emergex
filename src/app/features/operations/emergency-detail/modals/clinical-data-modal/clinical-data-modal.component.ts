@@ -15,7 +15,7 @@ export class ClinicalDataModalComponent {
   readonly ticketId = input.required<number>();
   readonly kind = input<'SIGNOS' | 'PROCEDIMIENTO' | 'MEDICACION' | null>(null);
   readonly clinicalAtencionInput = input<AtencionFullDTO | null>(null);
-  readonly tripulacion = input<any[]>([]);
+  readonly tripulacion = input<unknown[]>([]);
 
   readonly saved = output<void>();
   readonly closed = output<void>();
@@ -158,7 +158,7 @@ Observación: ${this.clinicalObservacion().trim() || '—'}`,
   }
 
   private resolveProfesionalIdParaAtencion(): number | undefined {
-    const list = this.tripulacion();
+    const list = this.tripulacion() as Array<{ id?: number; rol?: string }>;
     if (!list.length) return undefined;
 
     const medico = list.find((t) => (t.rol ?? '').toUpperCase().includes('MED'));

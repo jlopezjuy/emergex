@@ -12,23 +12,23 @@ export class DashboardApiService {
 
   operativo(fecha?: string): Observable<DashboardOperativoDTO> {
     const params = fecha ? `?fecha=${fecha}` : '';
-    return this.http.get<any>(`${this.base}/operativo${params}`).pipe(
+    return this.http.get<Record<string, unknown>>(`${this.base}/operativo${params}`).pipe(
       map((raw) => ({
-        fecha:                  raw.fecha,
-        ticketsActivos:         raw.ticketsActivos,
-        totalTickets:           raw.totalTicketsDia ?? 0,
-        ticketsCriticos:        raw.ticketsPorUrgencia?.ROJO ?? 0,
-        unidadesDisponibles:    raw.movilesActivos,
-        totalUnidades:          raw.movilesActivos,
-        slaPromedio:            raw.slaPromedio ?? 100,
-        tiempoRespuestaPromedio: raw.esperaPromedioMinutos ?? 0,
+        fecha:                  raw['fecha'] as string,
+        ticketsActivos:         raw['ticketsActivos'] as number,
+        totalTickets:           (raw['totalTicketsDia'] as number) ?? 0,
+        ticketsCriticos:        ((raw['ticketsPorUrgencia'] as Record<string, number> | undefined)?.['ROJO']) ?? 0,
+        unidadesDisponibles:    raw['unidadesDisponibles'] as number,
+        totalUnidades:          raw['unidadesTotal'] as number,
+        slaPromedio:            (raw['slaPromedio'] as number) ?? 100,
+        tiempoRespuestaPromedio:  (raw['tiempoRespuestaPromedioMinutos'] as number) ?? 0,
         ticketsPorPrioridad: {
-          CRITICA:  raw.ticketsPorUrgencia?.ROJO    ?? 0,
-          URGENTE:  raw.ticketsPorUrgencia?.AMARILLO ?? 0,
-          NORMAL:   raw.ticketsPorUrgencia?.VERDE    ?? 0,
+          CRITICA:  ((raw['ticketsPorUrgencia'] as Record<string, number> | undefined)?.['ROJO'])    ?? 0,
+          URGENTE:  ((raw['ticketsPorUrgencia'] as Record<string, number> | undefined)?.['AMARILLO']) ?? 0,
+          NORMAL:   ((raw['ticketsPorUrgencia'] as Record<string, number> | undefined)?.['VERDE'])    ?? 0,
         },
-        tiemposRespuestaHistorico: raw.tiemposRespuestaHistorico ?? [],
-        cargaPorHora: raw.cargaPorHora ?? {},
+        tiemposRespuestaHistorico: (raw['tiemposRespuestaHistorico'] as unknown[]) ?? [],
+        cargaPorHora: (raw['cargaPorHora'] as Record<string, number>) ?? {},
       } as DashboardOperativoDTO)),
     );
   }

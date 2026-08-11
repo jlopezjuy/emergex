@@ -30,19 +30,6 @@ const CHANNELS: Channel[] = [
   { id: 'admin',   name: 'CANAL ADMIN',   freq: '157.450 MHz', active: false, signal: 1 },
 ];
 
-const LOG_ENTRIES: LogEntry[] = [
-  { id: 1,  type: 'DESPACHO',  time: '14:32:07', unit: 'U-07', msg: 'Despacho hacia Av. Corrientes 1842 — Caso 0047' },
-  { id: 2,  type: 'ESTADO',    time: '14:31:44', unit: 'U-03', msg: 'En sitio — paciente estabilizado' },
-  { id: 3,  type: 'PRE-AVISO', time: '14:30:59', unit: 'U-07', msg: 'Pre-aviso Clínica San Martín — TCE moderado' },
-  { id: 4,  type: 'RUTA',      time: '14:30:12', unit: 'U-12', msg: 'Salida base — destino Av. Rivadavia 4500' },
-  { id: 5,  type: 'ACUSE',     time: '14:29:30', unit: 'U-07', msg: 'Acuse recibo Despacho 0047 — ETA 6 min' },
-  { id: 6,  type: 'ALERTA',    time: '14:28:55', unit: 'U-03', msg: '¡Alerta! PCR en curso — solicito soporte ALS' },
-  { id: 7,  type: 'SOLICITUD', time: '14:27:40', unit: 'U-01', msg: 'Solicitud oxígeno adicional BASE 04' },
-  { id: 8,  type: 'ESTADO',    time: '14:26:15', unit: 'U-12', msg: 'Disponible — de regreso a base' },
-  { id: 9,  type: 'RUTA',      time: '14:25:00', unit: 'U-09', msg: 'En traslado — Hospital General — ETA 12 min' },
-  { id: 10, type: 'DESPACHO',  time: '14:23:45', unit: 'U-01', msg: 'Despacho hacia Callao y Corrientes — Caso 0046' },
-];
-
 /** Map log type → CSS modifier suffix for .log-row__type */
 function logTypeCssClass(type: LogEntry['type']): string {
   switch (type) {
@@ -364,9 +351,9 @@ export class CommunicationsComponent implements OnInit {
   );
 
   ngOnInit(): void {
-    this.http.get<any[]>(`${environment.apiUrl}/api/v1/notificaciones/log`).pipe(
+    this.http.get<Array<Record<string, unknown>>>(`${environment.apiUrl}/api/v1/notificaciones/log`).pipe(
       catchError(() => of([])), takeUntilDestroyed(this.destroyRef)
-    ).subscribe((items: any[]) => {
+    ).subscribe((items) => {
       const entries: LogEntry[] = (items ?? []).map((item, idx) => ({
         id:   item.id   ?? idx,
         type: item.type ?? item.tipo ?? 'ESTADO',

@@ -146,7 +146,7 @@ export class PatientDetailDrawerComponent {
     return 'sin facturas';
   }
 
-  fmtPeriodo(desde?: string, hasta?: string): string {
+  fmtPeriodo(desde?: string, _hasta?: string): string {
     if (!desde) return '—';
     const d = new Date(desde.split('T')[0] + 'T00:00:00');
     const months = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];

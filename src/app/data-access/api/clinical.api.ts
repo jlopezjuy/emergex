@@ -233,7 +233,7 @@ export class ClinicalApiService {
   }
 
   // Waitlist data for Mode A — pacientes con turno hoy en estado de espera
-  getWaitlist(): Observable<any[]> {
+  getWaitlist(): Observable<unknown[]> {
     const profesionalId = this.getProfesionalId();
     if (!profesionalId) {
       // TODO: backend endpoint missing — profesionalId not available in session
@@ -271,7 +271,7 @@ export class ClinicalApiService {
   }
 
   // Today's schedule for Mode A
-  getScheduleToday(): Observable<any[]> {
+  getScheduleToday(): Observable<unknown[]> {
     const profesionalId = this.getProfesionalId();
     if (!profesionalId) {
       // TODO: backend endpoint missing — profesionalId not available in session
@@ -466,7 +466,7 @@ export class ClinicalApiService {
   }
 
   // Sign recipe/episode → POST /api/atenciones/{id}/cerrar
-  signEpisode(episodeId: string, signature: string): Observable<{ success: boolean; hash: string }> {
+  signEpisode(episodeId: string, _signature: string): Observable<{ success: boolean; hash: string }> {
     if (!episodeId) {
       return of({ success: false, hash: '' });
     }

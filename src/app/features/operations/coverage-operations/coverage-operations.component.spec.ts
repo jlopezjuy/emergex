@@ -10,9 +10,11 @@ import { InstitutionsApiService } from '../../../data-access/api/institutions.ap
 import { EmergencyDetailComponent } from '../emergency-detail/emergency-detail.component';
 import { AddAssistedPersonModalComponent } from './add-assisted-person-modal.component';
 
+import { TicketAsistenciaDTO } from '../../../data-access/dto/ticket.dto';
+
 describe('CoverageOperationsComponent — tipo incidente', () => {
-  let incidentesApiMock: any;
-  let emergencyApiMock: any;
+  let incidentesApiMock: Record<string, ReturnType<typeof vi.fn>>;
+  let emergencyApiMock: Record<string, ReturnType<typeof vi.fn>>;
 
   beforeEach(async () => {
     incidentesApiMock = {
@@ -57,8 +59,8 @@ describe('CoverageOperationsComponent — tipo incidente', () => {
 
     expect(comp.tipo()).toBe('incidente');
     expect(comp.contextoId()).toBe(42);
-    expect(incidentesApiMock.getIncidente).toHaveBeenCalledWith(42);
-    expect(incidentesApiMock.getTicketsIncidente).toHaveBeenCalledWith(42);
+    expect(incidentesApiMock['getIncidente']).toHaveBeenCalledWith(42);
+    expect(incidentesApiMock['getTicketsIncidente']).toHaveBeenCalledWith(42);
     expect(comp.headerNombre()).toBe('IN-000001');
     expect(comp.roster().length).toBe(1);
     expect(comp.roster()[0].id).toBe(99);
@@ -72,11 +74,11 @@ describe('CoverageOperationsComponent — tipo incidente', () => {
 
     // Un ticket activo NO cierra el operativo; forzamos allClosed seteando el roster.
     comp.roster.set([
-      { id: 99, codigo: 'E-000001', estado: 'COMPLETADO' } as any,
+      { id: 99, codigo: 'E-000001', estado: 'COMPLETADO' } as unknown as TicketAsistenciaDTO,
     ]);
     expect(comp.allClosed()).toBe(true);
 
     comp.finalizarOperativo();
-    expect(incidentesApiMock.cerrarIncidente).toHaveBeenCalledWith(42);
+    expect(incidentesApiMock['cerrarIncidente']).toHaveBeenCalledWith(42);
   });
 });

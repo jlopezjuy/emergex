@@ -41,7 +41,7 @@ export class SpecialtiesModalComponent {
     });
   }
 
-  updateNewSpecialtyForm(patch: Partial<any>): void {
+  updateNewSpecialtyForm(patch: Partial<{ nombre: string; descripcion: string; requiereCertificacion: boolean; aniosFormacion: number | null }>): void {
     this.newSpecialtyForm.set({ ...this.newSpecialtyForm(), ...patch });
   }
 

@@ -4,6 +4,7 @@ export class ClinicalUtils {
   static sanitizeClinicalPayload(atencion: AtencionFullDTO): AtencionFullDTO {
     return {
       ...atencion,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       notas: (atencion.notas ?? []).map((nota: any) => ({
         id: nota.id,
         fecha: nota.fecha,
@@ -13,22 +14,22 @@ export class ClinicalUtils {
         evolucion: nota.evolucion,
         observacion: nota.observacion,
       })),
-      signos: (atencion.signos ?? []).map((signo: any) => ({
-        id: signo.id,
-        fechaHora: signo.fechaHora ?? signo.timestamp,
-        presionSistolica: signo.presionSistolica,
-        presionDiastolica: signo.presionDiastolica,
-        frecuenciaCardiaca: signo.frecuenciaCardiaca,
-        frecuenciaRespiratoria: signo.frecuenciaRespiratoria,
-        saturacionOxigeno: signo.saturacionOxigeno ?? signo.saturacionO2,
-        temperatura: signo.temperatura,
-        glucemia: signo.glucemia,
-        glasgowOcular: signo.glasgowOcular,
-        glasgowVerbal: signo.glasgowVerbal,
-        glasgowMotor: signo.glasgowMotor,
-        glasgowTotal: signo.glasgowTotal,
-        avpu: signo.avpu,
-        observacion: signo.observacion,
+      signos: (atencion.signos ?? []).map((signo: Record<string, unknown>) => ({
+        id: signo['id'],
+        fechaHora: signo['fechaHora'] ?? signo['timestamp'],
+        presionSistolica: signo['presionSistolica'],
+        presionDiastolica: signo['presionDiastolica'],
+        frecuenciaCardiaca: signo['frecuenciaCardiaca'],
+        frecuenciaRespiratoria: signo['frecuenciaRespiratoria'],
+        saturacionOxigeno: signo['saturacionOxigeno'] ?? signo['saturacionO2'],
+        temperatura: signo['temperatura'],
+        glucemia: signo['glucemia'],
+        glasgowOcular: signo['glasgowOcular'],
+        glasgowVerbal: signo['glasgowVerbal'],
+        glasgowMotor: signo['glasgowMotor'],
+        glasgowTotal: signo['glasgowTotal'],
+        avpu: signo['avpu'],
+        observacion: signo['observacion'],
       })),
     };
   }
@@ -39,10 +40,11 @@ export class ClinicalUtils {
     return line?.split(':').slice(1).join(':').trim();
   }
 
-  static abrirDocumentoFirmado(consentimiento: any): void {
-    if (!consentimiento?.documentoFirmado) return;
+  static abrirDocumentoFirmado(consentimiento: Record<string, unknown>): void {
+    const doc = consentimiento?.['documentoFirmado'] as string | undefined;
+    if (!doc) return;
     try {
-      const base64Content = consentimiento.documentoFirmado;
+      const base64Content = doc;
       const cleanBase64 = base64Content.includes('base64,') ? base64Content.split('base64,')[1] : base64Content;
       const contentType = base64Content.includes('data:') ? base64Content.split(';')[0].replace('data:', '') : 'application/pdf';
 

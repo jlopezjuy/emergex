@@ -141,8 +141,8 @@ export class StaffApiService {
     return this.http.get<string[]>(`${this.v2}/${id}/authorities`);
   }
 
-  createSubespecialidad(body: any): Observable<any> {
-    return this.http.post<any>(`${environment.apiUrl}/api/subespecialidads`, body);
+  createSubespecialidad(body: unknown): Observable<unknown> {
+    return this.http.post<unknown>(`${environment.apiUrl}/api/subespecialidads`, body);
   }
 
   deleteSubespecialidad(id: number): Observable<void> {

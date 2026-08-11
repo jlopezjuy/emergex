@@ -11,7 +11,7 @@ import {
 import { FormsModule } from '@angular/forms';
 import { Subject, from, of } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged, switchMap, takeUntil } from 'rxjs';
-import { EstadoInstitucion, InstitutionType, InstitutionDTO } from '../../../../data-access/dto/institution.dto';
+import { EstadoInstitucion, InstitutionType } from '../../../../data-access/dto/institution.dto';
 import { GeocodeResult } from '../../../../shared/map/geocoder-provider';
 import { HttpGeocoderProvider } from '../../../../shared/map/providers/http-geocoder.provider';
 import { LocationPolygonMapComponent } from '../../../../shared/components/map/location-polygon-map/location-polygon-map.component';
@@ -284,7 +284,7 @@ const INSTITUTION_TYPES: { id: InstitutionType; label: string; icon: string }[] 
   styleUrl: './institution-form-modal.component.scss'
 })
 export class InstitutionFormModalComponent implements OnInit, OnDestroy {
-  readonly editingInst    = input<any | null>(null);
+  readonly editingInst    = input<unknown | null>(null);
   readonly commercialPlans = input<CommercialPlanItem[]>([]);
   readonly loadingSave     = input<boolean>(false);
   readonly initialForm     = input.required<InstitutionForm>();
@@ -293,7 +293,7 @@ export class InstitutionFormModalComponent implements OnInit, OnDestroy {
   readonly save  = output<InstitutionForm>();
 
   readonly formTab     = signal<'general' | 'contacto'>('general');
-  readonly form        = signal<InstitutionForm>(null as any);
+  readonly form        = signal<InstitutionForm>({ name: '', razonSocial: '', cuit: '', type: 'EMPRESA', status: 'ACTIVA', plan: '', address: '', phone: '', email: '', adminContact: '', opsContact: '', city: '', lat: 0, lng: 0 });
   readonly formTouched = signal(false);
 
   // Geocoding state

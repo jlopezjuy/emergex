@@ -6,8 +6,6 @@ import { InternacionStore } from '../../../../core/stores/internacion.store';
 import {
   InternacionDomiciliariaDTO,
   ResumenAltaDTO,
-  EstadoVisita,
-  EstadoPrescripcion,
 } from '../../../../data-access/dto/internacion.dto';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 

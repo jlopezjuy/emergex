@@ -8,6 +8,7 @@ import { OrdenDePagoDTO } from '../../../data-access/dto/ordenes-pago.dto';
 import { TerceroResumenDTO } from '../../../data-access/dto/ledger.dto';
 import { CbuMakerCheckerModalComponent } from '../../../shared/components/finance/cbu-maker-checker-modal/cbu-maker-checker-modal.component';
 import { OrdenPagoFormModalComponent } from '../../../shared/components/finance/orden-pago-form-modal/orden-pago-form-modal.component';
+import { DocumentosAdjuntosComponent } from '../../../shared/components/documentos-adjuntos/documentos-adjuntos.component';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge/status-badge.component';
 
 @Component({
@@ -18,7 +19,8 @@ import { StatusBadgeComponent } from '../../../shared/components/status-badge/st
     RouterLink,
     CbuMakerCheckerModalComponent,
     OrdenPagoFormModalComponent,
-    StatusBadgeComponent
+    StatusBadgeComponent,
+    DocumentosAdjuntosComponent
   ],
   template: `
     <div class="p-6 space-y-6 bg-[var(--bg-deep)] min-h-screen text-[var(--text-primary)]">
@@ -76,6 +78,15 @@ import { StatusBadgeComponent } from '../../../shared/components/status-badge/st
           class="pb-3 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition"
         >
           Cuentas Bancarias & CBU
+        </button>
+        <button
+          (click)="activeTab.set('docs')"
+          [class.border-b-2]="activeTab() === 'docs'"
+          [class.border-[var(--accent-blue)]]="activeTab() === 'docs'"
+          [class.text-[var(--accent-blue)]]="activeTab() === 'docs'"
+          class="pb-3 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition"
+        >
+          Documentación Adjunta
         </button>
       </div>
 
@@ -159,6 +170,11 @@ import { StatusBadgeComponent } from '../../../shared/components/status-badge/st
         </div>
       }
 
+      <!-- Tab Content: Documentación Adjunta -->
+      @if (activeTab() === 'docs') {
+        <emx-documentos-adjuntos [entidadTipo]="'PROVEEDOR'" [entidadId]="proveedorId"></emx-documentos-adjuntos>
+      }
+
       <!-- Modal CBU Maker-Checker -->
       @if (showCbuModal) {
         <emx-cbu-maker-checker-modal
@@ -183,7 +199,7 @@ import { StatusBadgeComponent } from '../../../shared/components/status-badge/st
 })
 export class ProveedorDetailComponent implements OnInit {
   proveedorId = 0;
-  activeTab = signal<'op' | 'cbu'>('op');
+  activeTab = signal<'op' | 'cbu' | 'docs'>('op');
   ordenesPago = signal<OrdenDePagoDTO[]>([]);
   showCbuModal = false;
 

@@ -1,6 +1,6 @@
 import { Component, inject, signal, OnDestroy, DestroyRef } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import { AuthApiService } from '../../../data-access/api/auth.api';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { DateUtils } from '../../../core/utils/date.utils';
@@ -381,7 +381,7 @@ export class ForgotPasswordComponent implements OnDestroy {
             'Si el correo electrónico ingresado está registrado en el sistema, recibirás un mensaje con las instrucciones para restablecer tu contraseña.'
           );
         },
-        error: (err) => {
+        error: (_err) => {
           this.loading.set(false);
           // Si es un error de CORS, o red, o de otro tipo. En JHipster siempre devuelve 200 en init (por seguridad anti-enumeración)
           // por lo que si da error es un problema real de infraestructura.

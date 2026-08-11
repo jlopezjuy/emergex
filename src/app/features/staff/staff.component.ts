@@ -15,7 +15,6 @@ import {
   CatalogItem,
   StaffMember,
   SPEC_GROUP_COLOR,
-  PREFIX_OPTIONS,
   specById,
   inferSpecialtyGroup
 } from './models/staff.interfaces';
@@ -23,7 +22,7 @@ import { ProfesionalSaludDTO } from '../../data-access/dto/staff.dto';
 
 const PAGE_SIZE = 10;
 
-function toCatalogItem(s: any): CatalogItem {
+function toCatalogItem(s: { id: number | string; nombre: string; descripcion?: string; requiereCertificacion?: boolean; aniosFormacion?: number }): CatalogItem {
   return {
     id:    String(s.id),
     name:  s.nombre,

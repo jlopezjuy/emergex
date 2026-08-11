@@ -204,102 +204,6 @@ function generateAmbulanceImageData(colorHex: string, moving = false): ImageData
 
 // ─── Marker element factories ─────────────────────────────────────────────────
 
-function createAmbEl(unit: UnidadMovilDTO, onClick: () => void): HTMLElement {
-  const color = ambColor(unit.estado);
-  const label = unit.identificador ?? (unit.id != null ? `U-${unit.id}` : 'AMB');
-
-  const wrap = document.createElement('div');
-  wrap.style.cssText = 'position:relative;width:34px;height:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;overflow:visible;';
-
-  const badge = document.createElement('div');
-  badge.style.cssText = `
-    width:26px;height:22px;border-radius:4px;
-    background:${color};display:flex;align-items:center;
-    justify-content:center;box-shadow:0 0 10px ${color}55;
-    border:1.5px solid rgba(255,255,255,0.25);
-    transition:transform 0.15s;
-  `;
-  const svgNS = 'http://www.w3.org/2000/svg';
-  const svg = document.createElementNS(svgNS, 'svg');
-  svg.setAttribute('width', '13');
-  svg.setAttribute('height', '13');
-  svg.setAttribute('viewBox', '0 0 13 13');
-  svg.setAttribute('fill', 'none');
-  svg.setAttribute('stroke', 'white');
-  svg.setAttribute('stroke-width', '1.5');
-  svg.setAttribute('opacity', '0.95');
-
-  const rect = document.createElementNS(svgNS, 'rect');
-  rect.setAttribute('x', '0.75');
-  rect.setAttribute('y', '4.75');
-  rect.setAttribute('width', '11.5');
-  rect.setAttribute('height', '6.5');
-  rect.setAttribute('rx', '1.25');
-
-  const path = document.createElementNS(svgNS, 'path');
-  path.setAttribute('d', 'M3.5 4.75V3.5a3 3 0 016 0v1.25');
-
-  const line1 = document.createElementNS(svgNS, 'line');
-  line1.setAttribute('x1', '6.5');
-  line1.setAttribute('y1', '6.5');
-  line1.setAttribute('x2', '6.5');
-  line1.setAttribute('y2', '9.5');
-
-  const line2 = document.createElementNS(svgNS, 'line');
-  line2.setAttribute('x1', '5');
-  line2.setAttribute('y1', '8');
-  line2.setAttribute('x2', '8');
-  line2.setAttribute('y2', '8');
-
-  svg.appendChild(rect);
-  svg.appendChild(path);
-  svg.appendChild(line1);
-  svg.appendChild(line2);
-  badge.appendChild(svg);
-
-  const lbl = document.createElement('div');
-  lbl.style.cssText = `position:absolute;top:24px;left:50%;transform:translateX(-50%);font-family:monospace;font-size:9px;font-weight:700;color:${color};white-space:nowrap;text-shadow:0 1px 4px rgba(0,0,0,0.9);pointer-events:none;`;
-  lbl.textContent = label;
-
-  wrap.appendChild(badge);
-  wrap.appendChild(lbl);
-  wrap.addEventListener('mouseenter', () => (badge.style.transform = 'scale(1.2)'));
-  wrap.addEventListener('mouseleave', () => (badge.style.transform = 'scale(1)'));
-  wrap.addEventListener('click', onClick);
-  return wrap;
-}
-
-function createEmgEl(ticket: TicketAsistenciaDTO, onClick: () => void): HTMLElement {
-  const color = emgColor(ticket.prioridad);
-  const label = ticket.codigo ?? `E-${ticket.id}`;
-
-  const wrap = document.createElement('div');
-  wrap.style.cssText = 'position:relative;width:34px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;overflow:visible;';
-
-  const pulse = document.createElement('div');
-  pulse.style.cssText = 'position:relative;width:28px;height:28px;display:flex;align-items:center;justify-content:center;';
-
-  const ring1 = document.createElement('div');
-  ring1.style.cssText = `position:absolute;width:28px;height:28px;border-radius:50%;background:${color};opacity:0;animation:emg-pulse 1.8s ease-out infinite;`;
-  const ring2 = document.createElement('div');
-  ring2.style.cssText = `position:absolute;width:28px;height:28px;border-radius:50%;background:${color};opacity:0;animation:emg-pulse 1.8s ease-out 0.6s infinite;`;
-
-  const dot = document.createElement('div');
-  dot.style.cssText = `position:relative;width:12px;height:12px;border-radius:50%;background:${color};border:2px solid rgba(255,255,255,0.45);box-shadow:0 0 12px ${color}99;z-index:1;`;
-
-  const lbl = document.createElement('div');
-  lbl.style.cssText = `position:absolute;top:28px;left:50%;transform:translateX(-50%);font-family:monospace;font-size:9px;font-weight:700;color:${color};white-space:nowrap;text-shadow:0 1px 4px rgba(0,0,0,0.9);pointer-events:none;`;
-  lbl.textContent = label;
-
-  pulse.appendChild(ring1);
-  pulse.appendChild(ring2);
-  pulse.appendChild(dot);
-  wrap.appendChild(pulse);
-  wrap.appendChild(lbl);
-  wrap.addEventListener('click', onClick);
-  return wrap;
-}
-
 // Inject pulse keyframes once
 let keyframesInjected = false;
 function ensureKeyframes(): void {
@@ -830,6 +734,7 @@ export class OperationsMapComponent implements OnDestroy {
 
   private activePopup: Popup | null = null;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private handleAmbClick = (ev: any): void => {
     const feature = ev.features?.[0];
     if (!feature || !this.map) return;
@@ -1011,7 +916,7 @@ export class OperationsMapComponent implements OnDestroy {
     });
   }
 
-  private async fetchOSRMRoute(start: [number, number], end: [number, number]): Promise<{ geometry: any; distance: number; duration: number } | null> {
+  private async fetchOSRMRoute(start: [number, number], end: [number, number]): Promise<{ geometry: GeoJSON.Geometry; distance: number; duration: number } | null> {
     try {
       const url = `https://router.project-osrm.org/route/v1/driving/${start[0]},${start[1]};${end[0]},${end[1]}?geometries=geojson&overview=full`;
       const res = await fetch(url);
@@ -1055,7 +960,7 @@ export class OperationsMapComponent implements OnDestroy {
       return;
     }
 
-    const features: any[] = [];
+    const features: GeoJSON.Feature<GeoJSON.LineString>[] = [];
     let selectedRouteInfo: { distance: string; duration: string } | null = null;
 
     for (const pair of activeRoutePairs) {
@@ -1063,7 +968,7 @@ export class OperationsMapComponent implements OnDestroy {
       if (routeData) {
         features.push({
           type: 'Feature',
-          geometry: routeData.geometry,
+          geometry: routeData.geometry as GeoJSON.LineString,
           properties: {},
         });
         if (pair.ticket.id === this.selectedEmergencyId()) {

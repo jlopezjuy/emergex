@@ -3,7 +3,7 @@ import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { InternacionStore } from '../../../core/stores/internacion.store';
 import { InternacionApiService } from '../../../data-access/api/internacion.api';
-import { EstadoInternacion, AlertaInternacion, VisitaProgramadaDTO, PrescripcionContinuaDTO } from '../../../data-access/dto/internacion.dto';
+import { EstadoInternacion, PrescripcionContinuaDTO } from '../../../data-access/dto/internacion.dto';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
 @Component({
@@ -566,7 +566,7 @@ export class InternacionListComponent implements OnInit {
   });
 
   // Modales y Formularios de Visitas Domiciliarias
-  readonly selectedVisita = signal<any | null>(null);
+  readonly selectedVisita = signal<unknown | null>(null);
   readonly showVisitaActionModal = signal<boolean>(false);
   readonly showNuevaVisitaModal = signal<boolean>(false);
   readonly showReprogramarVisitaModal = signal<boolean>(false);
@@ -606,7 +606,7 @@ export class InternacionListComponent implements OnInit {
   // ============================================================
   // ACTION HANDLERS
   // ============================================================
-  openVisitaAction(v: any, event: MouseEvent): void {
+  openVisitaAction(v: unknown, event: MouseEvent): void {
     event.stopPropagation();
     this.selectedVisita.set(v);
     this.showVisitaActionModal.set(true);

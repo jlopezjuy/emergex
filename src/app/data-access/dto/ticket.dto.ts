@@ -404,6 +404,7 @@ export interface AtencionFullDTO {
   estado?: string;
   observaciones?: string;
   notas?: ConsultaClinicaDTO[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   signos?: any[];
 }
 

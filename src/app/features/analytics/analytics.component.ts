@@ -650,7 +650,8 @@ export class AnalyticsComponent implements OnInit {
     const serie = this.comData()?.altasSerie;
     if (!serie) return [];
     return Object.keys(serie).map(k => {
-      const [year, month] = k.split('-');
+      const parts = k.split('-');
+      const month = parts[1] ?? '';
       const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
       return months[parseInt(month) - 1] ?? k;
     });

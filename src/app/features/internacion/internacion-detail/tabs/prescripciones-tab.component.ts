@@ -5,7 +5,6 @@ import { InternacionApiService } from '../../../../data-access/api/internacion.a
 import {
   InternacionDomiciliariaDTO,
   PrescripcionContinuaDTO,
-  AdministracionMedicamentoDTO,
 } from '../../../../data-access/dto/internacion.dto';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 

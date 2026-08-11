@@ -1,7 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { Observable, catchError, mapTo, of, tap, switchMap, throwError } from 'rxjs';
+import { Observable, catchError, mapTo, of, tap, switchMap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { Account } from './models/account.model';
 import { LoginCredentials } from './models/login.model';

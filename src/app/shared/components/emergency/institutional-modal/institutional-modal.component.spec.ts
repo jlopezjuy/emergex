@@ -1,5 +1,5 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest';
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { InstitutionalModalComponent } from './institutional-modal.component';
 import { InstitutionsApiService } from '../../../../data-access/api/institutions.api';
@@ -11,7 +11,7 @@ import { ContractDTO } from '../../../../data-access/dto/institution.dto';
 
 describe('InstitutionalModalComponent', () => {
   let component: InstitutionalModalComponent;
-  let fixture: any;
+  let fixture: ComponentFixture<InstitutionalModalComponent>;
 
   const institutionsApiMock = {
     getAll: vi.fn().mockReturnValue(of([

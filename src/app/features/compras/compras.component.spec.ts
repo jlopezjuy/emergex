@@ -3,7 +3,7 @@ import { ComprasComponent } from './compras.component';
 import { ComprasApiService } from '../../data-access/api/compras.api';
 import { CostosApiService } from '../../data-access/api/costos.api';
 import { UserFeedbackService } from '../../core/notifications/user-feedback.service';
-import { of, throwError } from 'rxjs';
+import { of } from 'rxjs';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { vi } from 'vitest';
@@ -11,9 +11,9 @@ import { vi } from 'vitest';
 describe('ComprasComponent', () => {
   let component: ComprasComponent;
   let fixture: ComponentFixture<ComprasComponent>;
-  let comprasApiMock: any;
-  let costosApiMock: any;
-  let feedbackServiceMock: any;
+  let comprasApiMock: Record<string, ReturnType<typeof vi.fn>>;
+  let costosApiMock: Record<string, ReturnType<typeof vi.fn>>;
+  let feedbackServiceMock: Record<string, ReturnType<typeof vi.fn>>;
 
   beforeEach(async () => {
     comprasApiMock = {
@@ -83,7 +83,7 @@ describe('ComprasComponent', () => {
 
     expect(component.solicitudSeleccionada()?.id).toBe(1);
     expect(component.activeTab()).toBe('cotizaciones');
-    expect(comprasApiMock.getCotizacionesPorSolicitud).toHaveBeenCalledWith(1);
+    expect(comprasApiMock['getCotizacionesPorSolicitud']).toHaveBeenCalledWith(1);
     expect(component.cotizaciones().length).toBe(1);
   });
 
@@ -100,11 +100,11 @@ describe('ComprasComponent', () => {
     component.motivoOverride.set('Excepción gerencial');
     component.confirmarOverride();
 
-    expect(comprasApiMock.overrideMatching).toHaveBeenCalledWith({
+    expect(comprasApiMock['overrideMatching']).toHaveBeenCalledWith({
       comprobanteId: 100,
       motivoExcepcion: 'Excepción gerencial',
       usuarioAprobador: 'gerente.aprobador'
     });
-    expect(feedbackServiceMock.push).toHaveBeenCalledWith(expect.objectContaining({ type: 'success' }));
+    expect(feedbackServiceMock['push']).toHaveBeenCalledWith(expect.objectContaining({ type: 'success' }));
   });
 });

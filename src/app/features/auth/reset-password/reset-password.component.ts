@@ -1,6 +1,6 @@
 import { Component, inject, signal, OnInit, OnDestroy, DestroyRef } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators, FormGroup } from '@angular/forms';
-import { Router, ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AuthApiService } from '../../../data-access/api/auth.api';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { DateUtils } from '../../../core/utils/date.utils';
@@ -446,7 +446,7 @@ export class ResetPasswordComponent implements OnInit, OnDestroy {
           this.loading.set(false);
           this.successMsg.set('Contraseña actualizada correctamente.');
         },
-        error: (err) => {
+        error: (_err) => {
           this.loading.set(false);
           // Mapeamos el error 500 o 400 del backend a un mensaje comprensible y amigable
           this.errorMsg.set(

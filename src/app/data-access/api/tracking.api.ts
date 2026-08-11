@@ -31,14 +31,14 @@ export class TrackingApiService {
 
   upsertUbicacionConIdempotency(
     ambulanciaId: number,
-    req: any,
+    req: unknown,
     idempotencyKey?: string
-  ): Observable<any> {
+  ): Observable<unknown> {
     const headers: Record<string, string> = {};
     if (idempotencyKey) {
       headers['Idempotency-Key'] = idempotencyKey;
     }
-    return this.http.post<any>(
+    return this.http.post<unknown>(
       `${this.base}/ambulancias/${ambulanciaId}/ubicacion`,
       req,
       { headers }
@@ -51,15 +51,15 @@ export class TrackingApiService {
     );
   }
 
-  aceptarAsignacion(id: number, req?: any): Observable<any> {
-    return this.http.patch<any>(`${this.base}/asignaciones/${id}/aceptar`, req || {});
+  aceptarAsignacion(id: number, req?: unknown): Observable<unknown> {
+    return this.http.patch<unknown>(`${this.base}/asignaciones/${id}/aceptar`, req || {});
   }
 
-  rechazarAsignacion(id: number, req?: any): Observable<any> {
-    return this.http.patch<any>(`${this.base}/asignaciones/${id}/rechazar`, req || {});
+  rechazarAsignacion(id: number, req?: unknown): Observable<unknown> {
+    return this.http.patch<unknown>(`${this.base}/asignaciones/${id}/rechazar`, req || {});
   }
 
-  registrarHeartbeat(req: any): Observable<void> {
+  registrarHeartbeat(req: unknown): Observable<void> {
     return this.http.post<void>(`${this.base}/tracking/heartbeat`, req);
   }
 }

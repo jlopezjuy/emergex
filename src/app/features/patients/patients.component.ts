@@ -2,14 +2,14 @@ import { Component, signal, computed, HostListener, inject, OnInit, DestroyRef }
 import { FormsModule } from '@angular/forms';
 import { UpperCasePipe } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { catchError, of, forkJoin, map, concatMap, Subject, debounceTime, distinctUntilChanged } from 'rxjs';
+import { catchError, of, forkJoin, concatMap, Subject, debounceTime, distinctUntilChanged } from 'rxjs';
 import { localDateYmd } from '../../shared/utils/date-local.util';
 import { PatientApiService } from '../../data-access/api/patient.api';
 import { PlanComercialApiService } from '../../data-access/api/plan-comercial.api';
 import { AuthService } from '../../core/auth/auth.service';
 import { SessionStore } from '../../core/stores/session.store';
 import { UserFeedbackService } from '../../core/notifications/user-feedback.service';
-import { PacienteDTO, FichaAfiliadoDTO, FacturaDTO, CoberturaFichaDTO, MiembroGrupoFamiliarDTO, ConsumoMensualDTO, OrdenMedicaDTO, AltaAfiliadoCompletaRequest, AltaAfiliadoCompletaResponse, DependienteAltaRequest } from '../../data-access/dto/patient.dto';
+import { PacienteDTO, FichaAfiliadoDTO, FacturaDTO, CoberturaFichaDTO, MiembroGrupoFamiliarDTO, ConsumoMensualDTO, OrdenMedicaDTO, AltaAfiliadoCompletaRequest, AltaAfiliadoCompletaResponse } from '../../data-access/dto/patient.dto';
 import { PlanComercialDTO, PlanCoverages } from '../../data-access/dto/plan-comercial.dto';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
@@ -64,12 +64,6 @@ export interface PatientForm {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const PARENTESCOS = ['Cónyuge', 'Hijo/a', 'Padre/Madre', 'Hermano/a', 'Otro'];
-
-const TIER_COLORS: Record<string, string> = {
-  premium: '#10b981',
-  medio:   '#3b82f6',
-  basico:  '#94a3b8',
-};
 
 const METODOS_PAGO = [
   { value: 'EFECTIVO',          label: 'Efectivo' },
@@ -370,7 +364,7 @@ export class PatientsComponent implements OnInit {
             numeroAfiliado: r.numeroAfiliado,
             activo: r.activo,
             createdAt: r.createdAt,
-          } as any,
+          } as PacienteDTO,
         };
       });
 
@@ -503,7 +497,7 @@ export class PatientsComponent implements OnInit {
   readonly fmtDate      = fmtDate;
   readonly avatarOf     = avatarOf;
 
-  fmtPeriodo(desde?: string, hasta?: string): string {
+  fmtPeriodo(desde?: string, _hasta?: string): string {
     if (!desde) return '—';
     // Fix browser parser for dates
     const d = new Date(desde.split('T')[0] + 'T00:00:00');
@@ -646,7 +640,7 @@ export class PatientsComponent implements OnInit {
     const pagoBase = {
       fechaPago:        payment.fecha,
       monto:            payment.amount,
-      metodoPago:       payment.method as any,
+      metodoPago:       payment.method as 'EFECTIVO' | 'TRANSFERENCIA' | 'TARJETA_DEBITO' | 'TARJETA_CREDITO' | 'CHEQUE' | 'MERCADOPAGO' | 'OTRO',
       numeroReferencia: payment.ref   || undefined,
       nota:             payment.nota  || undefined,
     };
@@ -694,7 +688,7 @@ export class PatientsComponent implements OnInit {
     });
   }
 
-  private translatePaymentError(err: any, fallback: string): string {
+  private translatePaymentError(err: { error?: { message?: string; detail?: string; title?: string } } | null | undefined, fallback: string): string {
     const key = err?.error?.message ?? err?.error?.detail ?? '';
     if (key.includes('montoExcedeSaldo') || key.includes('monto excede')) {
       const pending = this.facturas().find(f => f.estado !== 'PAGADA');
@@ -994,7 +988,7 @@ export class PatientsComponent implements OnInit {
             status:     'deuda',
             sinceMonth: '',
             depCount:   altaReq.dependientes.length,
-            _raw:       {} as any,
+            _raw:       {} as PacienteDTO,
           };
           this.openQuickPayment(newRow);
         }
@@ -1151,7 +1145,7 @@ export class PatientsComponent implements OnInit {
             
             // Vinculamos el dependiente recién creado al grupo familiar del titular
             const reqMiembro = {
-              rolFamiliar: (dep.parentesco === 'Cónyuge' ? 'CO_TITULAR' : 'DEPENDIENTE') as any,
+              rolFamiliar: (dep.parentesco === 'Cónyuge' ? 'CO_TITULAR' : 'DEPENDIENTE') as 'CO_TITULAR' | 'DEPENDIENTE',
               fechaIngreso: today,
               estado: 'ACTIVA' as const,
               empresa: { id: empresaId },
@@ -1254,7 +1248,7 @@ export class PatientsComponent implements OnInit {
         return of(null);
       }),
       takeUntilDestroyed(this.destroyRef)
-    ).subscribe(res => {
+    ).subscribe(() => {
       this.traspasoLoading.set(false);
       this.traspasoModalOpen.set(false);
       
@@ -1279,7 +1273,7 @@ export class PatientsComponent implements OnInit {
           nombre: d.nombreCompleto?.split(' ')[0] ?? '',
           apellido: d.nombreCompleto?.split(' ').slice(1).join(' ') ?? '',
           dni: d.dni
-        } as any)));
+        })));
         this.loadingCandidatosPrincipal.set(false);
       },
       error: () => this.loadingCandidatosPrincipal.set(false)
@@ -1299,7 +1293,7 @@ export class PatientsComponent implements OnInit {
           nombre: d.nombreCompleto?.split(' ')[0] ?? '',
           apellido: d.nombreCompleto?.split(' ').slice(1).join(' ') ?? '',
           dni: d.dni
-        } as any)));
+        })));
         this.loadingCandidatosDuplicado.set(false);
       },
       error: () => this.loadingCandidatosDuplicado.set(false)

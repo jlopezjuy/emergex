@@ -42,6 +42,7 @@ export class EmergencyApiService {
   private http = inject(HttpClient);
   private base = `${environment.apiUrl}/api/v2/asistencias`;
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private mapTicket(raw: any): TicketAsistenciaDTO {
     return {
       id:                 raw.id ?? raw.ticketId,
@@ -49,7 +50,7 @@ export class EmergencyApiService {
       codigo:             raw.numeroTicket,
       tipoEmergencia:     raw.descripcionSintomas,
       estado:             raw.estadoActual,
-      prioridad:          URGENCIA_MAP[raw.nivelUrgencia] ?? undefined,
+      prioridad:          URGENCIA_MAP[raw.nivelUrgencia as string] ?? undefined,
       nivelUrgencia:      raw.nivelUrgencia,
       direccion:          raw.direccion,
       ambulanciaId:       raw.ambulancia?.id,
@@ -91,7 +92,9 @@ export class EmergencyApiService {
       // Unidades ACTIVAS del ticket (despacho múltiple V2): las filas de historial
       // sin fecha de liberación. La primaria sigue en ambulanciaId/unidadAsignada.
       ambulancias:        (raw.historialMoviles ?? [])
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .filter((m: any) => !m.fechaLiberacion)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .map((m: any) => ({
           ambulanciaId: m.ambulanciaId,
           ambulanciaCodigo: m.ambulanciaCodigo,
@@ -100,6 +103,7 @@ export class EmergencyApiService {
     };
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private mapResolucionSignos(resolucion: any): SignosVitalesDTO[] {
     const resumen = resolucion?.resumenSignosVitales;
     if (!resumen) return [];
@@ -124,34 +128,36 @@ export class EmergencyApiService {
   }
 
   getActivos(): Observable<TicketAsistenciaDTO[]> {
-    return this.http.get<any[]>(`${this.base}/activos`).pipe(
+    return this.http.get<unknown[]>(`${this.base}/activos`).pipe(
       map((items) => (items ?? []).map((r) => this.mapTicket(r))),
     );
   }
 
   getMisActivos(): Observable<TicketAsistenciaDTO[]> {
-    return this.http.get<any[]>(`${this.base}/mis-activos`).pipe(
+    return this.http.get<unknown[]>(`${this.base}/mis-activos`).pipe(
       map((items) => (items ?? []).map((r) => this.mapTicket(r))),
     );
   }
 
   getHistorial(): Observable<TicketAsistenciaDTO[]> {
-    return this.http.get<any[]>(`${this.base}/historial`).pipe(
+    return this.http.get<unknown[]>(`${this.base}/historial`).pipe(
       map((items) => (items ?? []).map((r) => this.mapTicket(r))),
     );
   }
 
   getById(id: number): Observable<TicketAsistenciaDTO> {
-    return this.http.get<any>(`${this.base}/${id}`).pipe(
+    return this.http.get<unknown>(`${this.base}/${id}`).pipe(
       map((r) => this.mapTicket(r)),
     );
   }
 
   getDetalle(id: number): Observable<TicketDetalleDTO> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return this.http.get<any>(`${this.base}/${id}/detalle`).pipe(
       map((raw) => ({
         ticket:        raw.ticket ? this.mapTicket(raw.ticket) : undefined,
         timeline:      raw.timeline,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         tripulacion:   (raw.tripulacion ?? []).map((m: any): TripulacionDetalleDTO => ({
           id:     m.profesional?.id ?? m.profesionalId ?? m.id,
           nombre: [m.profesional?.apellido, m.profesional?.nombre].filter(Boolean).join(', ') || m.profesionalNombre || m.nombre,
@@ -166,14 +172,14 @@ export class EmergencyApiService {
   }
 
   getTimeline(id: number): Observable<LogEstadoTicketDTO[]> {
-    return this.http.get<any[]>(`${this.base}/${id}/timeline`).pipe(
+    return this.http.get<Array<Record<string, unknown>>>(`${this.base}/${id}/timeline`).pipe(
       map((items) =>
         (items ?? []).map((item) => ({
-          id:       item.id,
-          estado:   item.estadoNuevo ?? item.estado ?? '?',
-          fecha:    item.fechaHora   ?? item.fecha   ?? '',
-          operador: item.cambiadoPor?.login ?? item.operador,
-          notas:    item.nota        ?? item.notas,
+          id:       item['id'] as number,
+          estado:   (item['estadoNuevo'] ?? item['estado'] ?? '?') as string,
+          fecha:    (item['fechaHora']   ?? item['fecha']   ?? '') as string,
+          operador: (item['cambiadoPor'] as { login?: string } | undefined)?.login ?? (item['operador'] as string),
+          notas:    (item['nota']        ?? item['notas']) as string,
         } as LogEstadoTicketDTO))
       )
     );
@@ -183,21 +189,21 @@ export class EmergencyApiService {
     if (!targetId || isNaN(targetId) || targetId <= 0) {
       return throwError(() => new Error(`targetId inválido para geo posiciones: ${targetId}`));
     }
-    return this.http.get<any>(`${environment.apiUrl}/api/v1/geo/posiciones/${targetType}/${targetId}/latest`).pipe(
+    return this.http.get<Record<string, unknown>>(`${environment.apiUrl}/api/v1/geo/posiciones/${targetType}/${targetId}/latest`).pipe(
       map((geo) => ({
-        latitud: Number(geo.latitud),
-        longitud: Number(geo.longitud),
-        timestamp: geo.timestamp,
+        latitud: Number(geo['latitud']),
+        longitud: Number(geo['longitud']),
+        timestamp: geo['timestamp'] as string | undefined,
       })),
     );
   }
 
-  getTracking(id: number): Observable<any> {
-    return this.http.get<any>(`${environment.apiUrl}/api/v1/tickets/${id}/tracking`);
+  getTracking(id: number): Observable<unknown> {
+    return this.http.get<unknown>(`${environment.apiUrl}/api/v1/tickets/${id}/tracking`);
   }
 
   crear(req: CrearTicketRequest): Observable<TicketAsistenciaDTO> {
-    return this.http.post<any>(`${this.base}/recibir-llamada`, req).pipe(
+    return this.http.post<unknown>(`${this.base}/recibir-llamada`, req).pipe(
       map((r) => this.mapTicket(r))
     );
   }
@@ -215,18 +221,18 @@ export class EmergencyApiService {
   }
 
   altaRapida(req: AltaRapidaRequest): Observable<TicketAsistenciaDTO> {
-    return this.http.post<any>(
+    return this.http.post<Record<string, unknown>>(
       `${environment.apiUrl}/api/operador-emergencias/tickets/alta-rapida`,
       req,
     ).pipe(
       // El backend (G1) devuelve ahora el ticket completo en `ticket`; si no viene
       // (versión vieja), se sigue mapeando el response mínimo como antes.
-      map((r) => this.mapTicket(r.ticket ?? r)),
+      map((r) => this.mapTicket(r['ticket'] ?? r)),
     );
   }
 
   despachar(id: number, req: DespacharRequest): Observable<TicketAsistenciaDTO> {
-    return this.http.patch<any>(`${this.base}/${id}/despachar`, req).pipe(
+    return this.http.patch<unknown>(`${this.base}/${id}/despachar`, req).pipe(
       map((r) => this.mapTicket(r))
     );
   }
@@ -240,43 +246,43 @@ export class EmergencyApiService {
    * @returns el ticket despachado con su DTO completo
    */
   despacharMultiple(id: number, req: DespachoMultiMovilRequest): Observable<TicketAsistenciaDTO> {
-    return this.http.post<any>(`${this.base}/${id}/despacho-multiple`, req).pipe(
+    return this.http.post<unknown>(`${this.base}/${id}/despacho-multiple`, req).pipe(
       map((r) => this.mapTicket(r))
     );
   }
 
   enCamino(id: number): Observable<TicketAsistenciaDTO> {
-    return this.http.patch<any>(`${this.base}/${id}/en-camino`, {}).pipe(
+    return this.http.patch<unknown>(`${this.base}/${id}/en-camino`, {}).pipe(
       map((r) => this.mapTicket(r))
     );
   }
 
   enSitio(id: number): Observable<TicketAsistenciaDTO> {
-    return this.http.patch<any>(`${this.base}/${id}/en-sitio`, {}).pipe(
+    return this.http.patch<unknown>(`${this.base}/${id}/en-sitio`, {}).pipe(
       map((r) => this.mapTicket(r))
     );
   }
 
   iniciarTraslado(id: number): Observable<TicketAsistenciaDTO> {
-    return this.http.patch<any>(`${this.base}/${id}/iniciar-traslado`, {}).pipe(
+    return this.http.patch<unknown>(`${this.base}/${id}/iniciar-traslado`, {}).pipe(
       map((r) => this.mapTicket(r))
     );
   }
 
   finalizarTraslado(id: number): Observable<TicketAsistenciaDTO> {
-    return this.http.patch<any>(`${this.base}/${id}/finalizar-traslado`, {}).pipe(
+    return this.http.patch<unknown>(`${this.base}/${id}/finalizar-traslado`, {}).pipe(
       map((r) => this.mapTicket(r))
     );
   }
 
   cerrar(id: number, req: CerrarTicketRequest): Observable<TicketAsistenciaDTO> {
-    return this.http.patch<any>(`${this.base}/${id}/cerrar`, req).pipe(
+    return this.http.patch<unknown>(`${this.base}/${id}/cerrar`, req).pipe(
       map((r) => this.mapTicket(r)),
     );
   }
 
   cancelar(id: number, req: CancelarTicketRequest): Observable<TicketAsistenciaDTO> {
-    return this.http.patch<any>(`${this.base}/${id}/cancelar`, req).pipe(
+    return this.http.patch<unknown>(`${this.base}/${id}/cancelar`, req).pipe(
       map((r) => this.mapTicket(r))
     );
   }
@@ -286,7 +292,7 @@ export class EmergencyApiService {
   }
 
   agregarNota(id: number, nota: string): Observable<TicketAsistenciaDTO> {
-    return this.http.patch<any>(`${this.base}/${id}/agregar-nota`, { nota }).pipe(
+    return this.http.patch<unknown>(`${this.base}/${id}/agregar-nota`, { nota }).pipe(
       map((r) => this.mapTicket(r))
     );
   }
@@ -306,9 +312,11 @@ export class EmergencyApiService {
   }
 
   getAtencionDetalle(atencionId: number): Observable<AtencionFullDTO> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return this.http.get<any>(`${environment.apiUrl}/api/atenciones/${atencionId}/detalle`).pipe(
       map((raw) => ({
         ...raw,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         signos: (raw.signos ?? []).map((s: any) => ({
           id: s.id,
           timestamp: s.fechaHora,
@@ -384,11 +392,12 @@ export class EmergencyApiService {
   }
 
   getConsentimientos(pacienteId?: number): Observable<ConsentimientoInformadoDTO[]> {
-    return this.http.get<any[]>(`${environment.apiUrl}/api/consentimiento-informados?size=1000`).pipe(
+    return this.http.get<ConsentimientoInformadoDTO[]>(`${environment.apiUrl}/api/consentimiento-informados?size=1000`).pipe(
       map(list => {
         if (!list) return [];
         if (pacienteId) {
-          return list.filter(c => c.paciente?.id === pacienteId);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          return list.filter(c => (c as any).paciente?.id === pacienteId);
         }
         return list;
       }),
@@ -397,19 +406,19 @@ export class EmergencyApiService {
   }
 
   getAsistenciasPorEvento(eventoId: number): Observable<TicketAsistenciaDTO[]> {
-    return this.http.get<any[]>(`${environment.apiUrl}/api/v2/eventos-cobertura/${eventoId}/asistencias`).pipe(
+    return this.http.get<unknown[]>(`${environment.apiUrl}/api/v2/eventos-cobertura/${eventoId}/asistencias`).pipe(
       map((items) => (items ?? []).map((r) => this.mapTicket(r))),
     );
   }
 
   getAsistenciasPorInstitucion(institucionId: number): Observable<TicketAsistenciaDTO[]> {
-    return this.http.get<any[]>(`${environment.apiUrl}/api/v2/instituciones/${institucionId}/asistencias`).pipe(
+    return this.http.get<unknown[]>(`${environment.apiUrl}/api/v2/instituciones/${institucionId}/asistencias`).pipe(
       map((items) => (items ?? []).map((r) => this.mapTicket(r))),
     );
   }
 
   getAsistenciasPorContexto(contextoCoberturaId: number): Observable<TicketAsistenciaDTO[]> {
-    return this.http.get<any[]>(`${environment.apiUrl}/api/v2/contextos-cobertura/${contextoCoberturaId}/asistencias`).pipe(
+    return this.http.get<unknown[]>(`${environment.apiUrl}/api/v2/contextos-cobertura/${contextoCoberturaId}/asistencias`).pipe(
       map((items) => (items ?? []).map((r) => this.mapTicket(r))),
     );
   }

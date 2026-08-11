@@ -57,7 +57,7 @@ describe('ProveedoresComponent', () => {
   });
 
   it('debería realizar búsquedas con debounce de 300ms (G1-04)', async () => {
-    component.onSearchChange({ target: { value: 'Proveedor' } } as any);
+    component.onSearchChange({ target: { value: 'Proveedor' } } as unknown as Event);
     const llamadasIniciales = tercerosApiMock.getPage.mock.calls.length;
 
     await new Promise(r => setTimeout(r, 350));

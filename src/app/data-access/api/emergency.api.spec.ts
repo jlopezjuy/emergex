@@ -2,7 +2,7 @@ import { describe, beforeEach, afterEach, it, expect } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { EmergencyApiService } from './emergency.api';
-import { AltaRapidaRequest, CrearTicketRequest, DespacharRequest, CancelarTicketRequest, DespachoMultiMovilRequest } from '../dto/ticket.dto';
+import { AltaRapidaRequest, CrearTicketRequest, DespacharRequest, DespachoMultiMovilRequest } from '../dto/ticket.dto';
 
 describe('EmergencyApiService - V2 & Adapters', () => {
   let service: EmergencyApiService;

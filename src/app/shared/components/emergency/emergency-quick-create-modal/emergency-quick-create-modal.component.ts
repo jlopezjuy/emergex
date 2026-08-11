@@ -1058,7 +1058,7 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
         }
         this.searching.set(true);
         return this.http
-          .get<any[]>(`${environment.apiUrl}/api/operador-emergencias/buscar-afiliado`, { params: { q: query } })
+          .get<Array<{ pacienteId: number; nombreCompleto?: string; dni?: string; direccion?: string; telefono?: string; planComercial?: string; coberturaEstado?: string; puedeRecibirEmergencia?: boolean; estadoGrupo?: string }>>(`${environment.apiUrl}/api/operador-emergencias/buscar-afiliado`, { params: { q: query } })
           .pipe(
             map(items => items.map(item => {
               let apellido = '';

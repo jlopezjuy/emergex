@@ -6,10 +6,9 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
 import { InstitutionsApiService } from '../../data-access/api/institutions.api';
 import { PlanComercialApiService } from '../../data-access/api/plan-comercial.api';
 import { UserFeedbackService } from '../../core/notifications/user-feedback.service';
-import { environment } from '../../../environments/environment';
 import { DateUtils } from '../../core/utils/date.utils';
-import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
-import { InstitutionDetailDrawerComponent, DrawerInstitution } from './components/institution-detail-drawer/institution-detail-drawer.component';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { InstitutionDetailDrawerComponent } from './components/institution-detail-drawer/institution-detail-drawer.component';
 import { InstitutionFormModalComponent, InstitutionForm } from './components/institution-form-modal/institution-form-modal.component';
 import { EstadoInstitucion, FacturacionContratoDTO, InstitutionDTO, InstitutionType } from '../../data-access/dto/institution.dto';
 import { InstitutionContractModalComponent } from './components/institution-contract-modal/institution-contract-modal.component';
@@ -82,8 +81,6 @@ function planTierColor(tier: string): string {
   if (tier === 'medio')   return 'var(--accent-blue)';
   return 'var(--text-muted)';
 }
-
-const INSTITUTIONS_SEED: Institution[] = [];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -1334,7 +1331,9 @@ export class InstitutionsComponent implements OnInit {
   readonly loadingSave = signal(false);
   readonly facturasInstitucionales = signal<FacturacionContratoDTO[]>([]);
   readonly paymentInst = signal<Institution | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   readonly paymentFacturas = signal<any[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   readonly pagosFacturaModal = signal<any[]>([]);
   readonly loadingPayment = signal(false);
   readonly paymentMethods: Array<'EFECTIVO' | 'TRANSFERENCIA' | 'TARJETA_DEBITO' | 'TARJETA_CREDITO' | 'MERCADOPAGO' | 'CHEQUE' | 'OBRA_SOCIAL' | 'PREPAGA' | 'OTRO'> = [
@@ -1695,7 +1694,7 @@ export class InstitutionsComponent implements OnInit {
       if (savedPolygon && savedPolygon.length > 0) {
         // perimetroJson saved from contract modal is {x,y}[] (SVG %). Try to detect format:
         // if elements are plain objects with x/y it came from contract modal, otherwise it's lat/lng pairs
-        const firstEl = (savedPolygon as any)[0];
+        const firstEl = (savedPolygon as unknown as Array<Record<string, unknown>>)[0];
         if (firstEl && typeof firstEl === 'object' && 'x' in firstEl && 'y' in firstEl) {
           draft.polygonPoints = savedPolygon as unknown as { x: number; y: number }[];
         } else {

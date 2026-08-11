@@ -44,11 +44,7 @@ interface ContratoBackend {
   nombre?: string;
 }
 
-interface BackendPage<T> {
-  content: T[];
-  totalElements: number;
-  totalPages: number;
-}
+
 
 const STATUS_TO_BACKEND: Record<ContractStatus, EstadoContrato> = {
   active:    'ACTIVO',
@@ -128,15 +124,6 @@ interface UsuarioEmpresaBackend {
     lastName?: string;
   };
 }
-
-type TipoInstitucion =
-  | 'ESCUELA' | 'JARDIN' | 'COLEGIO_SECUNDARIO'
-  | 'UNIVERSIDAD'
-  | 'SHOPPING' | 'EMPRESA'
-  | 'CLUB' | 'GIMNASIO'
-  | 'GERIATRICO'
-  | 'ORGANISMO_PUBLICO'
-  | 'EVENTO' | 'OTRO';
 
 function mapTipoToFrontend(tipo?: string): InstitutionType {
   return (tipo ?? 'OTRO') as InstitutionType;
@@ -266,7 +253,7 @@ export class InstitutionsApiService {
           }
         : undefined,
     };
-    return this.http.post<any>(`${this.base}/alta-completa`, payload).pipe(
+    return this.http.post<{ institucion: InstitucionBackend; contratoCobertura: ContractDTO }>(`${this.base}/alta-completa`, payload).pipe(
       map(res => ({
         institucion: toDTO(res.institucion),
         contratoCobertura: res.contratoCobertura,
@@ -306,20 +293,20 @@ export class InstitutionsApiService {
   }
 
   getMiembros(institucionId: number, page = 0, size = 50): Observable<InstitucionMiembroItem[]> {
-    return this.http.get<any[]>(
+    return this.http.get<Array<Record<string, unknown>>>(
       `${environment.apiUrl}/api/v2/instituciones/${institucionId}/miembros`,
       { params: { page: page.toString(), size: size.toString() } }
     ).pipe(
       map(list => list.map(m => ({
-        id: m.id,
-        nombre: m.nombre ?? '',
-        apellido: m.apellido ?? '',
-        dni: m.dni,
-        telefono: m.telefono,
-        rol: m.rol ?? '',
-        vigenciaDesde: m.vigenciaDesde,
-        vigenciaHasta: m.vigenciaHasta,
-        activo: m.activo ?? true,
+        id: m['id'] as number,
+        nombre: (m['nombre'] as string) ?? '',
+        apellido: (m['apellido'] as string) ?? '',
+        dni: m['dni'] as string,
+        telefono: m['telefono'] as string,
+        rol: (m['rol'] as string) ?? '',
+        vigenciaDesde: m['vigenciaDesde'] as string,
+        vigenciaHasta: m['vigenciaHasta'] as string,
+        activo: (m['activo'] as boolean) ?? true,
       } as InstitucionMiembroItem)))
     );
   }

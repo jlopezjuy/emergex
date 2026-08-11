@@ -10,10 +10,10 @@ export class HttpGeocoderProvider implements GeocoderProvider {
 
   search(query: string, _context?: GeocodeContext): Promise<GeocodeResult[]> {
     return firstValueFrom(
-      this.http.get<any[]>(`${environment.apiUrl}/api/v1/geo/geocode`, { params: { q: query } }).pipe(
+      this.http.get<Array<{ label?: string; address?: string; latitud: number | string; longitud: number | string; confidence?: number | string; provider?: string }>>(`${environment.apiUrl}/api/v1/geo/geocode`, { params: { q: query } }).pipe(
         map((items) => (items ?? []).map((item) => ({
-          label: item.label ?? item.address,
-          address: item.address ?? item.label,
+          label: item.label ?? item.address ?? '',
+          address: item.address ?? item.label ?? '',
           lat: Number(item.latitud),
           lng: Number(item.longitud),
           confidence: item.confidence != null ? Number(item.confidence) : undefined,

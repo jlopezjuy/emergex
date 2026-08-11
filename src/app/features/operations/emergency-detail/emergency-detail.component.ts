@@ -97,6 +97,7 @@ export class EmergencyDetailComponent implements OnInit {
   readonly episodios = signal<EpisodioClinicoDTO[]>([]);
   readonly timeline = signal<LogEstadoTicketDTO[]>([]);
   readonly reversedTimeline = computed(() => [...this.timeline()].reverse());
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   readonly tracking = signal<any | null>(null);
 
   // ── Modal visibility signals ──────────────────────────────────
@@ -302,8 +303,10 @@ export class EmergencyDetailComponent implements OnInit {
     const events: ClinicalEvent[] = [];
 
     // 1. Signos vitales
-    for (const sv of this.signos()) {
-      const date = sv.timestamp || sv.fechaHora;
+    for (const item of this.signos()) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sv = item as any;
+      const date = sv['timestamp'] || sv['fechaHora'];
       if (date) {
         const details = [];
         if (sv.presionSistolica != null && sv.presionDiastolica != null) details.push(`PA: ${sv.presionSistolica}/${sv.presionDiastolica} mmHg`);
