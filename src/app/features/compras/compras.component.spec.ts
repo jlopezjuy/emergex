@@ -17,10 +17,26 @@ describe('ComprasComponent', () => {
 
   beforeEach(async () => {
     comprasApiMock = {
-      getSolicitudes: vi.fn().mockReturnValue(of([{ id: 1, concepto: 'Insumos', montoEstimado: 500, estado: 'PENDIENTE' }])),
-      crearSolicitud: vi.fn().mockReturnValue(of({ id: 2, concepto: 'Insumos 2' })),
+      getSolicitudes: vi.fn().mockReturnValue(of([{ id: 1, concepto: 'Insumos', montoEstimado: 500, estado: 'PRESENTADA' }])),
+      getSolicitudesPage: vi.fn().mockReturnValue(of({
+        data: [{ id: 1, concepto: 'Insumos', montoEstimado: 500, estado: 'PRESENTADA', centroCostoId: 1 }],
+        total: 1,
+        page: 0,
+        size: 10,
+        totalPages: 1
+      })),
+      crearSolicitud: vi.fn().mockReturnValue(of({ id: 2, concepto: 'Insumos 2', centroCostoId: 1 })),
       aprobarSolicitud: vi.fn().mockReturnValue(of({ id: 1, estado: 'APROBADA' })),
       getOrdenesCompra: vi.fn().mockReturnValue(of([{ id: 10, numero: 'OC-0010', montoTotal: 1500, estado: 'EMITIDA' }])),
+      getOrdenesCompraPage: vi.fn().mockReturnValue(of({
+        data: [{ id: 10, numero: 'OC-0010', montoTotal: 1500, estado: 'EMITIDA' }],
+        total: 1,
+        page: 0,
+        size: 10,
+        totalPages: 1
+      })),
+      getCotizacionesPorSolicitud: vi.fn().mockReturnValue(of([{ id: 100, solicitudCompraId: 1, montoCotizado: 1200, proveedorNombre: 'Droguería Sur' }])),
+      registrarCotizacion: vi.fn().mockReturnValue(of({ id: 101, solicitudCompraId: 1, montoCotizado: 1100 })),
       getComprobantesProveedor: vi.fn().mockReturnValue(of([
         { id: 100, tipoDocumento: 'FACTURA_A', puntoVenta: 1, numeroDocumento: 123, fechaComprobante: '2026-08-10', montoTotal: 1500, estadoMatching: 'BLOQUEADO_DIFERENCIA' }
       ])),
@@ -53,10 +69,22 @@ describe('ComprasComponent', () => {
     fixture.detectChanges();
   });
 
-  it('debería cargar solicitudes y órdenes de compra al iniciar', () => {
+  it('debería cargar solicitudes y órdenes de compra paginadas al iniciar (V3-S3-01)', () => {
     expect(component.solicitudes().length).toBe(1);
     expect(component.ordenesCompra().length).toBe(1);
     expect(component.centrosCosto().length).toBe(1);
+    expect(component.solicitudesTotal()).toBe(1);
+    expect(component.ordenesTotal()).toBe(1);
+  });
+
+  it('debería seleccionar una solicitud y cargar sus cotizaciones (V3-S3-02)', () => {
+    const sol = component.solicitudes()[0];
+    component.seleccionarSolicitudParaCotizar(sol);
+
+    expect(component.solicitudSeleccionada()?.id).toBe(1);
+    expect(component.activeTab()).toBe('cotizaciones');
+    expect(comprasApiMock.getCotizacionesPorSolicitud).toHaveBeenCalledWith(1);
+    expect(component.cotizaciones().length).toBe(1);
   });
 
   it('debería agregar líneas a la recepción de bienes', () => {

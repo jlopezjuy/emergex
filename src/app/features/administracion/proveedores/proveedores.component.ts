@@ -256,7 +256,7 @@ export class ProveedoresComponent implements OnInit, OnDestroy {
         next: (res) => {
           this.proveedores.set(res.data || []);
           this.totalElements.set(res.total || 0);
-          this.totalPages.set(res.totalPages || Math.ceil((res.total || 0) / this.size()) || 1);
+          this.totalPages.set(Math.ceil((res.total || 0) / this.size()) || 1);
           this.loading.set(false);
         },
         error: (err) => {

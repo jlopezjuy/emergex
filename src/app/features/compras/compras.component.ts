@@ -662,7 +662,7 @@ export class ComprasComponent implements OnInit {
         this.solicitudes.set(res.data || []);
         this.solicitudesPage.set(page);
         this.solicitudesTotal.set(res.total || 0);
-        this.solicitudesTotalPages.set(res.totalPages || Math.ceil((res.total || 0) / 10) || 1);
+        this.solicitudesTotalPages.set(Math.ceil((res.total || 0) / 10) || 1);
         this.loading.set(false);
       },
       error: (err) => {
@@ -678,7 +678,7 @@ export class ComprasComponent implements OnInit {
         this.ordenesCompra.set(res.data || []);
         this.ordenesPage.set(page);
         this.ordenesTotal.set(res.total || 0);
-        this.ordenesTotalPages.set(res.totalPages || Math.ceil((res.total || 0) / 10) || 1);
+        this.ordenesTotalPages.set(Math.ceil((res.total || 0) / 10) || 1);
         if (res.data && res.data.length > 0 && res.data[0].id) {
           this.newRecepcion.ordenCompraId = res.data[0].id;
         }
