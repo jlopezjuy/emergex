@@ -69,4 +69,25 @@ describe('TercerosApiService', () => {
     expect(req.request.method).toBe('POST');
     req.flush({ id: 10, estado: 'VERIFICADA' });
   });
+
+  it('debería obtener listado paginado con X-Total-Count (V3-S3-01)', () => {
+    const mockResumen = [
+      { id: 1, razonSocial: 'Proveedor A', cuit: '30-11111111-9', nombreComercial: 'Prov A' }
+    ];
+
+    service.getPage({ q: 'Proveedor', page: 0, size: 10 }).subscribe(res => {
+      expect(res.data.length).toBe(1);
+      expect(res.total).toBe(42);
+      expect(res.data[0].razonSocial).toBe('Proveedor A');
+    });
+
+    const req = httpMock.expectOne(request =>
+      request.url === `${environment.apiUrl}/api/terceros` &&
+      request.params.get('q') === 'Proveedor' &&
+      request.params.get('page') === '0' &&
+      request.params.get('size') === '10'
+    );
+    expect(req.request.method).toBe('GET');
+    req.flush(mockResumen, { headers: { 'X-Total-Count': '42' } });
+  });
 });

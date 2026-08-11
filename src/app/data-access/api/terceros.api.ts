@@ -10,6 +10,16 @@ import {
   TerceroEmpresaDTO
 } from '../dto/terceros.dto';
 
+import { ITEMS_PER_PAGE, PagedResult, buildParams, toPagedResult } from './pagination';
+
+export interface TerceroQuery {
+  q?: string;
+  rol?: string;
+  esProveedor?: boolean;
+  page?: number;
+  size?: number;
+}
+
 /**
  * REST client for managing Terceros, Perfil Fiscal, and CBU Maker-Checker workflows.
  */
@@ -20,6 +30,25 @@ export class TercerosApiService {
 
   buscar(query: string): Observable<TerceroResumenDTO[]> {
     return this.http.get<TerceroResumenDTO[]>(this.base, { params: { q: query } });
+  }
+
+  /**
+   * Obtiene el listado paginado server-side de terceros/proveedores (V3-S3-01).
+   * Consume GET /api/terceros con cabecera X-Total-Count.
+   */
+  getPage(query: TerceroQuery = {}): Observable<PagedResult<TerceroResumenDTO>> {
+    const params = buildParams({
+      q: query.q?.trim(),
+      rol: query.rol,
+      esProveedor: query.esProveedor,
+      page: query.page ?? 0,
+      size: query.size ?? ITEMS_PER_PAGE,
+      sort: 'id,asc',
+    });
+
+    return this.http
+      .get<TerceroResumenDTO[]>(this.base, { params, observe: 'response' })
+      .pipe(toPagedResult());
   }
 
   registrarTercero(dto: RegistrarTerceroRequestDTO): Observable<TerceroEmpresaDTO> {
