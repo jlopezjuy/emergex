@@ -227,7 +227,7 @@ function fmtCurrency(n?: number): string {
                       <div class="flex items-center justify-between">
                         <span class="font-bold font-mono text-sm" style="color: var(--text-primary);">{{ c.code }}</span>
                         <emx-status-badge [variant]="c.status === 'active' ? 'stable' : 'critical'">
-                          {{ c.status.toUpperCase() || 'ACTIVO' }}
+                          {{ (c.status || 'active').toUpperCase() }}
                         </emx-status-badge>
                       </div>
                       <div><span style="color: var(--text-muted);">Vigencia:</span> <strong style="color: var(--text-primary);">{{ c.from }} al {{ c.to }}</strong></div>

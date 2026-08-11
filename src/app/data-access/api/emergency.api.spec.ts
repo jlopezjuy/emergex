@@ -231,5 +231,21 @@ describe('EmergencyApiService - V2 & Adapters', () => {
     expect(req.request.method).toBe('GET');
     req.flush(mockResponse);
   });
-});
 
+  it('should post hospital delivery to the V1 endpoint', () => {
+    const delivery = {
+      receptorNombre: 'Dra. Ana Pérez',
+      horaEntrega: '2026-08-11T12:00:00.000Z',
+      hospitalId: 12,
+    };
+
+    service.registrarEntregaHospitalaria(66816, delivery).subscribe();
+
+    const req = httpMock.expectOne((r) =>
+      r.url.endsWith('/api/v1/asistencias/66816/entrega-hospitalaria'),
+    );
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(delivery);
+    req.flush({ id: 1, ticketId: 66816, ...delivery });
+  });
+});

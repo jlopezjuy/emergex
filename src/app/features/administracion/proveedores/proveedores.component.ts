@@ -102,6 +102,35 @@ import { ModalShellComponent } from '../../../shared/components/modal-shell/moda
             </tbody>
           </table>
         </div>
+
+        <!-- Paginación Server-Side (V3-S3-01) -->
+        <div class="flex items-center justify-between p-4 rounded-xl border" style="background: var(--bg-elevated); border-color: var(--border-glass);">
+          <span class="text-xs font-medium" style="color: var(--text-muted);">
+            Mostrando página <strong style="color: var(--text-primary);">{{ page() + 1 }}</strong> de <strong style="color: var(--text-primary);">{{ totalPages() || 1 }}</strong> (Total: {{ totalElements() }} proveedores)
+          </span>
+          <div class="flex gap-2">
+            <button
+              id="btn-prev-page"
+              type="button"
+              [disabled]="page() === 0 || loading()"
+              (click)="cambiarPagina(page() - 1)"
+              class="px-3 py-1.5 text-xs font-medium rounded-lg border disabled:opacity-40 transition"
+              style="background: var(--surface-glass); border-color: var(--border-glass); color: var(--text-primary);"
+            >
+              ← Anterior
+            </button>
+            <button
+              id="btn-next-page"
+              type="button"
+              [disabled]="page() >= totalPages() - 1 || loading()"
+              (click)="cambiarPagina(page() + 1)"
+              class="px-3 py-1.5 text-xs font-medium rounded-lg border disabled:opacity-40 transition"
+              style="background: var(--surface-glass); border-color: var(--border-glass); color: var(--text-primary);"
+            >
+              Siguiente →
+            </button>
+          </div>
+        </div>
       }
 
       <!-- Modal Alta Proveedor (usando modal-shell) -->
@@ -175,6 +204,11 @@ export class ProveedoresComponent implements OnInit, OnDestroy {
   showModal = signal(false);
   saving = signal(false);
 
+  page = signal(0);
+  size = signal(10);
+  totalElements = signal(0);
+  totalPages = signal(1);
+
   private readonly tercerosApi = inject(TercerosApiService);
   private readonly feedbackService = inject(UserFeedbackService);
   private readonly sessionStore = inject(SessionStore);
@@ -195,7 +229,10 @@ export class ProveedoresComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.searchSubscription = this.searchSubject
       .pipe(debounceTime(300), distinctUntilChanged())
-      .subscribe(() => this.cargarProveedores());
+      .subscribe(() => {
+        this.page.set(0);
+        this.cargarProveedores();
+      });
 
     this.cargarProveedores();
   }
@@ -208,17 +245,32 @@ export class ProveedoresComponent implements OnInit, OnDestroy {
     this.loading.set(true);
     this.error.set(false);
 
-    this.tercerosApi.buscar(this.searchTerm()).subscribe({
-      next: (res) => {
-        this.proveedores.set(res || []);
-        this.loading.set(false);
-      },
-      error: (err) => {
-        this.loading.set(false);
-        this.error.set(true);
-        this.errorMessage.set(err?.error?.detail || 'No se pudo obtener el catálogo de proveedores.');
-      }
-    });
+    this.tercerosApi
+      .getPage({
+        q: this.searchTerm(),
+        esProveedor: true,
+        page: this.page(),
+        size: this.size()
+      })
+      .subscribe({
+        next: (res) => {
+          this.proveedores.set(res.data || []);
+          this.totalElements.set(res.total || 0);
+          this.totalPages.set(res.totalPages || Math.ceil((res.total || 0) / this.size()) || 1);
+          this.loading.set(false);
+        },
+        error: (err) => {
+          this.loading.set(false);
+          this.error.set(true);
+          this.errorMessage.set(err?.error?.detail || 'No se pudo obtener el catálogo de proveedores.');
+        }
+      });
+  }
+
+  cambiarPagina(nuevaPagina: number): void {
+    if (nuevaPagina < 0 || nuevaPagina >= this.totalPages()) return;
+    this.page.set(nuevaPagina);
+    this.cargarProveedores();
   }
 
   onSearchChange(evt: Event): void {

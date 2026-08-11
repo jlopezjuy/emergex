@@ -351,7 +351,7 @@ export class EmergencyApiService {
 
   registrarEntregaHospitalaria(ticketId: number, dto: EntregaHospitalariaDTO): Observable<EntregaHospitalariaDTO> {
     return this.http.post<EntregaHospitalariaDTO>(
-      `${this.base}/${ticketId}/entrega-hospitalaria`,
+      `${environment.apiUrl}/api/v1/asistencias/${ticketId}/entrega-hospitalaria`,
       dto
     );
   }
