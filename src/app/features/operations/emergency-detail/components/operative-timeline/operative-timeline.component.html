@@ -1,18 +1,18 @@
 <emx-glass-card>
   <div class="flex items-center justify-between mb-3">
     <h2 class="section-label" style="margin:0;">Trazabilidad operativa</h2>
-    <span class="font-mono text-xs" style="color: var(--text-muted);">{{ events().length }} eventos</span>
+    <span class="font-mono text-xs" style="color: var(--text-muted);">{{ timelineEntries().length }} eventos</span>
   </div>
-  @if (events().length === 0) {
+  @if (timelineEntries().length === 0) {
     <emx-empty-state message="Sin eventos registrados" />
   } @else {
-    <ol class="flex flex-col gap-0">
-      @for (ev of events(); track ev.id; let last = $last) {
+    <ol class="flex flex-col gap-0" aria-label="Eventos operativos en orden cronológico">
+      @for (event of timelineEntries(); track event.id; let last = $last) {
         <li class="flex gap-3">
-          <div class="flex flex-col items-center flex-shrink-0">
+          <div class="flex flex-col items-center flex-shrink-0" aria-hidden="true">
             <div class="w-2.5 h-2.5 rounded-full mt-0.5 flex-shrink-0"
-                 [style.background]="timelineColor(ev.estado)"
-                 [style.box-shadow]="'0 0 8px ' + timelineColor(ev.estado) + '99'">
+                 [style.background]="timelineColor(event.estado)"
+                 [style.box-shadow]="'0 0 8px ' + timelineColor(event.estado) + '99'">
             </div>
             @if (!last) {
               <div class="flex-1 w-px mt-1" style="background: var(--border-glass); min-height: 28px;"></div>
@@ -21,20 +21,25 @@
           <div class="pb-4 flex-1 min-w-0">
             <div class="flex items-center gap-2 flex-wrap mb-0.5">
               <span class="font-mono rounded px-1.5 py-0.5"
-                    [style.color]="timelineColor(ev.estado)"
-                    [style.background]="timelineColor(ev.estado) + '22'"
+                    [style.color]="timelineColor(event.estado)"
+                    [style.background]="timelineColor(event.estado) + '22'"
                     style="font-size:9px; letter-spacing:0.08em; font-weight:700; border: 1px solid currentColor; opacity: 0.85;">
-                {{ timelineLabel(ev.estado) }}
+                {{ event.label }}
               </span>
-              @if (ev.operador) {
-                <span class="font-mono text-xs" style="color: var(--text-muted);">{{ ev.operador }}</span>
+              @if (event.actor) {
+                <span class="font-mono text-xs" style="color: var(--text-muted);">{{ event.actor }}</span>
               }
-              <span class="font-mono text-xs ml-auto" style="color: var(--text-muted);">{{ formatTime(ev.fecha) }}</span>
             </div>
-            @if (ev.notas) {
-              <p class="text-xs" style="color: var(--text-secondary);">{{ ev.notas }}</p>
-            } @else {
-              <p class="text-xs" style="color: var(--text-secondary);">{{ ev.estado.replace('_', ' ') }}</p>
+            <p class="font-mono text-xs" style="color: var(--text-muted);">
+              Ocurrió: {{ formatTime(event.occurrenceTime) }}
+              @if (event.recordedTime) { · Registrado: {{ formatTime(event.recordedTime) }} }
+              @if (event.origin) { · Origen: {{ event.origin }} }
+            </p>
+            @if (event.note) {
+              <p class="text-xs mt-1" style="color: var(--text-secondary);">{{ event.note }}</p>
+            }
+            @if (!event.isTransition && event.estado === 'HITO_OPERATIVO') {
+              <p class="text-xs mt-1" style="color: var(--text-secondary);">Registro operativo sin cambio de estado de la asistencia.</p>
             }
           </div>
         </li>

@@ -87,4 +87,15 @@ describe('EmergencyDetailComponent', () => {
 
     expect(component2.canCreateOperationalNotes()).toBe(false);
   });
+  it('bloquea el cierre mientras el traslado está iniciado y sin finalizar', () => {
+    const fixture = TestBed.createComponent(EmergencyDetailComponent);
+    const component = fixture.componentInstance;
+    component.detalle.set({ ticket: { id: 1, estado: 'EN_SITIO', horaInicioTraslado: '2026-08-12T10:00:00Z' } });
+
+    expect(component.canClose()).toBe(false);
+
+    component.detalle.set({ ticket: { id: 1, estado: 'EN_SITIO', horaInicioTraslado: '2026-08-12T10:00:00Z', horaFinTraslado: '2026-08-12T10:30:00Z' } });
+    expect(component.canClose()).toBe(true);
+  });
+
 });

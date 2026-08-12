@@ -47,7 +47,7 @@ import { ClinicalDataModalComponent } from './modals/clinical-data-modal/clinica
 import { CloseEmergencyModalComponent } from './modals/close-emergency-modal/close-emergency-modal.component';
 
 // Models
-import { ALL_STEPS, StatusStep } from './models/status-step.model';
+import { StatusStep, visualStatusSteps } from './models/status-step.model';
 import { ClinicalEvent } from './models/clinical-event.model';
 
 @Component({
@@ -96,7 +96,6 @@ export class EmergencyDetailComponent implements OnInit {
   readonly detalle = signal<TicketDetalleDTO | null>(null);
   readonly episodios = signal<EpisodioClinicoDTO[]>([]);
   readonly timeline = signal<LogEstadoTicketDTO[]>([]);
-  readonly reversedTimeline = computed(() => [...this.timeline()].reverse());
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   readonly tracking = signal<any | null>(null);
 
@@ -175,7 +174,7 @@ export class EmergencyDetailComponent implements OnInit {
       id: t.ambulanciaId,
       identificador: t.unidadAsignada ?? `AMB-${t.ambulanciaId}`,
       tipo: 'AMBULANCIA',
-      estado: t.estado === 'EN_SITIO' ? 'EN_SITIO' : t.estado === 'TRASLADO' ? 'TRASLADO' : 'EN_RUTA',
+      estado: t.ambulanciaEstado,
       latitud: Number(pos.latitud),
       longitud: Number(pos.longitud),
       ticketActivo: t.id,
@@ -197,26 +196,16 @@ export class EmergencyDetailComponent implements OnInit {
   });
 
   readonly statusSteps = computed((): StatusStep[] => {
-    const timelineStates = new Set(this.timeline().map((event) => event.estado));
     const ticket = this.ticket();
-    const huboTraslado =
-      timelineStates.has('TRASLADO') ||
-      timelineStates.has('ENTREGADO') ||
-      !!ticket?.horaInicioTraslado ||
-      !!ticket?.horaFinTraslado;
-
-    return ALL_STEPS.filter((step) => {
-      if ((step.id === 'TRASLADO' || step.id === 'ENTREGADO') && !huboTraslado) return false;
-      return true;
+    return visualStatusSteps({
+      estado: ticket?.estado,
+      horaInicioTraslado: ticket?.horaInicioTraslado,
+      horaFinTraslado: ticket?.horaFinTraslado,
+      handoverPresence: ticket?.entregaHospitalariaRegistrada,
     });
   });
 
-  readonly activeStepIndex = computed((): number => {
-    const estado = this.ticket()?.estado ?? '';
-    const steps = this.statusSteps();
-    const idx = steps.findIndex((s) => s.id === estado);
-    return idx >= 0 ? idx : Math.max(steps.length - 1, 0);
-  });
+  readonly activeStepIndex = computed((): number => Math.max(this.statusSteps().length - 1, 0));
 
   // ── Action guards ─────────────────────────────────────────────
   readonly canDispatch = computed(() => {
@@ -256,8 +245,9 @@ export class EmergencyDetailComponent implements OnInit {
   });
 
   readonly canClose = computed(() => {
-    const estado = this.ticket()?.estado;
-    return estado !== 'CERRADO' && estado !== 'COMPLETADO' && estado !== 'CANCELADO';
+    const ticket = this.ticket();
+    const estado = ticket?.estado;
+    return estado !== 'CERRADO' && estado !== 'COMPLETADO' && estado !== 'CANCELADO' && !this.trasladoEnCurso();
   });
 
   readonly trasladoEnCurso = computed(() => {
@@ -484,6 +474,7 @@ export class EmergencyDetailComponent implements OnInit {
     this.emergencyApi.getCoberturaSnapshot(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe((snap) => {
       this.coberturaSnapshot.set(snap);
     });
+
   }
 
   private loadTicketGeo(id: number): void {

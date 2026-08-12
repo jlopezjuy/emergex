@@ -59,6 +59,7 @@ export class EmergencyApiService {
       nivelUrgencia:      raw.nivelUrgencia,
       direccion:          raw.direccion,
       ambulanciaId:       raw.ambulancia?.id,
+      ambulanciaEstado:   raw.ambulancia?.estado,
       unidadAsignada:     raw.ambulancia?.codigo,
       empresaId:          raw.empresa?.id,
       operador:           raw.creadoPor?.login,
@@ -71,6 +72,7 @@ export class EmergencyApiService {
       horaInicioTraslado: raw.horaInicioTraslado,
       horaFinTraslado:    raw.horaFinTraslado,
       horaCierre:         raw.horaCierre,
+      entregaHospitalariaRegistrada: raw.entregaHospitalariaRegistrada,
       enTraslado:         raw.enTraslado,
       trasladoFinalizado: raw.trasladoFinalizado,
       elapsedSeconds:     raw.horaLlamada
@@ -183,6 +185,9 @@ export class EmergencyApiService {
           id:       item['id'] as number,
           estado:   (item['estadoNuevo'] ?? item['estado'] ?? '?') as string,
           fecha:    (item['fechaHora']   ?? item['fecha']   ?? '') as string,
+          fechaEvento: (item['fechaHoraEvento'] as string | undefined),
+          origenHorario: (item['origenHorario'] as string | undefined),
+          estadoAnterior: (item['estadoAnterior'] as string | undefined),
           operador: (item['cambiadoPor'] as { login?: string } | undefined)?.login ?? (item['operador'] as string),
           notas:    (item['nota']        ?? item['notas']) as string,
         } as LogEstadoTicketDTO))
@@ -390,7 +395,7 @@ export class EmergencyApiService {
 
   getEntregaHospitalaria(ticketId: number): Observable<EntregaHospitalariaDTO | null> {
     return this.http.get<EntregaHospitalariaDTO>(
-      `${this.base}/${ticketId}/entrega-hospitalaria`
+      `${environment.apiUrl}/api/v1/asistencias/${ticketId}/entrega-hospitalaria`
     ).pipe(
       catchError(() => of(null))
     );

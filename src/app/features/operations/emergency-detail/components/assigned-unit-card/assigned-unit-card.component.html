@@ -7,6 +7,12 @@
       </button>
     }
   </div>
+  @if (ticket()?.ambulanciaId) {
+    <p class="text-xs mb-3" style="color: var(--text-secondary);">
+      Estado de unidad: <span class="font-mono font-semibold" style="color: var(--text-primary);">{{ ticket()?.ambulanciaEstado ?? 'NO INFORMADO' }}</span>
+    </p>
+  }
+
   @if ((ticket()?.ambulancias?.length ?? 0) > 0) {
     <div class="flex flex-col gap-2">
       @for (u of ticket()!.ambulancias!; track u.ambulanciaId) {

@@ -39,6 +39,9 @@ function ticketLngLat(ticket: TicketAsistenciaDTO): [number, number] | null {
 function ambColor(estado?: string): string {
   switch (estado) {
     case 'DISPONIBLE':    return '#10B981';
+    case 'EN_SERVICIO':   return '#3B82F6';
+    case 'EN_TALLER':     return '#64748B';
+    case 'FUERA_SERVICIO': return '#EF4444';
     case 'EN_RUTA':       return '#3B82F6';
     case 'EN_SITIO':      return '#F59E0B';
     case 'TRASLADO':      return '#22D3EE';

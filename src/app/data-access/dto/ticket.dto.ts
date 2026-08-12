@@ -36,6 +36,7 @@ export interface TicketAsistenciaDTO {
   pacienteNombreSnapshot?: string;
   pacienteDniSnapshot?: string;
   ambulanciaId?: number;
+  ambulanciaEstado?: 'DISPONIBLE' | 'EN_SERVICIO' | 'EN_TALLER' | 'FUERA_SERVICIO';
   empresaId?: number;
   fechaCreacion?: string;
   elapsedSeconds?: number;
@@ -48,6 +49,8 @@ export interface TicketAsistenciaDTO {
   horaInicioTraslado?: string;
   horaFinTraslado?: string;
   horaCierre?: string;
+  /** undefined means the detail response did not establish handover presence. */
+  entregaHospitalariaRegistrada?: boolean;
 
   // Telemedicina
   tipoAsistencia?: string;
@@ -314,6 +317,9 @@ export interface LogEstadoTicketDTO {
   id: number;
   estado: string;
   fecha: string;
+  fechaEvento?: string;
+  origenHorario?: string;
+  estadoAnterior?: string;
   operador?: string;
   notas?: string;
 }
