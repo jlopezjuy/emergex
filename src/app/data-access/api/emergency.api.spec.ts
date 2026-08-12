@@ -248,4 +248,35 @@ describe('EmergencyApiService - V2 & Adapters', () => {
     expect(req.request.body).toEqual(delivery);
     req.flush({ id: 1, ticketId: 66816, ...delivery });
   });
+
+  it('should atomically complete hospital delivery through the V1 endpoint with idempotency', () => {
+    const command = {
+      entrega: {
+        receptorNombre: 'Dra. Ana Pérez',
+        horaEntrega: '2026-08-12T12:00:00.000Z',
+        hospitalId: 12,
+      },
+      cierre: {
+        nota: 'Paciente entregado al hospital receptor.',
+        resolucion: {
+          impresionClinica: 'Estabilizado al arribo.',
+          requiereTraslado: true,
+          tipoResolucion: 'DERIVADO_HOSPITAL',
+        },
+      },
+    };
+
+    service.completarEntregaHospitalaria(66816, command, 'handover-66816-1').subscribe((ticket) => {
+      expect(ticket.id).toBe(66816);
+      expect(ticket.estado).toBe('COMPLETADO');
+    });
+
+    const req = httpMock.expectOne((request) =>
+      request.url.endsWith('/api/v1/asistencias/66816/completar-entrega-hospitalaria'),
+    );
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(command);
+    expect(req.request.headers.get('X-Idempotency-Key')).toBe('handover-66816-1');
+    req.flush({ id: 66816, estadoActual: 'COMPLETADO' });
+  });
 });

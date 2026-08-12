@@ -4,7 +4,7 @@
       <div>
         <p class="clinical-modal-kicker">Acta de entrega — Ley 17.132</p>
         <h2 class="clinical-modal-title">Entrega hospitalaria</h2>
-        <p class="clinical-modal-subtitle">Registrá los datos del receptor antes de finalizar el traslado. Este acta tiene valor legal.</p>
+        <p class="clinical-modal-subtitle">Registrá el acta y el cierre clínico en una única operación. Este acta tiene valor legal.</p>
       </div>
       <button type="button" class="clinical-close" (click)="closed.emit()">×</button>
     </div>
@@ -57,6 +57,20 @@
         <span class="clinical-field-label">Firma del receptor (texto / código)</span>
         <textarea rows="2" class="clinical-input" placeholder="Nombre completo y aclaración del receptor como constancia digital" [value]="entregaFirmaReceptor()" (input)="entregaFirmaReceptor.set($any($event.target).value)"></textarea>
       </label>
+
+      <div class="col-span-2" style="border-top: 1px solid rgba(148,163,184,0.2); padding-top: 1rem;">
+        <p class="clinical-field-label mb-2">Cierre clínico</p>
+        <p class="text-xs mb-3" style="color: var(--text-secondary);">Estos datos son obligatorios para completar la asistencia junto con el acta.</p>
+      </div>
+      <label class="flex flex-col gap-1 col-span-2">
+        <span class="clinical-field-label">Impresión clínica *</span>
+        <textarea rows="3" class="clinical-input" [value]="closeImpresion()" (input)="closeImpresion.set($any($event.target).value)"></textarea>
+      </label>
+      <p class="text-xs" style="color: var(--text-secondary);">Tipo de resolución: derivado a hospital.</p>
+      <label class="clinical-checkbox flex items-center gap-2">
+        <input type="checkbox" [checked]="closeRequiereTraslado()" (change)="closeRequiereTraslado.set($any($event.target).checked)" />
+        <span>La resolución requirió traslado *</span>
+      </label>
     </div>
 
     @if (entregaError()) {
@@ -66,9 +80,9 @@
     <div class="clinical-modal-footer">
       <button type="button" class="btn btn--ghost btn--sm" (click)="closed.emit()">Cancelar</button>
       <button type="button" class="btn btn--primary btn--sm"
-              [disabled]="entregaSaving() || !entregaReceptorNombre().trim()"
+              [disabled]="entregaSaving() || !puedeCompletarEntrega()"
               (click)="confirmarEntregaHospitalaria()">
-        {{ entregaSaving() ? 'Registrando...' : 'Registrar entrega y finalizar traslado' }}
+        {{ entregaSaving() ? 'Completando...' : 'Completar entrega y cierre' }}
       </button>
     </div>
   </div>

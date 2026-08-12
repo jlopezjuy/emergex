@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, of, throwError } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
@@ -36,6 +36,11 @@ const URGENCIA_MAP: Record<string, TicketAsistenciaDTO['prioridad']> = {
   AMARILLO: 'URGENTE',
   VERDE: 'NORMAL',
 };
+
+export interface CompletarEntregaHospitalariaCommand {
+  entrega: EntregaHospitalariaDTO;
+  cierre: CerrarTicketRequest;
+}
 
 @Injectable({ providedIn: 'root' })
 export class EmergencyApiService {
@@ -361,6 +366,25 @@ export class EmergencyApiService {
     return this.http.post<EntregaHospitalariaDTO>(
       `${environment.apiUrl}/api/v1/asistencias/${ticketId}/entrega-hospitalaria`,
       dto
+    );
+  }
+
+  completarEntregaHospitalaria(
+    ticketId: number,
+    command: CompletarEntregaHospitalariaCommand,
+    idempotencyKey?: string,
+  ): Observable<TicketAsistenciaDTO> {
+    let headers = new HttpHeaders();
+    if (idempotencyKey) {
+      headers = headers.set('X-Idempotency-Key', idempotencyKey);
+    }
+
+    return this.http.post<unknown>(
+      `${environment.apiUrl}/api/v1/asistencias/${ticketId}/completar-entrega-hospitalaria`,
+      command,
+      { headers },
+    ).pipe(
+      map((response) => this.mapTicket(response)),
     );
   }
 
