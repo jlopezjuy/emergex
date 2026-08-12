@@ -81,7 +81,7 @@ export class OperativeTimelineComponent {
     const ticket = this.ticket();
     if (occurrenceTime && occurrenceTime === this.validTimestamp(ticket?.horaInicioTraslado)) return 'INICIO DE TRASLADO';
     if (occurrenceTime && occurrenceTime === this.validTimestamp(ticket?.horaFinTraslado)) return 'ARRIBO HOSPITALARIO';
-    return STATE_METADATA.HITO_OPERATIVO.label;
+    return STATE_METADATA['HITO_OPERATIVO'].label;
   }
 
   private timestamp(entry: TimelineEntry): number {

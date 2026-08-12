@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy, signal, computed, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ClinicalApiService } from '../../data-access/api/clinical.api';
+import { ClinicalApiService, ScheduleItemDTO, WaitlistItemDTO } from '../../data-access/api/clinical.api';
 import { EpisodioClinicoDTO, GlasgowDTO, MedicamentoPrescritoDTO } from '../../data-access/dto/clinical.dto';
 
 @Component({
@@ -22,8 +22,8 @@ export class ClinicoComponent implements OnInit, OnDestroy {
 
   // Mode A - Dashboard signals
   readonly waitlistTab = signal<'all' | 'red' | 'amber' | 'green'>('all');
-  readonly waitlist = signal<unknown[]>([]);
-  readonly schedule = signal<unknown[]>([]);
+  readonly waitlist = signal<WaitlistItemDTO[]>([]);
+  readonly schedule = signal<ScheduleItemDTO[]>([]);
 
   // Mode B - EHR Active Session signals
   readonly activeEpisode = signal<EpisodioClinicoDTO | null>(null);

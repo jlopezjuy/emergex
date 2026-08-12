@@ -35,7 +35,6 @@ describe('HospitalDeliveryModalComponent', () => {
     component.entregaReceptorNombre.set('Dra. Ana Pérez');
     component.entregaHospitalId.set(12);
     component.closeImpresion.set('Paciente estabilizado al arribo.');
-    component.closeRequiereTraslado.set(true);
   }
 
   it('completa entrega y cierre con una única mutación atómica', () => {

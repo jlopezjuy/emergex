@@ -19,8 +19,11 @@ describe('OperativeTimelineComponent', () => {
 
     const text = fixture.nativeElement.textContent;
     expect(text).toContain('INICIO DE TRASLADO');
-    expect(text).toContain('Ocurrió: 10:00');
-    expect(text).toContain('Registrado: 10:04');
+    // DateUtils pins every rendered timestamp to America/Argentina/Buenos_Aires (UTC-3),
+    // so the 10:00Z occurrence and the 10:04Z record time render as 07:00 and 07:04.
+    // These values are machine-independent: do not "correct" them back to UTC.
+    expect(text).toContain('Ocurrió: 07:00');
+    expect(text).toContain('Registrado: 07:04');
     expect(text).toContain('Registro operativo sin cambio de estado');
   });
 

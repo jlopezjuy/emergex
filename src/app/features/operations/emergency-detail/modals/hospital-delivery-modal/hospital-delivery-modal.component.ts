@@ -29,7 +29,6 @@ export class HospitalDeliveryModalComponent {
   readonly entregaSatO2 = signal('');
   readonly entregaFirmaReceptor = signal('');
   readonly closeImpresion = signal('');
-  readonly closeRequiereTraslado = signal(false);
   readonly entregaSaving = signal(false);
   readonly entregaError = signal<string | null>(null);
   private readonly completionIdempotencyKey = signal<string | null>(null);
@@ -38,8 +37,7 @@ export class HospitalDeliveryModalComponent {
     this.hospitales().length > 0 &&
     this.entregaHospitalId() !== null &&
     Boolean(this.entregaReceptorNombre().trim()) &&
-    Boolean(this.closeImpresion().trim()) &&
-    this.closeRequiereTraslado(),
+    Boolean(this.closeImpresion().trim()),
   );
 
   constructor(private emergencyApi: EmergencyApiService) {}
@@ -65,11 +63,6 @@ export class HospitalDeliveryModalComponent {
     const impresionClinica = this.closeImpresion().trim();
     if (!impresionClinica) {
       this.entregaError.set('La impresión clínica es obligatoria para completar el cierre');
-      return;
-    }
-
-    if (!this.closeRequiereTraslado()) {
-      this.entregaError.set('Confirmá que la resolución requirió traslado hospitalario');
       return;
     }
 

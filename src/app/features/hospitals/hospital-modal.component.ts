@@ -348,8 +348,7 @@ export class HospitalModalComponent implements OnInit {
     this.errorMsg.set(null);
 
     const val = this.form.value;
-    const dto: HospitalDTO = {
-      id: this.hospital()?.id,
+    const dto: Omit<HospitalDTO, 'id'> = {
       nombre: val.nombre!,
       cuit: val.cuit || undefined,
       tipo: val.tipo || undefined,

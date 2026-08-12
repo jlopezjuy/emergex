@@ -235,9 +235,8 @@ export class AdminGlobalComponent implements OnInit {
 
   submitCreateEmpresa(): void {
     this.saving.set(true);
-    const payload: EmpresaDTO = {
+    const payload: Omit<EmpresaDTO, 'id'> = {
       ...this.createEmpresaForm,
-      id: undefined, // El ID se genera en backend
       cuit: this.createEmpresaForm.cuit.trim()
     };
 

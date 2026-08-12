@@ -6,6 +6,21 @@ import { InternacionApiService } from '../../../data-access/api/internacion.api'
 import { EstadoInternacion, PrescripcionContinuaDTO } from '../../../data-access/dto/internacion.dto';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 
+// Item de la grilla semanal de visitas. `id` queda opcional a propósito: ni el mapeo desde
+// visitaProgramadas ni visitsMock lo asignan hoy, así que iniciar/finalizar/reprogramar por API
+// real nunca se alcanza — sólo el fallback "Mock". No se inventa un id acá: eso sería fingir un
+// comportamiento que hoy no existe.
+interface VisitaCalendarItem {
+  id?: number;
+  day: number;
+  h: number;
+  d: number;
+  role: 'med' | 'enf' | 'kine';
+  staff: string;
+  patient: string;
+  status: 'pending' | 'progress' | 'done';
+}
+
 @Component({
   selector: 'emx-internacion-list',
   standalone: true,
@@ -501,7 +516,7 @@ export class InternacionListComponent implements OnInit {
   ];
 
   // Simulated fallback visits matching layout rules
-  readonly visitsMock = [
+  readonly visitsMock: VisitaCalendarItem[] = [
     { day: 0, h: 9,  d: 0, role: 'med',  staff: 'Dra. Lucía Fernández',     patient: 'Marcos Vignola',  status: 'done' },
     { day: 0, h: 11, d: 0, role: 'enf',  staff: 'Enf. Patricia Sosa',       patient: 'Norma Bustelo',   status: 'done' },
     { day: 1, h: 11, d: 30, role: 'enf', staff: 'Enf. Ariel Díaz',          patient: 'Estela Domínguez',status: 'progress' },
@@ -566,7 +581,7 @@ export class InternacionListComponent implements OnInit {
   });
 
   // Modales y Formularios de Visitas Domiciliarias
-  readonly selectedVisita = signal<unknown | null>(null);
+  readonly selectedVisita = signal<VisitaCalendarItem | null>(null);
   readonly showVisitaActionModal = signal<boolean>(false);
   readonly showNuevaVisitaModal = signal<boolean>(false);
   readonly showReprogramarVisitaModal = signal<boolean>(false);
@@ -606,7 +621,7 @@ export class InternacionListComponent implements OnInit {
   // ============================================================
   // ACTION HANDLERS
   // ============================================================
-  openVisitaAction(v: unknown, event: MouseEvent): void {
+  openVisitaAction(v: VisitaCalendarItem, event: MouseEvent): void {
     event.stopPropagation();
     this.selectedVisita.set(v);
     this.showVisitaActionModal.set(true);
@@ -784,7 +799,7 @@ export class InternacionListComponent implements OnInit {
     });
   }
 
-  getVisitasForDayAndHour(dayIdx: number, hour: number) {
+  getVisitasForDayAndHour(dayIdx: number, hour: number): VisitaCalendarItem[] {
     const int = this.selectedInternacion();
     if (int && int.visitaProgramadas && int.visitaProgramadas.length > 0) {
       return int.visitaProgramadas
@@ -792,15 +807,15 @@ export class InternacionListComponent implements OnInit {
           const date = new Date(v.fechaHoraProgramada);
           let day = date.getDay() - 1; // Mon = 0, Sun = 6
           if (day < 0 || day > 4) day = 4; // safety default boundary
-          
+
           const h = date.getHours();
           const d = date.getMinutes();
-          
-          let role = 'enf';
+
+          let role: VisitaCalendarItem['role'] = 'enf';
           if (v.tipoVisita === 'MEDICA') role = 'med';
           else if (v.tipoVisita === 'KINESIOLOGIA') role = 'kine';
-          
-          let status = 'pending';
+
+          let status: VisitaCalendarItem['status'] = 'pending';
           if (v.estado === 'REALIZADA') status = 'done';
           else if (v.estado === 'EN_CURSO') status = 'progress';
 

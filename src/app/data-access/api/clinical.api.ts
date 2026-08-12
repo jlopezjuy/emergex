@@ -24,6 +24,32 @@ interface TurnoResumenBackend {
   consultorioNombre?: string;
 }
 
+export interface WaitlistItemDTO {
+  id: string;
+  turnoId: number;
+  pacienteId: number;
+  name: string;
+  age: number;
+  time: string;
+  wait: number;
+  tri: 'red' | 'amber' | 'green';
+  spec: string;
+  os: string;
+  avatar: string;
+  // No lo asigna getWaitlist(): el turno del backend no distingue "atención primaria" del
+  // profesional logueado. El template lo lee para resaltar una fila; hoy nunca se cumple.
+  primary?: boolean;
+}
+
+export interface ScheduleItemDTO {
+  turnoId: number;
+  pacienteId: number;
+  time: string;
+  name: string;
+  sub: string;
+  state: 'past' | 'active' | 'next' | 'upcoming';
+}
+
 interface AtencionInitBackend {
   turnoId: number;
   pacienteId: number;
@@ -97,7 +123,7 @@ function triFromEstado(estado: string): 'red' | 'amber' | 'green' {
 }
 
 // ── Schedule state por estado del turno ─────────────────────────────────────
-function scheduleStateFromEstado(estado: string): string {
+function scheduleStateFromEstado(estado: string): 'past' | 'active' | 'next' | 'upcoming' {
   switch (estado) {
     case 'COMPLETADO':
     case 'CERRADO':
@@ -233,7 +259,7 @@ export class ClinicalApiService {
   }
 
   // Waitlist data for Mode A — pacientes con turno hoy en estado de espera
-  getWaitlist(): Observable<unknown[]> {
+  getWaitlist(): Observable<WaitlistItemDTO[]> {
     const profesionalId = this.getProfesionalId();
     if (!profesionalId) {
       // TODO: backend endpoint missing — profesionalId not available in session
@@ -271,7 +297,7 @@ export class ClinicalApiService {
   }
 
   // Today's schedule for Mode A
-  getScheduleToday(): Observable<unknown[]> {
+  getScheduleToday(): Observable<ScheduleItemDTO[]> {
     const profesionalId = this.getProfesionalId();
     if (!profesionalId) {
       // TODO: backend endpoint missing — profesionalId not available in session

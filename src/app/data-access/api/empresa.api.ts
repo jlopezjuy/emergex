@@ -39,7 +39,7 @@ export class EmpresaApiService {
     return this.http.get<EmpresaDTO>(`${this.base}/${id}`);
   }
 
-  create(empresa: EmpresaDTO): Observable<EmpresaDTO> {
+  create(empresa: Omit<EmpresaDTO, 'id'>): Observable<EmpresaDTO> {
     return this.http.post<EmpresaDTO>(this.base, empresa);
   }
 

@@ -157,7 +157,7 @@ export class PatientPortalApiService {
       direccion: req.ubicacion
     };
 
-    return this.http.post<{ ambulanciaId?: number }>(`${environment.apiUrl}/api/v2/asistencias/recibir-llamada`, payload).pipe(
+    return this.http.post<{ id?: number; ambulanciaId?: number }>(`${environment.apiUrl}/api/v2/asistencias/recibir-llamada`, payload).pipe(
       map((res) => ({
         exito: true,
         unidadAsignada: res.ambulanciaId ? `UNIDAD-${res.ambulanciaId}` : 'DESPACHO ASIGNADO',

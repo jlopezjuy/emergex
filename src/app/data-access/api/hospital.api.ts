@@ -13,11 +13,11 @@ export class HospitalApiService {
     return this.http.get<HospitalDTO[]>(`${this.base}/hospitales`);
   }
 
-  crear(dto: HospitalDTO): Observable<HospitalDTO> {
+  crear(dto: Omit<HospitalDTO, 'id'>): Observable<HospitalDTO> {
     return this.http.post<HospitalDTO>(`${this.base}/hospitales`, dto);
   }
 
-  actualizar(id: number, dto: HospitalDTO): Observable<HospitalDTO> {
+  actualizar(id: number, dto: Omit<HospitalDTO, 'id'>): Observable<HospitalDTO> {
     return this.http.put<HospitalDTO>(`${this.base}/hospitales/${id}`, dto);
   }
 }

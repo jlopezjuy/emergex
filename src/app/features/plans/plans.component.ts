@@ -1230,12 +1230,14 @@ export class PlansComponent implements OnInit {
 
   // ── Tariffs Actions ──
   createTariff(): void {
-    if (!this.selectedZoneId() || !this.selectedPrestacionId()) return;
+    const zonaId = this.selectedZoneId();
+    const prestacionId = this.selectedPrestacionId();
+    if (!zonaId || !prestacionId) return;
     this.zonesApi.createTariff({
       cargoMinimo: this.newTariffMin(),
       costoEspera30Min: this.newTariffWait(),
-      prestacion: { id: this.selectedPrestacionId() },
-      zona: { id: this.selectedZoneId() }
+      prestacion: { id: prestacionId },
+      zona: { id: zonaId }
     }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
       this.selectedZoneId.set(null);
       this.selectedPrestacionId.set(null);

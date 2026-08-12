@@ -66,11 +66,7 @@
         <span class="clinical-field-label">Impresión clínica *</span>
         <textarea rows="3" class="clinical-input" [value]="closeImpresion()" (input)="closeImpresion.set($any($event.target).value)"></textarea>
       </label>
-      <p class="text-xs" style="color: var(--text-secondary);">Tipo de resolución: derivado a hospital.</p>
-      <label class="clinical-checkbox flex items-center gap-2">
-        <input type="checkbox" [checked]="closeRequiereTraslado()" (change)="closeRequiereTraslado.set($any($event.target).checked)" />
-        <span>La resolución requirió traslado *</span>
-      </label>
+      <p class="text-xs col-span-2" style="color: var(--text-secondary);">Tipo de resolución: derivado a hospital.</p>
     </div>
 
     @if (entregaError()) {

@@ -355,11 +355,11 @@ export class CommunicationsComponent implements OnInit {
       catchError(() => of([])), takeUntilDestroyed(this.destroyRef)
     ).subscribe((items) => {
       const entries: LogEntry[] = (items ?? []).map((item, idx) => ({
-        id:   item.id   ?? idx,
-        type: item.type ?? item.tipo ?? 'ESTADO',
-        time: item.time ?? item.hora ?? '',
-        unit: item.unit ?? item.unidad ?? '',
-        msg:  item.msg  ?? item.mensaje ?? '',
+        id:   Number(item['id'] ?? idx),
+        type: (item['type'] ?? item['tipo'] ?? 'ESTADO') as LogEntry['type'],
+        time: String(item['time'] ?? item['hora'] ?? ''),
+        unit: String(item['unit'] ?? item['unidad'] ?? ''),
+        msg:  String(item['msg'] ?? item['mensaje'] ?? ''),
       }));
       this.logEntries.set(entries);
     });

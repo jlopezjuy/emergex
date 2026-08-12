@@ -25,6 +25,16 @@ export interface TarifaPrestacionZonaDTO {
   };
 }
 
+// El formulario de alta sólo tiene los ids de prestación/zona (vienen de un <select>); nombre y
+// código son campos de sólo lectura que el backend ya conoce. Partial<TarifaPrestacionZonaDTO>
+// no alcanza para esto: sólo relaja las claves de primer nivel, no los campos anidados.
+export interface TarifaPrestacionZonaWriteRequest {
+  cargoMinimo: number;
+  costoEspera30Min: number;
+  prestacion: { id: number };
+  zona: { id: number };
+}
+
 export interface PrestacionMedicaDTO {
   id: number;
   codigo: string;
@@ -63,11 +73,11 @@ export class ZonesApiService {
     return this.http.get<TarifaPrestacionZonaDTO[]>(this.tariffsBase);
   }
 
-  createTariff(dto: Partial<TarifaPrestacionZonaDTO>): Observable<TarifaPrestacionZonaDTO> {
+  createTariff(dto: TarifaPrestacionZonaWriteRequest): Observable<TarifaPrestacionZonaDTO> {
     return this.http.post<TarifaPrestacionZonaDTO>(this.tariffsBase, dto);
   }
 
-  updateTariff(id: number, dto: Partial<TarifaPrestacionZonaDTO>): Observable<TarifaPrestacionZonaDTO> {
+  updateTariff(id: number, dto: TarifaPrestacionZonaWriteRequest): Observable<TarifaPrestacionZonaDTO> {
     return this.http.put<TarifaPrestacionZonaDTO>(`${this.tariffsBase}/${id}`, dto);
   }
 
