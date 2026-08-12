@@ -137,12 +137,12 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
               }
 
               @if (filteredTickets().length === 0) {
-                <div class="flex flex-col items-center justify-center py-16" style="color:var(--text-muted);">
+                <div class="flex flex-col items-center justify-center py-16 text-center" style="color:var(--text-muted);">
                   <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" style="margin-bottom:10px;opacity:0.4;">
                     <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
                     <polyline points="22 4 12 14.01 9 11.01"></polyline>
                   </svg>
-                  <span style="font-size:13px;">No hay tickets pendientes de auditoría</span>
+                  <span style="font-size:13px;max-width:320px;">{{ mensajeBandejaNoDisponible }}</span>
                 </div>
               }
             }
@@ -256,6 +256,11 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
   `,
 })
 export class AuditoriaMedicaComponent implements OnInit {
+  // TODO Sprint 3: borrar junto con el resto del estado "no disponible" cuando la bandeja
+  // de auditoría selectiva sobre RegistroPrestacion quede operativa.
+  readonly mensajeBandejaNoDisponible =
+    'La bandeja de auditoría se habilita al completar el Sprint 3. No interpretes esta lista vacía como ausencia de casos.';
+
   private destroyRef = inject(DestroyRef);
   private auditoriaApi = inject(AuditoriaMedicaApiService);
 

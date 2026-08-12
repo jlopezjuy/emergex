@@ -102,6 +102,17 @@ import { UserFeedbackService } from '../../core/notifications/user-feedback.serv
                   </div>
                 </button>
               }
+
+              @if (filteredLotes().length === 0) {
+                <div class="flex flex-col items-center justify-center py-16 text-center" style="color:var(--text-muted);">
+                  <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" style="margin-bottom:10px;opacity:0.4;">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="12" y1="8" x2="12" y2="16"></line>
+                    <line x1="8" y1="12" x2="16" y2="12"></line>
+                  </svg>
+                  <span style="font-size:13px;max-width:320px;">{{ mensajeGeneracionNoDisponible }}</span>
+                </div>
+              }
             }
           </div>
         </div>
@@ -199,6 +210,11 @@ import { UserFeedbackService } from '../../core/notifications/user-feedback.serv
   `,
 })
 export class PrefacturacionComponent implements OnInit {
+  // TODO Sprint 4: borrar junto con el resto del estado "no disponible" cuando la
+  // generación automática de líneas de prefacturación quede operativa.
+  readonly mensajeGeneracionNoDisponible =
+    'La generación automática de líneas todavía no está disponible. Un lote vacío no significa que no haya servicios facturables en el período.';
+
   private api = inject(PrefacturacionApiService);
   private destroyRef = inject(DestroyRef);
   private feedback = inject(UserFeedbackService);
