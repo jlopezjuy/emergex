@@ -43,6 +43,10 @@ export class PrefacturacionApiService {
     return this.http.post<LotePrefacturacionDTO>(`${this.base}/${id}/confirmar`, {});
   }
 
+  generarLineas(id: number, desde: string, hasta: string): Observable<LotePrefacturacionDTO> {
+    return this.http.post<LotePrefacturacionDTO>(`${this.base}/${id}/generar`, { desde, hasta });
+  }
+
   excluirTicket(loteId: number, ticketId: number): Observable<void> {
     return this.http.delete<void>(`${this.base}/${loteId}/tickets/${ticketId}`);
   }

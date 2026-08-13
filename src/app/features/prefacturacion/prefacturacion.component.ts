@@ -110,7 +110,7 @@ import { UserFeedbackService } from '../../core/notifications/user-feedback.serv
                     <line x1="12" y1="8" x2="12" y2="16"></line>
                     <line x1="8" y1="12" x2="16" y2="12"></line>
                   </svg>
-                  <span style="font-size:13px;max-width:320px;">{{ mensajeGeneracionNoDisponible }}</span>
+                  <span style="font-size:13px;max-width:320px;">No hay lotes de prefacturación registrados.</span>
                 </div>
               }
             }
@@ -130,6 +130,9 @@ import { UserFeedbackService } from '../../core/notifications/user-feedback.serv
               </div>
               <div class="flex gap-2">
                 @if (lote.estado === 'BORRADOR') {
+                  <button type="button" class="btn btn--secondary btn--sm" (click)="openGenerarLineasModal()">
+                    Generar líneas
+                  </button>
                   <button type="button" class="btn btn--primary btn--sm" style="background:#22c55e;border-color:#22c55e;" (click)="confirmarLote(lote.id)">
                     Confirmar Lote
                   </button>
@@ -207,14 +210,35 @@ import { UserFeedbackService } from '../../core/notifications/user-feedback.serv
         </div>
       </div>
     }
+
+    <!-- Modal Generar Líneas -->
+    @if (showGenerarLineasModal()) {
+      <div class="fixed inset-0 z-50 flex items-center justify-center" style="background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);">
+        <div class="rounded-xl w-[400px]" style="background:var(--surface-glass);border:1px solid var(--border-glass);box-shadow:0 10px 40px rgba(0,0,0,0.5);">
+          <div class="px-5 py-4 border-b border-white/10 flex items-center justify-between">
+            <h3 class="font-bold text-lg" style="color:var(--text-primary);">Generar Líneas del Lote</h3>
+            <button class="text-white/50 hover:text-white" (click)="showGenerarLineasModal.set(false)">×</button>
+          </div>
+          <div class="p-5 flex flex-col gap-4">
+            <div>
+              <label class="block text-xs uppercase tracking-wider font-semibold mb-2" style="color:var(--text-muted);">Desde</label>
+              <input type="date" [value]="generarDesde()" (input)="generarDesde.set($any($event.target).value)" class="w-full px-3 py-2 rounded-lg" style="background:var(--bg-elevated);border:1px solid var(--border-glass);color:var(--text-primary);" />
+            </div>
+            <div>
+              <label class="block text-xs uppercase tracking-wider font-semibold mb-2" style="color:var(--text-muted);">Hasta</label>
+              <input type="date" [value]="generarHasta()" (input)="generarHasta.set($any($event.target).value)" class="w-full px-3 py-2 rounded-lg" style="background:var(--bg-elevated);border:1px solid var(--border-glass);color:var(--text-primary);" />
+            </div>
+          </div>
+          <div class="px-5 py-4 border-t border-white/10 flex justify-end gap-3 bg-black/20">
+            <button class="btn btn--secondary" (click)="showGenerarLineasModal.set(false)">Cancelar</button>
+            <button class="btn btn--primary" [disabled]="!generarDesde() || !generarHasta() || processing()" (click)="generarLineas()">Generar</button>
+          </div>
+        </div>
+      </div>
+    }
   `,
 })
 export class PrefacturacionComponent implements OnInit {
-  // TODO Sprint 4: borrar junto con el resto del estado "no disponible" cuando la
-  // generación automática de líneas de prefacturación quede operativa.
-  readonly mensajeGeneracionNoDisponible =
-    'La generación automática de líneas todavía no está disponible. Un lote vacío no significa que no haya servicios facturables en el período.';
-
   private api = inject(PrefacturacionApiService);
   private destroyRef = inject(DestroyRef);
   private feedback = inject(UserFeedbackService);
@@ -230,6 +254,10 @@ export class PrefacturacionComponent implements OnInit {
   readonly showCreateModal = signal(false);
   readonly newFinanciadorId = signal<number | null>(null);
   readonly processing = signal(false);
+
+  readonly showGenerarLineasModal = signal(false);
+  readonly generarDesde = signal('');
+  readonly generarHasta = signal('');
 
   readonly lotesTotales = computed(() => this.lotes().length);
 
@@ -318,6 +346,33 @@ export class PrefacturacionComponent implements OnInit {
         this.selectedLote.set(updatedLote);
         this.feedback.push({ type: 'success', title: 'Lote confirmado', message: `Lote #${updatedLote.id} confirmado exitosamente.` });
         this.loadLotes(); // Reload list to update status
+      },
+      error: (err) => {
+        this.processing.set(false);
+        this.feedback.fromHttpError(err);
+      }
+    });
+  }
+
+  openGenerarLineasModal(): void {
+    this.generarDesde.set('');
+    this.generarHasta.set('');
+    this.showGenerarLineasModal.set(true);
+  }
+
+  generarLineas(): void {
+    const lote = this.selectedLote();
+    const desde = this.generarDesde();
+    const hasta = this.generarHasta();
+    if (!lote || !desde || !hasta || this.processing()) return;
+    this.processing.set(true);
+    this.api.generarLineas(lote.id, desde, hasta).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: () => {
+        this.processing.set(false);
+        this.showGenerarLineasModal.set(false);
+        this.feedback.push({ type: 'success', title: 'Líneas generadas', message: `Líneas generadas para el lote #${lote.id}.` });
+        this.loadLoteDetail(lote.id);
+        this.loadLotes();
       },
       error: (err) => {
         this.processing.set(false);

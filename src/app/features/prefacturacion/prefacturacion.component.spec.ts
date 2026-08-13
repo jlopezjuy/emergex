@@ -16,6 +16,7 @@ describe('PrefacturacionComponent', () => {
       crearLote: vi.fn().mockReturnValue(of(null)),
       confirmarLote: vi.fn().mockReturnValue(of(null)),
       excluirTicket: vi.fn().mockReturnValue(of(undefined)),
+      generarLineas: vi.fn().mockReturnValue(of(null)),
     };
 
     await TestBed.configureTestingModule({
@@ -30,9 +31,25 @@ describe('PrefacturacionComponent', () => {
     fixture.detectChanges();
   });
 
-  it('con lista de lotes vacía, avisa que la generación automática todavía no está disponible', () => {
+  it('con lista de lotes vacía, muestra un mensaje honesto sin la advertencia de S0-3', () => {
     const texto = fixture.nativeElement.textContent as string;
-    expect(texto).toContain('La generación automática de líneas todavía no está disponible');
-    expect(texto).not.toContain('sin resultados');
+    expect(texto).not.toContain('La generación automática de líneas todavía no está disponible');
+    expect(texto).toContain('No hay lotes de prefacturación');
+  });
+
+  it('para un lote en BORRADOR, generar líneas invoca la API con el período ingresado', () => {
+    const lote = { id: 5, fechaCreacion: '2026-08-01', estado: 'BORRADOR' as const, financiadorNombre: 'OSDE', totalTickets: 0 };
+    (apiMock['obtenerLote'] as ReturnType<typeof vi.fn>).mockReturnValue(of(lote));
+    const component = fixture.componentInstance;
+
+    component.selectLote(lote);
+    fixture.detectChanges();
+
+    component.openGenerarLineasModal();
+    component.generarDesde.set('2026-08-01');
+    component.generarHasta.set('2026-08-31');
+    component.generarLineas();
+
+    expect(apiMock['generarLineas']).toHaveBeenCalledWith(5, '2026-08-01', '2026-08-31');
   });
 });
