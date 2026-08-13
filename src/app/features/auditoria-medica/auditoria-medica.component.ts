@@ -2,7 +2,7 @@ import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angula
 import { CommonModule, DatePipe } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
-import { AuditoriaMedicaApiService, TicketAuditDTO } from '../../data-access/api/auditoria-medica.api';
+import { AuditoriaMedicaApiService, PrestacionAuditDTO } from '../../data-access/api/auditoria-medica.api';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 
 @Component({
@@ -26,7 +26,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
           </div>
           <div>
             <h1 class="font-semibold text-lg" style="color:var(--text-primary);">Auditoría Médica</h1>
-            <p class="text-xs mt-0.5 font-mono" style="color:var(--text-muted);">REVISIÓN Y CONTROL DE TICKETS</p>
+            <p class="text-xs mt-0.5 font-mono" style="color:var(--text-muted);">REVISIÓN DE PRESTACIONES FACTURABLES</p>
           </div>
         </div>
 
@@ -40,12 +40,12 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
               <div class="font-mono font-bold text-lg leading-none" style="color:var(--accent-cyan);">{{ pendientesTotales() }}</div>
             </div>
             <div class="text-center">
-              <div class="font-mono text-xs uppercase tracking-wider mb-0.5" style="color:var(--text-muted);">Aprobados</div>
-              <div class="font-mono font-bold text-lg leading-none" style="color:#22c55e;">{{ aprobadosHoy() }}</div>
+              <div class="font-mono text-xs uppercase tracking-wider mb-0.5" style="color:var(--text-muted);">Aprobadas</div>
+              <div class="font-mono font-bold text-lg leading-none" style="color:#22c55e;">{{ aprobadasHoy() }}</div>
             </div>
             <div class="text-center">
-              <div class="font-mono text-xs uppercase tracking-wider mb-0.5" style="color:var(--text-muted);">Observados</div>
-              <div class="font-mono font-bold text-lg leading-none" style="color:var(--accent-amber, #f59e0b);">{{ observadosHoy() }}</div>
+              <div class="font-mono text-xs uppercase tracking-wider mb-0.5" style="color:var(--text-muted);">Excluidas</div>
+              <div class="font-mono font-bold text-lg leading-none" style="color:var(--accent-amber, #f59e0b);">{{ excluidasHoy() }}</div>
             </div>
           </div>
         </div>
@@ -84,7 +84,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
               />
             </div>
             <div class="flex-1"></div>
-            <button type="button" class="btn btn--secondary btn--sm" (click)="loadTickets()">
+            <button type="button" class="btn btn--secondary btn--sm" (click)="loadPrestaciones()">
               ↻ Actualizar
             </button>
           </div>
@@ -94,55 +94,53 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
             @if (loading()) {
               <div class="flex flex-col items-center justify-center py-16" style="color:var(--text-muted);">
                 <span class="ac-spinner"></span>
-                <span style="font-size:13px;margin-top:10px;">Cargando tickets...</span>
+                <span style="font-size:13px;margin-top:10px;">Cargando prestaciones...</span>
               </div>
             } @else if (error()) {
               <div class="flex flex-col items-center justify-center py-16" style="color:var(--accent-red); gap:8px;">
-                <span style="font-size:13px;font-weight:600;">Error al cargar tickets pendientes</span>
-                <button type="button" class="btn btn--secondary btn--sm" (click)="loadTickets()">Reintentar</button>
+                <span style="font-size:13px;font-weight:600;">Error al cargar prestaciones pendientes</span>
+                <button type="button" class="btn btn--secondary btn--sm" (click)="loadPrestaciones()">Reintentar</button>
               </div>
             } @else {
-              @for (ticket of filteredTickets(); track ticket.id) {
+              @for (prestacion of filteredPrestaciones(); track prestacion.id) {
                 <button
                   type="button"
                   class="w-full text-left flex items-center gap-3 px-4 py-3 transition-colors"
                   style="border-bottom:1px solid var(--border-hairline);background:transparent;border-left:none;border-right:none;border-top:none;cursor:pointer;"
-                  (click)="openDetail(ticket)"
+                  (click)="openDetail(prestacion)"
                 >
                   <div
                     style="width:4px;align-self:stretch;border-radius:2px;flex-shrink:0;background:var(--accent-cyan);"
                   ></div>
                   <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2">
-                      <span class="font-mono font-bold" style="font-size:13px;color:var(--accent-cyan);">{{ ticket.numero ?? '#' + ticket.id }}</span>
-                      <span class="font-semibold truncate" style="font-size:13.5px;color:var(--text-primary);">{{ ticket.pacienteNombre || 'Paciente No Identificado' }}</span>
-                      @if (ticket.pacienteDni) {
-                        <span class="font-mono" style="font-size:11px;color:var(--text-muted);">DNI {{ ticket.pacienteDni }}</span>
+                      <span class="font-mono font-bold" style="font-size:13px;color:var(--accent-cyan);">{{ prestacion.ticket?.numeroTicket ?? '#' + prestacion.id }}</span>
+                      <span class="font-semibold truncate" style="font-size:13.5px;color:var(--text-primary);">{{ nombrePaciente(prestacion) }}</span>
+                      @if (prestacion.paciente?.dni) {
+                        <span class="font-mono" style="font-size:11px;color:var(--text-muted);">DNI {{ prestacion.paciente?.dni }}</span>
                       }
                     </div>
                     <div class="flex items-center gap-2 mt-0.5">
-                      <span style="font-size:12px;color:var(--text-secondary);">{{ ticket.fechaCompletado | date:'dd/MM/yyyy HH:mm' }}</span>
-                      @if (ticket.tipoAsistencia) {
-                        <span style="font-size:11px;color:var(--text-muted);">· {{ ticket.tipoAsistencia }}</span>
+                      <span style="font-size:12px;color:var(--text-secondary);">{{ prestacion.fecha | date:'dd/MM/yyyy HH:mm' }}</span>
+                      @if (prestacion.prestacion?.nombre) {
+                        <span style="font-size:11px;color:var(--text-muted);">· {{ prestacion.prestacion?.nombre }}</span>
                       }
                     </div>
                   </div>
                   <div class="flex items-center gap-3 flex-shrink-0">
-                    @if (ticket.nivelUrgencia) {
-                      <span class="font-mono font-bold" style="font-size:11px;padding:2px 6px;border-radius:4px;background:rgba(239,68,68,0.1);color:var(--accent-red);">{{ ticket.nivelUrgencia }}</span>
-                    }
+                    <span class="font-mono font-bold" style="font-size:12px;color:var(--text-primary);">{{ prestacion.cargoCobrado | number:'1.2-2' }}</span>
                     <emx-status-badge variant="info">PENDIENTE</emx-status-badge>
                   </div>
                 </button>
               }
 
-              @if (filteredTickets().length === 0) {
+              @if (filteredPrestaciones().length === 0) {
                 <div class="flex flex-col items-center justify-center py-16 text-center" style="color:var(--text-muted);">
                   <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" style="margin-bottom:10px;opacity:0.4;">
                     <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
                     <polyline points="22 4 12 14.01 9 11.01"></polyline>
                   </svg>
-                  <span style="font-size:13px;max-width:320px;">{{ mensajeBandejaNoDisponible }}</span>
+                  <span style="font-size:13px;max-width:320px;">No hay prestaciones pendientes de auditoría.</span>
                 </div>
               }
             }
@@ -151,7 +149,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
       </div>
 
       <!-- ── Modal de detalle ───────────────────────────────────────────── -->
-      @if (selected(); as ticket) {
+      @if (selected(); as prestacion) {
         <div
           style="position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:1000;"
           (click)="selected.set(null)"
@@ -165,13 +163,13 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
               <div class="flex items-start justify-between gap-3">
                 <div>
                   <div class="font-mono uppercase tracking-wider mb-1" style="font-size:10px;color:var(--accent-cyan);">
-                    ● AUDITORÍA DE TICKET
+                    ● AUDITORÍA DE PRESTACIÓN
                   </div>
                   <h2 style="font-size:17px;font-weight:700;color:var(--text-primary);margin:0 0 2px;">
-                    {{ ticket.numero ?? '#' + ticket.id }} - {{ ticket.pacienteNombre || 'Paciente No Identificado' }}
+                    {{ prestacion.ticket?.numeroTicket ?? '#' + prestacion.id }} - {{ nombrePaciente(prestacion) }}
                   </h2>
                   <div style="font-size:13px;color:var(--text-secondary);">
-                    {{ ticket.tipoAsistencia || 'Sin tipo' }}
+                    {{ prestacion.prestacion?.nombre || 'Sin prestación' }}
                   </div>
                 </div>
                 <button
@@ -184,47 +182,41 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
               </div>
             </div>
 
-            <!-- Datos del ticket -->
+            <!-- Datos de la prestación -->
             <div style="flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:16px;">
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                 <div>
                   <div class="font-mono uppercase" style="font-size:9px;color:var(--text-muted);margin-bottom:4px;">DNI</div>
-                  <div style="font-size:13px;color:var(--text-primary);">{{ ticket.pacienteDni || '—' }}</div>
+                  <div style="font-size:13px;color:var(--text-primary);">{{ prestacion.paciente?.dni || '—' }}</div>
                 </div>
                 <div>
-                  <div class="font-mono uppercase" style="font-size:9px;color:var(--text-muted);margin-bottom:4px;">Nivel de Urgencia</div>
-                  <div style="font-size:13px;color:var(--accent-red);font-weight:600;">{{ ticket.nivelUrgencia || '—' }}</div>
+                  <div class="font-mono uppercase" style="font-size:9px;color:var(--text-muted);margin-bottom:4px;">Contrato</div>
+                  <div style="font-size:13px;color:var(--text-primary);">{{ prestacion.contratoCobertura?.codigo || '—' }}</div>
                 </div>
                 <div>
-                  <div class="font-mono uppercase" style="font-size:9px;color:var(--text-muted);margin-bottom:4px;">Fecha Completado</div>
-                  <div style="font-size:13px;color:var(--text-primary);">{{ ticket.fechaCompletado | date:'dd/MM/yyyy HH:mm' }}</div>
+                  <div class="font-mono uppercase" style="font-size:9px;color:var(--text-muted);margin-bottom:4px;">Fecha</div>
+                  <div style="font-size:13px;color:var(--text-primary);">{{ prestacion.fecha | date:'dd/MM/yyyy HH:mm' }}</div>
                 </div>
                 <div>
                   <div class="font-mono uppercase" style="font-size:9px;color:var(--text-muted);margin-bottom:4px;">Dirección</div>
-                  <div style="font-size:13px;color:var(--text-primary);">{{ ticket.direccion || '—' }}</div>
+                  <div style="font-size:13px;color:var(--text-primary);">{{ prestacion.ticket?.direccion || '—' }}</div>
+                </div>
+                <div>
+                  <div class="font-mono uppercase" style="font-size:9px;color:var(--text-muted);margin-bottom:4px;">Importe Unitario</div>
+                  <div style="font-size:13px;color:var(--text-primary);">{{ prestacion.importeUnitario | number:'1.2-2' }}</div>
+                </div>
+                <div>
+                  <div class="font-mono uppercase" style="font-size:9px;color:var(--text-muted);margin-bottom:4px;">Cargo Cobrado</div>
+                  <div style="font-size:13px;color:var(--text-primary);font-weight:600;">{{ prestacion.cargoCobrado | number:'1.2-2' }}</div>
                 </div>
               </div>
 
-              @if (ticket.diagnosticoCie10) {
-                <div style="padding:12px;border-radius:8px;background:rgba(6,182,212,0.05);border:1px solid var(--border-glass);">
-                  <div class="font-mono uppercase" style="font-size:9px;color:var(--text-muted);margin-bottom:4px;">Diagnóstico CIE-10</div>
-                  <div style="font-size:13px;color:var(--text-primary);">{{ ticket.diagnosticoCie10 }}</div>
-                </div>
-              }
-
-              @if (ticket.observaciones) {
-                <div>
-                  <div class="font-mono uppercase" style="font-size:9px;color:var(--text-muted);margin-bottom:4px;">Síntomas / Observaciones del Ticket</div>
-                  <div style="font-size:13px;color:var(--text-primary);padding:12px;border-radius:8px;background:var(--bg-elevated);border:1px solid var(--border-glass);white-space:pre-wrap;">{{ ticket.observaciones }}</div>
-                </div>
-              }
-
-              <!-- Sección de Observación Auditoría -->
-              @if (showObservarInput()) {
+              <!-- Sección de Exclusión Auditoría -->
+              @if (showExcluirInput()) {
                 <div style="margin-top:8px;padding-top:16px;border-top:1px dashed var(--border-glass);">
-                  <label style="display:block;font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.04em;">Motivo de la Observación *</label>
+                  <label style="display:block;font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.04em;">Motivo de la Exclusión *</label>
                   <textarea
-                    placeholder="Indique qué falta o qué es incorrecto..."
+                    placeholder="Indique por qué se excluye de la facturación..."
                     rows="3"
                     [value]="motivoInput()"
                     (input)="motivoInput.set($any($event.target).value)"
@@ -240,12 +232,12 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
                 @if (processing()) { Guardando... }
               </span>
               <div class="flex gap-2">
-                @if (showObservarInput()) {
-                  <button type="button" class="btn btn--ghost btn--sm" [disabled]="processing()" (click)="showObservarInput.set(false)">Cancelar</button>
-                  <button type="button" class="btn btn--danger btn--sm" [disabled]="!motivoInput().trim() || processing()" (click)="confirmarObservacion(ticket.id)">Confirmar Observación</button>
+                @if (showExcluirInput()) {
+                  <button type="button" class="btn btn--ghost btn--sm" [disabled]="processing()" (click)="showExcluirInput.set(false)">Cancelar</button>
+                  <button type="button" class="btn btn--danger btn--sm" [disabled]="!motivoInput().trim() || processing()" (click)="confirmarExclusion(prestacion.id)">Confirmar Exclusión</button>
                 } @else {
-                  <button type="button" class="btn btn--secondary btn--sm" [disabled]="processing()" style="color:var(--accent-amber);" (click)="showObservarInput.set(true)">Observar</button>
-                  <button type="button" class="btn btn--primary btn--sm" [disabled]="processing()" style="background:#22c55e;border-color:#22c55e;" (click)="aprobarTicket(ticket.id)">Aprobar</button>
+                  <button type="button" class="btn btn--secondary btn--sm" [disabled]="processing()" style="color:var(--accent-amber);" (click)="showExcluirInput.set(true)">Excluir</button>
+                  <button type="button" class="btn btn--primary btn--sm" [disabled]="processing()" style="background:#22c55e;border-color:#22c55e;" (click)="aprobar(prestacion.id)">Aprobar</button>
                 }
               </div>
             </div>
@@ -256,44 +248,44 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
   `,
 })
 export class AuditoriaMedicaComponent implements OnInit {
-  // TODO Sprint 3: borrar junto con el resto del estado "no disponible" cuando la bandeja
-  // de auditoría selectiva sobre RegistroPrestacion quede operativa.
-  readonly mensajeBandejaNoDisponible =
-    'La bandeja de auditoría se habilita al completar el Sprint 3. No interpretes esta lista vacía como ausencia de casos.';
-
   private destroyRef = inject(DestroyRef);
   private auditoriaApi = inject(AuditoriaMedicaApiService);
 
-  readonly tickets = signal<TicketAuditDTO[]>([]);
+  readonly prestaciones = signal<PrestacionAuditDTO[]>([]);
   readonly searchQuery = signal('');
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
 
-  readonly selected = signal<TicketAuditDTO | null>(null);
-  readonly showObservarInput = signal(false);
+  readonly selected = signal<PrestacionAuditDTO | null>(null);
+  readonly showExcluirInput = signal(false);
   readonly motivoInput = signal('');
   readonly processing = signal(false);
 
   // Counters locales
-  readonly aprobadosHoy = signal(0);
-  readonly observadosHoy = signal(0);
-  
-  readonly pendientesTotales = computed(() => this.filteredTickets().length);
+  readonly aprobadasHoy = signal(0);
+  readonly excluidasHoy = signal(0);
 
-  readonly filteredTickets = computed(() => {
+  readonly pendientesTotales = computed(() => this.filteredPrestaciones().length);
+
+  readonly filteredPrestaciones = computed(() => {
     const q = this.searchQuery().trim().toLowerCase();
-    if (!q) return this.tickets();
-    return this.tickets().filter(t => 
-      (t.numero ?? '').toLowerCase().includes(q) ||
-      (t.pacienteNombre ?? '').toLowerCase().includes(q)
+    if (!q) return this.prestaciones();
+    return this.prestaciones().filter(p =>
+      (p.ticket?.numeroTicket ?? '').toLowerCase().includes(q) ||
+      this.nombrePaciente(p).toLowerCase().includes(q)
     );
   });
 
   ngOnInit(): void {
-    this.loadTickets();
+    this.loadPrestaciones();
   }
 
-  loadTickets(): void {
+  nombrePaciente(prestacion: PrestacionAuditDTO): string {
+    const nombre = [prestacion.paciente?.nombre, prestacion.paciente?.apellido].filter(Boolean).join(' ');
+    return nombre || 'Paciente No Identificado';
+  }
+
+  loadPrestaciones(): void {
     this.loading.set(true);
     this.error.set(null);
     this.auditoriaApi
@@ -301,34 +293,34 @@ export class AuditoriaMedicaComponent implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: list => {
-          this.tickets.set(list || []);
+          this.prestaciones.set(list || []);
           this.loading.set(false);
         },
         error: () => {
-          this.error.set('No se pudo cargar la lista de tickets.');
+          this.error.set('No se pudo cargar la lista de prestaciones.');
           this.loading.set(false);
         },
       });
   }
 
-  openDetail(ticket: TicketAuditDTO): void {
-    this.selected.set(ticket);
-    this.showObservarInput.set(false);
+  openDetail(prestacion: PrestacionAuditDTO): void {
+    this.selected.set(prestacion);
+    this.showExcluirInput.set(false);
     this.motivoInput.set('');
   }
 
-  aprobarTicket(ticketId: number): void {
+  aprobar(registroPrestacionId: number): void {
     if (this.processing()) return;
     this.processing.set(true);
     this.auditoriaApi
-      .aprobar(ticketId)
+      .aprobar(registroPrestacionId)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
-          this.aprobadosHoy.update(v => v + 1);
+          this.aprobadasHoy.update(v => v + 1);
           this.processing.set(false);
           this.selected.set(null);
-          this.loadTickets();
+          this.loadPrestaciones();
         },
         error: err => {
           this.processing.set(false);
@@ -338,23 +330,23 @@ export class AuditoriaMedicaComponent implements OnInit {
       });
   }
 
-  confirmarObservacion(ticketId: number): void {
+  confirmarExclusion(registroPrestacionId: number): void {
     const motivo = this.motivoInput().trim();
     if (!motivo || this.processing()) return;
     this.processing.set(true);
     this.auditoriaApi
-      .observar(ticketId, motivo)
+      .excluir(registroPrestacionId, motivo)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
-          this.observadosHoy.update(v => v + 1);
+          this.excluidasHoy.update(v => v + 1);
           this.processing.set(false);
           this.selected.set(null);
-          this.loadTickets();
+          this.loadPrestaciones();
         },
         error: err => {
           this.processing.set(false);
-          const msg = err?.error?.detail || err?.error?.message || err?.message || 'Error al observar.';
+          const msg = err?.error?.detail || err?.error?.message || err?.message || 'Error al excluir.';
           alert(msg);
         }
       });
