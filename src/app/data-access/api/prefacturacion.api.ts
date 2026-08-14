@@ -39,8 +39,20 @@ export class PrefacturacionApiService {
     return this.http.post<LotePrefacturacionDTO>(this.base, { financiadorId });
   }
 
+  /**
+   * Confirma el lote (BORRADOR → CONFIRMADO). Ya no emite el documento comercial: la emisión es
+   * un paso deliberado y separado, ver {@link emitirLote} (H-13).
+   */
   confirmarLote(id: number): Observable<LotePrefacturacionDTO> {
     return this.http.post<LotePrefacturacionDTO>(`${this.base}/${id}/confirmar`, {});
+  }
+
+  /**
+   * Emite el lote (CONFIRMADO → EMITIDO): genera el documento comercial y el asiento contable.
+   * El backend rechaza la emisión si el lote no está en CONFIRMADO (H-13).
+   */
+  emitirLote(id: number): Observable<LotePrefacturacionDTO> {
+    return this.http.post<LotePrefacturacionDTO>(`${this.base}/${id}/emitir`, {});
   }
 
   generarLineas(id: number, desde: string, hasta: string): Observable<LotePrefacturacionDTO> {

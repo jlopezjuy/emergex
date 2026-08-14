@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
@@ -13,6 +13,18 @@ export interface RegistrarCobranzaRequestDTO {
 export interface AplicarCobranzaRequestDTO {
   documentoComercialId: number;
   montoImputado: number;
+}
+
+/**
+ * Recibo + imputaciones en una sola solicitud (H-09): reemplaza el flujo de "crear recibo" +
+ * N llamadas de "imputar", que dejaba estado parcial ante cualquier falla intermedia.
+ */
+export interface RegistrarCobranzaConImputacionesRequestDTO {
+  terceroEmpresaId: number;
+  numeroRecibo: string;
+  montoCobrado: number;
+  moneda?: string;
+  imputaciones: AplicarCobranzaRequestDTO[];
 }
 
 export interface RevertirAplicacionRequestDTO {
@@ -75,6 +87,19 @@ export class CobranzasApiService {
 
   registrarCobranza(req: RegistrarCobranzaRequestDTO): Observable<CobranzaDTO> {
     return this.http.post<CobranzaDTO>(`${this.base}/cobranzas`, req);
+  }
+
+  /**
+   * Registra el recibo y aplica todas sus imputaciones en una sola operación atómica (H-09).
+   * {@code idempotencyKey} permite que un reintento del mismo formulario (doble click, error de
+   * red) no genere un segundo recibo: el backend devuelve el ya creado en el primer intento.
+   */
+  registrarCobranzaConImputaciones(
+    req: RegistrarCobranzaConImputacionesRequestDTO,
+    idempotencyKey: string,
+  ): Observable<CobranzaDTO> {
+    const headers = new HttpHeaders({ 'X-Idempotency-Key': idempotencyKey });
+    return this.http.post<CobranzaDTO>(`${this.base}/cobranzas-con-imputaciones`, req, { headers });
   }
 
   aplicarADocumento(cobranzaId: number, req: AplicarCobranzaRequestDTO): Observable<AplicacionCobranzaDTO> {

@@ -15,6 +15,7 @@ describe('PrefacturacionComponent', () => {
       obtenerLote: vi.fn().mockReturnValue(of(null)),
       crearLote: vi.fn().mockReturnValue(of(null)),
       confirmarLote: vi.fn().mockReturnValue(of(null)),
+      emitirLote: vi.fn().mockReturnValue(of(null)),
       excluirTicket: vi.fn().mockReturnValue(of(undefined)),
       generarLineas: vi.fn().mockReturnValue(of(null)),
     };
@@ -51,5 +52,21 @@ describe('PrefacturacionComponent', () => {
     component.generarLineas();
 
     expect(apiMock['generarLineas']).toHaveBeenCalledWith(5, '2026-08-01', '2026-08-31');
+  });
+
+  it('para un lote en CONFIRMADO, emitir invoca el endpoint de emisión, no el de confirmación (H-13)', () => {
+    const lote = { id: 7, fechaCreacion: '2026-08-01', estado: 'CONFIRMADO' as const, financiadorNombre: 'OSDE', totalTickets: 3 };
+    const loteEmitido = { ...lote, estado: 'EMITIDO' as const };
+    (apiMock['obtenerLote'] as ReturnType<typeof vi.fn>).mockReturnValue(of(lote));
+    (apiMock['emitirLote'] as ReturnType<typeof vi.fn>).mockReturnValue(of(loteEmitido));
+    const component = fixture.componentInstance;
+
+    component.selectLote(lote);
+    fixture.detectChanges();
+
+    component.emitirLote(7);
+
+    expect(apiMock['emitirLote']).toHaveBeenCalledWith(7);
+    expect(apiMock['confirmarLote']).not.toHaveBeenCalled();
   });
 });

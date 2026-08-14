@@ -135,6 +135,13 @@ export class RegistrarCobranzaModalComponent {
   readonly subiendo = signal(false);
   readonly error = signal<string | null>(null);
 
+  /**
+   * Clave de idempotencia fija por apertura del modal: si el usuario reintenta tras un error de
+   * red sin cerrar el modal, el reintento reutiliza la misma clave y el backend devuelve el
+   * recibo ya creado en el primer intento en vez de duplicarlo (H-09).
+   */
+  private readonly idempotencyKey = crypto.randomUUID();
+
   /** Mapa de imputaciones: clave = doc.id, valor = monto a aplicar contra ese documento. */
   readonly imputaciones = signal<Record<number, number>>({});
 
@@ -188,8 +195,15 @@ export class RegistrarCobranzaModalComponent {
   }
 
   /**
-   * Registra el recibo de cobranza y aplica las imputaciones contra los documentos seleccionados.
-   * Emite {@link cobranzaRegistrada} al padre cuando todas las operaciones completan con éxito.
+   * Registra el recibo de cobranza y aplica las imputaciones contra los documentos seleccionados
+   * en una sola llamada atómica (H-09): antes, el recibo se creaba con una llamada y cada
+   * imputación con una llamada HTTP separada, así que una falla a mitad de camino (ej. la
+   * segunda de tres imputaciones) dejaba el recibo persistido con imputaciones parciales, sin
+   * que un reintento del usuario supiera si debía empezar de cero o continuar. Ahora todo va en
+   * un único POST, con {@link idempotencyKey} protegiendo contra el doble envío del mismo
+   * formulario.
+   *
+   * Emite {@link cobranzaRegistrada} al padre cuando la operación completa con éxito.
    */
   onSubmit(): void {
     if (this.form.invalid || this.hasImputacionError()) return;
@@ -198,52 +212,28 @@ export class RegistrarCobranzaModalComponent {
     this.subiendo.set(true);
     this.error.set(null);
 
+    const docIdsToApply = Object.keys(this.imputaciones())
+      .map((id) => parseInt(id))
+      .filter((id) => (this.imputaciones()[id] ?? 0) > 0);
+
     this.cobranzasApi
-      .registrarCobranza({
-        terceroEmpresaId: this.terceroEmpresaId,
-        numeroRecibo: val.numeroRecibo!,
-        montoCobrado: val.montoCobrado!,
-        moneda: val.moneda!,
-      })
+      .registrarCobranzaConImputaciones(
+        {
+          terceroEmpresaId: this.terceroEmpresaId,
+          numeroRecibo: val.numeroRecibo!,
+          montoCobrado: val.montoCobrado!,
+          moneda: val.moneda!,
+          imputaciones: docIdsToApply.map((docId) => ({
+            documentoComercialId: docId,
+            montoImputado: this.imputaciones()[docId],
+          })),
+        },
+        this.idempotencyKey,
+      )
       .subscribe({
-        next: (cobranza) => {
-          const docIdsToApply = Object.keys(this.imputaciones())
-            .map((id) => parseInt(id))
-            .filter((id) => (this.imputaciones()[id] ?? 0) > 0);
-
-          if (docIdsToApply.length === 0) {
-            this.subiendo.set(false);
-            this.cobranzaRegistrada.emit();
-            return;
-          }
-
-          let completed = 0;
-          let hasApiError = false;
-
-          docIdsToApply.forEach((docId) => {
-            this.cobranzasApi
-              .aplicarADocumento(cobranza.id, {
-                documentoComercialId: docId,
-                montoImputado: this.imputaciones()[docId],
-              })
-              .subscribe({
-                next: () => {
-                  completed++;
-                  if (completed === docIdsToApply.length && !hasApiError) {
-                    this.subiendo.set(false);
-                    this.cobranzaRegistrada.emit();
-                  }
-                },
-                error: (err) => {
-                  hasApiError = true;
-                  this.error.set(
-                    'Error al aplicar la imputación: ' +
-                      (err?.error?.detail ?? err?.error?.title ?? 'Error desconocido'),
-                  );
-                  this.subiendo.set(false);
-                },
-              });
-          });
+        next: () => {
+          this.subiendo.set(false);
+          this.cobranzaRegistrada.emit();
         },
         error: (err) => {
           this.error.set(

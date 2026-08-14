@@ -137,6 +137,11 @@ import { UserFeedbackService } from '../../core/notifications/user-feedback.serv
                     Confirmar Lote
                   </button>
                 }
+                @if (lote.estado === 'CONFIRMADO') {
+                  <button type="button" class="btn btn--primary btn--sm" style="background:#06b6d4;border-color:#06b6d4;" (click)="emitirLote(lote.id)">
+                    Emitir Lote
+                  </button>
+                }
               </div>
             </div>
 
@@ -345,6 +350,23 @@ export class PrefacturacionComponent implements OnInit {
         this.processing.set(false);
         this.selectedLote.set(updatedLote);
         this.feedback.push({ type: 'success', title: 'Lote confirmado', message: `Lote #${updatedLote.id} confirmado exitosamente.` });
+        this.loadLotes(); // Reload list to update status
+      },
+      error: (err) => {
+        this.processing.set(false);
+        this.feedback.fromHttpError(err);
+      }
+    });
+  }
+
+  emitirLote(id: number): void {
+    if (this.processing()) return;
+    this.processing.set(true);
+    this.api.emitirLote(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (updatedLote) => {
+        this.processing.set(false);
+        this.selectedLote.set(updatedLote);
+        this.feedback.push({ type: 'success', title: 'Lote emitido', message: `Lote #${updatedLote.id} emitido exitosamente.` });
         this.loadLotes(); // Reload list to update status
       },
       error: (err) => {
