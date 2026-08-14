@@ -22,6 +22,22 @@ export interface TicketPrefacturacionDTO {
   incluido: boolean;
 }
 
+export interface TicketPendienteTarifacionDTO {
+  id: number;
+  numeroTicket?: string;
+  tipoAsistencia?: string;
+  estadoActual?: string;
+  estadoTarifacion?: string;
+  presupuestoAceptado?: number;
+  costoEspera?: number;
+}
+
+export interface TarifacionManualPayload {
+  cargoBase: number;
+  costoEspera: number;
+  motivo: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class PrefacturacionApiService {
   private http = inject(HttpClient);
@@ -61,5 +77,19 @@ export class PrefacturacionApiService {
 
   excluirTicket(loteId: number, ticketId: number): Observable<void> {
     return this.http.delete<void>(`${this.base}/${loteId}/tickets/${ticketId}`);
+  }
+
+  /**
+   * Obtiene la bandeja de tickets que no pudieron tarifarse automáticamente (S2-T4 / H-06b / H-18).
+   */
+  listarPendientesTarifacion(): Observable<TicketPendienteTarifacionDTO[]> {
+    return this.http.get<TicketPendienteTarifacionDTO[]>(`${environment.apiUrl}/api/ticket-asistencias?estadoTarifacion.equals=PENDIENTE_TARIFACION&sort=id,desc`);
+  }
+
+  /**
+   * Aplica tarifación manual fijando cargo base, costo de espera y motivo justificado.
+   */
+  tarifarManual(id: number, payload: TarifacionManualPayload): Observable<TicketPendienteTarifacionDTO> {
+    return this.http.post<TicketPendienteTarifacionDTO>(`${environment.apiUrl}/api/ticket-asistencias/${id}/tarifar-manual`, payload);
   }
 }

@@ -18,6 +18,8 @@ describe('PrefacturacionComponent', () => {
       emitirLote: vi.fn().mockReturnValue(of(null)),
       excluirTicket: vi.fn().mockReturnValue(of(undefined)),
       generarLineas: vi.fn().mockReturnValue(of(null)),
+      listarPendientesTarifacion: vi.fn().mockReturnValue(of([])),
+      tarifarManual: vi.fn().mockReturnValue(of({ id: 10, estadoTarifacion: 'TARIFA_MANUAL' })),
     };
 
     await TestBed.configureTestingModule({
@@ -68,5 +70,22 @@ describe('PrefacturacionComponent', () => {
 
     expect(apiMock['emitirLote']).toHaveBeenCalledWith(7);
     expect(apiMock['confirmarLote']).not.toHaveBeenCalled();
+  });
+
+  it('ejecutarTarifacionManual invoca el endpoint tarifarManual con los valores del modal (H-06b / H-18)', () => {
+    const component = fixture.componentInstance;
+    const ticket = { id: 101, numeroTicket: 'TK-101', tipoAsistencia: 'EMERGENCIA_DOMICILIARIA', estadoActual: 'COMPLETADO' };
+
+    component.abrirModalTarifarManual(ticket);
+    component.manualCargoBase.set(4500);
+    component.manualCostoEspera.set(1000);
+    component.manualMotivo.set('Tarifación autorizada por operador');
+    component.ejecutarTarifacionManual();
+
+    expect(apiMock['tarifarManual']).toHaveBeenCalledWith(101, {
+      cargoBase: 4500,
+      costoEspera: 1000,
+      motivo: 'Tarifación autorizada por operador',
+    });
   });
 });
