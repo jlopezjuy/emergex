@@ -28,7 +28,7 @@ export interface AdjuntarDocumentoRequestDTO {
 @Injectable({ providedIn: 'root' })
 export class DocumentosAdjuntosApiService {
   private http = inject(HttpClient);
-  private base = `${environment.apiUrl}/api/admin/documentos-adjuntos`;
+  private base = `${environment.apiUrl}/api/gestion/documentos-adjuntos`;
 
   adjuntarDocumento(req: AdjuntarDocumentoRequestDTO): Observable<DocumentoAdjuntoDTO> {
     return this.http.post<DocumentoAdjuntoDTO>(this.base, req);

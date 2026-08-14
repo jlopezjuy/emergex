@@ -7,7 +7,7 @@ import { BandejaTrabajoResumenDTO } from '../dto/bandejas.dto';
 @Injectable({ providedIn: 'root' })
 export class BandejasApi {
   private http = inject(HttpClient);
-  private base = `${environment.apiUrl}/api/admin/bandejas-trabajo`;
+  private base = `${environment.apiUrl}/api/gestion/bandejas-trabajo`;
 
   getResumen(): Observable<BandejaTrabajoResumenDTO> {
     return this.http.get<BandejaTrabajoResumenDTO>(`${this.base}/resumen`);

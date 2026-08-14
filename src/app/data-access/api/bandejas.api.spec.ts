@@ -22,7 +22,7 @@ describe('BandejasApi', () => {
     httpMock.verify();
   });
 
-  it('debería realizar GET a /api/admin/bandejas-trabajo/resumen', () => {
+  it('debería realizar GET a /api/gestion/bandejas-trabajo/resumen', () => {
     const mockResumen: BandejaTrabajoResumenDTO = {
       ticketsPendientesTarifacion: 5,
       facturasPendientesCobro: 12,
@@ -43,7 +43,7 @@ describe('BandejasApi', () => {
       expect(res).toEqual(mockResumen);
     });
 
-    const req = httpMock.expectOne(`${environment.apiUrl}/api/admin/bandejas-trabajo/resumen`);
+    const req = httpMock.expectOne(`${environment.apiUrl}/api/gestion/bandejas-trabajo/resumen`);
     expect(req.request.method).toBe('GET');
     req.flush(mockResumen);
   });
