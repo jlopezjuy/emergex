@@ -42,6 +42,7 @@ export interface PrestacionMedicaDTO {
   descripcion?: string;
   tipoAsistencia: string;
   activo: boolean;
+  alicuotaIva?: number;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -88,5 +89,17 @@ export class ZonesApiService {
   // ── Prestaciones ──
   getPrestaciones(): Observable<PrestacionMedicaDTO[]> {
     return this.http.get<PrestacionMedicaDTO[]>(this.prestacionsBase);
+  }
+
+  createPrestacion(dto: PrestacionMedicaDTO): Observable<PrestacionMedicaDTO> {
+    return this.http.post<PrestacionMedicaDTO>(this.prestacionsBase, dto);
+  }
+
+  updatePrestacion(id: number, dto: PrestacionMedicaDTO): Observable<PrestacionMedicaDTO> {
+    return this.http.put<PrestacionMedicaDTO>(`${this.prestacionsBase}/${id}`, dto);
+  }
+
+  deletePrestacion(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.prestacionsBase}/${id}`);
   }
 }
