@@ -79,7 +79,7 @@ export const routes: Routes = [
       },
       {
         path: 'clinico',
-        canActivate: [roleGuard('ROLE_MEDICO', 'ROLE_PROFESIONAL', 'ROLE_ADMIN', 'ROLE_ADMINISTRADOR')],
+        canActivate: [roleGuard('ROLE_PROFESIONAL', 'ROLE_MEDICO_CAMPO', 'ROLE_ADMIN', 'ROLE_ADMINISTRADOR')],
         loadComponent: () =>
           import('./features/clinico/clinico.component').then((m) => m.ClinicoComponent),
       },
@@ -311,7 +311,7 @@ export const routes: Routes = [
 
       {
         path: 'inventario',
-        canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_ADMINISTRADOR', 'ROLE_PROPIETARIO', 'ROLE_ENFERMERO')],
+        canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_ADMINISTRADOR', 'ROLE_PROPIETARIO', 'ROLE_PROFESIONAL')],
         loadComponent: () =>
           import('./features/inventario/inventario.component').then((m) => m.InventarioComponent),
       },

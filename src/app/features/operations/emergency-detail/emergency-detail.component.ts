@@ -226,12 +226,12 @@ export class EmergencyDetailComponent implements OnInit {
 
   readonly canMarkEnCamino = computed(() => {
     const t = this.ticket();
-    return !!t?.ambulanciaId && (t.estado === 'RECIBIDO' || t.estado === 'DESPACHADO');
+    return !!t?.ambulanciaId && t.estado === 'DESPACHADO';
   });
 
   readonly canMarkEnSitio = computed(() => {
     const t = this.ticket();
-    return !!t?.ambulanciaId && (t.estado === 'RECIBIDO' || t.estado === 'DESPACHADO' || t.estado === 'EN_CAMINO');
+    return !!t?.ambulanciaId && t.estado === 'EN_CAMINO';
   });
 
   readonly canStartTransfer = computed(() => {

@@ -279,4 +279,46 @@ describe('EmergencyApiService - V2 & Adapters', () => {
     expect(req.request.headers.get('X-Idempotency-Key')).toBe('handover-66816-1');
     req.flush({ id: 66816, estadoActual: 'COMPLETADO' });
   });
+
+  it('should fetch allowed transitions contract from backend (H-15 / S4-T2)', () => {
+    const mockTransitions: Record<string, string[]> = {
+      RECIBIDO: ['DESPACHADO', 'MEDICO_NO_DISPONIBLE', 'CANCELADO'],
+      DESPACHADO: ['EN_CAMINO', 'MEDICO_NO_DISPONIBLE', 'CANCELADO'],
+      EN_CAMINO: ['EN_CAMINO', 'EN_SITIO', 'MEDICO_NO_DISPONIBLE', 'CANCELADO'],
+      EN_SITIO: ['EN_SITIO', 'HOSPITALIZACION_PENDIENTE', 'COMPLETADO', 'CANCELADO'],
+    };
+
+    service.getTransicionesPermitidas().subscribe((transitions) => {
+      expect(transitions).toEqual(mockTransitions);
+      expect(transitions['RECIBIDO']).not.toContain('EN_CAMINO');
+      expect(transitions['DESPACHADO']).not.toContain('EN_SITIO');
+    });
+
+    const req = httpMock.expectOne((request) =>
+      request.url.endsWith('/api/v1/asistencias/transiciones-permitidas'),
+    );
+    expect(req.request.method).toBe('GET');
+    req.flush(mockTransitions);
+  });
+
+  it('should propagate 401/403 errors instead of silently swallowing them with of([]) (H-10 / S4-T3)', () => {
+    let errorCaught = false;
+
+    service.getConsentimientos().subscribe({
+      next: () => {
+        // No debe recibir un array vacío silencioso ante 401/403
+      },
+      error: (err) => {
+        errorCaught = true;
+        expect(err.status).toBe(401);
+      },
+    });
+
+    const req = httpMock.expectOne((request) =>
+      request.url.endsWith('/api/consentimiento-informados?size=1000'),
+    );
+    req.flush({ message: 'Unauthorized' }, { status: 401, statusText: 'Unauthorized' });
+
+    expect(errorCaught).toBe(true);
+  });
 });

@@ -98,4 +98,27 @@ describe('EmergencyDetailComponent', () => {
     expect(component.canClose()).toBe(true);
   });
 
+  it('no permite marcar en-camino directamente desde RECIBIDO (debe estar DESPACHADO)', () => {
+    const fixture = TestBed.createComponent(EmergencyDetailComponent);
+    const component = fixture.componentInstance;
+    component.detalle.set({ ticket: { id: 1, estado: 'RECIBIDO', ambulanciaId: 10 } });
+
+    expect(component.canMarkEnCamino()).toBe(false);
+
+    component.detalle.set({ ticket: { id: 1, estado: 'DESPACHADO', ambulanciaId: 10 } });
+    expect(component.canMarkEnCamino()).toBe(true);
+  });
+
+  it('no permite marcar en-sitio directamente desde RECIBIDO ni DESPACHADO (debe estar EN_CAMINO)', () => {
+    const fixture = TestBed.createComponent(EmergencyDetailComponent);
+    const component = fixture.componentInstance;
+    component.detalle.set({ ticket: { id: 1, estado: 'RECIBIDO', ambulanciaId: 10 } });
+    expect(component.canMarkEnSitio()).toBe(false);
+
+    component.detalle.set({ ticket: { id: 1, estado: 'DESPACHADO', ambulanciaId: 10 } });
+    expect(component.canMarkEnSitio()).toBe(false);
+
+    component.detalle.set({ ticket: { id: 1, estado: 'EN_CAMINO', ambulanciaId: 10 } });
+    expect(component.canMarkEnSitio()).toBe(true);
+  });
 });

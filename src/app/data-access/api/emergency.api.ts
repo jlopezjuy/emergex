@@ -301,6 +301,14 @@ export class EmergencyApiService {
     return this.http.get<unknown>(`${this.base}/${id}/sugerir-movil`);
   }
 
+  /**
+   * Obtiene la tabla declarativa de transiciones permitidas directamente del backend (H-15 / S4-T2).
+   * La tabla de transiciones del backend es la única fuente de verdad; los clientes la consultan en vez de duplicarla.
+   */
+  getTransicionesPermitidas(): Observable<Record<string, string[]>> {
+    return this.http.get<Record<string, string[]>>(`${environment.apiUrl}/api/v1/asistencias/transiciones-permitidas`);
+  }
+
   agregarNota(id: number, nota: string): Observable<TicketAsistenciaDTO> {
     return this.http.patch<unknown>(`${this.base}/${id}/agregar-nota`, { nota }).pipe(
       map((r) => this.mapTicket(r))
@@ -397,7 +405,7 @@ export class EmergencyApiService {
     return this.http.get<EntregaHospitalariaDTO>(
       `${environment.apiUrl}/api/v1/asistencias/${ticketId}/entrega-hospitalaria`
     ).pipe(
-      catchError(() => of(null))
+      catchError((err) => (err.status === 404 ? of(null) : throwError(() => err)))
     );
   }
 
@@ -409,8 +417,9 @@ export class EmergencyApiService {
   }
 
   getCoberturaSnapshot(ticketId: number): Observable<CoberturaAsistenciaSnapshotDTO | null> {
-    return this.http.get<CoberturaAsistenciaSnapshotDTO>(`${environment.apiUrl}/api/v2/tickets/${ticketId}/cobertura-snapshot`)
-      .pipe(catchError(() => of(null)));
+    return this.http.get<CoberturaAsistenciaSnapshotDTO>(`${environment.apiUrl}/api/v2/tickets/${ticketId}/cobertura-snapshot`).pipe(
+      catchError((err) => (err.status === 404 ? of(null) : throwError(() => err)))
+    );
   }
 
   registrarContactoDespacho(ticketId: number, req: ContactoDespachoRequestDTO): Observable<void> {
@@ -429,8 +438,7 @@ export class EmergencyApiService {
           return list.filter(c => (c as any).paciente?.id === pacienteId);
         }
         return list;
-      }),
-      catchError(() => of([]))
+      })
     );
   }
 

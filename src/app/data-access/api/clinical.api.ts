@@ -391,12 +391,11 @@ export class ClinicalApiService {
                   .get<AtencionFullBackend>(`${this.basAtenciones}/${init.atencionId}/detalle`)
                   .pipe(map((full) => ({ init, full })));
               }),
-              catchError(() => of({ init: null as AtencionInitBackend | null, full: null })),
             );
         }),
         map(({ init, full }) => {
           if (!init) {
-            // Fallback: episodio vacío con solo el pacienteId
+            // Contexto base sin atención clínica iniciada aún
             return {
               id: '',
               pacienteId: patientId,
@@ -421,29 +420,6 @@ export class ClinicalApiService {
           }
           return mapToEpisodioClinico(init, full);
         }),
-        catchError(() =>
-          of({
-            id: '',
-            pacienteId: patientId,
-            pacienteNombre: '',
-            pacienteDni: '',
-            pacienteEdad: 0,
-            pacienteSexo: '',
-            cobertura: '',
-            grupoSanguineo: '',
-            tallaPeso: '',
-            imc: 0,
-            imcEstado: '',
-            antecedentes: '',
-            notas: '',
-            avpu: 'A' as const,
-            glasgow: { o: 4, v: 5, m: 6 },
-            diagnosticos: [],
-            receta: [],
-            firmado: false,
-            vitals: { fc: '', ta: '', temp: '', spo2: '', glucemia: '', dolor: '' },
-          } satisfies EpisodioClinicoDTO),
-        ),
       );
   }
 
