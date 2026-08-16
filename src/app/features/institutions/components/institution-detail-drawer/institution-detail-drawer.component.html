@@ -171,6 +171,10 @@
               <div class="info-label">Vigencia hasta</div>
               <div class="info-value mono">{{ fmtDate(ctr.to) }}</div>
             </div>
+            <div class="info-item">
+              <div class="info-label">Plazo de pago</div>
+              <div class="info-value mono">{{ ctr.plazoPagoDias != null ? ctr.plazoPagoDias + ' días' : '30 días (default)' }}</div>
+            </div>
           </div>
           @if (ctr.conditions) {
             <div style="margin-top:12px;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,0.03);border:1px solid var(--border-glass)">

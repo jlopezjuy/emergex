@@ -194,6 +194,15 @@ interface CommercialPlanItem {
                 <span style="display:flex;align-items:center;padding:0 8px;background:rgba(255,255,255,0.04);border:1px solid var(--border-glass);border-left:none;border-radius:0 var(--r-btn) var(--r-btn) 0;font-size:11px;color:var(--text-muted);white-space:nowrap">min. máx.</span>
               </div>
             </div>
+            <div class="qc-field">
+              <label class="eyebrow">Plazo de pago contractual</label>
+              <div class="numeric-input">
+                <input class="qc-input" type="number" min="0" style="flex:1;border-radius:var(--r-btn) 0 0 var(--r-btn);border-right:none"
+                  placeholder="30"
+                  [ngModel]="ctr().plazoPagoDias ?? null" (ngModelChange)="patchContract({ plazoPagoDias: $event !== null && $event !== '' ? +$event : undefined })"/>
+                <span style="display:flex;align-items:center;padding:0 8px;background:rgba(255,255,255,0.04);border:1px solid var(--border-glass);border-left:none;border-radius:0 var(--r-btn) var(--r-btn) 0;font-size:11px;color:var(--text-muted);white-space:nowrap">días</span>
+              </div>
+            </div>
           </div>
 
           <!-- Condiciones particulares -->

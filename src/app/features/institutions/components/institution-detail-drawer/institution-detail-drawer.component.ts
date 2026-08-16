@@ -37,6 +37,7 @@ export interface DrawerInstitution {
     monthlyPrice: number;
     monthlyCap: number;
     kpiMinutes: number;
+    plazoPagoDias?: number;
     conditions: string;
   };
 }

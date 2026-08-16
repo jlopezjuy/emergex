@@ -12,6 +12,7 @@ interface ContratoCoberturaBackend {
   vigenciaDesde: string;
   vigenciaHasta?: string;
   estadoContrato: EstadoContratoConvenio;
+  plazoPagoDias?: number;
   condicionesParticulares?: string;
   obraSocial?: { id: number; nombre?: string };
 }
@@ -23,6 +24,7 @@ function toDTO(b: ContratoCoberturaBackend): ConvenioObraSocialDTO {
     vigenciaDesde: b.vigenciaDesde ? b.vigenciaDesde.split('T')[0] : '',
     vigenciaHasta: b.vigenciaHasta ? b.vigenciaHasta.split('T')[0] : undefined,
     estadoContrato: b.estadoContrato,
+    plazoPagoDias: b.plazoPagoDias ?? undefined,
     condicionesParticulares: b.condicionesParticulares,
     obraSocial: { id: b.obraSocial?.id ?? 0, nombre: b.obraSocial?.nombre },
   };
@@ -36,6 +38,7 @@ function toBackend(dto: ConvenioObraSocialDTO): Omit<ContratoCoberturaBackend, '
     vigenciaDesde: dto.vigenciaDesde + 'T00:00:00Z',
     vigenciaHasta: dto.vigenciaHasta ? dto.vigenciaHasta + 'T00:00:00Z' : undefined,
     estadoContrato: dto.estadoContrato,
+    plazoPagoDias: dto.plazoPagoDias ?? undefined,
     condicionesParticulares: dto.condicionesParticulares || undefined,
     obraSocial: { id: dto.obraSocial.id },
   };

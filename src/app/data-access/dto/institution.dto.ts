@@ -27,6 +27,7 @@ export interface ContractDTO {
   eventPrice?: number;
   monthlyCap: number;
   kpiMinutes: number;
+  plazoPagoDias?: number;
   conditions?: string;
 }
 

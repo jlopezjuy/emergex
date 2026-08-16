@@ -19,6 +19,7 @@ export interface ConvenioObraSocialDTO {
   vigenciaDesde: string;
   vigenciaHasta?: string;
   estadoContrato: EstadoContratoConvenio;
+  plazoPagoDias?: number;
   condicionesParticulares?: string;
   obraSocial: { id: number; nombre?: string };
 }

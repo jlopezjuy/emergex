@@ -36,6 +36,7 @@ export interface InstitutionContract {
   eventPrice?: number;
   monthlyCap: number;
   kpiMinutes: number;
+  plazoPagoDias?: number;
   conditions: string;
   polygonPoints?: { x: number; y: number }[];
 }
@@ -1738,6 +1739,7 @@ export class InstitutionsComponent implements OnInit {
           eventPrice:   c.eventPrice ?? d.eventPrice,
           monthlyCap:   c.monthlyCap   || d.monthlyCap,
           kpiMinutes:   c.kpiMinutes   || d.kpiMinutes,
+          plazoPagoDias: c.plazoPagoDias ?? d.plazoPagoDias,
           conditions:   c.conditions   ?? d.conditions,
         }));
 

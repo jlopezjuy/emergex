@@ -38,6 +38,7 @@ interface ContratoBackend {
   precioEventoAcordado?: number;
   topeAtencionesMensuales: number;
   kpiRespuestaMinutos: number;
+  plazoPagoDias?: number;
   condicionesParticulares?: string;
   institucion: { id: number };
   planComercial: { id: number };
@@ -74,6 +75,7 @@ function contratoToDTO(b: ContratoBackend): ContractDTO {
     eventPrice:   b.precioEventoAcordado ?? undefined,
     monthlyCap:   b.topeAtencionesMensuales ?? 0,
     kpiMinutes:   b.kpiRespuestaMinutos ?? 0,
+    plazoPagoDias: b.plazoPagoDias ?? undefined,
     conditions:   b.condicionesParticulares,
   };
 }
@@ -90,6 +92,7 @@ function contratoToBackend(dto: ContractDTO, institucionId: number, planNumericI
     precioEventoAcordado:    dto.eventPrice ?? undefined,
     topeAtencionesMensuales: dto.monthlyCap,
     kpiRespuestaMinutos:     dto.kpiMinutes,
+    plazoPagoDias:           dto.plazoPagoDias ?? undefined,
     condicionesParticulares: dto.conditions || undefined,
     institucion:             { id: institucionId },
     planComercial:           { id: planNumericId },
