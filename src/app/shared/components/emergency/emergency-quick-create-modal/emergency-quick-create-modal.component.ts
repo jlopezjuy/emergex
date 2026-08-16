@@ -1453,7 +1453,7 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
       if (val.tipoNoAfiliado === 'nn') {
         req.pacienteNombre = val.pacienteNombre || 'NN';
         req.pacienteApellido = val.pacienteApellido || 'NN';
-        req.pacienteDni = val.pacienteDni || 'NO INFORMADO';
+        // req.pacienteDni = val.pacienteDni || 'NO INFORMADO';
         req.pacienteTelefono = val.pacienteTelefono || val.telefonoContacto || 'NO INFORMADO';
       } else {
         if (val.pacienteNombre)   req.pacienteNombre   = val.pacienteNombre;
