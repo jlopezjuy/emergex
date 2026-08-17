@@ -4,11 +4,15 @@ import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { CentroAdministrativoComponent } from './centro-administrativo.component';
 import { BandejasApi } from '../../../data-access/api/bandejas.api';
-import { BandejaTrabajoResumenDTO } from '../../../data-access/dto/bandejas.dto';
+import {
+  BandejaTrabajoResumenDTO,
+  ResumenBandejaCoberturaDTO
+} from '../../../data-access/dto/bandejas.dto';
 
 describe('CentroAdministrativoComponent', () => {
   let bandejasApiMock: {
     getResumen: ReturnType<typeof vi.fn>;
+    getResumenCobertura: ReturnType<typeof vi.fn>;
   };
 
   const mockResumen: BandejaTrabajoResumenDTO = {
@@ -33,9 +37,51 @@ describe('CentroAdministrativoComponent', () => {
     ]
   };
 
+  const mockResumenCobertura: ResumenBandejaCoberturaDTO = {
+    totalAtenciones: 15,
+    totalImporteEstimado: 185000,
+    atencionesSinFinanciadorCount: 2,
+    atencionesPendientesIdentificarCount: 1,
+    atencionesCubiertasPorAbonoCount: 4,
+    desgloseFinanciadores: [
+      {
+        terceroEmpresaId: 10,
+        nombreFinanciador: 'OSDE',
+        cuit: '30-54674125-3',
+        cantidadAtenciones: 8,
+        importeEstimado: 120000
+      }
+    ],
+    atencionesSinFinanciador: [
+      {
+        registroPrestacionId: 101,
+        ticketId: 1001,
+        numeroTicket: 'TCK-SIN-01',
+        fecha: '2026-08-17T03:00:00Z',
+        prestacionNombre: 'Código Rojo',
+        modalidadCobertura: 'PARTICULAR',
+        importeUnitario: 25000
+      }
+    ],
+    atencionesPendientesIdentificar: [
+      {
+        registroPrestacionId: 102,
+        ticketId: 1002,
+        numeroTicket: 'TCK-NN-01',
+        fecha: '2026-08-17T04:00:00Z',
+        prestacionNombre: 'Emergencia Vía Pública',
+        estadoIdentificacion: 'NO_IDENTIFICADO',
+        sujetoNombre: 'NN'
+      }
+    ],
+    atencionesCubiertasPorAbono: [],
+    atencionesDocumentacionIncompleta: []
+  };
+
   beforeEach(() => {
     bandejasApiMock = {
-      getResumen: vi.fn().mockReturnValue(of(mockResumen))
+      getResumen: vi.fn().mockReturnValue(of(mockResumen)),
+      getResumenCobertura: vi.fn().mockReturnValue(of(mockResumenCobertura))
     };
   });
 
@@ -49,7 +95,7 @@ describe('CentroAdministrativoComponent', () => {
     }).compileComponents();
   };
 
-  it('debería cargar el resumen de bandejas de trabajo y mostrar KPIs', async () => {
+  it('debería cargar el resumen de bandejas de trabajo, cobertura y mostrar KPIs', async () => {
     await setup();
     const fixture = TestBed.createComponent(CentroAdministrativoComponent);
     fixture.detectChanges();
@@ -58,7 +104,10 @@ describe('CentroAdministrativoComponent', () => {
     expect(component).toBeTruthy();
     expect(component.loading()).toBe(false);
     expect(component.resumen()?.ticketsPendientesTarifacion).toBe(5);
-    expect(component.resumen()?.itemsFacturacion.length).toBe(1);
+    expect(component.resumenCobertura()?.totalAtenciones).toBe(15);
+    expect(component.resumenCobertura()?.desgloseFinanciadores.length).toBe(1);
+    expect(component.resumenCobertura()?.atencionesSinFinanciadorCount).toBe(2);
+    expect(component.resumenCobertura()?.atencionesPendientesIdentificarCount).toBe(1);
   });
 
   it('debería filtrar ítems por severidades reales (CRITICA, URGENTE, ATENCION, TODAS)', async () => {
@@ -67,7 +116,7 @@ describe('CentroAdministrativoComponent', () => {
     fixture.detectChanges();
 
     const component = fixture.componentInstance;
-    
+
     // TODAS
     component.severidadFiltro.set('TODAS');
     expect(component.filteredFacturacion().length).toBe(1);
@@ -104,6 +153,7 @@ describe('CentroAdministrativoComponent', () => {
 
   it('debería manejar errores de la API estableciendo el estado de error', async () => {
     bandejasApiMock.getResumen.mockReturnValue(throwError(() => new Error('HTTP 500')));
+    bandejasApiMock.getResumenCobertura.mockReturnValue(throwError(() => new Error('HTTP 500')));
     await setup();
 
     const fixture = TestBed.createComponent(CentroAdministrativoComponent);

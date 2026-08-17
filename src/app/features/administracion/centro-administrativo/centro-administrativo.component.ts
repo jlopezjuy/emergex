@@ -1,9 +1,13 @@
 import { Component, signal, computed, inject, OnInit, DestroyRef } from '@angular/core';
 import { Router } from '@angular/router';
-import { catchError, of } from 'rxjs';
+import { catchError, forkJoin, of } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { BandejasApi } from '../../../data-access/api/bandejas.api';
-import { BandejaTrabajoResumenDTO, ItemBandejaDTO } from '../../../data-access/dto/bandejas.dto';
+import {
+  BandejaTrabajoResumenDTO,
+  ItemBandejaDTO,
+  ResumenBandejaCoberturaDTO
+} from '../../../data-access/dto/bandejas.dto';
 import { KpiCardComponent } from '../../../shared/components/kpi-card/kpi-card.component';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge/status-badge.component';
 import { LoadingStateComponent } from '../../../shared/components/loading-state/loading-state.component';
@@ -37,7 +41,7 @@ export type SeveridadFiltro = 'TODAS' | 'CRITICA' | 'URGENTE' | 'ATENCION';
             Centro Administrativo y Bandejas de Excepción
           </h1>
           <p class="text-xs" style="color: var(--text-muted);">
-            Consola centralizada para gestión de desvíos en facturación, cobranzas, compras y contratos.
+            Consola centralizada para gestión de desvíos en facturación, cobranzas, compras, contratos y coberturas de las últimas 24h.
           </p>
         </div>
 
@@ -64,8 +68,8 @@ export type SeveridadFiltro = 'TODAS' | 'CRITICA' | 'URGENTE' | 'ATENCION';
       } @else if (error()) {
         <emx-error-state [message]="error()!" (retry)="cargarResumen()" />
       } @else {
-        <!-- Fila 1: 9 KPIs Consolidados -->
-        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-3">
+        <!-- Fila 1: KPIs Consolidados de Operaciones y Cobertura -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-10 gap-3">
           <emx-kpi-card label="Tarifación" [value]="resumen()?.ticketsPendientesTarifacion" accentColor="cyan" />
           <emx-kpi-card label="Fact. Pendiente" [value]="resumen()?.facturasPendientesCobro" accentColor="red" />
           <emx-kpi-card label="Débitos Recl." [value]="resumen()?.debitosPendientesReclamo" accentColor="amber" />
@@ -74,10 +78,107 @@ export type SeveridadFiltro = 'TODAS' | 'CRITICA' | 'URGENTE' | 'ATENCION';
           <emx-kpi-card label="OC Aprobación" [value]="resumen()?.ordenesCompraPendientesAprobacion" accentColor="blue" />
           <emx-kpi-card label="OP Aprobación" [value]="resumen()?.ordenesPagoPendientesAprobacion" accentColor="amber" />
           <emx-kpi-card label="Contratos x Vencer" [value]="resumen()?.contratosPorVencer" accentColor="amber" />
-          <emx-kpi-card label="Contratos Vencidos" [value]="resumen()?.contratosVencidos" accentColor="red" />
+          <emx-kpi-card label="Sin Financiador" [value]="resumenCobertura()?.atencionesSinFinanciadorCount" accentColor="red" />
+          <emx-kpi-card label="NN / x Identificar" [value]="resumenCobertura()?.atencionesPendientesIdentificarCount" accentColor="amber" />
         </div>
 
-        <!-- Fila 2: Las 4 Bandejas de Trabajo por Excepción -->
+        <!-- Fila 2: Bandeja 5 Destacada — Quién Paga las Últimas 24 Horas -->
+        <div class="glass rounded-panel p-4 flex flex-col gap-4 border" style="border-color: var(--border-glass);">
+          <div class="flex flex-wrap items-center justify-between border-b pb-3 gap-2" style="border-color: var(--border-glass);">
+            <div>
+              <h2 class="text-sm font-bold uppercase tracking-wider flex items-center gap-2" style="color: var(--text-primary);">
+                <span>🏥</span> Bandeja de Cobertura y Financiadores (Quién paga — Últimas 24h)
+              </h2>
+              <p class="text-xs" style="color: var(--text-muted);">
+                Total: {{ resumenCobertura()?.totalAtenciones || 0 }} atenciones · Facturable estimado: $ {{ resumenCobertura()?.totalImporteEstimado || 0 }}
+              </p>
+            </div>
+            <div class="flex items-center gap-3">
+              <span class="text-xs font-mono font-semibold px-2 py-0.5 rounded" style="background: var(--bg-elevated); color: var(--text-secondary);">
+                {{ resumenCobertura()?.desgloseFinanciadores?.length || 0 }} financiadores activos
+              </span>
+            </div>
+          </div>
+
+          <!-- Sub-grilla: Desglose por Financiador + Alertas de Cobertura -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <!-- Columna 1: Financiadores Asignados -->
+            <div class="flex flex-col gap-2 p-3 rounded-lg border" style="background: var(--bg-elevated); border-color: var(--border-glass);">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-blue-400">Financiadores Imputados</h4>
+              @if ((resumenCobertura()?.desgloseFinanciadores?.length || 0) === 0) {
+                <p class="text-xs text-muted py-2">Sin prestaciones facturables a financiadores en las últimas 24h.</p>
+              } @else {
+                <div class="flex flex-col gap-2 overflow-y-auto max-h-48">
+                  @for (fin of resumenCobertura()?.desgloseFinanciadores; track fin.terceroEmpresaId) {
+                    <div class="flex items-center justify-between text-xs p-2 rounded bg-black/20 border border-white/5">
+                      <div>
+                        <span class="font-semibold block" style="color: var(--text-primary);">{{ fin.nombreFinanciador }}</span>
+                        <span class="text-[11px]" style="color: var(--text-muted);">CUIT: {{ fin.cuit || 'S/D' }}</span>
+                      </div>
+                      <div class="text-right">
+                        <span class="font-bold text-emerald-400 block">$ {{ fin.importeEstimado }}</span>
+                        <span class="text-[11px]" style="color: var(--text-secondary);">{{ fin.cantidadAtenciones }} aten.</span>
+                      </div>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+
+            <!-- Columna 2: Sin Financiador / Particular -->
+            <div class="flex flex-col gap-2 p-3 rounded-lg border" style="background: var(--bg-elevated); border-color: var(--border-glass);">
+              <div class="flex items-center justify-between">
+                <h4 class="text-xs font-bold uppercase tracking-wider text-amber-400">Sin Financiador Asignado</h4>
+                <span class="text-xs font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300">
+                  {{ resumenCobertura()?.atencionesSinFinanciadorCount || 0 }}
+                </span>
+              </div>
+              @if ((resumenCobertura()?.atencionesSinFinanciador?.length || 0) === 0) {
+                <p class="text-xs text-muted py-2">Todas las atenciones facturables tienen financiador resuelto.</p>
+              } @else {
+                <div class="flex flex-col gap-2 overflow-y-auto max-h-48">
+                  @for (item of resumenCobertura()?.atencionesSinFinanciador; track item.registroPrestacionId) {
+                    <div class="flex flex-col gap-1 text-xs p-2 rounded bg-black/20 border border-amber-500/20">
+                      <div class="flex items-center justify-between">
+                        <span class="font-semibold" style="color: var(--text-primary);">{{ item.numeroTicket || 'Ticket #' + item.ticketId }}</span>
+                        <span class="font-mono text-amber-300 font-bold">$ {{ item.importeUnitario || 0 }}</span>
+                      </div>
+                      <span class="text-[11px]" style="color: var(--text-muted);">{{ item.sujetoNombre || 'Sujeto no especificado' }} · {{ item.modalidadCobertura }}</span>
+                      <span class="text-[10px] text-amber-400/80">{{ item.motivoNoFacturable || 'Requiere imputación o cobro particular' }}</span>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+
+            <!-- Columna 3: Pendientes de Identificar / NN -->
+            <div class="flex flex-col gap-2 p-3 rounded-lg border" style="background: var(--bg-elevated); border-color: var(--border-glass);">
+              <div class="flex items-center justify-between">
+                <h4 class="text-xs font-bold uppercase tracking-wider text-rose-400">Pendientes de Identificar</h4>
+                <span class="text-xs font-mono font-bold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300">
+                  {{ resumenCobertura()?.atencionesPendientesIdentificarCount || 0 }}
+                </span>
+              </div>
+              @if ((resumenCobertura()?.atencionesPendientesIdentificar?.length || 0) === 0) {
+                <p class="text-xs text-muted py-2">Todos los asistidos se encuentran identificados y consolidados.</p>
+              } @else {
+                <div class="flex flex-col gap-2 overflow-y-auto max-h-48">
+                  @for (item of resumenCobertura()?.atencionesPendientesIdentificar; track item.registroPrestacionId) {
+                    <div class="flex flex-col gap-1 text-xs p-2 rounded bg-black/20 border border-rose-500/20">
+                      <div class="flex items-center justify-between">
+                        <span class="font-semibold" style="color: var(--text-primary);">{{ item.numeroTicket || 'Ticket #' + item.ticketId }}</span>
+                        <emx-status-badge variant="critical">{{ item.estadoIdentificacion || 'NO_IDENTIFICADO' }}</emx-status-badge>
+                      </div>
+                      <span class="text-[11px]" style="color: var(--text-muted);">{{ item.sujetoNombre || 'NN' }} · {{ item.prestacionNombre }}</span>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+
+        <!-- Fila 3: Las 4 Bandejas Tradicionales de Trabajo por Excepción -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
           <!-- Bandeja 1: Facturación por Excepción -->
           <div class="glass rounded-panel p-4 flex flex-col gap-3 border" style="border-color: var(--border-glass);">
@@ -264,7 +365,7 @@ export type SeveridadFiltro = 'TODAS' | 'CRITICA' | 'URGENTE' | 'ATENCION';
           </div>
         </div>
 
-        <!-- Fila 3: Dashboards de Aging CxC y CxP -->
+        <!-- Fila 4: Dashboards de Aging CxC y CxP -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-5 mt-2">
           <emx-cxc-aging-dashboard />
           <emx-cxp-aging-dashboard />
@@ -281,6 +382,7 @@ export class CentroAdministrativoComponent implements OnInit {
   readonly loading = signal(true);
   readonly error = signal<string | null>(null);
   readonly resumen = signal<BandejaTrabajoResumenDTO | null>(null);
+  readonly resumenCobertura = signal<ResumenBandejaCoberturaDTO | null>(null);
 
   readonly severidadOptions: SeveridadFiltro[] = ['TODAS', 'CRITICA', 'URGENTE', 'ATENCION'];
   readonly severidadFiltro = signal<SeveridadFiltro>('TODAS');
@@ -304,19 +406,25 @@ export class CentroAdministrativoComponent implements OnInit {
     this.loading.set(true);
     this.error.set(null);
 
-    this.api
-      .getResumen()
-      .pipe(
-        catchError(() => {
+    forkJoin({
+      trabajo: this.api.getResumen().pipe(catchError(() => of(null))),
+      cobertura: this.api.getResumenCobertura().pipe(catchError(() => of(null)))
+    })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: ({ trabajo, cobertura }) => {
+          if (!trabajo && !cobertura) {
+            this.error.set('No se pudo cargar el resumen del centro administrativo.');
+          } else {
+            if (trabajo) this.resumen.set(trabajo);
+            if (cobertura) this.resumenCobertura.set(cobertura);
+          }
+          this.loading.set(false);
+        },
+        error: () => {
           this.error.set('No se pudo cargar el resumen del centro administrativo.');
           this.loading.set(false);
-          return of(null);
-        }),
-        takeUntilDestroyed(this.destroyRef)
-      )
-      .subscribe((res) => {
-        if (res) this.resumen.set(res);
-        this.loading.set(false);
+        }
       });
   }
 

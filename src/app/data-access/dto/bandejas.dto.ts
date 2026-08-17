@@ -22,3 +22,41 @@ export interface BandejaTrabajoResumenDTO {
   itemsCompras: ItemBandejaDTO[];
   itemsContratos: ItemBandejaDTO[];
 }
+
+export interface ItemResumenFinanciadorDTO {
+  terceroEmpresaId: number;
+  nombreFinanciador: string;
+  razonSocial?: string;
+  cuit?: string;
+  cantidadAtenciones: number;
+  importeEstimado: number;
+}
+
+export interface ItemAtencionBandejaCoberturaDTO {
+  registroPrestacionId: number;
+  ticketId?: number;
+  numeroTicket?: string;
+  fecha: string;
+  prestacionNombre?: string;
+  sujetoNombre?: string;
+  modalidadCobertura?: string;
+  estadoIdentificacion?: string;
+  esFacturable?: boolean;
+  motivoNoFacturable?: string;
+  nombreFinanciador?: string;
+  importeUnitario?: number;
+}
+
+export interface ResumenBandejaCoberturaDTO {
+  totalAtenciones: number;
+  totalImporteEstimado: number;
+  atencionesSinFinanciadorCount: number;
+  atencionesPendientesIdentificarCount: number;
+  atencionesCubiertasPorAbonoCount: number;
+  desgloseFinanciadores: ItemResumenFinanciadorDTO[];
+  atencionesSinFinanciador: ItemAtencionBandejaCoberturaDTO[];
+  atencionesPendientesIdentificar: ItemAtencionBandejaCoberturaDTO[];
+  atencionesCubiertasPorAbono: ItemAtencionBandejaCoberturaDTO[];
+  atencionesDocumentacionIncompleta: ItemAtencionBandejaCoberturaDTO[];
+}
+
