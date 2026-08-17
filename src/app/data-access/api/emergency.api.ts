@@ -459,4 +459,12 @@ export class EmergencyApiService {
       map((items) => (items ?? []).map((r) => this.mapTicket(r))),
     );
   }
+
+  sugerirAreaProtegida(latitud: number, longitud: number): Observable<import('../dto/ticket.dto').SugerenciaAreaProtegidaDTO | null> {
+    return this.http.get<import('../dto/ticket.dto').SugerenciaAreaProtegidaDTO>(`${environment.apiUrl}/api/operador-emergencias/sugerir-area-protegida`, {
+      params: { latitud: latitud.toString(), longitud: longitud.toString() }
+    }).pipe(
+      catchError(() => of(null))
+    );
+  }
 }

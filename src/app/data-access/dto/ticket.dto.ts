@@ -572,3 +572,17 @@ export interface ContextoEmergenciaPaciente {
   antecedentes: AntecedenteEmergenciaDTO[];
   antecedentesAtenciones?: AntecedenteTicketDTO[];
 }
+
+export interface SugerenciaAreaProtegidaDTO {
+  areaProtegidaId: number;
+  nombre: string;
+  razonSocial?: string;
+  distanciaMetros: number;
+  dentroDeHorario: boolean;
+  advertencia?: string;
+  horarioCoberturaDesde?: string;
+  horarioCoberturaHasta?: string;
+  institucionId?: number;
+  contratoCoberturaId?: number;
+}
+

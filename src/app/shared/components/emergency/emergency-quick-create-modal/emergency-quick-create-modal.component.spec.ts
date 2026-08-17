@@ -2,7 +2,8 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { of } from 'rxjs';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { EmergencyQuickCreateModalComponent } from './emergency-quick-create-modal.component';
 import { AddressCandidate } from '../../../../data-access/dto/address-search.dto';
 
@@ -165,6 +166,78 @@ describe('EmergencyQuickCreateModalComponent', () => {
       component.form.controls['tipoAsistencia'].setValue('RECONOCIMIENTO_MEDICO');
 
       expect(component.form.controls['direccion'].hasError('required')).toBe(true);
+    });
+  });
+
+  describe('contrato de atención con paciente registrado (A4-T2)', () => {
+    it('con paciente registrado y contrato elegido, el payload de alta rápida incluye contratoCoberturaId y plan', () => {
+      const emergencyApi = (component as unknown as { emergencyApi: { altaRapida: (req: unknown) => unknown } })['emergencyApi'];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const altaSpy = vi.spyOn(emergencyApi, 'altaRapida').mockReturnValue({ pipe: () => ({ subscribe: () => {} }) } as any);
+
+      component.selectPaciente({
+        id: 10,
+        nombre: 'Carlos',
+        apellido: 'Lopez',
+        dni: '30111222',
+        estadoComercial: 'ACTIVO',
+        coberturaEstado: 'ACTIVA',
+        puedeRecibirEmergencia: true,
+      });
+
+      component.form.patchValue({
+        tipoAsistencia: 'EMERGENCIA_DOMICILIARIA',
+        nivelUrgencia: 'ROJO',
+        descripcionSintomas: 'Dolor precordial',
+        direccion: 'Av. Santa Fe 1234',
+        tipoContrato: 'CONVENIO_OBRA_SOCIAL',
+        contratoCoberturaId: 100,
+        planObraSocialId: 300,
+        numeroCredencial: '1234567890',
+      });
+
+      component.submit();
+
+      expect(altaSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          pacienteId: 10,
+          contratoCoberturaId: 100,
+          planObraSocialId: 300,
+          numeroCredencial: '1234567890',
+        })
+      );
+    });
+  });
+
+  describe('sugerencia de área protegida por proximidad (A4-T5)', () => {
+    it('al seleccionar dirección con coordenadas, consulta la sugerencia de área protegida y permite aplicarla', () => {
+      const emergencyApi = (component as unknown as { emergencyApi: { sugerirAreaProtegida: (lat: number, lng: number) => unknown } })['emergencyApi'];
+      const sugSpy = vi.spyOn(emergencyApi, 'sugerirAreaProtegida').mockReturnValue(of({
+        areaProtegidaId: 50,
+        nombre: 'Club Social',
+        distanciaMetros: 45,
+        dentroDeHorario: true,
+        contratoCoberturaId: 88,
+      }));
+
+      component.selectAddress({
+        id: 'addr-1',
+        displayAddress: 'Av. Belgrano 500',
+        latitude: -24.1855,
+        longitude: -65.2990,
+        precision: 'EXACTA',
+        provider: 'carto',
+      });
+
+      expect(sugSpy).toHaveBeenCalledWith(-24.1855, -65.2990);
+      expect(component.sugerenciaAreaProtegida()).toEqual(expect.objectContaining({
+        areaProtegidaId: 50,
+        nombre: 'Club Social',
+      }));
+
+      component.aplicarSugerenciaAreaProtegida();
+      expect(component.form.get('tipoContrato')?.value).toBe('AREA_PROTEGIDA');
+      expect(component.form.get('contratoCoberturaId')?.value).toBe(88);
     });
   });
 });
