@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 
 export interface PrestacionAuditDTO {
@@ -38,13 +39,26 @@ export interface PrestacionAuditDTO {
   };
 }
 
+/**
+ * Shape de una respuesta paginada de Spring Data (Page<T>). El backend de
+ * `pendientes()` devuelve una Page, no un array plano; este servicio desenvolvel el
+ * contenido para que los consumidores reciban `PrestacionAuditDTO[]`.
+ */
+interface SpringPage<T> {
+  content: T[];
+  totalElements?: number;
+  totalPages?: number;
+  number?: number;
+  size?: number;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AuditoriaMedicaApiService {
   private http = inject(HttpClient);
   private base = `${environment.apiUrl}/api/v2/auditoria-medica`;
 
   pendientes(): Observable<PrestacionAuditDTO[]> {
-    return this.http.get<PrestacionAuditDTO[]>(`${this.base}/pendientes`);
+    return this.http.get<SpringPage<PrestacionAuditDTO>>(`${this.base}/pendientes`).pipe(map(p => p.content));
   }
 
   aprobar(registroPrestacionId: number): Observable<PrestacionAuditDTO> {

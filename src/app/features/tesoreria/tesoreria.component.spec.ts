@@ -6,6 +6,7 @@ import { TesoreriaApi } from '../../data-access/api/tesoreria.api';
 import { UserFeedbackService } from '../../core/notifications/user-feedback.service';
 
 interface ApiMock {
+  obtenerCajas: ReturnType<typeof vi.fn>;
   abrirCaja: ReturnType<typeof vi.fn>;
   registrarMovimientoCaja: ReturnType<typeof vi.fn>;
   realizarArqueoCaja: ReturnType<typeof vi.fn>;
@@ -23,6 +24,7 @@ describe('TesoreriaComponent (F0-01)', () => {
   beforeEach(async () => {
     TestBed.resetTestingModule();
     apiMock = {
+      obtenerCajas: vi.fn().mockReturnValue(of([])),
       abrirCaja: vi.fn().mockReturnValue(of({ id: 1, nombre: 'Caja Central', montoInicial: 1000 })),
       registrarMovimientoCaja: vi.fn().mockReturnValue(of({ id: 2, tipo: 'INGRESO', monto: 500, concepto: 'Test' })),
       realizarArqueoCaja: vi.fn().mockReturnValue(of({ id: 3, montoFisicoContado: 1500 })),
@@ -41,7 +43,7 @@ describe('TesoreriaComponent (F0-01)', () => {
     }).compileComponents();
   });
 
-  it('debería mostrar mensaje de estado honesto con empty-state', () => {
+  it('debería mostrar empty-state cuando no hay cajas abiertas', () => {
     const fixture = TestBed.createComponent(TesoreriaComponent);
     fixture.detectChanges();
 

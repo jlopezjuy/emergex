@@ -40,7 +40,8 @@ describe('AuditoriaMedicaApiService', () => {
 
     const req = httpMock.expectOne(`${baseUrl}/pendientes`);
     expect(req.request.method).toBe('GET');
-    req.flush([prestacion]);
+    // El backend devuelve una Spring Page; el servicio desenvuelve `.content`.
+    req.flush({ content: [prestacion], totalElements: 1, totalPages: 1, number: 0, size: 20 });
   });
 
   it('should aprobar a prestación via POST', () => {

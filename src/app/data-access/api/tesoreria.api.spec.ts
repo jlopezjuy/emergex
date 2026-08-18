@@ -23,6 +23,19 @@ describe('TesoreriaApi (TDD Integration Spec)', () => {
     httpMock.verify();
   });
 
+  it('debería enviar GET a /api/v2/tesoreria/cajas para obtener las cajas del tenant', () => {
+    service.obtenerCajas().subscribe((res) => {
+      expect(res.length).toBe(2);
+    });
+
+    const req = httpMock.expectOne((r) => r.url === `${environment.apiUrl}/api/v2/tesoreria/cajas`);
+    expect(req.request.method).toBe('GET');
+    req.flush([
+      { id: 70251, nombre: 'Caja Central', montoInicial: 5000 },
+      { id: 70252, nombre: 'Caja Secundaria', montoInicial: 0 },
+    ]);
+  });
+
   it('debería enviar POST a /api/v2/tesoreria/cajas con HttpParams para abrir caja', () => {
     service.abrirCaja('Caja Central', 5000).subscribe((res) => {
       expect(res).toBeDefined();

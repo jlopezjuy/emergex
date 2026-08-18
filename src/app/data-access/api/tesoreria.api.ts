@@ -28,6 +28,10 @@ export class TesoreriaApi {
   private readonly http = inject(HttpClient);
   private readonly apiUrl = `${environment.apiUrl}/api/v2/tesoreria`;
 
+  obtenerCajas(): Observable<Caja[]> {
+    return this.http.get<Caja[]>(`${this.apiUrl}/cajas`);
+  }
+
   abrirCaja(nombre: string, montoInicial: number): Observable<Caja> {
     const params = new HttpParams()
       .set('nombre', nombre)

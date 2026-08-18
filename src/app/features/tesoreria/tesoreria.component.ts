@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TesoreriaApi, Caja, MovimientoCaja, ArqueoCaja } from '../../data-access/api/tesoreria.api';
@@ -44,9 +44,12 @@ import { UserFeedbackService } from '../../core/notifications/user-feedback.serv
           <div class="space-y-3">
             <div class="grid grid-cols-2 gap-2">
               <div>
-                <label class="block text-xs font-semibold uppercase mb-1" style="color: var(--text-muted)">ID Caja</label>
-                <input type="number" [ngModel]="movCajaId()" (ngModelChange)="movCajaId.set($event)" placeholder="1"
-                       class="w-full px-3 py-2 border rounded-lg text-sm bg-transparent" style="border-color: var(--border-glass); color: var(--text-primary)" />
+                <label class="block text-xs font-semibold uppercase mb-1" style="color: var(--text-muted)">Caja</label>
+                <select [ngModel]="cajaIdMovimiento()" (ngModelChange)="cajaIdMovimiento.set($event)"
+                        class="w-full px-3 py-2 border rounded-lg text-sm bg-transparent" style="border-color: var(--border-glass); color: var(--text-primary)">
+                  <option [ngValue]="null" disabled>{{ loadingCajas() ? 'Cargando...' : 'Seleccioná una caja' }}</option>
+                  <option *ngFor="let c of cajas()" [ngValue]="c.id">#{{ c.id }} · {{ c.nombre }}</option>
+                </select>
               </div>
               <div>
                 <label class="block text-xs font-semibold uppercase mb-1" style="color: var(--text-muted)">Tipo</label>
@@ -78,9 +81,12 @@ import { UserFeedbackService } from '../../core/notifications/user-feedback.serv
           <h2 class="text-lg font-semibold mb-4" style="color: var(--text-primary)">Realizar Arqueo</h2>
           <div class="space-y-4">
             <div>
-              <label class="block text-xs font-semibold uppercase mb-1" style="color: var(--text-muted)">ID Caja</label>
-              <input type="number" [ngModel]="arqCajaId()" (ngModelChange)="arqCajaId.set($event)" placeholder="1"
-                     class="w-full px-3 py-2 border rounded-lg text-sm bg-transparent" style="border-color: var(--border-glass); color: var(--text-primary)" />
+              <label class="block text-xs font-semibold uppercase mb-1" style="color: var(--text-muted)">Caja</label>
+              <select [ngModel]="cajaIdArqueo()" (ngModelChange)="cajaIdArqueo.set($event)"
+                      class="w-full px-3 py-2 border rounded-lg text-sm bg-transparent" style="border-color: var(--border-glass); color: var(--text-primary)">
+                <option [ngValue]="null" disabled>{{ loadingCajas() ? 'Cargando...' : 'Seleccioná una caja' }}</option>
+                <option *ngFor="let c of cajas()" [ngValue]="c.id">#{{ c.id }} · {{ c.nombre }}</option>
+              </select>
             </div>
             <div>
               <label class="block text-xs font-semibold uppercase mb-1" style="color: var(--text-muted)">Monto Físico Contado ($)</label>
@@ -94,12 +100,22 @@ import { UserFeedbackService } from '../../core/notifications/user-feedback.serv
         </emx-glass-card>
       </div>
 
-      <!-- Honest state banner -->
+      <!-- Estado de cajas (lectura real vía GET /cajas) -->
       <emx-glass-card>
         <div class="mb-4">
-          <h2 class="text-lg font-semibold" style="color: var(--text-primary)">Estado de Caja y Movimientos</h2>
+          <h2 class="text-lg font-semibold" style="color: var(--text-primary)">Estado de Caja</h2>
         </div>
-        <emx-empty-state message="La lectura de estado de caja e historial no está expuesta en el backend (TesoreriaResource carece de GET /cajas). Podés operar aperturas, movimientos y arqueos desde las fichas superiores."></emx-empty-state>
+        <ng-container *ngIf="cajas().length > 0; else sinCajas">
+          <ul class="space-y-2">
+            <li *ngFor="let c of cajas()" class="flex items-center justify-between text-sm px-3 py-2 rounded-lg border" style="border-color: var(--border-glass); color: var(--text-primary)">
+              <span>#{{ c.id }} · {{ c.nombre }}</span>
+              <span class="font-mono">Monto inicial $&nbsp;{{ c.montoInicial }}</span>
+            </li>
+          </ul>
+        </ng-container>
+        <ng-template #sinCajas>
+          <emx-empty-state message="No hay cajas abiertas. Abrí una desde la ficha superior para que aparezca acá."></emx-empty-state>
+        </ng-template>
       </emx-glass-card>
     </div>
   `,
@@ -109,7 +125,7 @@ import { UserFeedbackService } from '../../core/notifications/user-feedback.serv
     .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
   `]
 })
-export class TesoreriaComponent {
+export class TesoreriaComponent implements OnInit {
   private readonly api = inject(TesoreriaApi);
   private readonly feedback = inject(UserFeedbackService);
 
@@ -118,15 +134,39 @@ export class TesoreriaComponent {
   montoInicial = signal<number>(0);
   loadingAbrir = signal<boolean>(false);
 
-  movCajaId = signal<number>(1);
+  cajas = signal<Caja[]>([]);
+  loadingCajas = signal<boolean>(false);
+  cajaIdMovimiento = signal<number | null>(null);
   movTipo = signal<'INGRESO' | 'EGRESO'>('INGRESO');
   movMonto = signal<number>(0);
   movConcepto = signal<string>('');
   loadingMovimiento = signal<boolean>(false);
 
-  arqCajaId = signal<number>(1);
+  cajaIdArqueo = signal<number | null>(null);
   arqMontoFisico = signal<number>(0);
   loadingArqueo = signal<boolean>(false);
+
+  ngOnInit(): void {
+    this.cargarCajas();
+  }
+
+  cargarCajas(): void {
+    this.loadingCajas.set(true);
+    this.api.obtenerCajas().subscribe({
+      next: (list) => {
+        this.cajas.set(list);
+        this.loadingCajas.set(false);
+        if (list.length > 0) {
+          if (this.cajaIdMovimiento() == null) this.cajaIdMovimiento.set(list[0].id);
+          if (this.cajaIdArqueo() == null) this.cajaIdArqueo.set(list[0].id);
+        }
+      },
+      error: (err) => {
+        this.loadingCajas.set(false);
+        this.feedback.fromHttpError(err);
+      },
+    });
+  }
 
   ejecutarAbrirCaja(): void {
     if (!this.cajaNombre().trim()) {
@@ -137,6 +177,9 @@ export class TesoreriaComponent {
     this.api.abrirCaja(this.cajaNombre().trim(), this.montoInicial()).subscribe({
       next: (caja: Caja) => {
         this.loadingAbrir.set(false);
+        this.cajas.update((list) => [...list, caja]);
+        this.cajaIdMovimiento.set(caja.id);
+        this.cajaIdArqueo.set(caja.id);
         this.feedback.push({
           type: 'success',
           title: 'Caja abierta',
@@ -151,12 +194,16 @@ export class TesoreriaComponent {
   }
 
   ejecutarRegistrarMovimiento(): void {
+    if (this.cajaIdMovimiento() == null) {
+      this.feedback.push({ type: 'warning', title: 'Validación', message: 'Seleccioná una caja.' });
+      return;
+    }
     if (!this.movConcepto().trim() || this.movMonto() <= 0) {
       this.feedback.push({ type: 'warning', title: 'Validación', message: 'Ingresá un concepto válido y un monto mayor a 0.' });
       return;
     }
     this.loadingMovimiento.set(true);
-    this.api.registrarMovimientoCaja(this.movCajaId(), this.movTipo(), this.movMonto(), this.movConcepto().trim()).subscribe({
+    this.api.registrarMovimientoCaja(this.cajaIdMovimiento()!, this.movTipo(), this.movMonto(), this.movConcepto().trim()).subscribe({
       next: (mov: MovimientoCaja) => {
         this.loadingMovimiento.set(false);
         this.feedback.push({
@@ -173,12 +220,16 @@ export class TesoreriaComponent {
   }
 
   ejecutarArqueo(): void {
+    if (this.cajaIdArqueo() == null) {
+      this.feedback.push({ type: 'warning', title: 'Validación', message: 'Seleccioná una caja.' });
+      return;
+    }
     if (this.arqMontoFisico() < 0) {
       this.feedback.push({ type: 'warning', title: 'Validación', message: 'El monto físico contado debe ser igual o mayor a 0.' });
       return;
     }
     this.loadingArqueo.set(true);
-    this.api.realizarArqueoCaja(this.arqCajaId(), this.arqMontoFisico()).subscribe({
+    this.api.realizarArqueoCaja(this.cajaIdArqueo()!, this.arqMontoFisico()).subscribe({
       next: (arq: ArqueoCaja) => {
         this.loadingArqueo.set(false);
         this.feedback.push({
