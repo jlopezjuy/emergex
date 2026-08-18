@@ -97,8 +97,11 @@ type WizardStep = 'datos' | 'plan' | 'grupo' | 'confirmacion';
                 </div>
                 <div class="row2">
                   <div class="ff">
-                    <label>Fecha de nacimiento</label>
+                    <label>Fecha de nacimiento *</label>
                     <input type="date" formControlName="fechaNacimiento" [max]="today" />
+                    @if (datosForm.get('fechaNacimiento')?.invalid && datosForm.get('fechaNacimiento')?.touched) {
+                      <span class="ferr">La fecha de nacimiento es obligatoria</span>
+                    }
                   </div>
                   <div class="ff">
                     <label>Sexo</label>
@@ -232,8 +235,11 @@ type WizardStep = 'datos' | 'plan' | 'grupo' | 'confirmacion';
                         </select>
                       </div>
                       <div class="ff">
-                        <label>Fecha de nacimiento</label>
+                        <label>Fecha de nacimiento *</label>
                         <input type="date" formControlName="fechaNacimiento" [max]="today" />
+                        @if (dep.get('fechaNacimiento')?.invalid && dep.get('fechaNacimiento')?.touched) {
+                          <span class="ferr">La fecha de nacimiento es obligatoria</span>
+                        }
                       </div>
                     </div>
                   </div>
@@ -469,7 +475,7 @@ export class PatientWizardComponent implements OnInit {
       tipoDocumento:   ['DNI'],
       nombre:          ['', Validators.required],
       apellido:        ['', Validators.required],
-      fechaNacimiento: [''],
+      fechaNacimiento: ['', Validators.required],
       sexo:            ['MASCULINO'],
       telefono:        [''],
       email:           ['', Validators.email],
@@ -520,7 +526,7 @@ export class PatientWizardComponent implements OnInit {
         tipoDocumento:   ['DNI'],
         rolFamiliar:     ['DEPENDIENTE'],
         sexo:            ['MASCULINO'],
-        fechaNacimiento: [''],
+        fechaNacimiento: ['', Validators.required],
       })
     );
   }
