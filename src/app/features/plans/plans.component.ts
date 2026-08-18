@@ -129,6 +129,13 @@ function emptyForm(): PlanForm {
             Nuevo plan
           </button>
         </div>
+
+        @if (toggleError()) {
+          <div style="grid-column:1/-1;background:rgba(239,68,68,.1);color:var(--accent-red,#ef4444);border:1px solid rgba(239,68,68,.3);border-radius:10px;padding:8px 12px;font-size:12px">
+            {{ toggleError() }}
+            <button type="button" class="btn btn--ghost btn--sm" (click)="toggleError.set(null)" style="float:right">✕</button>
+          </div>
+        }
       </div>
 
       <!-- ── Big tabs ── -->
@@ -185,7 +192,7 @@ function emptyForm(): PlanForm {
                   <span style="width:6px;height:6px;border-radius:50%;background:currentColor;box-shadow:0 0 6px currentColor;display:inline-block"></span>
                   {{ tierLabel(plan.tier) }}
                 </span>
-                <button class="toggle-sw" [class.is-on]="plan.active" (click)="toggleActive(plan.id)" title="{{ plan.active ? 'Pausar plan' : 'Activar plan' }}">
+                <button class="toggle-sw" [class.is-on]="plan.active" [disabled]="togglingActive().has(plan.id)" (click)="toggleActive(plan.id)" title="{{ plan.active ? 'Pausar plan' : 'Activar plan' }}">
                   <div class="toggle-sw__track">
                     <div class="toggle-sw__thumb"></div>
                   </div>
@@ -1024,6 +1031,8 @@ export class PlansComponent implements OnInit {
   readonly loadingPlanPrestaciones = signal(false);
   readonly loadingSave = signal(false);
   readonly plans = signal<Plan[]>([]);
+  readonly togglingActive = signal<Set<string>>(new Set());
+  readonly toggleError = signal<string | null>(null);
   readonly formOpen = signal(false);
   readonly editingPlan = signal<Plan | null>(null);
   readonly form = signal<PlanForm>(emptyForm());
@@ -1127,7 +1136,7 @@ export class PlansComponent implements OnInit {
 
   // ── Lifecycle ──
   ngOnInit(): void {
-    this.api.getAll().pipe(takeUntilDestroyed(this.destroyRef)).subscribe(data => this.plans.set(data));
+    this.api.getAllIncludingInactive().pipe(takeUntilDestroyed(this.destroyRef)).subscribe(data => this.plans.set(data));
     this.loadZonesAndTariffs();
   }
 
@@ -1256,9 +1265,33 @@ export class PlansComponent implements OnInit {
 
   // ── Actions ──
   toggleActive(id: string): void {
-    this.plans.update(list =>
-      list.map(p => p.id === id ? { ...p, active: !p.active } : p)
-    );
+    if (this.togglingActive().has(id)) return; // evita doble click
+    const current = this.plans().find(p => p.id === id);
+    if (!current) return;
+    const nextActive = !current.active;
+    const ids = new Set(this.togglingActive());
+    ids.add(id);
+    this.togglingActive.set(ids);
+    this.toggleError.set(null);
+
+    this.api.setActive(Number(id), nextActive).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: () => {
+        this.plans.update(list => list.map(p => (p.id === id ? { ...p, active: nextActive } : p)));
+        this.finishToggle(id);
+      },
+      error: (err) => {
+        this.toggleError.set(
+          err?.error?.title ?? err?.error?.message ?? 'No se pudo actualizar el estado del plan. Intentá nuevamente.'
+        );
+        this.finishToggle(id);
+      },
+    });
+  }
+
+  private finishToggle(id: string): void {
+    const ids = new Set(this.togglingActive());
+    ids.delete(id);
+    this.togglingActive.set(ids);
   }
 
   openNewForm(): void {
@@ -1346,7 +1379,7 @@ export class PlansComponent implements OnInit {
       takeUntilDestroyed(this.destroyRef)
     ).subscribe({
       next: (savedPlan) => {
-        this.api.getAll().pipe(takeUntilDestroyed(this.destroyRef)).subscribe(data => this.plans.set(data));
+        this.api.getAllIncludingInactive().pipe(takeUntilDestroyed(this.destroyRef)).subscribe(data => this.plans.set(data));
         if (savedPlan.id) {
           this.api.validarConsistenciaPlan(Number(savedPlan.id)).pipe(
             catchError(() => of([] as string[]))

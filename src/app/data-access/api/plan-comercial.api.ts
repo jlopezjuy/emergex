@@ -124,6 +124,13 @@ export class PlanComercialApiService {
     );
   }
 
+  /** Todos los planes del tenant, incluidos los inactivos/pausados (para la grilla de administración). */
+  getAllIncludingInactive(): Observable<PlanComercialDTO[]> {
+    return this.http
+      .get<BackendPlanComercial[]>(`${this.crudBase}`, { params: { size: '200', sort: 'id,desc' } })
+      .pipe(map(list => list.map(toDTO)));
+  }
+
   create(dto: PlanComercialDTO): Observable<PlanComercialDTO> {
     return this.http.post<BackendPlanComercial>(this.crudBase, toBackend(dto)).pipe(
       map(toDTO)
@@ -134,6 +141,11 @@ export class PlanComercialApiService {
     return this.http.put<BackendPlanComercial>(`${this.crudBase}/${dto.id}`, toBackend(dto)).pipe(
       map(toDTO)
     );
+  }
+
+  /** Persiste solo el flag activo (PATCH), p. ej. pausar/reactivar un plan. */
+  setActive(id: number, activo: boolean): Observable<PlanComercialDTO> {
+    return this.http.patch<BackendPlanComercial>(`${this.crudBase}/${id}`, { id, activo }).pipe(map(toDTO));
   }
 
   getPrestacionesByPlan(planId: number): Observable<PlanPrestacionDTO[]> {
