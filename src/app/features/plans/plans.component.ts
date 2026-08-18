@@ -73,7 +73,7 @@ function emptyForm(): PlanForm {
   return {
     name: '', tier: 'basico', description: '', modality: 'individual', audience: 'particulares',
     monthly: 0, quarterly: 0, annual: 0, perDependent: 0, discountPct: 0,
-    monthlyCap: 0, freeIncluded: 0, carencyDays: 0,
+    monthlyCap: 0, freeIncluded: 1, carencyDays: 0,
     coverages: { emergency: false, homeVisit: false, phoneOrientation: false, homeNursing: false, monthlyControl: false, scheduledTransport: false, interurbanTransport: false },
   };
 }
