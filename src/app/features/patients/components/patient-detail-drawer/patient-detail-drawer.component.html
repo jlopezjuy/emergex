@@ -64,24 +64,31 @@
                [class.bg-emerald-50]="patient().status === 'al-dia'"
                [class.border-emerald-100]="patient().status === 'al-dia'"
                [class.text-emerald-700]="patient().status === 'al-dia'"
-               [class.bg-red-50]="patient().status !== 'al-dia'"
-               [class.border-red-100]="patient().status !== 'al-dia'"
-               [class.text-red-700]="patient().status !== 'al-dia'">
+               [class.bg-red-50]="patient().status === 'deuda'"
+               [class.border-red-100]="patient().status === 'deuda'"
+               [class.text-red-700]="patient().status === 'deuda'"
+               [class.bg-slate-50]="patient().status === 'indefinido'"
+               [class.border-slate-200]="patient().status === 'indefinido'"
+               [class.text-slate-500]="patient().status === 'indefinido'">
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-xl flex items-center justify-center shadow-xs"
                    [class.bg-emerald-500]="patient().status === 'al-dia'"
                    [class.text-white]="patient().status === 'al-dia'"
-                   [class.bg-red-500]="patient().status !== 'al-dia'"
-                   [class.text-white]="patient().status !== 'al-dia'">
+                   [class.bg-red-500]="patient().status === 'deuda'"
+                   [class.text-white]="patient().status === 'deuda'"
+                   [class.bg-slate-400]="patient().status === 'indefinido'"
+                   [class.text-white]="patient().status === 'indefinido'">
                 @if (patient().status === 'al-dia') {
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                } @else {
+                } @else if (patient().status === 'deuda') {
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/><circle cx="12" cy="12" r="10"/></svg>
+                } @else {
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
                 }
               </div>
               <div>
                 <div class="text-[9px] font-mono font-bold tracking-widest uppercase opacity-85">Estado de cuenta</div>
-                <div class="text-base font-bold leading-none mt-1">{{ patient().status === 'al-dia' ? 'Al día' : 'En deuda' }}</div>
+                <div class="text-base font-bold leading-none mt-1">{{ patient().status === 'al-dia' ? 'Al día' : patient().status === 'deuda' ? 'En deuda' : 'Sin estado' }}</div>
               </div>
             </div>
             <div class="text-right">
@@ -239,7 +246,7 @@
                     </div>
                     <div class="flex-1 min-w-0">
                       <div class="font-semibold text-slate-800 text-xs truncate">{{ m.nombre }}</div>
-                      <div class="text-[9.5px] font-mono text-slate-400 leading-none mt-0.5">{{ m.rol === 'CO_TITULAR' ? 'Cónyuge' : 'Hijo/a' }}</div>
+                      <div class="text-[9.5px] font-mono text-slate-400 leading-none mt-0.5">{{ rolLabel(m.rol) }}</div>
                     </div>
                   </div>
                 }

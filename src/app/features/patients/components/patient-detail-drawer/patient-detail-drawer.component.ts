@@ -69,11 +69,19 @@ export class PatientDetailDrawerComponent {
     return f.miembrosGrupo.some(m => m.rol === 'TITULAR' && m.estado === 'ACTIVA');
   }
 
+  /** Etiqueta del rol de un miembro del grupo familiar (BUG-E2E-003). */
+  rolLabel(rol: string | undefined): string {
+    if (rol === 'TITULAR') return 'Titular';
+    if (rol === 'CO_TITULAR') return 'Cónyuge';
+    return 'Hijo/a';
+  }
+
   avatarOf(name: string): string {
     return name.split(' ').filter(Boolean).slice(0, 2).map(p => p[0]?.toUpperCase() ?? '').join('');
   }
 
-  fmtCurrency(n: number): string {
+  fmtCurrency(n: number | null | undefined): string {
+    if (n == null) return '—';
     return '$' + n.toLocaleString('es-AR', { minimumFractionDigits: 0 });
   }
 
@@ -106,17 +114,14 @@ export class PatientDetailDrawerComponent {
     return ['Consultas generales', 'Urgencias básicas', '1 ambulancia/mes'];
   }
 
-  getMontoCuota(ficha: FichaAfiliadoDTO | null): number {
-    if (!ficha?.cobertura) return 0;
-    // Use the real agreed price when the backend provides it
+  getMontoCuota(ficha: FichaAfiliadoDTO | null): number | null {
+    if (!ficha?.cobertura) return null;
+    // Usa el precio acordado si el backend lo expone; si no, el precio real del plan.
+    // No hay fallback hardcodeado: nunca inventar un monto financiero.
     if (ficha.cobertura.precioMensualAcordado) {
       return ficha.cobertura.precioMensualAcordado;
     }
-    // Fallback to tier-based approximation until backend wires up precioMensualAcordado
-    const nivel = ficha.cobertura.nivel?.toLowerCase() ?? 'basico';
-    if (nivel === 'premium') return 54800;
-    if (nivel === 'medio' || nivel === 'familiar') return 32400;
-    return 18500;
+    return ficha.cobertura.precioMensual ?? null;
   }
 
   getProximoVencimiento(): string {
@@ -135,7 +140,10 @@ export class PatientDetailDrawerComponent {
     return '—';
   }
 
-  getProximoVencimientoDetalle(status: 'al-dia' | 'deuda'): string {
+  getProximoVencimientoDetalle(status: 'al-dia' | 'deuda' | 'indefinido'): string {
+    if (status === 'indefinido') {
+      return 'sin datos de deuda';
+    }
     const facturasVencidas = this.facturas().filter(f => f.estado !== 'PAGADA');
     if (status === 'deuda' && facturasVencidas.length > 0) {
       return '⚠ Vencido';

@@ -1,8 +1,11 @@
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
-import { PatientsComponent } from './patients.component';
+import { PatientsComponent, PatientRow } from './patients.component';
+import { PacienteDTO } from '../../data-access/dto/patient.dto';
 import { provideRouter } from '@angular/router';
+
+type PatientsSignal = { set: (r: PatientRow[]) => void };
 
 describe('PatientsComponent — utility functions', () => {
   let component: PatientsComponent;
@@ -24,6 +27,55 @@ describe('PatientsComponent — utility functions', () => {
   it('should create', () => {
     expect(component).toBeTruthy();
   });
+});
+
+describe('PatientsComponent — KPI y estado (BUG-E2E-005/006)', () => {
+  let component: PatientsComponent;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [PatientsComponent],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(PatientsComponent);
+    component = fixture.componentInstance;
+  });
+
+  it('no duplica dependientes en el KPI de afiliados (BUG-E2E-005)', () => {
+    const rows = [
+      { ...baseRow(1), type: 'titular', depCount: 2 },
+      { ...baseRow(2), type: 'dependiente', depCount: 0 },
+    ] as PatientRow[];
+    (component as unknown as { patients: PatientsSignal }).patients.set(rows);
+
+    // total = cantidad de filas (dependientes ya incluidos como filas), sin sumar depCount
+    expect(component.counts().total).toBe(2);
+  });
+
+  it('el estado financiero no se infiere de activo: queda neutro (BUG-E2E-006)', () => {
+    const activo = { ...baseRow(1), type: 'titular', depCount: 0 } as PatientRow;
+    (component as unknown as { patients: PatientsSignal }).patients.set([activo]);
+
+    expect(component.counts().alDia).toBe(0);
+    expect(component.counts().deuda).toBe(0);
+  });
+
+  function baseRow(id: number): PatientRow {
+    return {
+      pacienteId: id,
+      id: `AF-${id}`,
+      name: `Test ${id}`,
+      dni: String(id),
+      type: 'titular',
+      status: 'indefinido',
+      sinceMonth: '—',
+      planNombre: 'Plan',
+      planColor: '#000',
+      depCount: 0,
+      _raw: {} as PacienteDTO,
+    };
+  }
 });
 
 describe('fmtDate — standalone', () => {

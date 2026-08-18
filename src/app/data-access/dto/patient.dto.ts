@@ -68,6 +68,8 @@ export interface CoberturaFichaDTO {
   prestaciones?: string[];
   /** Precio mensual acordado devuelto por el backend (cuando disponible) */
   precioMensualAcordado?: number;
+  /** Precio mensual actual del plan comercial (fuente real de "Monto Cuota") */
+  precioMensual?: number;
 }
 
 export interface MiembroFichaDTO {

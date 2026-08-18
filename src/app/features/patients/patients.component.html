@@ -22,7 +22,7 @@
       <div class="grid grid-cols-4 gap-3 flex-1 lg:flex-initial">
         <div class="bg-white border border-slate-200 rounded-xl p-3 min-w-[90px] flex flex-col justify-between shadow-sm">
           <span class="text-[9px] font-mono font-bold tracking-widest text-slate-400 uppercase">Afiliados</span>
-          <span class="text-xl font-bold font-mono text-slate-800 leading-none mt-1">{{ counts().total + counts().dependents }}</span>
+          <span class="text-xl font-bold font-mono text-slate-800 leading-none mt-1">{{ counts().total }}</span>
         </div>
         <div class="bg-white border border-slate-200 rounded-xl p-3 min-w-[90px] flex flex-col justify-between shadow-sm">
           <span class="text-[9px] font-mono font-bold tracking-widest text-slate-400 uppercase">Titulares</span>
@@ -182,7 +182,7 @@
                       <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                       Al día
                     </span>
-                  } @else {
+                  } @else if (p.status === 'deuda') {
                     <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-red-50 text-red-600 border border-red-100 relative overflow-visible">
                       <!-- Micro pulsing bullet -->
                       <span class="relative flex h-1.5 w-1.5">
@@ -190,6 +190,11 @@
                         <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500"></span>
                       </span>
                       En deuda
+                    </span>
+                  } @else {
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-500 border border-slate-200">
+                      <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                      Sin estado
                     </span>
                   }
                 </td>

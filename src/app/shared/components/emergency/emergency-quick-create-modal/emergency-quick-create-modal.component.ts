@@ -38,6 +38,14 @@ interface PacienteResult {
   puedeRecibirEmergencia?: boolean;
 }
 
+/**
+ * El estado comercial del chip se deriva del veredicto del backend (puedeRecibirEmergencia),
+ * no de la membresía/grupo, para no contradecir la elegibilidad resuelta (BUG-E2E-012).
+ */
+export function deriveEstadoComercial(puedeRecibirEmergencia: boolean | undefined): 'ACTIVO' | 'INACTIVO' {
+  return puedeRecibirEmergencia === true ? 'ACTIVO' : 'INACTIVO';
+}
+
 /** Integrante del personal propio (SAE) devuelto por /api/operador-emergencias/buscar-personal. */
 interface PersonalSaeResult {
   profesionalSaludId: number;
@@ -1107,7 +1115,7 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
                 telefono: item.telefono,
                 // El estado mostrado se deriva del veredicto del backend (puedeRecibirEmergencia),
                 // no de la membresía/grupo, para no contradecir la elegibilidad resuelta (BUG-E2E-012).
-                estadoComercial: item.puedeRecibirEmergencia === true ? 'ACTIVO' : 'INACTIVO',
+                estadoComercial: deriveEstadoComercial(item.puedeRecibirEmergencia),
                 coberturaEstado: item.coberturaEstado,
                 puedeRecibirEmergencia: item.puedeRecibirEmergencia
               };

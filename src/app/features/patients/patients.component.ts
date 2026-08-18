@@ -40,7 +40,7 @@ export interface PatientRow {
   name: string;
   dni: string;
   type: 'titular' | 'dependiente';
-  status: 'al-dia' | 'deuda';
+  status: 'al-dia' | 'deuda' | 'indefinido';
   sinceMonth: string;
   planNombre: string;
   planColor: string;
@@ -350,7 +350,7 @@ export class PatientsComponent implements OnInit {
           name: r.nombreCompleto ?? '',
           dni: r.dni,
           type: (r.rolFamiliar === 'TITULAR' ? 'titular' : 'dependiente') as 'titular' | 'dependiente',
-          status: (r.activo !== false ? 'al-dia' : 'deuda') as 'al-dia' | 'deuda',
+          status: 'indefinido' as const,
           sinceMonth: r.createdAt ? sinceMonthFromISO(r.createdAt) : '—',
           planNombre: r.coberturaActiva ?? 'Sin plan',
           planColor: this.getPlanColor((r.planNivel ?? 'basico').toLowerCase()),
@@ -398,7 +398,7 @@ export class PatientsComponent implements OnInit {
       name:       `${p.nombre ?? ''} ${p.apellido ?? ''}`.trim(),
       dni:        p.dni,
       type:       'titular',
-      status:     p.activo !== false ? 'al-dia' : 'deuda',
+      status:     'indefinido' as const,
       sinceMonth: sinceMonthFromISO(p.createdAt),
       planNombre: 'Plan Básico',
       planColor:  '#94a3b8',
@@ -470,7 +470,10 @@ export class PatientsComponent implements OnInit {
     return '—';
   }
 
-  getProximoVencimientoDetalle(status: 'al-dia' | 'deuda'): string {
+  getProximoVencimientoDetalle(status: 'al-dia' | 'deuda' | 'indefinido'): string {
+    if (status === 'indefinido') {
+      return 'sin datos de deuda';
+    }
     const facturasVencidas = this.facturas().filter(f => f.estado !== 'PAGADA');
     if (status === 'deuda' && facturasVencidas.length > 0) {
       return '⚠ Vencido';
@@ -985,7 +988,7 @@ export class PatientsComponent implements OnInit {
             type:       'titular',
             planNombre: planInfo?.name ?? 'Sin plan',
             planColor:  this.getPlanColor(planInfo?.tier ?? 'basico'),
-            status:     'deuda',
+            status:     'indefinido',
             sinceMonth: '',
             depCount:   altaReq.dependientes.length,
             _raw:       {} as PacienteDTO,

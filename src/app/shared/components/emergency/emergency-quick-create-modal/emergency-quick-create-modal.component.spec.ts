@@ -4,7 +4,7 @@ import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { EmergencyQuickCreateModalComponent } from './emergency-quick-create-modal.component';
+import { EmergencyQuickCreateModalComponent, deriveEstadoComercial } from './emergency-quick-create-modal.component';
 import { AddressCandidate } from '../../../../data-access/dto/address-search.dto';
 
 /**
@@ -239,5 +239,20 @@ describe('EmergencyQuickCreateModalComponent', () => {
       expect(component.form.get('tipoContrato')?.value).toBe('AREA_PROTEGIDA');
       expect(component.form.get('contratoCoberturaId')?.value).toBe(88);
     });
+  });
+});
+
+describe('deriveEstadoComercial — chip de paciente (BUG-E2E-012)', () => {
+  it('muestra ACTIVO cuando el backend resuelve puedeRecibirEmergencia=true', () => {
+    expect(deriveEstadoComercial(true)).toBe('ACTIVO');
+  });
+
+  it('no muestra INACTIVO para cobertura activa sin grupo', () => {
+    expect(deriveEstadoComercial(true)).not.toBe('INACTIVO');
+  });
+
+  it('muestra INACTIVO cuando puedeRecibirEmergencia es false o indefinido', () => {
+    expect(deriveEstadoComercial(false)).toBe('INACTIVO');
+    expect(deriveEstadoComercial(undefined)).toBe('INACTIVO');
   });
 });
