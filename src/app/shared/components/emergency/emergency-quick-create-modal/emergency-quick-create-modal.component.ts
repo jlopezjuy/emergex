@@ -1105,7 +1105,9 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
                 dni: item.dni,
                 direccion: item.direccion,
                 telefono: item.telefono,
-                estadoComercial: item.estadoGrupo || 'INACTIVO',
+                // El estado mostrado se deriva del veredicto del backend (puedeRecibirEmergencia),
+                // no de la membresía/grupo, para no contradecir la elegibilidad resuelta (BUG-E2E-012).
+                estadoComercial: item.puedeRecibirEmergencia === true ? 'ACTIVO' : 'INACTIVO',
                 coberturaEstado: item.coberturaEstado,
                 puedeRecibirEmergencia: item.puedeRecibirEmergencia
               };
