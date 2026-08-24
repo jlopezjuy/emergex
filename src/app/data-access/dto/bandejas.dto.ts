@@ -103,3 +103,27 @@ export interface SimulacionTarifaRequestDTO {
   cantidadAsistidosIncidente?: number;
 }
 
+export interface DetalleSnapshotDTO {
+  lineaLoteId: number;
+  registroPrestacionId: number;
+  montoUnitario: number;
+  alicuotaIva: number;
+  montoIva: number;
+  subtotal: number;
+}
+
+export interface PresentacionLoteDTO {
+  id?: number;
+  loteId: number;
+  numeroPresentacion: string;
+  revision: number;
+  estado: 'BORRADOR' | 'ARMADA' | 'ENVIADA' | 'RECIBIDA' | 'OBSERVADA' | 'ACEPTADA_PARCIAL' | 'ACEPTADA' | 'RECHAZADA';
+  fechaEnvio?: string;
+  fechaRecepcion?: string;
+  fechaLimite?: string;
+  montoPresentado: number;
+  montoAceptado?: number;
+  observaciones?: string;
+  detalles?: DetalleSnapshotDTO[];
+}
+

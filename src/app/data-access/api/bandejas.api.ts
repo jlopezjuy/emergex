@@ -49,4 +49,47 @@ export class BandejasApi {
       `${environment.apiUrl}/api/registro-prestaciones/${registroPrestacionId}/valorizacion`
     );
   }
+
+  armarPresentacion(loteId: number): Observable<import('../dto/bandejas.dto').PresentacionLoteDTO> {
+    return this.http.post<import('../dto/bandejas.dto').PresentacionLoteDTO>(
+      `${environment.apiUrl}/api/v1/presentaciones/lotes/${loteId}/armar`,
+      {}
+    );
+  }
+
+  enviarPresentacion(presentacionId: number): Observable<import('../dto/bandejas.dto').PresentacionLoteDTO> {
+    return this.http.put<import('../dto/bandejas.dto').PresentacionLoteDTO>(
+      `${environment.apiUrl}/api/v1/presentaciones/${presentacionId}/enviar`,
+      {}
+    );
+  }
+
+  observarPresentacion(presentacionId: number, observaciones: string): Observable<import('../dto/bandejas.dto').PresentacionLoteDTO> {
+    let params = { observaciones };
+    return this.http.put<import('../dto/bandejas.dto').PresentacionLoteDTO>(
+      `${environment.apiUrl}/api/v1/presentaciones/${presentacionId}/observar`,
+      null,
+      { params }
+    );
+  }
+
+  aceptarPresentacion(presentacionId: number, montoAceptado?: number): Observable<import('../dto/bandejas.dto').PresentacionLoteDTO> {
+    let params: { [param: string]: string } = {};
+    if (montoAceptado != null) params['montoAceptado'] = montoAceptado.toString();
+    return this.http.put<import('../dto/bandejas.dto').PresentacionLoteDTO>(
+      `${environment.apiUrl}/api/v1/presentaciones/${presentacionId}/aceptar`,
+      null,
+      { params }
+    );
+  }
+
+  anularLineaLote(lineaId: number, motivo?: string): Observable<void> {
+    let params: { [param: string]: string } = {};
+    if (motivo) params['motivo'] = motivo;
+    return this.http.put<void>(
+      `${environment.apiUrl}/api/v2/prefacturacion/lineas/${lineaId}/anular`,
+      null,
+      { params }
+    );
+  }
 }
