@@ -20,4 +20,20 @@ export class BandejasApi {
     if (hasta) params['hasta'] = hasta;
     return this.http.get<ResumenBandejaCoberturaDTO>(this.baseCobertura, { params });
   }
+
+  getChecklistDocumental(registroPrestacionId: number): Observable<import('../dto/bandejas.dto').ChecklistPrestacionDTO> {
+    return this.http.get<import('../dto/bandejas.dto').ChecklistPrestacionDTO>(
+      `${environment.apiUrl}/api/registro-prestaciones/${registroPrestacionId}/checklist-documental`
+    );
+  }
+
+  asignarResponsable(registroPrestacionId: number, responsable: string, proximaAccion?: string): Observable<void> {
+    let params: { [param: string]: string } = { responsable };
+    if (proximaAccion) params['proximaAccion'] = proximaAccion;
+    return this.http.put<void>(
+      `${environment.apiUrl}/api/registro-prestaciones/${registroPrestacionId}/asignar-responsable`,
+      null,
+      { params }
+    );
+  }
 }

@@ -53,10 +53,28 @@ export interface ResumenBandejaCoberturaDTO {
   atencionesSinFinanciadorCount: number;
   atencionesPendientesIdentificarCount: number;
   atencionesCubiertasPorAbonoCount: number;
+  atencionesDocumentacionIncompletaCount?: number;
   desgloseFinanciadores: ItemResumenFinanciadorDTO[];
   atencionesSinFinanciador: ItemAtencionBandejaCoberturaDTO[];
   atencionesPendientesIdentificar: ItemAtencionBandejaCoberturaDTO[];
   atencionesCubiertasPorAbono: ItemAtencionBandejaCoberturaDTO[];
   atencionesDocumentacionIncompleta: ItemAtencionBandejaCoberturaDTO[];
+}
+
+export interface ChecklistPrestacionDTO {
+  registroPrestacionId: number;
+  estadoAdministrativo: string;
+  completo: boolean;
+  responsableAsignado?: string;
+  proximaAccion?: string;
+  motivoBloqueo?: string;
+  requisitos: Array<{
+    requisitoId: number;
+    tipoDocumento: string;
+    obligatorio: boolean;
+    cumplido: boolean;
+    documentoAdjuntoId?: number;
+    nombreArchivo?: string;
+  }>;
 }
 
