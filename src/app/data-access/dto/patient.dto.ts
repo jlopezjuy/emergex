@@ -43,6 +43,27 @@ export interface CreatePacienteRequest {
 
 // ─── Ficha afiliado ──────────────────────────────────────────────────────────
 
+export interface FichaFinancieraDTO {
+  pacienteId: number;
+  nombreCompleto: string;
+  dni: string;
+  grupoFamiliarId?: number;
+  terceroId?: number;
+  saldoResponsabilidadPaciente: number;
+  saldoPendienteTerceros: number;
+  saldoTotalRelacionado: number;
+  comprobantes: Array<{
+    tipoComprobante: string;
+    numero: string;
+    fecha: string;
+    pagador: string;
+    responsabilidad: 'PACIENTE' | 'TERCERO';
+    montoTotal: number;
+    saldoPendiente: number;
+    estado: string;
+  }>;
+}
+
 export interface FichaAfiliadoDTO {
   pacienteId: number;
   nombreCompleto: string;

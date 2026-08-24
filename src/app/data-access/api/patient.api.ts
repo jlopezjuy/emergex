@@ -52,6 +52,10 @@ export class PatientApiService {
     return this.http.get<FichaAfiliadoDTO>(`${this.afiliadosBase}/${pacienteId}/ficha`);
   }
 
+  getFichaFinanciera(pacienteId: number): Observable<import('../dto/patient.dto').FichaFinancieraDTO> {
+    return this.http.get<import('../dto/patient.dto').FichaFinancieraDTO>(`${this.base}/${pacienteId}/ficha-financiera`);
+  }
+
   /**
    * Crea un nuevo grupo familiar para el titular.
    * Útil al dar de alta nuevos afiliados y establecer su cuenta de cobro.

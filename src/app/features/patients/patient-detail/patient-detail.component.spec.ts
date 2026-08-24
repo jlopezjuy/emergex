@@ -9,6 +9,7 @@ describe('PatientDetailComponent', () => {
   let patientApiMock: {
     getById: ReturnType<typeof vi.fn>;
     getFicha: ReturnType<typeof vi.fn>;
+    getFichaFinanciera: ReturnType<typeof vi.fn>;
     getFacturasAfiliado: ReturnType<typeof vi.fn>;
     getConsumoMensual: ReturnType<typeof vi.fn>;
     getCoberturaVigente: ReturnType<typeof vi.fn>;
@@ -32,6 +33,17 @@ describe('PatientDetailComponent', () => {
           numeroCuentaGrupo: 'CC-1',
           saldoFavor: 1000,
           alertas: []
+        })
+      ),
+      getFichaFinanciera: vi.fn().mockReturnValue(
+        of({
+          pacienteId: 1,
+          nombreCompleto: 'Pérez, Juan',
+          dni: '12345678',
+          saldoResponsabilidadPaciente: 800,
+          saldoPendienteTerceros: 0,
+          saldoTotalRelacionado: 800,
+          comprobantes: []
         })
       ),
       getFacturasAfiliado: vi.fn().mockReturnValue(

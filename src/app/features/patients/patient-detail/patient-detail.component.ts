@@ -109,12 +109,12 @@ function fmtCurrency(n?: number): string {
             </div>
           </div>
 
-          <!-- KPIs principales de resumen -->
+          <!-- KPIs principales de resumen (H-04, I-16, A-11 - 3 Totales Financieros) -->
           <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
             <emx-kpi-card label="Plan Actual" [value]="coberturaActual() ? coberturaActual()!.planNombre : (ficha()?.cobertura?.nombre || 'Sin Plan')" accentColor="blue" />
-            <emx-kpi-card label="Saldo Deuda" [value]="fmtCurrency(saldoPendiente())" [accentColor]="saldoPendiente() > 0 ? 'red' : 'emerald'" />
-            <emx-kpi-card label="Saldo a Favor" [value]="fmtCurrency(ficha()?.saldoFavor)" accentColor="emerald" />
-            <emx-kpi-card label="Atenciones Mes" [value]="(consumo()?.atencionesConsumidas ?? 0) + ' / ' + (consumo()?.atencionesMaximas ?? 0)" accentColor="cyan" />
+            <emx-kpi-card label="Resp. Paciente" [value]="fmtCurrency(saldoResponsabilidadPaciente())" [accentColor]="saldoResponsabilidadPaciente() > 0 ? 'red' : 'emerald'" />
+            <emx-kpi-card label="Pendiente Terceros" [value]="fmtCurrency(saldoPendienteTerceros())" [accentColor]="saldoPendienteTerceros() > 0 ? 'amber' : 'emerald'" />
+            <emx-kpi-card label="Total Relacionado" [value]="fmtCurrency(saldoTotalRelacionado())" accentColor="cyan" />
           </div>
         </div>
 
@@ -353,8 +353,8 @@ function fmtCurrency(n?: number): string {
                   <h3 class="text-sm font-bold uppercase tracking-wider" style="color: var(--text-primary);">
                     Cuenta Corriente / Ledger
                   </h3>
-                  <emx-status-badge [variant]="saldoPendiente() > 0 ? 'critical' : 'stable'">
-                    {{ saldoPendiente() > 0 ? 'NOS DEBE SALDO' : 'CUENTA AL DÍA' }}
+                  <emx-status-badge [variant]="saldoResponsabilidadPaciente() > 0 ? 'critical' : 'stable'">
+                    {{ saldoResponsabilidadPaciente() > 0 ? 'NOS DEBE SALDO' : 'CUENTA AL DÍA' }}
                   </emx-status-badge>
                 </div>
                 <div class="flex items-center gap-2">
@@ -608,23 +608,35 @@ export class PatientDetailComponent implements OnInit {
     return txt === 'VIGENTE' || txt === 'ACTIVA' ? 'stable' : 'critical';
   });
 
-  readonly saldoPendiente = computed(() =>
-    this.facturas().reduce(
-      (acc, f) => acc + (f.saldoPendiente ?? f.importeTotal ?? 0),
-      0
-    )
-  );
+  readonly fichaFinanciera = signal<import('../../../data-access/dto/patient.dto').FichaFinancieraDTO | null>(null);
+
+  readonly saldoResponsabilidadPaciente = computed(() => {
+    if (this.fichaFinanciera()) {
+      return this.fichaFinanciera()!.saldoResponsabilidadPaciente ?? 0;
+    }
+    return this.facturas().reduce((acc, f) => acc + (f.saldoPendiente ?? f.importeTotal ?? 0), 0);
+  });
+
+  readonly saldoPendiente = computed(() => this.saldoResponsabilidadPaciente());
+
+  readonly saldoPendienteTerceros = computed(() => {
+    return this.fichaFinanciera()?.saldoPendienteTerceros ?? 0;
+  });
+
+  readonly saldoTotalRelacionado = computed(() => {
+    return this.saldoResponsabilidadPaciente() + this.saldoPendienteTerceros();
+  });
 
   readonly estadoDeudaTexto = computed(() => {
     if (this.facturasError()) {
       return 'ERROR AL DEDUCIR DEUDA';
     }
-    return this.saldoPendiente() > 0 ? 'CON DEUDA PENDIENTE' : 'AL DÍA';
+    return this.saldoResponsabilidadPaciente() > 0 ? 'CON DEUDA PENDIENTE' : 'AL DÍA';
   });
 
   readonly deudaBadgeVariant = computed(() => {
     if (this.facturasError()) return 'urgent';
-    return this.saldoPendiente() > 0 ? 'critical' : 'stable';
+    return this.saldoResponsabilidadPaciente() > 0 ? 'critical' : 'stable';
   });
 
   readonly fmtCurrency = fmtCurrency;
@@ -695,11 +707,28 @@ export class PatientDetailComponent implements OnInit {
 
   cargarBloques(pacienteId: number, dni: string): void {
     this.cargarFicha(pacienteId);
+    this.cargarFichaFinanciera(pacienteId);
     this.cargarFacturas(pacienteId);
     this.cargarConsumo(pacienteId);
     this.cargarCobertura(dni);
     this.cargarLedger(pacienteId);
     this.loading.set(false);
+  }
+
+  cargarFichaFinanciera(pacienteId?: number): void {
+    const id = pacienteId ?? this.pacienteId();
+    if (!id) return;
+    this.api
+      .getFichaFinanciera(id)
+      .pipe(
+        catchError(() => of(null)),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe((res) => {
+        if (res) {
+          this.fichaFinanciera.set(res);
+        }
+      });
   }
 
   cargarFicha(pacienteId?: number): void {
