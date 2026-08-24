@@ -36,4 +36,17 @@ export class BandejasApi {
       { params }
     );
   }
+
+  simularValorizacion(request: import('../dto/bandejas.dto').SimulacionTarifaRequestDTO): Observable<import('../dto/bandejas.dto').DesgloseValorizacionDTO> {
+    return this.http.post<import('../dto/bandejas.dto').DesgloseValorizacionDTO>(
+      `${environment.apiUrl}/api/v1/tarifas-contrato/simular`,
+      request
+    );
+  }
+
+  getValorizacionPrestacion(registroPrestacionId: number): Observable<import('../dto/bandejas.dto').DesgloseValorizacionDTO> {
+    return this.http.get<import('../dto/bandejas.dto').DesgloseValorizacionDTO>(
+      `${environment.apiUrl}/api/registro-prestaciones/${registroPrestacionId}/valorizacion`
+    );
+  }
 }

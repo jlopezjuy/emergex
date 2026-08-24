@@ -78,3 +78,28 @@ export interface ChecklistPrestacionDTO {
   }>;
 }
 
+export interface ItemValorizacionDTO {
+  codigo: string;
+  descripcion: string;
+  valorBase: number;
+  cantidad: number;
+  multiplicador: number;
+  subtotal: number;
+  cargoComun: boolean;
+}
+
+export interface DesgloseValorizacionDTO {
+  importeTotal: number;
+  renglones: ItemValorizacionDTO[];
+}
+
+export interface SimulacionTarifaRequestDTO {
+  contratoCoberturaId?: number;
+  tipoAsistenciaId?: number;
+  kilometros?: number;
+  minutosEspera?: number;
+  esNocturno?: boolean;
+  esFeriado?: boolean;
+  cantidadAsistidosIncidente?: number;
+}
+
