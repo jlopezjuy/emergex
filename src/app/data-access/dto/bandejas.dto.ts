@@ -127,3 +127,30 @@ export interface PresentacionLoteDTO {
   detalles?: DetalleSnapshotDTO[];
 }
 
+export interface ItemLineaDebitoDTO {
+  id?: number;
+  lineaLoteId?: number;
+  montoDebitado: number;
+  codigoExterno?: string;
+  causaCodigo?: string;
+  causaDescripcion?: string;
+  documentacionFaltante?: string;
+}
+
+export interface DebitoDetalladoDTO {
+  id?: number;
+  documentoComercialId: number;
+  presentacionLoteId?: number;
+  montoDebito: number;
+  montoRecuperado?: number;
+  montoPresentado?: number;
+  montoAceptado?: number;
+  motivoDebito: string;
+  causaPrincipal: string;
+  estado?: 'PENDIENTE' | 'CLASIFICADO' | 'APELADO' | 'RECLAMADO' | 'ACEPTADO' | 'RECUPERADO' | 'VENCIDO';
+  fechaDebito?: string;
+  fechaLimiteReclamo?: string;
+  responsable?: string;
+  lineas?: ItemLineaDebitoDTO[];
+}
+

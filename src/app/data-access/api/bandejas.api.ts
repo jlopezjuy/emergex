@@ -92,4 +92,31 @@ export class BandejasApi {
       { params }
     );
   }
+
+  registrarDebitoDetallado(dto: import('../dto/bandejas.dto').DebitoDetalladoDTO): Observable<import('../dto/bandejas.dto').DebitoDetalladoDTO> {
+    return this.http.post<import('../dto/bandejas.dto').DebitoDetalladoDTO>(
+      `${environment.apiUrl}/api/v1/debitos-documentos/detallado`,
+      dto
+    );
+  }
+
+  apelarDebito(debitoId: number, motivo?: string): Observable<any> {
+    let params: { [param: string]: string } = {};
+    if (motivo) params['motivo'] = motivo;
+    return this.http.put<any>(
+      `${environment.apiUrl}/api/v1/debitos-documentos/${debitoId}/apelar`,
+      null,
+      { params }
+    );
+  }
+
+  refacturarLineaDebito(lineaDebitoId: number, motivo?: string): Observable<void> {
+    let params: { [param: string]: string } = {};
+    if (motivo) params['motivo'] = motivo;
+    return this.http.put<void>(
+      `${environment.apiUrl}/api/v1/debitos-documentos/lineas/${lineaDebitoId}/refacturar`,
+      null,
+      { params }
+    );
+  }
 }
