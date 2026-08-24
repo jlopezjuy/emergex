@@ -31,6 +31,8 @@ describe('NotasApiService', () => {
       numeroDocumento: 'NC-0001-00000001',
       monto: 605.00,
       tipoDocumento: 'NOTA_CREDITO_A',
+      motivoAjuste: 'ANULACION_TOTAL',
+      observacion: 'Anulación por error en tarifa',
     };
 
     service.emitirNotaCredito(payload).subscribe((res) => {
@@ -51,6 +53,8 @@ describe('NotasApiService', () => {
       numeroDocumento: 'ND-0001-00000001',
       monto: 1210.00,
       tipoDocumento: 'NOTA_DEBITO_A',
+      motivoAjuste: 'DIFERENCIA_PRECIO',
+      observacion: 'Recargo por mora',
     };
 
     service.emitirNotaDebito(payload).subscribe((res) => {
