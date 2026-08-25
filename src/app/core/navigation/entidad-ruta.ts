@@ -17,17 +17,19 @@ export function rutaParaEntidad(tipo: string | null | undefined, id: number | st
     case 'TERCERO':
       return `/administracion/proveedores/${id}`;
     case 'ORDEN_PAGO':
-      // La OP actual no expone proveedor; redirige al listado de proveedores (G0-05)
       return `/administracion/proveedores`;
     case 'CONTRATO':
-      // Un contratoId no es un institucionId; se reporta como carencia de API
-      return null;
+      return `/administracion/contratos/${id}`;
     case 'DEBITO':
-      return `/facturacion`;
+      return `/administracion/debitos/${id}`;
     case 'TICKET':
+      return `/asistencias/${id}`;
     case 'DOCUMENTO_COMERCIAL':
+      return `/facturas/${id}`;
     case 'ORDEN_COMPRA':
-      return null;
+      return `/compras/ordenes/${id}`;
+    case 'LOTE':
+      return `/prefacturacion/lotes/${id}`;
     default:
       return null;
   }

@@ -5,6 +5,12 @@ export interface ItemBandejaDTO {
   severidad: 'ALTA' | 'MEDIA' | 'BAJA' | string;
   entidadTipo?: string;
   entidadId?: number;
+  importe?: number;
+  fechaOrigen?: string;
+  diasAntiguedad?: number;
+  responsable?: string;
+  motivoBloqueo?: string;
+  proximaAccion?: string;
 }
 
 export interface BandejaTrabajoResumenDTO {
@@ -152,5 +158,54 @@ export interface DebitoDetalladoDTO {
   fechaLimiteReclamo?: string;
   responsable?: string;
   lineas?: ItemLineaDebitoDTO[];
+}
+
+export interface ExtractoBancarioDTO {
+  id?: number;
+  bancoNombre: string;
+  fechaMovimiento: string;
+  concepto: string;
+  monto: number;
+  conciliado: boolean;
+  hashLinea?: string;
+}
+
+export interface ConciliacionBancariaDTO {
+  id?: number;
+  extractoBancarioId: number;
+  documentoComercialId?: number;
+  cobranzaId?: number;
+  ordenDePagoId?: number;
+  montoConciliado: number;
+  diferencia?: number;
+  estado: 'PENDIENTE' | 'CONCILIADO_AUTOMATICO' | 'CONCILIADO_MANUAL' | 'OBSERVADO' | 'RECHAZADO';
+  tipoCoincidencia: string;
+  conciliadoPor: string;
+  conciliadoAt: string;
+}
+
+export interface ItemDrillDownKpiDTO {
+  entidadId: number;
+  tipoEntidad: string;
+  identificador: string;
+  descripcion: string;
+  importe: number;
+  fecha: string;
+  responsable?: string;
+  estado?: string;
+}
+
+export interface KpiAdministrativoDTO {
+  codigo: string;
+  nombre: string;
+  descripcion: string;
+  formula: string;
+  periodo: string;
+  exclusiones: string;
+  valorNumerico: number;
+  valorFormateado: string;
+  unidad: string;
+  estadoSalud: 'OPTIMO' | 'ALERTA' | 'CRITICO' | string;
+  drillDown: ItemDrillDownKpiDTO[];
 }
 

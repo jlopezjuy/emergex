@@ -6,7 +6,8 @@ import { BandejasApi } from '../../../data-access/api/bandejas.api';
 import {
   BandejaTrabajoResumenDTO,
   ItemBandejaDTO,
-  ResumenBandejaCoberturaDTO
+  ResumenBandejaCoberturaDTO,
+  KpiAdministrativoDTO
 } from '../../../data-access/dto/bandejas.dto';
 import { KpiCardComponent } from '../../../shared/components/kpi-card/kpi-card.component';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge/status-badge.component';
@@ -38,10 +39,10 @@ export type SeveridadFiltro = 'TODAS' | 'CRITICA' | 'URGENTE' | 'ATENCION';
       <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 class="text-xl font-bold" style="color: var(--text-primary);">
-            Centro Administrativo y Bandejas de Excepción
+            Centro Administrativo y Gobierno de Gestión
           </h1>
           <p class="text-xs" style="color: var(--text-muted);">
-            Consola centralizada para gestión de desvíos en facturación, cobranzas, compras, contratos y coberturas de las últimas 24h.
+            Consola centralizada de KPIs con drill-down, desvíos en facturación, cobranzas, compras, contratos y coberturas.
           </p>
         </div>
 
@@ -68,7 +69,49 @@ export type SeveridadFiltro = 'TODAS' | 'CRITICA' | 'URGENTE' | 'ATENCION';
       } @else if (error()) {
         <emx-error-state [message]="error()!" (retry)="cargarResumen()" />
       } @else {
-        <!-- Fila 1: KPIs Consolidados de Operaciones y Cobertura -->
+        <!-- Fila 1: Tablero de 13 KPIs de Gobierno con Drill-Down -->
+        @if (kpis().length > 0) {
+          <div class="glass rounded-panel p-4 flex flex-col gap-3 border" style="border-color: var(--border-glass);">
+            <div class="flex items-center justify-between border-b pb-2" style="border-color: var(--border-glass);">
+              <h2 class="text-sm font-bold uppercase tracking-wider flex items-center gap-2" style="color: var(--text-primary);">
+                <span>📊</span> Tablero de Gobierno y Métricas Clave (13 KPIs con Drill-Down)
+              </h2>
+              <span class="text-xs font-mono text-muted">Clic en cualquier KPI para ver su fórmula y lista detallada</span>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
+              @for (kpi of kpis(); track kpi.codigo) {
+                <div
+                  class="glass rounded-panel p-3 flex flex-col gap-1 cursor-pointer transition-all hover:border-blue-500 border"
+                  style="border-color: var(--border-glass); background: var(--bg-elevated);"
+                  (click)="kpiSeleccionado.set(kpi)"
+                >
+                  <div class="flex items-center justify-between">
+                    <span class="font-mono text-[10px] font-bold text-blue-400">{{ kpi.codigo }}</span>
+                    <span
+                      class="text-[9px] font-mono px-1 rounded"
+                      [class.bg-emerald-500/20]="kpi.estadoSalud === 'OPTIMO'"
+                      [class.text-emerald-300]="kpi.estadoSalud === 'OPTIMO'"
+                      [class.bg-amber-500/20]="kpi.estadoSalud === 'ALERTA'"
+                      [class.text-amber-300]="kpi.estadoSalud === 'ALERTA'"
+                      [class.bg-rose-500/20]="kpi.estadoSalud === 'CRITICO'"
+                      [class.text-rose-300]="kpi.estadoSalud === 'CRITICO'"
+                    >
+                      {{ kpi.estadoSalud }}
+                    </span>
+                  </div>
+                  <span class="text-xs font-semibold truncate" style="color: var(--text-primary);" [title]="kpi.nombre">{{ kpi.nombre }}</span>
+                  <span class="font-mono text-lg font-bold leading-tight" style="color: var(--text-primary)">
+                    {{ kpi.valorFormateado }}
+                  </span>
+                  <span class="text-[10px] text-muted truncate">{{ kpi.periodo }}</span>
+                </div>
+              }
+            </div>
+          </div>
+        }
+
+        <!-- Fila 2: KPIs Operativos de Bandejas -->
         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-10 gap-3">
           <emx-kpi-card label="Tarifación" [value]="resumen()?.ticketsPendientesTarifacion" accentColor="cyan" />
           <emx-kpi-card label="Fact. Pendiente" [value]="resumen()?.facturasPendientesCobro" accentColor="red" />
@@ -371,6 +414,109 @@ export type SeveridadFiltro = 'TODAS' | 'CRITICA' | 'URGENTE' | 'ATENCION';
           <emx-cxp-aging-dashboard />
         </div>
       }
+
+      <!-- Modal de Drill-Down y Fórmula de KPI -->
+      @if (kpiSeleccionado()) {
+        <div class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div class="glass rounded-panel p-6 max-w-4xl w-full flex flex-col gap-4 max-h-[90vh] overflow-hidden border shadow-2xl" style="background: var(--bg-surface); border-color: var(--border-glass);">
+            <!-- Modal Header -->
+            <div class="flex items-start justify-between border-b pb-3" style="border-color: var(--border-glass);">
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="font-mono text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 font-bold">
+                    {{ kpiSeleccionado()?.codigo }}
+                  </span>
+                  <h3 class="text-base font-bold" style="color: var(--text-primary);">
+                    {{ kpiSeleccionado()?.nombre }}
+                  </h3>
+                </div>
+                <p class="text-xs mt-1" style="color: var(--text-muted);">
+                  {{ kpiSeleccionado()?.descripcion }}
+                </p>
+              </div>
+              <button
+                type="button"
+                class="text-gray-400 hover:text-white p-1 rounded-lg text-lg leading-none"
+                (click)="kpiSeleccionado.set(null)"
+              >
+                ✕
+              </button>
+            </div>
+
+            <!-- Metadata de Cálculo / Fórmula / Exclusiones -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 rounded-lg border text-xs" style="background: var(--bg-elevated); border-color: var(--border-glass);">
+              <div>
+                <span class="font-bold text-blue-400 block uppercase tracking-wider text-[10px]">Fórmula Oficial:</span>
+                <span class="font-mono text-[11px] mt-0.5 block" style="color: var(--text-primary);">{{ kpiSeleccionado()?.formula }}</span>
+              </div>
+              <div>
+                <span class="font-bold text-amber-400 block uppercase tracking-wider text-[10px]">Período / Base:</span>
+                <span class="text-[11px] mt-0.5 block" style="color: var(--text-secondary);">{{ kpiSeleccionado()?.periodo }}</span>
+              </div>
+              <div>
+                <span class="font-bold text-rose-400 block uppercase tracking-wider text-[10px]">Criterios de Exclusión:</span>
+                <span class="text-[11px] mt-0.5 block" style="color: var(--text-muted);">{{ kpiSeleccionado()?.exclusiones }}</span>
+              </div>
+            </div>
+
+            <!-- Tabla de Drill-Down -->
+            <div class="flex flex-col gap-2 overflow-hidden flex-1">
+              <div class="flex items-center justify-between">
+                <h4 class="text-xs font-bold uppercase tracking-wider text-muted">
+                  Composición del Total ({{ kpiSeleccionado()?.drillDown?.length || 0 }} registros)
+                </h4>
+                <span class="font-mono font-bold text-emerald-400 text-sm">
+                  Total: {{ kpiSeleccionado()?.valorFormateado }}
+                </span>
+              </div>
+
+              @if ((kpiSeleccionado()?.drillDown?.length || 0) === 0) {
+                <div class="p-6 text-center text-xs text-muted">Sin registros individuales asociados en este período.</div>
+              } @else {
+                <div class="overflow-y-auto max-h-80 border rounded-lg" style="border-color: var(--border-glass);">
+                  <table class="w-full text-left text-xs border-collapse">
+                    <thead class="sticky top-0 bg-black/40 text-muted uppercase font-mono text-[10px] border-b" style="border-color: var(--border-glass);">
+                      <tr>
+                        <th class="p-2">Identificador</th>
+                        <th class="p-2">Descripción</th>
+                        <th class="p-2">Fecha</th>
+                        <th class="p-2">Responsable</th>
+                        <th class="p-2">Estado</th>
+                        <th class="p-2 text-right">Importe</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-white/5">
+                      @for (item of kpiSeleccionado()?.drillDown; track $index) {
+                        <tr class="hover:bg-white/5 transition-colors">
+                          <td class="p-2 font-mono font-semibold text-blue-400">{{ item.identificador }}</td>
+                          <td class="p-2 text-muted">{{ item.descripcion }}</td>
+                          <td class="p-2 font-mono text-[11px] text-muted">{{ item.fecha }}</td>
+                          <td class="p-2 text-muted">{{ item.responsable || '—' }}</td>
+                          <td class="p-2 font-mono text-[10px]">
+                            <span class="px-1.5 py-0.5 rounded bg-white/10 text-gray-300">{{ item.estado }}</span>
+                          </td>
+                          <td class="p-2 text-right font-mono font-bold text-emerald-400">$ {{ item.importe }}</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="flex justify-end pt-2 border-t" style="border-color: var(--border-glass);">
+              <button
+                type="button"
+                class="px-4 py-1.5 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+                (click)="kpiSeleccionado.set(null)"
+              >
+                Cerrar Detalle
+              </button>
+            </div>
+          </div>
+        </div>
+      }
     </div>
   `,
 })
@@ -383,6 +529,8 @@ export class CentroAdministrativoComponent implements OnInit {
   readonly error = signal<string | null>(null);
   readonly resumen = signal<BandejaTrabajoResumenDTO | null>(null);
   readonly resumenCobertura = signal<ResumenBandejaCoberturaDTO | null>(null);
+  readonly kpis = signal<KpiAdministrativoDTO[]>([]);
+  readonly kpiSeleccionado = signal<KpiAdministrativoDTO | null>(null);
 
   readonly severidadOptions: SeveridadFiltro[] = ['TODAS', 'CRITICA', 'URGENTE', 'ATENCION'];
   readonly severidadFiltro = signal<SeveridadFiltro>('TODAS');
@@ -408,16 +556,18 @@ export class CentroAdministrativoComponent implements OnInit {
 
     forkJoin({
       trabajo: this.api.getResumen().pipe(catchError(() => of(null))),
-      cobertura: this.api.getResumenCobertura().pipe(catchError(() => of(null)))
+      cobertura: this.api.getResumenCobertura().pipe(catchError(() => of(null))),
+      kpis: this.api.getKpisAdministrativos().pipe(catchError(() => of([])))
     })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: ({ trabajo, cobertura }) => {
-          if (!trabajo && !cobertura) {
+        next: ({ trabajo, cobertura, kpis }) => {
+          if (!trabajo && !cobertura && (!kpis || kpis.length === 0)) {
             this.error.set('No se pudo cargar el resumen del centro administrativo.');
           } else {
             if (trabajo) this.resumen.set(trabajo);
             if (cobertura) this.resumenCobertura.set(cobertura);
+            if (kpis) this.kpis.set(kpis);
           }
           this.loading.set(false);
         },

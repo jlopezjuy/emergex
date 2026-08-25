@@ -13,7 +13,26 @@ describe('CentroAdministrativoComponent', () => {
   let bandejasApiMock: {
     getResumen: ReturnType<typeof vi.fn>;
     getResumenCobertura: ReturnType<typeof vi.fn>;
+    getKpisAdministrativos: ReturnType<typeof vi.fn>;
   };
+
+  const mockKpis = [
+    {
+      codigo: 'O-01',
+      nombre: 'Producción Pendiente',
+      descripcion: 'Detalle',
+      formula: 'sum(...)',
+      periodo: 'Mes actual',
+      exclusiones: 'Ninguna',
+      valorNumerico: 15000,
+      valorFormateado: '$ 15.000,00',
+      unidad: 'ARS',
+      estadoSalud: 'OPTIMO',
+      drillDown: [
+        { entidadId: 1, tipoEntidad: 'PRESTACION', identificador: '#1', descripcion: 'Atención', importe: 15000, fecha: '2026-08-25', responsable: 'Auditor', estado: 'PENDIENTE' }
+      ]
+    }
+  ];
 
   const mockResumen: BandejaTrabajoResumenDTO = {
     ticketsPendientesTarifacion: 5,
@@ -81,7 +100,8 @@ describe('CentroAdministrativoComponent', () => {
   beforeEach(() => {
     bandejasApiMock = {
       getResumen: vi.fn().mockReturnValue(of(mockResumen)),
-      getResumenCobertura: vi.fn().mockReturnValue(of(mockResumenCobertura))
+      getResumenCobertura: vi.fn().mockReturnValue(of(mockResumenCobertura)),
+      getKpisAdministrativos: vi.fn().mockReturnValue(of(mockKpis))
     };
   });
 
@@ -103,6 +123,8 @@ describe('CentroAdministrativoComponent', () => {
     const component = fixture.componentInstance;
     expect(component).toBeTruthy();
     expect(component.loading()).toBe(false);
+    expect(component.kpis().length).toBe(1);
+    expect(component.kpis()[0].codigo).toBe('O-01');
     expect(component.resumen()?.ticketsPendientesTarifacion).toBe(5);
     expect(component.resumenCobertura()?.totalAtenciones).toBe(15);
     expect(component.resumenCobertura()?.desgloseFinanciadores.length).toBe(1);
@@ -154,6 +176,7 @@ describe('CentroAdministrativoComponent', () => {
   it('debería manejar errores de la API estableciendo el estado de error', async () => {
     bandejasApiMock.getResumen.mockReturnValue(throwError(() => new Error('HTTP 500')));
     bandejasApiMock.getResumenCobertura.mockReturnValue(throwError(() => new Error('HTTP 500')));
+    bandejasApiMock.getKpisAdministrativos.mockReturnValue(throwError(() => new Error('HTTP 500')));
     await setup();
 
     const fixture = TestBed.createComponent(CentroAdministrativoComponent);

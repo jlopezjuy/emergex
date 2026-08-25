@@ -119,4 +119,10 @@ export class BandejasApi {
       { params }
     );
   }
+
+  getKpisAdministrativos(): Observable<import('../dto/bandejas.dto').KpiAdministrativoDTO[]> {
+    return this.http.get<import('../dto/bandejas.dto').KpiAdministrativoDTO[]>(
+      `${environment.apiUrl}/api/v1/kpis-administrativos`
+    );
+  }
 }

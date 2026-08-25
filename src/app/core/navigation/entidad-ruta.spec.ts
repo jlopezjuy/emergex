@@ -14,24 +14,28 @@ describe('rutaParaEntidad', () => {
     expect(rutaParaEntidad('ORDEN_PAGO', 789)).toBe('/administracion/proveedores');
   });
 
-  it('mapea CONTRATO a null por carecer de ficha 360 directa por contratoId', () => {
-    expect(rutaParaEntidad('CONTRATO', 10)).toBeNull();
+  it('mapea CONTRATO a /administracion/contratos/{id}', () => {
+    expect(rutaParaEntidad('CONTRATO', 10)).toBe('/administracion/contratos/10');
   });
 
-  it('mapea TICKET a null', () => {
-    expect(rutaParaEntidad('TICKET', 1)).toBeNull();
+  it('mapea TICKET a /asistencias/{id}', () => {
+    expect(rutaParaEntidad('TICKET', 1)).toBe('/asistencias/1');
   });
 
-  it('mapea DEBITO a /facturacion', () => {
-    expect(rutaParaEntidad('DEBITO', 2)).toBe('/facturacion');
+  it('mapea DEBITO a /administracion/debitos/{id}', () => {
+    expect(rutaParaEntidad('DEBITO', 2)).toBe('/administracion/debitos/2');
   });
 
-  it('mapea DOCUMENTO_COMERCIAL a null', () => {
-    expect(rutaParaEntidad('DOCUMENTO_COMERCIAL', 3)).toBeNull();
+  it('mapea DOCUMENTO_COMERCIAL a /facturas/{id}', () => {
+    expect(rutaParaEntidad('DOCUMENTO_COMERCIAL', 3)).toBe('/facturas/3');
   });
 
-  it('mapea ORDEN_COMPRA a null', () => {
-    expect(rutaParaEntidad('ORDEN_COMPRA', 4)).toBeNull();
+  it('mapea ORDEN_COMPRA a /compras/ordenes/{id}', () => {
+    expect(rutaParaEntidad('ORDEN_COMPRA', 4)).toBe('/compras/ordenes/4');
+  });
+
+  it('mapea LOTE a /prefacturacion/lotes/{id}', () => {
+    expect(rutaParaEntidad('LOTE', 5)).toBe('/prefacturacion/lotes/5');
   });
 
   it('devuelve null para tipo desconocido o vacio', () => {
