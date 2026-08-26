@@ -1,4 +1,5 @@
 import { Component, OnInit, signal, computed, HostListener, inject, DestroyRef } from '@angular/core';
+import { Router } from '@angular/router';
 import { SessionStore } from '../../core/stores/session.store';
 import { FormsModule } from '@angular/forms';
 import { Subject, catchError, debounceTime, distinctUntilChanged, map, of } from 'rxjs';
@@ -348,6 +349,10 @@ const PAGE_SIZE = 10;
                     </button>
                     @if (menuOpen() === inst.id) {
                       <div class="row-menu" (click)="$event.stopPropagation()">
+                        <button class="user-menu__item font-semibold text-blue-600" (click)="goToCanonicalDetail(inst); menuOpen.set(null)">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                          Ver Ficha Integral 360 →
+                        </button>
                         <button class="user-menu__item" (click)="openEditForm(inst); menuOpen.set(null)">
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                           Editar
@@ -1085,10 +1090,15 @@ const PAGE_SIZE = 10;
 })
 export class InstitutionsComponent implements OnInit {
   private destroyRef = inject(DestroyRef);
+  private readonly router = inject(Router);
   private readonly api = inject(InstitutionsApiService);
   private readonly plansApi = inject(PlanComercialApiService);
   private readonly session = inject(SessionStore);
   private readonly feedback = inject(UserFeedbackService);
+
+  goToCanonicalDetail(inst: Institution): void {
+    this.router.navigate(['/institutions', inst.id]);
+  }
 
   // Modal de motivo de suspención/reactivación (reemplaza prompt nativo)
   readonly suspensionModal = signal<{ inst: Institution; accion: 'suspender' | 'reactivar'; motivo: string } | null>(null);

@@ -81,6 +81,72 @@ import { RegistrarCobranzaModalComponent } from './components/registrar-cobranza
         </section>
       }
 
+      <!-- Listado Inicial Proactivo de Clientes / Terceros con Cuenta Corriente -->
+      @if (!terceroSeleccionado()) {
+        <section class="bg-white rounded-xl shadow p-6 border border-slate-200 space-y-4">
+          <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+            <div>
+              <h2 class="text-base font-bold text-slate-800">Clientes & Terceros con Cuenta Corriente</h2>
+              <p class="text-xs text-slate-500">Seleccioná un cliente para consultar su submayor o registrar un cobro directo</p>
+            </div>
+            <button
+              type="button"
+              class="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition"
+              (click)="cargarTercerosIniciales()"
+            >
+              ↻ Actualizar
+            </button>
+          </div>
+
+          @if (loadingRecientes()) {
+            <p class="text-xs text-slate-400 py-4">Cargando terceros con cuenta corriente...</p>
+          } @else if (tercerosRecientes().length === 0) {
+            <p class="text-xs text-slate-400 py-4">No se encontraron terceros registrados.</p>
+          } @else {
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 font-mono uppercase tracking-wider">
+                    <th class="py-3 px-4">Tercero / Razón Social</th>
+                    <th class="py-3 px-4">CUIT</th>
+                    <th class="py-3 px-4 text-right">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 text-slate-700">
+                  @for (t of tercerosRecientes(); track t.id) {
+                    <tr class="hover:bg-slate-50 transition">
+                      <td class="py-3 px-4 font-semibold text-slate-800">
+                        {{ t.nombreComercial || t.razonSocial }}
+                        @if (t.nombreComercial && t.nombreComercial !== t.razonSocial) {
+                          <span class="text-slate-400 font-normal ml-1">({{ t.razonSocial }})</span>
+                        }
+                      </td>
+                      <td class="py-3 px-4 font-mono text-slate-500">{{ t.cuit || '—' }}</td>
+                      <td class="py-3 px-4 text-right space-x-2">
+                        <button
+                          type="button"
+                          class="px-2.5 py-1 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition border border-blue-200"
+                          (click)="seleccionarTercero(t)"
+                        >
+                          Ver Submayor →
+                        </button>
+                        <button
+                          type="button"
+                          class="px-2.5 py-1 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition shadow-sm"
+                          (click)="abrirModalCobranza(t.id)"
+                        >
+                          + Registrar Cobro
+                        </button>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </section>
+      }
+
       @if (terceroSeleccionado(); as tercero) {
         <section class="bg-white rounded-xl shadow p-6 border border-slate-200 space-y-4">
           <div class="flex justify-between items-start">
@@ -213,17 +279,36 @@ export class CuentasCorrientesComponent implements OnInit {
   readonly movimientos = signal<LedgerMovimientoDTO[]>([]);
 
   readonly agingDeuda = signal<AgingDeudaDTO | null>(null);
-  readonly loadingAging = signal(false);
-  
+  readonly tercerosRecientes = signal<TerceroResumenDTO[]>([]);
+  readonly loadingRecientes = signal(false);
+
   readonly mostrarModalCobranza = signal(false);
   readonly documentosPendientes = signal<DocumentoPendienteDTO[]>([]);
 
   ngOnInit(): void {
     this.cargarAging();
+    this.cargarTercerosIniciales();
 
     this.searchSubject
       .pipe(debounceTime(350), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
       .subscribe((texto) => this.buscarTerceros(texto));
+  }
+
+  cargarTercerosIniciales(): void {
+    this.loadingRecientes.set(true);
+    this.tercerosApi
+      .buscar('')
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (items) => {
+          this.tercerosRecientes.set(items || []);
+          this.loadingRecientes.set(false);
+        },
+        error: () => {
+          this.tercerosRecientes.set([]);
+          this.loadingRecientes.set(false);
+        }
+      });
   }
 
   onSearchChange(value: string): void {

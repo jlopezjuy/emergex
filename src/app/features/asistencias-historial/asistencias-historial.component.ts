@@ -122,8 +122,24 @@ import { DateUtils } from '../../core/utils/date.utils';
                     <td class="td">{{ item.paciente || '—' }}</td>
                     <td class="td">{{ item.antecedentes || '—' }}</td>
                     <td class="td">{{ item.tipoAsistencia }}</td>
-                    <td class="td">{{ item.prioridad }}</td>
-                    <td class="td">{{ item.estado }}</td>
+                    <td class="td font-mono">
+                      @if (item.prioridad === 'ROJO') {
+                        <span class="px-2 py-0.5 rounded font-mono font-bold text-[10px] bg-rose-500/20 text-rose-300 border border-rose-500/30">ROJO</span>
+                      } @else if (item.prioridad === 'AMARILLO') {
+                        <span class="px-2 py-0.5 rounded font-mono font-bold text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30">AMARILLO</span>
+                      } @else {
+                        <span class="px-2 py-0.5 rounded font-mono font-bold text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">{{ item.prioridad }}</span>
+                      }
+                    </td>
+                    <td class="td">
+                      @if (item.estado === 'COMPLETADO') {
+                        <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">COMPLETADO</span>
+                      } @else if (item.estado === 'CANCELADO') {
+                        <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-500/20 text-slate-400 border border-slate-500/30">CANCELADO</span>
+                      } @else {
+                        <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-500/20 text-blue-300 border border-blue-500/30">{{ item.estado }}</span>
+                      }
+                    </td>
                     <td class="td">{{ item.movil || '—' }}</td>
                     <td class="td">{{ item.tiempoRespuestaMin ?? '—' }} min</td>
                     <td class="td">{{ item.tiempoCierreMin ?? '—' }} min</td>

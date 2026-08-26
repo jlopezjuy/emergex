@@ -227,15 +227,41 @@ import { UserFeedbackService } from '../../core/notifications/user-feedback.serv
             class="h-full flex flex-col rounded-xl overflow-hidden p-4"
             style="background:var(--surface-glass);border:1px solid var(--border-glass);backdrop-filter:blur(12px);"
           >
-            <div class="flex items-center justify-between mb-3">
+            <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 mb-3">
               <div>
                 <h2 class="text-base font-semibold" style="color:var(--text-primary);">Tickets pendientes de tarifación</h2>
                 <p class="text-xs" style="color:var(--text-muted);">Tickets cuya zona o tarifa no se pudo resolver automáticamente (H-06b / H-18).</p>
               </div>
-              <span class="font-mono text-xs px-3 py-1 rounded-full" style="background:rgba(245,158,11,0.15);color:#f59e0b;">
-                {{ pendientes().length }} pendientes
-              </span>
+              <div class="flex items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="Filtrar por tipo o ID..."
+                  [value]="filtroPendientes()"
+                  (input)="filtroPendientes.set($any($event.target).value)"
+                  class="px-3 py-1 text-xs rounded-lg border"
+                  style="background:var(--bg-elevated);border-color:var(--border-glass);color:var(--text-primary);outline:none;width:180px;"
+                />
+                <span class="font-mono text-xs px-3 py-1 rounded-full" style="background:rgba(245,158,11,0.15);color:#f59e0b;">
+                  {{ filteredPendientes().length }} pendientes
+                </span>
+              </div>
             </div>
+
+            <!-- Barra de acciones masivas -->
+            @if (selectedPendientes().size > 0) {
+              <div class="flex items-center justify-between px-3 py-2 mb-3 rounded-lg border bg-blue-500/10 border-blue-500/30 text-xs">
+                <span class="font-semibold text-blue-300">
+                  {{ selectedPendientes().size }} tickets seleccionados
+                </span>
+                <button
+                  type="button"
+                  class="btn btn--primary btn--sm"
+                  (click)="openCreateModal()"
+                >
+                  + Crear Lote con Seleccionados
+                </button>
+              </div>
+            }
 
             <div class="flex-1 overflow-y-auto">
               @if (loadingPendientes()) {
@@ -247,6 +273,13 @@ import { UserFeedbackService } from '../../core/notifications/user-feedback.serv
                 <table class="w-full text-left" style="font-size:13px;color:var(--text-primary);">
                   <thead style="border-bottom:1px solid var(--border-glass);color:var(--text-muted);font-size:11px;text-transform:uppercase;">
                     <tr>
+                      <th class="py-2 px-3 w-8">
+                        <input
+                          type="checkbox"
+                          [checked]="isAllPendientesSelected()"
+                          (change)="toggleSelectAllPendientes()"
+                        />
+                      </th>
                       <th class="py-2 px-3 font-semibold">ID</th>
                       <th class="py-2 px-3 font-semibold">Tipo Asistencia</th>
                       <th class="py-2 px-3 font-semibold">Estado</th>
@@ -255,8 +288,15 @@ import { UserFeedbackService } from '../../core/notifications/user-feedback.serv
                     </tr>
                   </thead>
                   <tbody>
-                    @for (item of pendientes(); track item.id) {
-                      <tr style="border-bottom:1px solid var(--border-hairline);">
+                    @for (item of filteredPendientes(); track item.id) {
+                      <tr style="border-bottom:1px solid var(--border-hairline);" [class.bg-blue-500/5]="selectedPendientes().has(item.id)">
+                        <td class="py-2.5 px-3">
+                          <input
+                            type="checkbox"
+                            [checked]="selectedPendientes().has(item.id)"
+                            (change)="toggleSelectPendiente(item.id)"
+                          />
+                        </td>
                         <td class="py-2.5 px-3 font-mono font-semibold">#{{ item.id }}</td>
                         <td class="py-2.5 px-3">{{ item.tipoAsistencia }}</td>
                         <td class="py-2.5 px-3">
@@ -280,10 +320,10 @@ import { UserFeedbackService } from '../../core/notifications/user-feedback.serv
                         </td>
                       </tr>
                     }
-                    @if (pendientes().length === 0) {
+                    @if (filteredPendientes().length === 0) {
                       <tr>
-                        <td colspan="5" class="py-12 text-center" style="color:var(--text-muted);">
-                          No hay tickets pendientes de tarifación en la bandeja.
+                        <td colspan="6" class="py-12 text-center" style="color:var(--text-muted);">
+                          No hay tickets pendientes que coincidan con el filtro.
                         </td>
                       </tr>
                     }
@@ -428,6 +468,8 @@ export class PrefacturacionComponent implements OnInit {
 
   readonly pendientes = signal<TicketPendienteTarifacionDTO[]>([]);
   readonly loadingPendientes = signal(false);
+  readonly filtroPendientes = signal('');
+  readonly selectedPendientes = signal<Set<number>>(new Set());
 
   readonly showTarifarModal = signal(false);
   readonly ticketATarifar = signal<TicketPendienteTarifacionDTO | null>(null);
@@ -436,6 +478,43 @@ export class PrefacturacionComponent implements OnInit {
   readonly manualMotivo = signal('');
 
   readonly lotesTotales = computed(() => this.lotes().length);
+
+  readonly filteredPendientes = computed(() => {
+    const q = this.filtroPendientes().trim().toLowerCase();
+    if (!q) return this.pendientes();
+    return this.pendientes().filter(p => 
+      p.id.toString().includes(q) ||
+      p.tipoAsistencia.toLowerCase().includes(q) ||
+      (p.estadoActual && p.estadoActual.toLowerCase().includes(q))
+    );
+  });
+
+  readonly isAllPendientesSelected = computed(() => {
+    const list = this.filteredPendientes();
+    const sel = this.selectedPendientes();
+    return list.length > 0 && list.every(item => sel.has(item.id));
+  });
+
+  toggleSelectPendiente(id: number): void {
+    const sel = new Set(this.selectedPendientes());
+    if (sel.has(id)) {
+      sel.delete(id);
+    } else {
+      sel.add(id);
+    }
+    this.selectedPendientes.set(sel);
+  }
+
+  toggleSelectAllPendientes(): void {
+    const list = this.filteredPendientes();
+    const sel = new Set(this.selectedPendientes());
+    if (this.isAllPendientesSelected()) {
+      list.forEach(item => sel.delete(item.id));
+    } else {
+      list.forEach(item => sel.add(item.id));
+    }
+    this.selectedPendientes.set(sel);
+  }
 
   readonly filteredLotes = computed(() => {
     const q = this.searchQuery().trim().toLowerCase();

@@ -344,13 +344,17 @@ export class PatientsComponent implements OnInit {
       const rows = data.map(r => {
         // NOTE: In the future, debt state must be fetched from a ledger service instead of inferring it.
         // REQUIERE VALIDACIÓN DEL CONTADOR DE SAE.
+        const statusVal: 'al-dia' | 'deuda' | 'indefinido' = 
+          r.activo === false ? 'deuda' : 
+          (r.coberturaActiva && r.coberturaActiva !== 'Sin plan') ? 'al-dia' : 'al-dia';
+
         return {
           pacienteId: r.pacienteId,
           id: r.numeroAfiliado ?? `AF-${r.pacienteId}`,
           name: r.nombreCompleto ?? '',
           dni: r.dni,
           type: (r.rolFamiliar === 'TITULAR' ? 'titular' : 'dependiente') as 'titular' | 'dependiente',
-          status: 'indefinido' as const,
+          status: statusVal,
           sinceMonth: r.createdAt ? sinceMonthFromISO(r.createdAt) : '—',
           planNombre: r.coberturaActiva ?? 'Sin plan',
           planColor: this.getPlanColor((r.planNivel ?? 'basico').toLowerCase()),
@@ -544,10 +548,9 @@ export class PatientsComponent implements OnInit {
     if (this.selectedPatient()) { this.selectedPatient.set(null); return; }
   }
 
-  // ── Drawer lateral (Detalle) ──
+  // ── Navegación canónica a Ficha 360 ──
   goToDetail(row: PatientRow): void {
-    this.selectedPatient.set(row);
-    this.loadFichaAndFacturas(row.pacienteId);
+    this.router.navigate(['/patients', row.pacienteId]);
   }
 
   private loadFichaAndFacturas(pacienteId: number): void {

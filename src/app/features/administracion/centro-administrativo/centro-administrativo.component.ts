@@ -255,12 +255,18 @@ export type SeveridadFiltro = 'TODAS' | 'CRITICA' | 'URGENTE' | 'ATENCION';
                     @if (item.detalle) {
                       <p class="text-xs leading-relaxed" style="color: var(--text-muted);">{{ item.detalle }}</p>
                     }
-                    <div class="flex items-center justify-between text-[11px] font-mono mt-1 pt-1 border-t" style="border-color: var(--border-glass); color: var(--text-muted);">
-                      <span>{{ item.categoria || 'FACTURACIÓN' }}</span>
+                    <div class="flex items-center justify-between text-[11px] font-mono mt-1 pt-1.5 border-t" style="border-color: var(--border-glass); color: var(--text-muted);">
+                      <span class="font-bold text-[10px] uppercase tracking-wider">{{ item.categoria || 'FACTURACIÓN' }}</span>
                       @if (getRouteForItem(item)) {
-                        <span class="font-semibold" style="color: var(--accent-blue);">Ver Ficha →</span>
+                        <button
+                          type="button"
+                          class="px-2 py-0.5 rounded text-[11px] font-semibold transition-colors flex items-center gap-1"
+                          style="background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); border: 1px solid rgba(59, 130, 246, 0.3);"
+                        >
+                          {{ item.proximaAccion || 'Resolver' }} →
+                        </button>
                       } @else {
-                        <span style="color: var(--text-muted);">Sin ficha 360</span>
+                        <span style="color: var(--text-muted);">Sin acción directa</span>
                       }
                     </div>
                   </div>
@@ -301,12 +307,18 @@ export type SeveridadFiltro = 'TODAS' | 'CRITICA' | 'URGENTE' | 'ATENCION';
                     @if (item.detalle) {
                       <p class="text-xs leading-relaxed" style="color: var(--text-muted);">{{ item.detalle }}</p>
                     }
-                    <div class="flex items-center justify-between text-[11px] font-mono mt-1 pt-1 border-t" style="border-color: var(--border-glass); color: var(--text-muted);">
-                      <span>{{ item.categoria || 'COBRANZAS' }}</span>
+                    <div class="flex items-center justify-between text-[11px] font-mono mt-1 pt-1.5 border-t" style="border-color: var(--border-glass); color: var(--text-muted);">
+                      <span class="font-bold text-[10px] uppercase tracking-wider">{{ item.categoria || 'COBRANZAS' }}</span>
                       @if (getRouteForItem(item)) {
-                        <span class="font-semibold" style="color: var(--accent-blue);">Ver Ficha →</span>
+                        <button
+                          type="button"
+                          class="px-2 py-0.5 rounded text-[11px] font-semibold transition-colors flex items-center gap-1"
+                          style="background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); border: 1px solid rgba(59, 130, 246, 0.3);"
+                        >
+                          {{ item.proximaAccion || 'Resolver' }} →
+                        </button>
                       } @else {
-                        <span style="color: var(--text-muted);">Sin ficha 360</span>
+                        <span style="color: var(--text-muted);">Sin acción directa</span>
                       }
                     </div>
                   </div>
@@ -347,12 +359,18 @@ export type SeveridadFiltro = 'TODAS' | 'CRITICA' | 'URGENTE' | 'ATENCION';
                     @if (item.detalle) {
                       <p class="text-xs leading-relaxed" style="color: var(--text-muted);">{{ item.detalle }}</p>
                     }
-                    <div class="flex items-center justify-between text-[11px] font-mono mt-1 pt-1 border-t" style="border-color: var(--border-glass); color: var(--text-muted);">
-                      <span>{{ item.categoria || 'COMPRAS' }}</span>
+                    <div class="flex items-center justify-between text-[11px] font-mono mt-1 pt-1.5 border-t" style="border-color: var(--border-glass); color: var(--text-muted);">
+                      <span class="font-bold text-[10px] uppercase tracking-wider">{{ item.categoria || 'COMPRAS' }}</span>
                       @if (getRouteForItem(item)) {
-                        <span class="font-semibold" style="color: var(--accent-blue);">Ver Ficha →</span>
+                        <button
+                          type="button"
+                          class="px-2 py-0.5 rounded text-[11px] font-semibold transition-colors flex items-center gap-1"
+                          style="background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); border: 1px solid rgba(59, 130, 246, 0.3);"
+                        >
+                          {{ item.proximaAccion || 'Resolver' }} →
+                        </button>
                       } @else {
-                        <span style="color: var(--text-muted);">Sin ficha 360</span>
+                        <span style="color: var(--text-muted);">Sin acción directa</span>
                       }
                     </div>
                   </div>
@@ -393,12 +411,18 @@ export type SeveridadFiltro = 'TODAS' | 'CRITICA' | 'URGENTE' | 'ATENCION';
                     @if (item.detalle) {
                       <p class="text-xs leading-relaxed" style="color: var(--text-muted);">{{ item.detalle }}</p>
                     }
-                    <div class="flex items-center justify-between text-[11px] font-mono mt-1 pt-1 border-t" style="border-color: var(--border-glass); color: var(--text-muted);">
-                      <span>{{ item.categoria || 'CONTRATOS' }}</span>
+                    <div class="flex items-center justify-between text-[11px] font-mono mt-1 pt-1.5 border-t" style="border-color: var(--border-glass); color: var(--text-muted);">
+                      <span class="font-bold text-[10px] uppercase tracking-wider">{{ item.categoria || 'CONTRATOS' }}</span>
                       @if (getRouteForItem(item)) {
-                        <span class="font-semibold" style="color: var(--accent-blue);">Ver Ficha →</span>
+                        <button
+                          type="button"
+                          class="px-2 py-0.5 rounded text-[11px] font-semibold transition-colors flex items-center gap-1"
+                          style="background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); border: 1px solid rgba(59, 130, 246, 0.3);"
+                        >
+                          {{ item.proximaAccion || 'Resolver' }} →
+                        </button>
                       } @else {
-                        <span style="color: var(--text-muted);">Sin ficha 360</span>
+                        <span style="color: var(--text-muted);">Sin acción directa</span>
                       }
                     </div>
                   </div>
