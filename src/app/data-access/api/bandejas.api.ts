@@ -100,10 +100,10 @@ export class BandejasApi {
     );
   }
 
-  apelarDebito(debitoId: number, motivo?: string): Observable<any> {
-    let params: { [param: string]: string } = {};
+  apelarDebito(debitoId: number, motivo?: string): Observable<void> {
+    const params: { [param: string]: string } = {};
     if (motivo) params['motivo'] = motivo;
-    return this.http.put<any>(
+    return this.http.put<void>(
       `${environment.apiUrl}/api/v1/debitos-documentos/${debitoId}/apelar`,
       null,
       { params }

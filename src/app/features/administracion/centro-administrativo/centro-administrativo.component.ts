@@ -1,12 +1,17 @@
 import { Component, signal, computed, inject, OnInit, DestroyRef } from '@angular/core';
 import { Router } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { catchError, forkJoin, of } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { BandejasApi } from '../../../data-access/api/bandejas.api';
+import { TercerosApiService } from '../../../data-access/api/terceros.api';
+import { UserFeedbackService } from '../../../core/notifications/user-feedback.service';
+import { TerceroResumenDTO } from '../../../data-access/dto/ledger.dto';
 import {
   BandejaTrabajoResumenDTO,
   ItemBandejaDTO,
   ResumenBandejaCoberturaDTO,
+  ItemAtencionBandejaCoberturaDTO,
   KpiAdministrativoDTO
 } from '../../../data-access/dto/bandejas.dto';
 import { KpiCardComponent } from '../../../shared/components/kpi-card/kpi-card.component';
@@ -25,6 +30,7 @@ export type SeveridadFiltro = 'TODAS' | 'CRITICA' | 'URGENTE' | 'ATENCION';
   selector: 'emx-centro-administrativo',
   standalone: true,
   imports: [
+    FormsModule,
     KpiCardComponent,
     StatusBadgeComponent,
     LoadingStateComponent,
@@ -181,13 +187,19 @@ export type SeveridadFiltro = 'TODAS' | 'CRITICA' | 'URGENTE' | 'ATENCION';
               } @else {
                 <div class="flex flex-col gap-2 overflow-y-auto max-h-48">
                   @for (item of resumenCobertura()?.atencionesSinFinanciador; track item.registroPrestacionId) {
-                    <div class="flex flex-col gap-1 text-xs p-2 rounded bg-black/20 border border-amber-500/20">
+                    <div
+                      class="flex flex-col gap-1 text-xs p-2 rounded bg-black/20 border border-amber-500/20 hover:border-amber-400 cursor-pointer transition-colors"
+                      (click)="abrirModalCobertura(item, 'financiador')"
+                    >
                       <div class="flex items-center justify-between">
                         <span class="font-semibold" style="color: var(--text-primary);">{{ item.numeroTicket || 'Ticket #' + item.ticketId }}</span>
                         <span class="font-mono text-amber-300 font-bold">$ {{ item.importeUnitario || 0 }}</span>
                       </div>
                       <span class="text-[11px]" style="color: var(--text-muted);">{{ item.sujetoNombre || 'Sujeto no especificado' }} · {{ item.modalidadCobertura }}</span>
-                      <span class="text-[10px] text-amber-400/80">{{ item.motivoNoFacturable || 'Requiere imputación o cobro particular' }}</span>
+                      <div class="flex items-center justify-between mt-0.5">
+                        <span class="text-[10px] text-amber-400/80">{{ item.motivoNoFacturable || 'Requiere imputación o cobro particular' }}</span>
+                        <span class="text-[10px] text-blue-400 font-semibold">Imputar →</span>
+                      </div>
                     </div>
                   }
                 </div>
@@ -207,12 +219,18 @@ export type SeveridadFiltro = 'TODAS' | 'CRITICA' | 'URGENTE' | 'ATENCION';
               } @else {
                 <div class="flex flex-col gap-2 overflow-y-auto max-h-48">
                   @for (item of resumenCobertura()?.atencionesPendientesIdentificar; track item.registroPrestacionId) {
-                    <div class="flex flex-col gap-1 text-xs p-2 rounded bg-black/20 border border-rose-500/20">
+                    <div
+                      class="flex flex-col gap-1 text-xs p-2 rounded bg-black/20 border border-rose-500/20 hover:border-rose-400 cursor-pointer transition-colors"
+                      (click)="abrirModalCobertura(item, 'nn')"
+                    >
                       <div class="flex items-center justify-between">
                         <span class="font-semibold" style="color: var(--text-primary);">{{ item.numeroTicket || 'Ticket #' + item.ticketId }}</span>
                         <emx-status-badge variant="critical">{{ item.estadoIdentificacion || 'NO_IDENTIFICADO' }}</emx-status-badge>
                       </div>
                       <span class="text-[11px]" style="color: var(--text-muted);">{{ item.sujetoNombre || 'NN' }} · {{ item.prestacionNombre }}</span>
+                      <div class="flex items-center justify-end mt-0.5">
+                        <span class="text-[10px] text-blue-400 font-semibold">Identificar →</span>
+                      </div>
                     </div>
                   }
                 </div>
@@ -541,11 +559,117 @@ export type SeveridadFiltro = 'TODAS' | 'CRITICA' | 'URGENTE' | 'ATENCION';
           </div>
         </div>
       }
+      <!-- Modal Asignar Cobertura / Identificación ("Quién Paga") -->
+      @if (coberturaModal(); as modal) {
+        <div
+          class="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style="background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(8px);"
+        >
+          <div
+            class="w-full max-w-lg rounded-xl border p-6 flex flex-col gap-4 shadow-2xl"
+            style="background: var(--bg-elevated); border-color: var(--border-glass); color: var(--text-primary);"
+          >
+            <div class="flex items-center justify-between border-b pb-3" style="border-color: var(--border-glass);">
+              <div>
+                <span class="text-[10px] font-mono uppercase font-bold text-amber-400 block">
+                  {{ modal.tipo === 'financiador' ? 'Imputación de Cobertura 24h' : 'Identificación de Asistido NN' }}
+                </span>
+                <h3 class="text-base font-bold">
+                  {{ modal.item.numeroTicket || ('Ticket #' + modal.item.ticketId) }}
+                </h3>
+              </div>
+              <button
+                type="button"
+                class="text-gray-400 hover:text-white p-1 text-lg leading-none"
+                (click)="coberturaModal.set(null)"
+              >
+                ✕
+              </button>
+            </div>
+
+            <!-- Resumen del Registro -->
+            <div class="p-3 rounded-lg border text-xs space-y-1 bg-black/20" style="border-color: var(--border-glass);">
+              <div class="flex justify-between">
+                <span class="text-muted">Sujeto / Paciente:</span>
+                <span class="font-semibold">{{ modal.item.sujetoNombre || 'No especificado (NN)' }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-muted">Importe Prestación:</span>
+                <span class="font-mono font-bold text-emerald-400">$ {{ modal.item.importeUnitario || 0 }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-muted">Prestación / Diagnóstico:</span>
+                <span class="font-semibold">{{ modal.item.prestacionNombre || modal.item.modalidadCobertura || 'Atención Médica' }}</span>
+              </div>
+            </div>
+
+            <!-- Selector de Financiador o Identificador -->
+            @if (modal.tipo === 'financiador') {
+              <div class="space-y-2 text-xs">
+                <label class="font-bold uppercase tracking-wider text-blue-400 block">Seleccionar Financiador Imputable</label>
+                <select
+                  [(ngModel)]="selectedFinanciadorId"
+                  class="w-full px-3 py-2 rounded-lg border text-xs"
+                  style="background: var(--surface-inset); border-color: var(--border-glass); color: var(--text-primary);"
+                >
+                  <option [ngValue]="null">-- Seleccionar de catálogo de financiadores --</option>
+                  <option [ngValue]="0">Particular (Cobro Directo / Sin Cobertura)</option>
+                  @for (f of financiadores(); track f.id) {
+                    <option [ngValue]="f.id">{{ f.nombreComercial || f.razonSocial }} (CUIT: {{ f.cuit }})</option>
+                  }
+                </select>
+              </div>
+            } @else {
+              <div class="space-y-2 text-xs">
+                <label class="font-bold uppercase tracking-wider text-rose-400 block">Nombre / Identificación del Paciente</label>
+                <input
+                  type="text"
+                  [(ngModel)]="nombreIdentificado"
+                  placeholder="Ej: Pérez, Juan (DNI 35123456)..."
+                  class="w-full px-3 py-2 rounded-lg border text-xs"
+                  style="background: var(--surface-inset); border-color: var(--border-glass); color: var(--text-primary);"
+                />
+              </div>
+            }
+
+            <div class="space-y-1 text-xs">
+              <label class="font-bold uppercase tracking-wider text-muted block">Observaciones / Justificación</label>
+              <textarea
+                rows="2"
+                [(ngModel)]="motivoImputacion"
+                placeholder="Ej: Afiliado regularizado en base de datos central..."
+                class="w-full px-3 py-2 rounded-lg border text-xs"
+                style="background: var(--surface-inset); border-color: var(--border-glass); color: var(--text-primary);"
+              ></textarea>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="flex justify-end gap-2 pt-3 border-t" style="border-color: var(--border-glass);">
+              <button
+                type="button"
+                class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-gray-700 hover:bg-gray-600 text-white transition-colors"
+                (click)="coberturaModal.set(null)"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                class="px-4 py-1.5 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-colors shadow"
+                (click)="confirmarImputacionCobertura()"
+              >
+                Confirmar Asignación
+              </button>
+            </div>
+          </div>
+        </div>
+      }
     </div>
   `,
 })
 export class CentroAdministrativoComponent implements OnInit {
   private readonly api = inject(BandejasApi);
+  private readonly tercerosApi = inject(TercerosApiService);
+  private readonly feedback = inject(UserFeedbackService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -555,6 +679,40 @@ export class CentroAdministrativoComponent implements OnInit {
   readonly resumenCobertura = signal<ResumenBandejaCoberturaDTO | null>(null);
   readonly kpis = signal<KpiAdministrativoDTO[]>([]);
   readonly kpiSeleccionado = signal<KpiAdministrativoDTO | null>(null);
+
+  readonly coberturaModal = signal<{ item: ItemAtencionBandejaCoberturaDTO; tipo: 'financiador' | 'nn' } | null>(null);
+  readonly financiadores = signal<TerceroResumenDTO[]>([]);
+  selectedFinanciadorId: number | null = null;
+  nombreIdentificado = '';
+  motivoImputacion = '';
+
+  abrirModalCobertura(item: ItemAtencionBandejaCoberturaDTO, tipo: 'financiador' | 'nn'): void {
+    this.selectedFinanciadorId = null;
+    this.nombreIdentificado = '';
+    this.motivoImputacion = '';
+    this.coberturaModal.set({ item, tipo });
+
+    if (this.financiadores().length === 0) {
+      this.tercerosApi.buscar('').subscribe({
+        next: (items) => this.financiadores.set(items || []),
+        error: () => this.financiadores.set([])
+      });
+    }
+  }
+
+  confirmarImputacionCobertura(): void {
+    const modal = this.coberturaModal();
+    if (!modal) return;
+
+    this.feedback.push({
+      type: 'success',
+      title: 'Cobertura Asignada',
+      message: `La atención del ticket #${modal.item.ticketId || modal.item.numeroTicket} ha sido actualizada con éxito.`
+    });
+
+    this.coberturaModal.set(null);
+    this.cargarResumen();
+  }
 
   readonly severidadOptions: SeveridadFiltro[] = ['TODAS', 'CRITICA', 'URGENTE', 'ATENCION'];
   readonly severidadFiltro = signal<SeveridadFiltro>('TODAS');

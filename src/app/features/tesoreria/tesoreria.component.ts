@@ -76,22 +76,63 @@ import { UserFeedbackService } from '../../core/notifications/user-feedback.serv
           </div>
         </emx-glass-card>
 
-        <!-- Card 3: Realizar Arqueo -->
+        <!-- Card 3: Realizar Arqueo & Billetaje -->
         <emx-glass-card>
-          <h2 class="text-lg font-semibold mb-4" style="color: var(--text-primary)">Realizar Arqueo</h2>
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-lg font-semibold" style="color: var(--text-primary)">Realizar Arqueo</h2>
+            <button
+              type="button"
+              (click)="mostrarBilletaje.update(v => !v)"
+              class="text-xs px-2.5 py-1 rounded border border-[var(--border-glass)] text-[var(--accent-blue)] bg-[var(--surface-glass)] hover:bg-white/5 transition font-semibold"
+            >
+              {{ mostrarBilletaje() ? '✕ Ocultar Billetaje' : '💵 Calculadora Billetaje' }}
+            </button>
+          </div>
           <div class="space-y-4">
             <div>
-              <label class="block text-xs font-semibold uppercase mb-1" style="color: var(--text-muted)">Caja</label>
+              <label class="block text-xs font-semibold uppercase mb-1" style="color: var(--text-muted)">Caja a Arqueada</label>
               <select [ngModel]="cajaIdArqueo()" (ngModelChange)="cajaIdArqueo.set($event)"
                       class="w-full px-3 py-2 border rounded-lg text-sm bg-transparent" style="border-color: var(--border-glass); color: var(--text-primary)">
                 <option [ngValue]="null" disabled>{{ loadingCajas() ? 'Cargando...' : 'Seleccioná una caja' }}</option>
                 <option *ngFor="let c of cajas()" [ngValue]="c.id">#{{ c.id }} · {{ c.nombre }}</option>
               </select>
             </div>
+
+            @if (mostrarBilletaje()) {
+              <div class="p-3 bg-[var(--surface-glass)] rounded-xl border border-[var(--border-glass)] space-y-2">
+                <div class="flex justify-between items-center text-xs font-bold uppercase text-[var(--text-muted)] border-b border-[var(--border-glass)] pb-1">
+                  <span>Denominación</span>
+                  <span>Cantidad</span>
+                  <span>Subtotal ($)</span>
+                </div>
+                @for (d of denominaciones; track d) {
+                  <div class="flex items-center justify-between gap-2 text-xs">
+                    <span class="font-mono font-bold w-16 text-[var(--text-primary)]">$ {{ d | number }}</span>
+                    <input
+                      type="number"
+                      min="0"
+                      [value]="billetes()[d] || ''"
+                      (input)="actualizarCantidadBillete(d, +$any($event.target).value)"
+                      placeholder="0"
+                      class="w-20 px-2 py-1 border rounded text-right font-mono bg-[var(--surface-inset)]"
+                      style="border-color: var(--border-glass); color: var(--text-primary);"
+                    />
+                    <span class="font-mono text-right w-24 font-bold text-emerald-400">
+                      $ {{ ((billetes()[d] || 0) * d) | number:'1.2-2' }}
+                    </span>
+                  </div>
+                }
+                <div class="border-t border-[var(--border-glass)] pt-2 flex justify-between items-center text-xs font-bold">
+                  <span class="text-[var(--text-primary)]">Total Conteo Físico:</span>
+                  <span class="text-base text-emerald-400 font-mono font-extrabold">$ {{ arqMontoFisico() | number:'1.2-2' }}</span>
+                </div>
+              </div>
+            }
+
             <div>
-              <label class="block text-xs font-semibold uppercase mb-1" style="color: var(--text-muted)">Monto Físico Contado ($)</label>
+              <label class="block text-xs font-semibold uppercase mb-1" style="color: var(--text-muted)">Monto Físico Total Contado ($)</label>
               <input type="number" [ngModel]="arqMontoFisico()" (ngModelChange)="arqMontoFisico.set($event)" placeholder="0.00"
-                     class="w-full px-3 py-2 border rounded-lg text-sm bg-transparent font-mono" style="border-color: var(--border-glass); color: var(--text-primary)" />
+                     class="w-full px-3 py-2 border rounded-lg text-sm bg-transparent font-mono font-bold text-emerald-400" style="border-color: var(--border-glass);" />
             </div>
             <button (click)="ejecutarArqueo()" [disabled]="loadingArqueo()" class="btn-primary w-full text-sm font-medium py-2 rounded-lg">
               {{ loadingArqueo() ? 'Procesando...' : 'Cerrar Arqueo' }}
@@ -145,6 +186,27 @@ export class TesoreriaComponent implements OnInit {
   cajaIdArqueo = signal<number | null>(null);
   arqMontoFisico = signal<number>(0);
   loadingArqueo = signal<boolean>(false);
+
+  readonly denominaciones: number[] = [20000, 10000, 2000, 1000, 500, 200, 100];
+  readonly billetes = signal<Record<number, number>>({
+    20000: 0,
+    10000: 0,
+    2000: 0,
+    1000: 0,
+    500: 0,
+    200: 0,
+    100: 0,
+  });
+  readonly mostrarBilletaje = signal<boolean>(false);
+
+  actualizarCantidadBillete(denominacion: number, cantidad: number): void {
+    const cant = Math.max(0, isNaN(cantidad) ? 0 : cantidad);
+    const updated = { ...this.billetes(), [denominacion]: cant };
+    this.billetes.set(updated);
+
+    const total = Object.entries(updated).reduce((acc, [d, c]) => acc + (+d * c), 0);
+    this.arqMontoFisico.set(total);
+  }
 
   ngOnInit(): void {
     this.cargarCajas();

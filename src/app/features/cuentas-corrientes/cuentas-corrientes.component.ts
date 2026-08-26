@@ -279,6 +279,7 @@ export class CuentasCorrientesComponent implements OnInit {
   readonly movimientos = signal<LedgerMovimientoDTO[]>([]);
 
   readonly agingDeuda = signal<AgingDeudaDTO | null>(null);
+  readonly loadingAging = signal(false);
   readonly tercerosRecientes = signal<TerceroResumenDTO[]>([]);
   readonly loadingRecientes = signal(false);
 

@@ -3,9 +3,10 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { OrdenesPagoApiService } from '../../../data-access/api/ordenes-pago.api';
 import { TercerosApiService } from '../../../data-access/api/terceros.api';
+import { LedgerApiService } from '../../../data-access/api/ledger.api';
 import { UserFeedbackService } from '../../../core/notifications/user-feedback.service';
 import { OrdenDePagoDTO } from '../../../data-access/dto/ordenes-pago.dto';
-import { TerceroResumenDTO } from '../../../data-access/dto/ledger.dto';
+import { TerceroResumenDTO, LedgerMovimientoDTO } from '../../../data-access/dto/ledger.dto';
 import { CbuMakerCheckerModalComponent } from '../../../shared/components/finance/cbu-maker-checker-modal/cbu-maker-checker-modal.component';
 import { OrdenPagoFormModalComponent } from '../../../shared/components/finance/orden-pago-form-modal/orden-pago-form-modal.component';
 import { DocumentosAdjuntosComponent } from '../../../shared/components/documentos-adjuntos/documentos-adjuntos.component';
@@ -69,6 +70,15 @@ import { StatusBadgeComponent } from '../../../shared/components/status-badge/st
           class="pb-3 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition"
         >
           Órdenes de Pago (CxP)
+        </button>
+        <button
+          (click)="activeTab.set('cxp')"
+          [class.border-b-2]="activeTab() === 'cxp'"
+          [class.border-[var(--accent-blue)]]="activeTab() === 'cxp'"
+          [class.text-[var(--accent-blue)]]="activeTab() === 'cxp'"
+          class="pb-3 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition"
+        >
+          Submayor de Cuenta Corriente (CxP)
         </button>
         <button
           (click)="activeTab.set('cbu')"
@@ -152,6 +162,66 @@ import { StatusBadgeComponent } from '../../../shared/components/status-badge/st
         </div>
       }
 
+      <!-- Tab Content: Submayor de Cuenta Corriente (CxP) -->
+      @if (activeTab() === 'cxp') {
+        <div class="bg-[var(--bg-elevated)] rounded-xl border border-[var(--border-glass)] overflow-hidden shadow-sm space-y-4 p-6">
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[var(--surface-glass)] p-4 rounded-xl border border-[var(--border-glass)]">
+            <div>
+              <span class="text-xs font-bold uppercase tracking-wider text-amber-400 block">Saldo Actual a Pagar (Deuda Proveedor)</span>
+              <span class="text-3xl font-extrabold text-[var(--text-primary)]">$ {{ saldoCxp() | number:'1.2-2' }}</span>
+            </div>
+            <button
+              type="button"
+              (click)="cargarSubmayorCxp()"
+              class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-[var(--border-glass)] bg-[var(--bg-elevated)] hover:bg-white/5 transition"
+            >
+              ↻ Actualizar Submayor
+            </button>
+          </div>
+
+          @if (loadingCxp()) {
+            <div class="p-8 text-center text-sm text-[var(--text-muted)]">
+              Cargando libro mayor de cuentas por pagar...
+            </div>
+          } @else if (movimientosCxp().length === 0) {
+            <div class="p-8 text-center text-sm text-[var(--text-muted)]">
+              Sin movimientos contables registrados en el Submayor CxP para este proveedor.
+            </div>
+          } @else {
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-sm">
+                <thead class="bg-[var(--surface-glass)] text-xs uppercase font-semibold text-[var(--text-muted)] border-b border-[var(--border-glass)]">
+                  <tr>
+                    <th class="px-4 py-3">ID</th>
+                    <th class="px-4 py-3">Fecha Contable</th>
+                    <th class="px-4 py-3">Tipo Movimiento</th>
+                    <th class="px-4 py-3">Concepto</th>
+                    <th class="px-4 py-3 text-right">DEBE</th>
+                    <th class="px-4 py-3 text-right">HABER</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-[var(--border-glass)]">
+                  @for (m of movimientosCxp(); track m.id) {
+                    <tr class="hover:bg-[var(--surface-glass)] transition">
+                      <td class="px-4 py-3 font-mono text-xs">{{ m.id }}</td>
+                      <td class="px-4 py-3 font-mono text-xs">{{ m.fechaContable }}</td>
+                      <td class="px-4 py-3 font-semibold text-xs">{{ m.tipoMovimiento }}</td>
+                      <td class="px-4 py-3 text-xs">{{ m.concepto }}</td>
+                      <td class="px-4 py-3 font-mono text-xs text-right" [class.text-emerald-400]="m.montoDebe > 0">
+                        {{ m.montoDebe > 0 ? ('$ ' + (m.montoDebe | number:'1.2-2')) : '—' }}
+                      </td>
+                      <td class="px-4 py-3 font-mono text-xs text-right" [class.text-amber-400]="m.montoHaber > 0">
+                        {{ m.montoHaber > 0 ? ('$ ' + (m.montoHaber | number:'1.2-2')) : '—' }}
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </div>
+      }
+
       <!-- Tab Content: CBU -->
       @if (activeTab() === 'cbu') {
         <div class="bg-[var(--bg-elevated)] p-6 rounded-xl border border-[var(--border-glass)] space-y-4">
@@ -199,7 +269,7 @@ import { StatusBadgeComponent } from '../../../shared/components/status-badge/st
 })
 export class ProveedorDetailComponent implements OnInit {
   proveedorId = 0;
-  activeTab = signal<'op' | 'cbu' | 'docs'>('op');
+  activeTab = signal<'op' | 'cxp' | 'cbu' | 'docs'>('op');
   ordenesPago = signal<OrdenDePagoDTO[]>([]);
   showCbuModal = false;
 
@@ -208,9 +278,14 @@ export class ProveedorDetailComponent implements OnInit {
   readonly errorProveedor = signal<string | null>(null);
   readonly opAEjecutar = signal<OrdenDePagoDTO | null>(null);
 
+  readonly saldoCxp = signal<number>(0);
+  readonly movimientosCxp = signal<LedgerMovimientoDTO[]>([]);
+  readonly loadingCxp = signal<boolean>(false);
+
   private route = inject(ActivatedRoute);
   private ordenesPagoApi = inject(OrdenesPagoApiService);
   private tercerosApi = inject(TercerosApiService);
+  private ledgerApi = inject(LedgerApiService);
   private feedbackService = inject(UserFeedbackService);
 
   ngOnInit(): void {
@@ -226,6 +301,28 @@ export class ProveedorDetailComponent implements OnInit {
     }
 
     this.cargarOrdenesPago();
+    this.cargarSubmayorCxp();
+  }
+
+  cargarSubmayorCxp(): void {
+    if (!this.proveedorId) return;
+    this.loadingCxp.set(true);
+
+    this.ledgerApi.getSaldoCxp(this.proveedorId).subscribe({
+      next: (saldo) => this.saldoCxp.set(saldo),
+      error: () => this.saldoCxp.set(0)
+    });
+
+    this.ledgerApi.getMovimientosCxp(this.proveedorId).subscribe({
+      next: (movs) => {
+        this.movimientosCxp.set(movs || []);
+        this.loadingCxp.set(false);
+      },
+      error: () => {
+        this.movimientosCxp.set([]);
+        this.loadingCxp.set(false);
+      }
+    });
   }
 
   cargarProveedorInfo(): void {

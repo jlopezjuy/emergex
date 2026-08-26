@@ -484,7 +484,7 @@ export class PrefacturacionComponent implements OnInit {
     if (!q) return this.pendientes();
     return this.pendientes().filter(p => 
       p.id.toString().includes(q) ||
-      p.tipoAsistencia.toLowerCase().includes(q) ||
+      (p.tipoAsistencia && p.tipoAsistencia.toLowerCase().includes(q)) ||
       (p.estadoActual && p.estadoActual.toLowerCase().includes(q))
     );
   });
