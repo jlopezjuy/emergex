@@ -217,8 +217,24 @@ function fmtCurrency(n?: number): string {
                   <emx-error-state message="Error al cargar el consumo mensual" (retry)="cargarConsumo()" />
                 } @else if (consumo()) {
                   <div class="grid grid-cols-2 gap-3 text-xs">
-                    <div><span style="color: var(--text-muted);">Atenciones Consumidas:</span> <strong style="color: var(--text-primary);">{{ consumo()?.atencionesConsumidas ?? 0 }} / {{ consumo()?.atencionesMaximas ?? 0 }}</strong></div>
-                    <div><span style="color: var(--text-muted);">Controles Médicos:</span> <strong style="color: var(--text-primary);">{{ consumo()?.controlesMedicosConsumidos ?? 0 }} / {{ consumo()?.controlesMedicosMaximos ?? 0 }}</strong></div>
+                    <div>
+                      <span style="color: var(--text-muted);">Atenciones Consumidas:</span>
+                      <strong [style.color]="cupoExcedido(consumo()?.atencionesConsumidas, consumo()?.atencionesMaximas) ? 'var(--accent-red)' : 'var(--text-primary)'">
+                        {{ consumo()?.atencionesConsumidas ?? 0 }} / {{ consumo()?.atencionesMaximas ?? 0 }}
+                      </strong>
+                      @if (cupoExcedido(consumo()?.atencionesConsumidas, consumo()?.atencionesMaximas)) {
+                        <span class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--accent-red);"> · Cupo excedido</span>
+                      }
+                    </div>
+                    <div>
+                      <span style="color: var(--text-muted);">Controles Médicos:</span>
+                      <strong [style.color]="cupoExcedido(consumo()?.controlesMedicosConsumidos, consumo()?.controlesMedicosMaximos) ? 'var(--accent-red)' : 'var(--text-primary)'">
+                        {{ consumo()?.controlesMedicosConsumidos ?? 0 }} / {{ consumo()?.controlesMedicosMaximos ?? 0 }}
+                      </strong>
+                      @if (cupoExcedido(consumo()?.controlesMedicosConsumidos, consumo()?.controlesMedicosMaximos)) {
+                        <span class="text-[10px] font-bold uppercase tracking-wider" style="color: var(--accent-red);"> · Cupo excedido</span>
+                      }
+                    </div>
                     <div><span style="color: var(--text-muted);">Órdenes Disponibles:</span> <strong style="color: var(--text-primary);">{{ consumo()?.ordenesDisponibles?.length ?? 0 }}</strong></div>
                     <div><span style="color: var(--text-muted);">Alertas Activas:</span> <strong style="color: var(--text-primary);">{{ ficha()?.alertas?.length ?? 0 }}</strong></div>
                   </div>
@@ -536,6 +552,18 @@ function fmtCurrency(n?: number): string {
   `,
 })
 export class PatientDetailComponent implements OnInit {
+  /**
+   * Detecta cupo excedido (consumidas > máximas).
+   *
+   * Un `0/0` es "sin plan asignado, nada que alertar". Pero `1/0` -consumir algo teniendo
+   * cupo cero- SÍ es una excepción real, aunque el máximo sea 0: por eso la condición mira
+   * lo consumido, no si el máximo es "un tope real".
+   */
+  cupoExcedido(consumidas: number | undefined | null, maximas: number | undefined | null): boolean {
+    const c = consumidas ?? 0;
+    return c > 0 && c > (maximas ?? 0);
+  }
+
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly api = inject(PatientApiService);

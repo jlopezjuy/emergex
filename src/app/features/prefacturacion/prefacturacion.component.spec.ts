@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { PrefacturacionComponent } from './prefacturacion.component';
 import { PrefacturacionApiService } from '../../data-access/api/prefacturacion.api';
 import { UserFeedbackService } from '../../core/notifications/user-feedback.service';
@@ -25,6 +26,7 @@ describe('PrefacturacionComponent', () => {
     await TestBed.configureTestingModule({
       imports: [PrefacturacionComponent],
       providers: [
+        provideRouter([]),
         { provide: PrefacturacionApiService, useValue: apiMock },
         { provide: UserFeedbackService, useValue: { push: vi.fn(), fromHttpError: vi.fn() } },
       ],
@@ -41,7 +43,7 @@ describe('PrefacturacionComponent', () => {
   });
 
   it('para un lote en BORRADOR, generar líneas invoca la API con el período ingresado', () => {
-    const lote = { id: 5, fechaCreacion: '2026-08-01', estado: 'BORRADOR' as const, financiadorNombre: 'OSDE', totalTickets: 0 };
+    const lote = { id: 5, fechaCreacion: '2026-08-01', estado: 'BORRADOR' as const, financiadorId: 55, montoTotal: 0 };
     (apiMock['obtenerLote'] as ReturnType<typeof vi.fn>).mockReturnValue(of(lote));
     const component = fixture.componentInstance;
 
@@ -57,7 +59,7 @@ describe('PrefacturacionComponent', () => {
   });
 
   it('para un lote en CONFIRMADO, emitir invoca el endpoint de emisión, no el de confirmación (H-13)', () => {
-    const lote = { id: 7, fechaCreacion: '2026-08-01', estado: 'CONFIRMADO' as const, financiadorNombre: 'OSDE', totalTickets: 3 };
+    const lote = { id: 7, fechaCreacion: '2026-08-01', estado: 'CONFIRMADO' as const, financiadorId: 55, montoTotal: 15000 };
     const loteEmitido = { ...lote, estado: 'EMITIDO' as const };
     (apiMock['obtenerLote'] as ReturnType<typeof vi.fn>).mockReturnValue(of(lote));
     (apiMock['emitirLote'] as ReturnType<typeof vi.fn>).mockReturnValue(of(loteEmitido));
@@ -86,6 +88,39 @@ describe('PrefacturacionComponent', () => {
       cargoBase: 4500,
       costoEspera: 1000,
       motivo: 'Tarifación autorizada por operador',
+    });
+  });
+
+  describe('tarjetas de lote (ADM-UX-018)', () => {
+    it('no crashea al buscar: financiadorNombre y totalTickets no existen en la respuesta real del backend', () => {
+      apiMock['listarLotes'].mockReturnValue(
+        of([{ id: 1, numeroLote: 'LOTE-1', fechaCreacion: '2026-08-01', estado: 'BORRADOR', financiadorId: 55, montoTotal: 5000 }]),
+      );
+      const local = TestBed.createComponent(PrefacturacionComponent);
+      local.detectChanges();
+
+      expect(() => local.componentInstance.searchQuery.set('cualquier texto')).not.toThrow();
+      local.detectChanges();
+      expect(local.componentInstance.filteredLotes().length).toBe(0);
+    });
+
+    it('muestra el número de lote y el importe real que sí envía el backend', () => {
+      apiMock['listarLotes'].mockReturnValue(
+        of([{ id: 1, numeroLote: 'LOTE-2026-0001', fechaCreacion: '2026-08-01', estado: 'BORRADOR', financiadorId: 55, montoTotal: 12500.5 }]),
+      );
+      const local = TestBed.createComponent(PrefacturacionComponent);
+      local.detectChanges();
+
+      const texto = local.nativeElement.textContent as string;
+      expect(texto).toContain('LOTE-2026-0001');
+      expect(texto).toContain('12.500,50');
+    });
+
+    it('distingue importe cero de importe todavía no cargado', () => {
+      const component = fixture.componentInstance;
+      expect(component.fmtLoteImporte(0)).toBe('$0,00');
+      expect(component.fmtLoteImporte(null)).toBe('—');
+      expect(component.fmtLoteImporte(undefined)).toBe('—');
     });
   });
 });

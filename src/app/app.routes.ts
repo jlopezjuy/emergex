@@ -5,6 +5,7 @@ import { noAuthGuard } from './core/auth/no-auth.guard';
 import { roleGuard } from './core/auth/role.guard';
 import { ShellComponent } from './layout/shell/shell.component';
 import { SessionStore } from './core/stores/session.store';
+import { rutaInicialParaRoles } from './core/navigation/ruta-inicial';
 
 export const routes: Routes = [
   {
@@ -14,10 +15,7 @@ export const routes: Routes = [
       () => {
         const sessionStore = inject(SessionStore);
         const router = inject(Router);
-        if (sessionStore.hasAnyRole(['ROLE_ADMIN', 'ROLE_PROPIETARIO', 'ROLE_ADMINISTRADOR', 'ROLE_CONTADOR'])) {
-          return router.parseUrl('/administracion');
-        }
-        return router.parseUrl('/dashboard');
+        return router.parseUrl(rutaInicialParaRoles((roles) => sessionStore.hasAnyRole(roles)));
       }
     ],
     children: [],

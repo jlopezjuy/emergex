@@ -1,5 +1,8 @@
-import { Component, input, output, inject, signal, computed, OnInit, OnDestroy, HostListener } from '@angular/core';
-import { Router } from '@angular/router';
+import { Component, input, output, inject, signal, computed, OnInit, OnDestroy, HostListener, DestroyRef } from '@angular/core';
+import { Router, NavigationEnd } from '@angular/router';
+import { filter } from 'rxjs/operators';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { tituloParaRuta } from '../../core/navigation/titulo-ruta';
 import { NotificationStore } from '../../core/stores/notification.store';
 import { SessionStore } from '../../core/stores/session.store';
 import { AuthService } from '../../core/auth/auth.service';
@@ -20,9 +23,9 @@ import { DateUtils } from '../../core/utils/date.utils';
       <div class="flex items-center gap-2 min-w-0">
         <div class="flex flex-col min-w-0">
           <span class="font-semibold text-sm leading-tight" style="color: var(--text-primary);">
-            <span class="truncate block">Centro de Operaciones</span>
+            <span class="truncate block">{{ tituloRuta().titulo }}</span>
           </span>
-          <span class="text-xs truncate" style="color: var(--text-muted);">Emergex · Dashboard operativo</span>
+          <span class="text-xs truncate" style="color: var(--text-muted);">{{ tituloRuta().subtitulo }}</span>
         </div>
       </div>
 
@@ -281,6 +284,10 @@ export class HeaderComponent implements OnInit, OnDestroy {
   private sessionStore = inject(SessionStore);
   private auth = inject(AuthService);
   private router = inject(Router);
+  private destroyRef = inject(DestroyRef);
+
+  /** H9: el topbar decía "Centro de Operaciones" en todas las rutas administrativas. */
+  readonly tituloRuta = signal(tituloParaRuta(this.router.url));
 
   readonly menuOpen = signal(false);
   readonly searchModalOpen = signal(false);
@@ -329,6 +336,10 @@ export class HeaderComponent implements OnInit, OnDestroy {
   private docClickListener?: () => void;
 
   ngOnInit(): void {
+    this.router.events
+      .pipe(filter((e) => e instanceof NavigationEnd), takeUntilDestroyed(this.destroyRef))
+      .subscribe((e) => this.tituloRuta.set(tituloParaRuta((e as NavigationEnd).urlAfterRedirects)));
+
     this.updateClock();
     this.interval = setInterval(() => this.updateClock(), 1000);
   }

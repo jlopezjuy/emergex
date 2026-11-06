@@ -1,6 +1,8 @@
 import { Component, OnInit, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
+import { leerIdDeFoco, leerTabDeFoco } from '../../core/navigation/deep-link';
 import {
   ComprasApiService,
   SolicitudCompraDTO,
@@ -253,7 +255,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
                 </thead>
                 <tbody class="divide-y divide-[var(--border-glass)]">
                   @for (oc of ordenesCompra(); track oc.id) {
-                    <tr class="hover:bg-[var(--surface-glass)] transition">
+                    <tr class="hover:bg-[var(--surface-glass)] transition" [class.bg-blue-500/10]="ordenFocoId() === oc.id">
                       <td class="px-4 py-3 font-mono font-medium text-[var(--text-primary)]">{{ oc.numero || ('OC-' + oc.id) }}</td>
                       <td class="px-4 py-3 text-[var(--text-muted)]">{{ oc.fechaEmision || '-' }}</td>
                       <td class="px-4 py-3 font-mono text-xs font-bold">$ {{ (oc.montoTotal || 0) | number:'1.2-2' }}</td>
@@ -575,7 +577,12 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
   `
 })
 export class ComprasComponent implements OnInit {
+  private route = inject(ActivatedRoute);
+
   activeTab = signal<'solicitudes' | 'cotizaciones' | 'ordenes' | 'recepciones' | 'matching'>('solicitudes');
+
+  /** Fila a resaltar cuando se llega desde la bandeja de compras. */
+  ordenFocoId = signal<number | null>(null);
 
   solicitudes = signal<SolicitudCompraDTO[]>([]);
   solicitudesPage = signal(0);
@@ -635,6 +642,26 @@ export class ComprasComponent implements OnInit {
 
   ngOnInit(): void {
     this.cargarDatosIniciales();
+    this.aplicarFocoDeNavegacion();
+  }
+
+  /** Abre la solapa y resalta la orden que pidio la bandeja del centro administrativo. */
+  private aplicarFocoDeNavegacion(): void {
+    const params = this.route.snapshot.queryParamMap;
+    const tab = leerTabDeFoco(
+      params,
+      ['solicitudes', 'cotizaciones', 'ordenes', 'recepciones', 'matching'] as const,
+    );
+    const ordenCompraId = leerIdDeFoco(params, 'ordenCompraId');
+
+    if (tab) {
+      this.activeTab.set(tab);
+    }
+
+    if (ordenCompraId) {
+      this.activeTab.set('ordenes');
+      this.ordenFocoId.set(ordenCompraId);
+    }
   }
 
   cargarDatosIniciales(): void {

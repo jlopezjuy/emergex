@@ -17,9 +17,9 @@ import {
 import { KpiCardComponent } from '../../../shared/components/kpi-card/kpi-card.component';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge/status-badge.component';
 import { LoadingStateComponent } from '../../../shared/components/loading-state/loading-state.component';
-import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../../shared/components/error-state/error-state.component';
 import { rutaParaEntidad } from '../../../core/navigation/entidad-ruta';
+import { BandejaPanelComponent } from './components/bandeja-panel/bandeja-panel.component';
 
 import { CxcAgingDashboardComponent } from '../../../shared/components/finance/cxc-aging-dashboard/cxc-aging-dashboard.component';
 import { CxpAgingDashboardComponent } from '../../../shared/components/finance/cxp-aging-dashboard/cxp-aging-dashboard.component';
@@ -34,10 +34,10 @@ export type SeveridadFiltro = 'TODAS' | 'CRITICA' | 'URGENTE' | 'ATENCION';
     KpiCardComponent,
     StatusBadgeComponent,
     LoadingStateComponent,
-    EmptyStateComponent,
     ErrorStateComponent,
     CxcAgingDashboardComponent,
-    CxpAgingDashboardComponent
+    CxpAgingDashboardComponent,
+    BandejaPanelComponent
   ],
   template: `
     <div class="p-6 max-w-7xl mx-auto flex flex-col gap-6">
@@ -80,40 +80,90 @@ export type SeveridadFiltro = 'TODAS' | 'CRITICA' | 'URGENTE' | 'ATENCION';
           <div class="glass rounded-panel p-4 flex flex-col gap-3 border" style="border-color: var(--border-glass);">
             <div class="flex items-center justify-between border-b pb-2" style="border-color: var(--border-glass);">
               <h2 class="text-sm font-bold uppercase tracking-wider flex items-center gap-2" style="color: var(--text-primary);">
-                <span>📊</span> Tablero de Gobierno y Métricas Clave (13 KPIs con Drill-Down)
+                <span>📊</span> Tablero de Gobierno ({{ kpis().length }} KPIs con Drill-Down)
               </h2>
               <span class="text-xs font-mono text-muted">Clic en cualquier KPI para ver su fórmula y lista detallada</span>
             </div>
 
-            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
-              @for (kpi of kpis(); track kpi.codigo) {
-                <div
-                  class="glass rounded-panel p-3 flex flex-col gap-1 cursor-pointer transition-all hover:border-blue-500 border"
-                  style="border-color: var(--border-glass); background: var(--bg-elevated);"
-                  (click)="kpiSeleccionado.set(kpi)"
-                >
-                  <div class="flex items-center justify-between">
-                    <span class="font-mono text-[10px] font-bold text-blue-400">{{ kpi.codigo }}</span>
-                    <span
-                      class="text-[9px] font-mono px-1 rounded"
-                      [class.bg-emerald-500/20]="kpi.estadoSalud === 'OPTIMO'"
-                      [class.text-emerald-300]="kpi.estadoSalud === 'OPTIMO'"
-                      [class.bg-amber-500/20]="kpi.estadoSalud === 'ALERTA'"
-                      [class.text-amber-300]="kpi.estadoSalud === 'ALERTA'"
-                      [class.bg-rose-500/20]="kpi.estadoSalud === 'CRITICO'"
-                      [class.text-rose-300]="kpi.estadoSalud === 'CRITICO'"
+            @if (kpisDesviados().length > 0) {
+              <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
+                @for (kpi of kpisDesviados(); track kpi.codigo) {
+                  <div
+                      class="glass rounded-panel p-3 flex flex-col gap-1 cursor-pointer transition-all hover:border-blue-500 border"
+                      style="border-color: var(--border-glass); background: var(--bg-elevated);"
+                      (click)="kpiSeleccionado.set(kpi)"
                     >
-                      {{ kpi.estadoSalud }}
-                    </span>
-                  </div>
-                  <span class="text-xs font-semibold truncate" style="color: var(--text-primary);" [title]="kpi.nombre">{{ kpi.nombre }}</span>
-                  <span class="font-mono text-lg font-bold leading-tight" style="color: var(--text-primary)">
-                    {{ kpi.valorFormateado }}
-                  </span>
-                  <span class="text-[10px] text-muted truncate">{{ kpi.periodo }}</span>
+                      <div class="flex items-center justify-between">
+                        <span class="font-mono text-[10px] font-bold text-blue-400">{{ kpi.codigo }}</span>
+                        <span
+                          class="text-[9px] font-mono px-1 rounded"
+                          [class.bg-emerald-500/20]="kpi.estadoSalud === 'OPTIMO'"
+                          [class.text-emerald-300]="kpi.estadoSalud === 'OPTIMO'"
+                          [class.bg-amber-500/20]="kpi.estadoSalud === 'ALERTA'"
+                          [class.text-amber-300]="kpi.estadoSalud === 'ALERTA'"
+                          [class.bg-rose-500/20]="kpi.estadoSalud === 'CRITICO'"
+                          [class.text-rose-300]="kpi.estadoSalud === 'CRITICO'"
+                        >
+                          {{ kpi.estadoSalud }}
+                        </span>
+                      </div>
+                      <span class="text-xs font-semibold truncate" style="color: var(--text-primary);" [title]="kpi.nombre">{{ kpi.nombre }}</span>
+                      <span class="font-mono text-lg font-bold leading-tight" style="color: var(--text-primary)">
+                        {{ kpi.valorFormateado }}
+                      </span>
+                      <span class="text-[10px] text-muted truncate">{{ kpi.periodo }}</span>
+                    </div>
+                }
+              </div>
+            } @else {
+              <p class="text-xs" style="color: var(--text-muted);">
+                Los {{ kpis().length }} KPIs de gobierno están en óptimo.
+              </p>
+            }
+
+            @if (kpisOptimos().length > 0) {
+              <button
+                type="button"
+                class="self-start text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                style="color: var(--accent-blue);"
+                (click)="mostrarKpisOptimos.set(!mostrarKpisOptimos())"
+              >
+                <span [style.transform]="mostrarKpisOptimos() ? 'rotate(90deg)' : 'rotate(0deg)'" style="transition: transform 0.15s; display: inline-block;">▶</span>
+                {{ mostrarKpisOptimos() ? 'Ocultar' : 'Ver' }} {{ kpisOptimos().length }} KPIs en óptimo
+              </button>
+
+              @if (mostrarKpisOptimos()) {
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
+                  @for (kpi of kpisOptimos(); track kpi.codigo) {
+                    <div
+                      class="glass rounded-panel p-3 flex flex-col gap-1 cursor-pointer transition-all hover:border-blue-500 border"
+                      style="border-color: var(--border-glass); background: var(--bg-elevated);"
+                      (click)="kpiSeleccionado.set(kpi)"
+                    >
+                      <div class="flex items-center justify-between">
+                        <span class="font-mono text-[10px] font-bold text-blue-400">{{ kpi.codigo }}</span>
+                        <span
+                          class="text-[9px] font-mono px-1 rounded"
+                          [class.bg-emerald-500/20]="kpi.estadoSalud === 'OPTIMO'"
+                          [class.text-emerald-300]="kpi.estadoSalud === 'OPTIMO'"
+                          [class.bg-amber-500/20]="kpi.estadoSalud === 'ALERTA'"
+                          [class.text-amber-300]="kpi.estadoSalud === 'ALERTA'"
+                          [class.bg-rose-500/20]="kpi.estadoSalud === 'CRITICO'"
+                          [class.text-rose-300]="kpi.estadoSalud === 'CRITICO'"
+                        >
+                          {{ kpi.estadoSalud }}
+                        </span>
+                      </div>
+                      <span class="text-xs font-semibold truncate" style="color: var(--text-primary);" [title]="kpi.nombre">{{ kpi.nombre }}</span>
+                      <span class="font-mono text-lg font-bold leading-tight" style="color: var(--text-primary)">
+                        {{ kpi.valorFormateado }}
+                      </span>
+                      <span class="text-[10px] text-muted truncate">{{ kpi.periodo }}</span>
+                    </div>
+                  }
                 </div>
               }
-            </div>
+            }
           </div>
         }
 
@@ -239,215 +289,40 @@ export type SeveridadFiltro = 'TODAS' | 'CRITICA' | 'URGENTE' | 'ATENCION';
           </div>
         </div>
 
-        <!-- Fila 3: Las 4 Bandejas Tradicionales de Trabajo por Excepción -->
+        <!-- Fila 3: Las 4 Bandejas de Trabajo por Excepción -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <!-- Bandeja 1: Facturación por Excepción -->
-          <div class="glass rounded-panel p-4 flex flex-col gap-3 border" style="border-color: var(--border-glass);">
-            <div class="flex items-center justify-between border-b pb-2" style="border-color: var(--border-glass);">
-              <h3 class="text-sm font-bold uppercase tracking-wider flex items-center gap-2" style="color: var(--text-primary);">
-                <span>🧾</span> Facturación y Tarifación
-              </h3>
-              <span class="text-xs font-mono font-semibold px-2 py-0.5 rounded" style="background: var(--bg-elevated); color: var(--text-secondary);">
-                {{ filteredFacturacion().length }} ítems
-              </span>
-            </div>
-
-            @if (filteredFacturacion().length === 0) {
-              <emx-empty-state message="Sin excepciones de facturación." />
-            } @else {
-              <div class="flex flex-col gap-2 overflow-y-auto max-h-80 pr-1">
-                @for (item of filteredFacturacion(); track $index) {
-                  <div
-                    class="p-3 rounded-lg border flex flex-col gap-1.5 transition-all"
-                    [class.cursor-pointer]="getRouteForItem(item) !== null"
-                    [class.hover:border-blue-500]="getRouteForItem(item) !== null"
-                    style="background: var(--bg-elevated); border-color: var(--border-glass);"
-                    (click)="onSelectItem(item)"
-                  >
-                    <div class="flex items-center justify-between gap-2">
-                      <span class="text-xs font-bold" style="color: var(--text-primary);">{{ item.titulo }}</span>
-                      <emx-status-badge [variant]="mapSeveridadBadge(item.severidad)">
-                        {{ item.severidad }}
-                      </emx-status-badge>
-                    </div>
-                    @if (item.detalle) {
-                      <p class="text-xs leading-relaxed" style="color: var(--text-muted);">{{ item.detalle }}</p>
-                    }
-                    <div class="flex items-center justify-between text-[11px] font-mono mt-1 pt-1.5 border-t" style="border-color: var(--border-glass); color: var(--text-muted);">
-                      <span class="font-bold text-[10px] uppercase tracking-wider">{{ item.categoria || 'FACTURACIÓN' }}</span>
-                      @if (getRouteForItem(item)) {
-                        <button
-                          type="button"
-                          class="px-2 py-0.5 rounded text-[11px] font-semibold transition-colors flex items-center gap-1"
-                          style="background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); border: 1px solid rgba(59, 130, 246, 0.3);"
-                        >
-                          {{ item.proximaAccion || 'Resolver' }} →
-                        </button>
-                      } @else {
-                        <span style="color: var(--text-muted);">Sin acción directa</span>
-                      }
-                    </div>
-                  </div>
-                }
-              </div>
-            }
-          </div>
-
-          <!-- Bandeja 2: Cobranzas y Mora -->
-          <div class="glass rounded-panel p-4 flex flex-col gap-3 border" style="border-color: var(--border-glass);">
-            <div class="flex items-center justify-between border-b pb-2" style="border-color: var(--border-glass);">
-              <h3 class="text-sm font-bold uppercase tracking-wider flex items-center gap-2" style="color: var(--text-primary);">
-                <span>💳</span> Cobranzas y Gestión de Mora
-              </h3>
-              <span class="text-xs font-mono font-semibold px-2 py-0.5 rounded" style="background: var(--bg-elevated); color: var(--text-secondary);">
-                {{ filteredCobranzas().length }} ítems
-              </span>
-            </div>
-
-            @if (filteredCobranzas().length === 0) {
-              <emx-empty-state message="Sin excepciones de cobranzas." />
-            } @else {
-              <div class="flex flex-col gap-2 overflow-y-auto max-h-80 pr-1">
-                @for (item of filteredCobranzas(); track $index) {
-                  <div
-                    class="p-3 rounded-lg border flex flex-col gap-1.5 transition-all"
-                    [class.cursor-pointer]="getRouteForItem(item) !== null"
-                    [class.hover:border-blue-500]="getRouteForItem(item) !== null"
-                    style="background: var(--bg-elevated); border-color: var(--border-glass);"
-                    (click)="onSelectItem(item)"
-                  >
-                    <div class="flex items-center justify-between gap-2">
-                      <span class="text-xs font-bold" style="color: var(--text-primary);">{{ item.titulo }}</span>
-                      <emx-status-badge [variant]="mapSeveridadBadge(item.severidad)">
-                        {{ item.severidad }}
-                      </emx-status-badge>
-                    </div>
-                    @if (item.detalle) {
-                      <p class="text-xs leading-relaxed" style="color: var(--text-muted);">{{ item.detalle }}</p>
-                    }
-                    <div class="flex items-center justify-between text-[11px] font-mono mt-1 pt-1.5 border-t" style="border-color: var(--border-glass); color: var(--text-muted);">
-                      <span class="font-bold text-[10px] uppercase tracking-wider">{{ item.categoria || 'COBRANZAS' }}</span>
-                      @if (getRouteForItem(item)) {
-                        <button
-                          type="button"
-                          class="px-2 py-0.5 rounded text-[11px] font-semibold transition-colors flex items-center gap-1"
-                          style="background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); border: 1px solid rgba(59, 130, 246, 0.3);"
-                        >
-                          {{ item.proximaAccion || 'Resolver' }} →
-                        </button>
-                      } @else {
-                        <span style="color: var(--text-muted);">Sin acción directa</span>
-                      }
-                    </div>
-                  </div>
-                }
-              </div>
-            }
-          </div>
-
-          <!-- Bandeja 3: Compras y Ordenes de Pago -->
-          <div class="glass rounded-panel p-4 flex flex-col gap-3 border" style="border-color: var(--border-glass);">
-            <div class="flex items-center justify-between border-b pb-2" style="border-color: var(--border-glass);">
-              <h3 class="text-sm font-bold uppercase tracking-wider flex items-center gap-2" style="color: var(--text-primary);">
-                <span>🛒</span> Compras y Aprobación de Pagos
-              </h3>
-              <span class="text-xs font-mono font-semibold px-2 py-0.5 rounded" style="background: var(--bg-elevated); color: var(--text-secondary);">
-                {{ filteredCompras().length }} ítems
-              </span>
-            </div>
-
-            @if (filteredCompras().length === 0) {
-              <emx-empty-state message="Sin excepciones de compras." />
-            } @else {
-              <div class="flex flex-col gap-2 overflow-y-auto max-h-80 pr-1">
-                @for (item of filteredCompras(); track $index) {
-                  <div
-                    class="p-3 rounded-lg border flex flex-col gap-1.5 transition-all"
-                    [class.cursor-pointer]="getRouteForItem(item) !== null"
-                    [class.hover:border-blue-500]="getRouteForItem(item) !== null"
-                    style="background: var(--bg-elevated); border-color: var(--border-glass);"
-                    (click)="onSelectItem(item)"
-                  >
-                    <div class="flex items-center justify-between gap-2">
-                      <span class="text-xs font-bold" style="color: var(--text-primary);">{{ item.titulo }}</span>
-                      <emx-status-badge [variant]="mapSeveridadBadge(item.severidad)">
-                        {{ item.severidad }}
-                      </emx-status-badge>
-                    </div>
-                    @if (item.detalle) {
-                      <p class="text-xs leading-relaxed" style="color: var(--text-muted);">{{ item.detalle }}</p>
-                    }
-                    <div class="flex items-center justify-between text-[11px] font-mono mt-1 pt-1.5 border-t" style="border-color: var(--border-glass); color: var(--text-muted);">
-                      <span class="font-bold text-[10px] uppercase tracking-wider">{{ item.categoria || 'COMPRAS' }}</span>
-                      @if (getRouteForItem(item)) {
-                        <button
-                          type="button"
-                          class="px-2 py-0.5 rounded text-[11px] font-semibold transition-colors flex items-center gap-1"
-                          style="background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); border: 1px solid rgba(59, 130, 246, 0.3);"
-                        >
-                          {{ item.proximaAccion || 'Resolver' }} →
-                        </button>
-                      } @else {
-                        <span style="color: var(--text-muted);">Sin acción directa</span>
-                      }
-                    </div>
-                  </div>
-                }
-              </div>
-            }
-          </div>
-
-          <!-- Bandeja 4: Contratos y Convenios -->
-          <div class="glass rounded-panel p-4 flex flex-col gap-3 border" style="border-color: var(--border-glass);">
-            <div class="flex items-center justify-between border-b pb-2" style="border-color: var(--border-glass);">
-              <h3 class="text-sm font-bold uppercase tracking-wider flex items-center gap-2" style="color: var(--text-primary);">
-                <span>📄</span> Contratos y Vencimientos
-              </h3>
-              <span class="text-xs font-mono font-semibold px-2 py-0.5 rounded" style="background: var(--bg-elevated); color: var(--text-secondary);">
-                {{ filteredContratos().length }} ítems
-              </span>
-            </div>
-
-            @if (filteredContratos().length === 0) {
-              <emx-empty-state message="Sin excepciones de contratos." />
-            } @else {
-              <div class="flex flex-col gap-2 overflow-y-auto max-h-80 pr-1">
-                @for (item of filteredContratos(); track $index) {
-                  <div
-                    class="p-3 rounded-lg border flex flex-col gap-1.5 transition-all"
-                    [class.cursor-pointer]="getRouteForItem(item) !== null"
-                    [class.hover:border-blue-500]="getRouteForItem(item) !== null"
-                    style="background: var(--bg-elevated); border-color: var(--border-glass);"
-                    (click)="onSelectItem(item)"
-                  >
-                    <div class="flex items-center justify-between gap-2">
-                      <span class="text-xs font-bold" style="color: var(--text-primary);">{{ item.titulo }}</span>
-                      <emx-status-badge [variant]="mapSeveridadBadge(item.severidad)">
-                        {{ item.severidad }}
-                      </emx-status-badge>
-                    </div>
-                    @if (item.detalle) {
-                      <p class="text-xs leading-relaxed" style="color: var(--text-muted);">{{ item.detalle }}</p>
-                    }
-                    <div class="flex items-center justify-between text-[11px] font-mono mt-1 pt-1.5 border-t" style="border-color: var(--border-glass); color: var(--text-muted);">
-                      <span class="font-bold text-[10px] uppercase tracking-wider">{{ item.categoria || 'CONTRATOS' }}</span>
-                      @if (getRouteForItem(item)) {
-                        <button
-                          type="button"
-                          class="px-2 py-0.5 rounded text-[11px] font-semibold transition-colors flex items-center gap-1"
-                          style="background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); border: 1px solid rgba(59, 130, 246, 0.3);"
-                        >
-                          {{ item.proximaAccion || 'Resolver' }} →
-                        </button>
-                      } @else {
-                        <span style="color: var(--text-muted);">Sin acción directa</span>
-                      }
-                    </div>
-                  </div>
-                }
-              </div>
-            }
-          </div>
+          <emx-bandeja-panel
+            titulo="Facturación y Tarifación"
+            icon="🧾"
+            categoriaDefault="FACTURACIÓN"
+            emptyMessage="Sin excepciones de facturación."
+            [items]="filteredFacturacion()"
+            (selectItem)="onSelectItem($event)"
+          />
+          <emx-bandeja-panel
+            titulo="Cobranzas y Gestión de Mora"
+            icon="💳"
+            categoriaDefault="COBRANZAS"
+            emptyMessage="Sin excepciones de cobranzas."
+            [items]="filteredCobranzas()"
+            (selectItem)="onSelectItem($event)"
+          />
+          <emx-bandeja-panel
+            titulo="Compras y Aprobación de Pagos"
+            icon="🛒"
+            categoriaDefault="COMPRAS"
+            emptyMessage="Sin excepciones de compras."
+            [items]="filteredCompras()"
+            (selectItem)="onSelectItem($event)"
+          />
+          <emx-bandeja-panel
+            titulo="Contratos y Vencimientos"
+            icon="📄"
+            categoriaDefault="CONTRATOS"
+            emptyMessage="Sin excepciones de contratos."
+            [items]="filteredContratos()"
+            (selectItem)="onSelectItem($event)"
+          />
         </div>
 
         <!-- Fila 4: Dashboards de Aging CxC y CxP -->
@@ -500,6 +375,16 @@ export type SeveridadFiltro = 'TODAS' | 'CRITICA' | 'URGENTE' | 'ATENCION';
                 <span class="text-[11px] mt-0.5 block" style="color: var(--text-muted);">{{ kpiSeleccionado()?.exclusiones }}</span>
               </div>
             </div>
+
+            @if (kpiConAlcanceParcial(kpiSeleccionado())) {
+              <div class="flex items-start gap-2 p-3 rounded-lg border text-xs" style="border-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.08);">
+                <span aria-hidden="true" style="color: var(--accent-amber, #f59e0b);">⚠</span>
+                <p style="color: var(--text-secondary);">
+                  <span class="font-semibold" style="color: var(--accent-amber, #f59e0b);">Este KPI todavía no incluye la facturación particular (B2C).</span>
+                  Se calcula sobre el circuito institucional; la facturación a afiliados particulares vive en un circuito separado que aún no impacta este número.
+                </p>
+              </div>
+            }
 
             <!-- Tabla de Drill-Down -->
             <div class="flex flex-col gap-2 overflow-hidden flex-1">
@@ -678,6 +563,24 @@ export class CentroAdministrativoComponent implements OnInit {
   readonly resumen = signal<BandejaTrabajoResumenDTO | null>(null);
   readonly resumenCobertura = signal<ResumenBandejaCoberturaDTO | null>(null);
   readonly kpis = signal<KpiAdministrativoDTO[]>([]);
+
+  /** Colapsa el ruido: sólo los KPIs en desvío se muestran por defecto. */
+  readonly mostrarKpisOptimos = signal(false);
+  readonly kpisDesviados = computed(() => this.kpis().filter((k) => k.estadoSalud !== 'OPTIMO'));
+  readonly kpisOptimos = computed(() => this.kpis().filter((k) => k.estadoSalud === 'OPTIMO'));
+
+  /**
+   * KPIs cuya fórmula oficial es `sum(DocumentoComercial.saldoPendiente)` u otra derivada del
+   * mismo Ledger institucional. La facturación B2C vive en /api/v1/facturacion/facturas, fuera
+   * de DocumentoComercial, así que estos números están correctos pero incompletos hasta que
+   * ese circuito se unifique (ver docs/ux-administracion/02-matriz-front-back.md, GAP #1).
+   * Verificado con el propio drill-down: O-07 "Cuentas por Cobrar Totales (CxC)".
+   */
+  private static readonly CODIGOS_KPI_SIN_B2C = new Set(['O-07']);
+
+  kpiConAlcanceParcial(kpi: KpiAdministrativoDTO | null): boolean {
+    return !!kpi && CentroAdministrativoComponent.CODIGOS_KPI_SIN_B2C.has(kpi.codigo);
+  }
   readonly kpiSeleccionado = signal<KpiAdministrativoDTO | null>(null);
 
   readonly coberturaModal = signal<{ item: ItemAtencionBandejaCoberturaDTO; tipo: 'financiador' | 'nn' } | null>(null);
@@ -758,13 +661,6 @@ export class CentroAdministrativoComponent implements OnInit {
           this.loading.set(false);
         }
       });
-  }
-
-  mapSeveridadBadge(severidad?: string): 'critical' | 'urgent' | 'info' {
-    const sev = severidad?.toUpperCase();
-    if (sev === 'CRITICA') return 'critical';
-    if (sev === 'URGENTE') return 'urgent';
-    return 'info';
   }
 
   getRouteForItem(item: ItemBandejaDTO): string | null {

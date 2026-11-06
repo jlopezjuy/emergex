@@ -54,4 +54,20 @@ describe('MenuService', () => {
     expect(otros).toBeDefined();
     expect(otros?.children?.some((child: IMenuItem) => child.id === 'custom-unknown-id')).toBe(true);
   });
+
+  it('agrupa "zonas-tarifas" en Administración, no en Configuración (ADM-UX-014)', () => {
+    // zonas-tarifas es lo que desbloquea la bandeja de facturación con excepciones: vivía
+    // clasificado por entidad ("es configuración") en lugar de por la tarea que resuelve.
+    const items: IMenuItem[] = [
+      { id: 'zonas-tarifas', label: 'Zonas y Tarifas', title: 'Zonas y Tarifas', icon: '' },
+    ];
+
+    const grouped = service.groupMenuItems(items);
+
+    const admin = grouped.find((g: IMenuItem) => g.id === 'sec-administracion');
+    expect(admin?.children?.some((child: IMenuItem) => child.id === 'zonas-tarifas')).toBe(true);
+
+    const config = grouped.find((g: IMenuItem) => g.id === 'sec-configuracion');
+    expect(config).toBeUndefined();
+  });
 });

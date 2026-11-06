@@ -162,16 +162,9 @@ describe('CentroAdministrativoComponent', () => {
     expect(component.filteredContratos().length).toBe(0);
   });
 
-  it('debería mapear severidades reales a badges correspondientes (CRITICA->critical, URGENTE->urgent, ATENCION->info)', async () => {
-    await setup();
-    const fixture = TestBed.createComponent(CentroAdministrativoComponent);
-    const component = fixture.componentInstance;
-
-    expect(component.mapSeveridadBadge('CRITICA')).toBe('critical');
-    expect(component.mapSeveridadBadge('URGENTE')).toBe('urgent');
-    expect(component.mapSeveridadBadge('ATENCION')).toBe('info');
-    expect(component.mapSeveridadBadge('DESCONOCIDA')).toBe('info');
-  });
+  // El mapeo de severidad a badge ahora vive en BandejaPanelComponent (una sola bandeja
+  // reutilizada 4 veces en este template) y se cubre en su propio spec:
+  // components/bandeja-panel/bandeja-panel.component.spec.ts.
 
   it('debería manejar errores de la API estableciendo el estado de error', async () => {
     bandejasApiMock.getResumen.mockReturnValue(throwError(() => new Error('HTTP 500')));
@@ -185,5 +178,61 @@ describe('CentroAdministrativoComponent', () => {
     const component = fixture.componentInstance;
     expect(component.loading()).toBe(false);
     expect(component.error()).toBe('No se pudo cargar el resumen del centro administrativo.');
+  });
+
+  describe('jerarquía de KPIs (ADM-UX-008)', () => {
+    const kpisMixtos = [
+      { ...mockKpis[0], codigo: 'O-01', estadoSalud: 'OPTIMO' },
+      { ...mockKpis[0], codigo: 'O-05', estadoSalud: 'ALERTA' },
+      { ...mockKpis[0], codigo: 'O-12', estadoSalud: 'CRITICO' },
+    ];
+
+    it('separa los KPIs en desvío de los que están en óptimo', async () => {
+      bandejasApiMock.getKpisAdministrativos.mockReturnValue(of(kpisMixtos));
+      await setup();
+      const fixture = TestBed.createComponent(CentroAdministrativoComponent);
+      fixture.detectChanges();
+
+      const component = fixture.componentInstance;
+      expect(component.kpisDesviados().map((k) => k.codigo)).toEqual(['O-05', 'O-12']);
+      expect(component.kpisOptimos().map((k) => k.codigo)).toEqual(['O-01']);
+    });
+
+    it('mantiene colapsados por defecto los KPIs en óptimo', async () => {
+      bandejasApiMock.getKpisAdministrativos.mockReturnValue(of(kpisMixtos));
+      await setup();
+      const fixture = TestBed.createComponent(CentroAdministrativoComponent);
+      fixture.detectChanges();
+
+      expect(fixture.componentInstance.mostrarKpisOptimos()).toBe(false);
+      const texto = fixture.nativeElement.textContent as string;
+      expect(texto).toContain('Ver 1 KPIs en óptimo');
+    });
+  });
+
+  describe('alcance parcial del KPI de CxC (ADM-UX-002)', () => {
+    it('avisa que O-07 no incluye la facturación B2C', async () => {
+      await setup();
+      const fixture = TestBed.createComponent(CentroAdministrativoComponent);
+      const component = fixture.componentInstance;
+
+      expect(component.kpiConAlcanceParcial({ ...mockKpis[0], codigo: 'O-07' })).toBe(true);
+      expect(component.kpiConAlcanceParcial({ ...mockKpis[0], codigo: 'O-01' })).toBe(false);
+      expect(component.kpiConAlcanceParcial(null)).toBe(false);
+    });
+
+    it('muestra el aviso en el modal de drill-down cuando se abre O-07', async () => {
+      bandejasApiMock.getKpisAdministrativos.mockReturnValue(
+        of([{ ...mockKpis[0], codigo: 'O-07', nombre: 'Cuentas por Cobrar Totales (CxC)' }]),
+      );
+      await setup();
+      const fixture = TestBed.createComponent(CentroAdministrativoComponent);
+      fixture.detectChanges();
+
+      fixture.componentInstance.kpiSeleccionado.set(fixture.componentInstance.kpis()[0]);
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement.textContent as string)).toContain('no incluye la facturación particular');
+    });
   });
 });

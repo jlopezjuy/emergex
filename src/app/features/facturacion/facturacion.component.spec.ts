@@ -1,5 +1,6 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { FacturacionComponent } from './facturacion.component';
 import { FacturacionApiService } from '../../data-access/api/facturacion.api';
@@ -96,6 +97,7 @@ describe('FacturacionComponent (Comprehensive TDD Spec)', () => {
     await TestBed.configureTestingModule({
       imports: [FacturacionComponent],
       providers: [
+        provideRouter([]),
         { provide: FacturacionApiService, useValue: facturacionApiMock },
         { provide: InstitutionsApiService, useValue: institutionsApiMock },
         { provide: DebitosApiService, useValue: debitosApiMock },
@@ -241,6 +243,26 @@ describe('FacturacionComponent (Comprehensive TDD Spec)', () => {
     const component = fixture.componentInstance;
     expect(component.arcaModoPruebas()).toBe(false);
     expect(fixture.nativeElement.querySelector('.arca-warning-banner')).toBeNull();
+  });
+
+  it('muestra el saldo pendiente de cada factura en su propia columna', () => {
+    // ADM-UX-005: FacturaResumenDTO.saldoPendiente ya venía del backend y no se renderizaba.
+    facturacionApiMock.getFacturasPage.mockReturnValueOnce(
+      of({
+        data: [
+          { id: 1, numeroFactura: 'FAC-001', estado: 'EMITIDA', importeTotal: 5250, saldoPendiente: 5250, tipoPeriodo: 'MENSUAL' },
+          { id: 2, numeroFactura: 'FAC-002', estado: 'PAGADA', importeTotal: 500, saldoPendiente: 0, tipoPeriodo: 'MENSUAL' },
+        ],
+        total: 2,
+      }),
+    );
+
+    const fixture = TestBed.createComponent(FacturacionComponent);
+    fixture.detectChanges();
+
+    const filas = fixture.nativeElement.querySelectorAll('tbody tr');
+    expect(filas[0].textContent).toContain('5.250');
+    expect(filas[1].textContent).toContain('0');
   });
 
   it('carga la tabla server-side y el total viene de la respuesta paginada', () => {

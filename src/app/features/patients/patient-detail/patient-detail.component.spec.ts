@@ -161,4 +161,27 @@ describe('PatientDetailComponent', () => {
     expect(component.activeTab()).toBe('cuenta-corriente');
     expect(typeof component.registrarReciboCobranza).toBe('function');
   });
+
+  describe('cupoExcedido (ADM-UX-003)', () => {
+    it('marca exceso cuando lo consumido supera el máximo real', async () => {
+      await setupTestingModule();
+      const fixture = TestBed.createComponent(PatientDetailComponent);
+      expect(fixture.componentInstance.cupoExcedido(1, 0)).toBe(true);
+      expect(fixture.componentInstance.cupoExcedido(5, 3)).toBe(true);
+    });
+
+    it('no marca exceso cuando el afiliado no tiene plan asignado (0/0)', async () => {
+      await setupTestingModule();
+      const fixture = TestBed.createComponent(PatientDetailComponent);
+      expect(fixture.componentInstance.cupoExcedido(0, 0)).toBe(false);
+    });
+
+    it('no marca exceso dentro del cupo', async () => {
+      await setupTestingModule();
+      const fixture = TestBed.createComponent(PatientDetailComponent);
+      expect(fixture.componentInstance.cupoExcedido(2, 3)).toBe(false);
+      expect(fixture.componentInstance.cupoExcedido(null, null)).toBe(false);
+      expect(fixture.componentInstance.cupoExcedido(undefined, undefined)).toBe(false);
+    });
+  });
 });

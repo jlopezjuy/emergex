@@ -4,6 +4,8 @@ import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { DateUtils } from '../../../core/utils/date.utils';
+import { SessionStore } from '../../../core/stores/session.store';
+import { rutaInicialParaRoles } from '../../../core/navigation/ruta-inicial';
 
 @Component({
   selector: 'app-login',
@@ -373,6 +375,7 @@ export class LoginComponent implements OnDestroy {
   private fb = inject(FormBuilder);
   private auth = inject(AuthService);
   private router = inject(Router);
+  private sessionStore = inject(SessionStore);
 
   readonly loading = signal(false);
   readonly errorMsg = signal<string | null>(null);
@@ -418,7 +421,11 @@ export class LoginComponent implements OnDestroy {
               next: () => {
                 this.loading.set(false);
                 this.attempts = 0;
-                this.router.navigate(['/dashboard']);
+                // H13: antes navegaba siempre a /dashboard; ahora aterriza según el rol,
+                // igual que la ruta raíz (rutaInicialParaRoles evita que ambas diverjan de nuevo).
+                this.router.navigateByUrl(
+                  rutaInicialParaRoles((roles) => this.sessionStore.hasAnyRole(roles)),
+                );
               },
               error: () => {
                 this.loading.set(false);

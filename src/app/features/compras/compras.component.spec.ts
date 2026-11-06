@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { ComprasComponent } from './compras.component';
 import { ComprasApiService } from '../../data-access/api/compras.api';
 import { CostosApiService } from '../../data-access/api/costos.api';
@@ -56,6 +57,7 @@ describe('ComprasComponent', () => {
     await TestBed.configureTestingModule({
       imports: [ComprasComponent],
       providers: [
+        provideRouter([]),
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: ComprasApiService, useValue: comprasApiMock },

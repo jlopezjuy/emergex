@@ -8,6 +8,8 @@ import {
   DestroyRef,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
+import { leerIdDeFoco, leerTabDeFoco } from '../../core/navigation/deep-link';
 import { DecimalPipe } from '@angular/common';
 import { ServiciosParticularesComponent } from './servicios-particulares.component';
 import {
@@ -439,6 +441,7 @@ function estadoColor(estado: string): string {
                     <th>Período</th>
                     <th>Grupo</th>
                     <th style="text-align:right">Importe</th>
+                    <th style="text-align:right">Saldo</th>
                     <th>Tipo</th>
                     <th>Estado</th>
                     <th>Emisión</th>
@@ -447,7 +450,7 @@ function estadoColor(estado: string): string {
                 </thead>
                 <tbody>
                   @for (f of paged(); track f.id) {
-                    <tr>
+                    <tr [class.bg-blue-500/10]="facturaFocoId() === f.id">
                       <td style="width:36px">
                         <input
                           type="checkbox"
@@ -464,6 +467,9 @@ function estadoColor(estado: string): string {
                       <td class="mono micro">{{ f.grupoNumeroCuenta ?? '—' }}</td>
                       <td class="mono" style="text-align:right;font-weight:600;font-size:13px">
                         {{ fmtCurrency(f.importeTotal) }}
+                      </td>
+                      <td class="mono" style="text-align:right;font-size:13px" [style.color]="(f.saldoPendiente ?? 0) > 0 ? 'var(--accent-red)' : 'var(--text-muted)'" [style.font-weight]="(f.saldoPendiente ?? 0) > 0 ? '700' : '400'">
+                        {{ fmtCurrency(f.saldoPendiente ?? 0) }}
                       </td>
                       <td>
                         <span class="period-badge" [attr.data-type]="f.tipoPeriodo">
@@ -590,7 +596,7 @@ function estadoColor(estado: string): string {
                 </thead>
                 <tbody>
                   @for (d of debitosOsFiltrados(); track d.id) {
-                    <tr>
+                    <tr [class.bg-blue-500/10]="debitoFocoId() === d.id">
                       <td>#{{ d.id }}</td>
                       <td>Doc #{{ d.documentoId }}</td>
                       <td>\${{ d.montoDebito | number:'1.2-2' }}</td>
@@ -1439,6 +1445,11 @@ export class FacturacionComponent implements OnInit {
   private reportesApi = inject(ReportesApiService);
   private debitosApi = inject(DebitosApiService);
   private feedback = inject(UserFeedbackService);
+  private route = inject(ActivatedRoute);
+
+  /** Fila a resaltar cuando se llega desde una bandeja o desde la busqueda global. */
+  readonly facturaFocoId = signal<number | null>(null);
+  readonly debitoFocoId = signal<number | null>(null);
 
   onExportCitiVentas(): void {
     const anio = DateUtils.now().year;
@@ -1690,6 +1701,28 @@ export class FacturacionComponent implements OnInit {
     this.loadFacturasPage();
     this.loadFacturasInstitucionales();
     this.loadContratosActivos();
+    this.aplicarFocoDeNavegacion();
+  }
+
+  /** Abre la solapa y resalta el comprobante que pidio la bandeja o la busqueda global. */
+  private aplicarFocoDeNavegacion(): void {
+    const params = this.route.snapshot.queryParamMap;
+    const tab = leerTabDeFoco(params, ['b2c', 'b2b', 'debitos', 'debitos-os', 'particulares'] as const);
+    const facturaId = leerIdDeFoco(params, 'facturaId');
+    const debitoId = leerIdDeFoco(params, 'debitoId');
+
+    if (tab) {
+      this.tabActivo.set(tab);
+    }
+
+    if (facturaId) {
+      this.facturaFocoId.set(facturaId);
+    }
+
+    if (debitoId) {
+      this.tabActivo.set('debitos-os');
+      this.debitoFocoId.set(debitoId);
+    }
   }
 
   setEstadoFilter(v: EstadoFactura | 'all'): void {

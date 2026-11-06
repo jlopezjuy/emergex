@@ -2,6 +2,8 @@ import { Component, OnInit, inject, signal, computed, DestroyRef } from '@angula
 import { CommonModule, DatePipe } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
+import { leerIdDeFoco, leerTabDeFoco } from '../../core/navigation/deep-link';
 import { StatusBadgeComponent, BadgeVariant } from '../../shared/components/status-badge/status-badge.component';
 import { PrefacturacionApiService, LotePrefacturacionDTO, TicketPendienteTarifacionDTO } from '../../data-access/api/prefacturacion.api';
 import { UserFeedbackService } from '../../core/notifications/user-feedback.service';
@@ -50,7 +52,11 @@ import { UserFeedbackService } from '../../core/notifications/user-feedback.serv
           >
             Pendientes de Tarifación
             @if (pendientes().length > 0) {
-              <span class="px-1.5 py-0.2 rounded-full text-[10px] font-bold" style="background:rgba(0,0,0,0.3);color:#fff;">
+              <span
+                class="px-1.5 py-0.2 rounded-full text-[10px] font-bold"
+                style="background:rgba(0,0,0,0.3);color:#fff;"
+                title="Este contador puede incluir tickets de otras empresas: el endpoint que lo alimenta (ticket-asistencias) no filtra por empresa. El contador del Centro Administrativo sí lo hace."
+              >
                 {{ pendientes().length }}
               </span>
             }
@@ -120,10 +126,10 @@ import { UserFeedbackService } from '../../core/notifications/user-feedback.serv
                       <span class="font-mono font-bold" style="font-size:13px;color:var(--accent-cyan);">Lote #{{ lote.id }}</span>
                       <emx-status-badge [variant]="getStatusVariant(lote.estado)">{{ lote.estado }}</emx-status-badge>
                     </div>
-                    <div class="font-semibold mt-1" style="font-size:13.5px;color:var(--text-primary);">{{ lote.financiadorNombre }}</div>
+                    <div class="font-semibold mt-1" style="font-size:13.5px;color:var(--text-primary);">{{ lote.numeroLote || ('Financiador #' + (lote.financiadorId ?? '—')) }}</div>
                     <div class="flex items-center justify-between mt-1">
                       <span style="font-size:11px;color:var(--text-muted);">{{ lote.fechaCreacion | date:'dd/MM/yyyy' }}</span>
-                      <span style="font-size:11px;color:var(--text-muted);">{{ lote.totalTickets }} tickets</span>
+                      <span class="font-mono font-semibold" style="font-size:11px;color:var(--text-primary);">{{ fmtLoteImporte(lote.montoTotal) }}</span>
                     </div>
                   </button>
                 }
@@ -146,7 +152,12 @@ import { UserFeedbackService } from '../../core/notifications/user-feedback.serv
                     <h2 class="text-lg font-bold" style="color:var(--text-primary);">Detalle Lote #{{ lote.id }}</h2>
                     <emx-status-badge [variant]="getStatusVariant(lote.estado)">{{ lote.estado }}</emx-status-badge>
                   </div>
-                  <div class="text-sm" style="color:var(--text-muted);">{{ lote.financiadorNombre }}</div>
+                  <div class="text-sm" style="color:var(--text-muted);">
+                    {{ lote.numeroLote || ('Financiador #' + (lote.financiadorId ?? '—')) }}
+                    @if (lote.montoTotal != null) {
+                      · <span class="font-mono font-semibold">{{ fmtLoteImporte(lote.montoTotal) }}</span>
+                    }
+                  </div>
                 </div>
                 <div class="flex gap-2">
                   @if (lote.estado === 'BORRADOR') {
@@ -444,9 +455,16 @@ import { UserFeedbackService } from '../../core/notifications/user-feedback.serv
   `,
 })
 export class PrefacturacionComponent implements OnInit {
+  /** Ausencia real (no cargó aún) vs. importe cero: distinguirlo evita mostrar "$0" engañoso. */
+  fmtLoteImporte(montoTotal: number | undefined | null): string {
+    if (montoTotal == null) return '—';
+    return '$' + montoTotal.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
   private api = inject(PrefacturacionApiService);
   private destroyRef = inject(DestroyRef);
   private feedback = inject(UserFeedbackService);
+  private route = inject(ActivatedRoute);
 
   readonly activeTab = signal<'lotes' | 'pendientes'>('lotes');
 
@@ -519,15 +537,41 @@ export class PrefacturacionComponent implements OnInit {
   readonly filteredLotes = computed(() => {
     const q = this.searchQuery().trim().toLowerCase();
     if (!q) return this.lotes();
-    return this.lotes().filter(l => 
+    return this.lotes().filter(l =>
       l.id.toString().includes(q) ||
-      l.financiadorNombre.toLowerCase().includes(q)
+      (l.numeroLote ?? '').toLowerCase().includes(q)
     );
   });
 
   ngOnInit(): void {
     this.loadLotes();
     this.loadPendientes();
+    this.aplicarFocoDeNavegacion();
+  }
+
+  /**
+   * Enfoca el lote o el ticket que pidio la bandeja del centro administrativo.
+   * El ticket se enfoca reutilizando el filtro de pendientes, que ya matchea por id.
+   */
+  private aplicarFocoDeNavegacion(): void {
+    const params = this.route.snapshot.queryParamMap;
+    const tab = leerTabDeFoco(params, ['lotes', 'pendientes'] as const);
+    const loteId = leerIdDeFoco(params, 'loteId');
+    const ticketId = leerIdDeFoco(params, 'ticketId');
+
+    if (tab) {
+      this.activeTab.set(tab);
+    }
+
+    if (loteId) {
+      this.activeTab.set('lotes');
+      this.loadLoteDetail(loteId);
+    }
+
+    if (ticketId) {
+      this.activeTab.set('pendientes');
+      this.filtroPendientes.set(String(ticketId));
+    }
   }
 
   setTabPendientes(): void {

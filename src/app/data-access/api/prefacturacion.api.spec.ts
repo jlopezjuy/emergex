@@ -27,8 +27,9 @@ describe('PrefacturacionApiService', () => {
       id: loteId,
       fechaCreacion: '2026-08-01',
       estado: 'BORRADOR',
-      financiadorNombre: 'Obra Social Test',
-      totalTickets: 2,
+      numeroLote: 'LOTE-2026-0010',
+      financiadorId: 55,
+      montoTotal: 12500,
     };
 
     service.generarLineas(loteId, '2026-08-01', '2026-08-31').subscribe(res => {

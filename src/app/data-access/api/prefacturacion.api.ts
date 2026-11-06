@@ -3,12 +3,22 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
+/**
+ * Refleja el LotePrefacturacionDTO real que envía el backend
+ * (LotePrefacturacionResource.java, /api/v2/prefacturacion/lotes).
+ *
+ * `financiadorNombre` y `totalTickets` NUNCA existieron en esa respuesta -eran campos
+ * fantasma que siempre llegaban `undefined`-, lo que además rompía el buscador de lotes con
+ * un TypeError apenas alguien tipeaba algo (ADM-UX-018). `numeroLote` y `montoTotal` sí
+ * existen y no se estaban usando.
+ */
 export interface LotePrefacturacionDTO {
   id: number;
+  numeroLote?: string;
   fechaCreacion: string;
   estado: 'BORRADOR' | 'CONFIRMADO' | 'EMITIDO' | 'ANULADO';
-  financiadorNombre: string;
-  totalTickets: number;
+  financiadorId?: number;
+  montoTotal?: number;
   items?: TicketPrefacturacionDTO[];
 }
 
