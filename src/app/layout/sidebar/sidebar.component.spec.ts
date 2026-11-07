@@ -84,7 +84,7 @@ describe('SidebarComponent', () => {
     expect(component.isSectionExpanded('sec-operacion')).toBe(true);
   });
 
-  it('debería verificar los roles ROLE_ADMIN, ROLE_ADMINISTRADOR y ROLE_CONTADOR para el menú de Tesorería', () => {
-    expect(sessionStoreMock.hasAnyRole).toHaveBeenCalledWith(['ROLE_ADMIN', 'ROLE_ADMINISTRADOR', 'ROLE_CONTADOR']);
+  it('debería verificar los roles ROLE_ADMIN, ROLE_ADMINISTRADOR, ROLE_PROPIETARIO y ROLE_CONTADOR para el menú de Tesorería', () => {
+    expect(sessionStoreMock.hasAnyRole).toHaveBeenCalledWith(['ROLE_ADMIN', 'ROLE_ADMINISTRADOR', 'ROLE_PROPIETARIO', 'ROLE_CONTADOR']);
   });
 });
