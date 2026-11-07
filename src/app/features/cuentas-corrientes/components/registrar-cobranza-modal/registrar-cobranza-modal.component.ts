@@ -9,7 +9,7 @@ import { CobranzasApiService, DocumentoPendienteDTO } from '../../../../data-acc
   imports: [ReactiveFormsModule, DecimalPipe],
   template: `
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div class="bg-white text-gray-900 rounded-lg shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
         <div class="px-6 py-4 border-b flex justify-between items-center bg-gray-50">
           <h3 class="text-lg font-semibold">Registrar Cobro</h3>
           <button type="button" class="text-gray-400 hover:text-gray-600" (click)="cerrar.emit()">

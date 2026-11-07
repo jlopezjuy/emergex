@@ -287,6 +287,20 @@ describe('FacturacionComponent (Comprehensive TDD Spec)', () => {
     expect(facturacionApiMock.getFacturasPage).toHaveBeenCalledWith('PAGADA', 0, component.PAGE_SIZE);
   });
 
+  it('tras confirmar un cobro refresca la grilla paginada y no sólo los KPIs (QA-ROL-023)', () => {
+    facturacionApiMock.registrarPago.mockReturnValueOnce(of({ id: 1, estado: 'PAGADA' }));
+    const fixture = TestBed.createComponent(FacturacionComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+    component.openPayModal({ id: 1, numeroFactura: 'FAC-001', estado: 'EMITIDA', importeTotal: 1000 } as never);
+    facturacionApiMock.getFacturasPage.mockClear();
+
+    component.confirmarPago({ amount: 1000, method: 'EFECTIVO', ref: '', nota: '', fecha: '2026-11-07', billingMode: 'mensual' });
+
+    expect(facturacionApiMock.registrarPago).toHaveBeenCalled();
+    expect(facturacionApiMock.getFacturasPage).toHaveBeenCalledTimes(1);
+  });
+
   it('debería no romper el componente si el endpoint de estado ARCA falla', () => {
     // Escenario de resiliencia: falla GET /api/arca/status. El componente no debe romperse y
     // arcaModoPruebas queda en false (sin banner) para no mostrar una advertencia errónea.

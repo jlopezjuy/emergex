@@ -2035,6 +2035,9 @@ export class FacturacionComponent implements OnInit {
         this.savingPay.set(false);
         this.closePayModal();
         this.loadFacturas();
+        // La grilla se alimenta de la página paginada, no de `facturas` (que sólo mueve los KPIs):
+        // sin esto la factura seguía "EMITIDA" con botón Cobrar hasta recargar (QA-ROL-023).
+        this.loadFacturasPage();
       });
   }
 
