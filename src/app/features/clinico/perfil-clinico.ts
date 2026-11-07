@@ -1,4 +1,5 @@
 import { Account } from '../../core/auth/models/account.model';
+import { inicialesDe, nombreDeCuenta } from '../../core/auth/account-display';
 import { ScheduleItemDTO } from '../../data-access/api/clinical.api';
 
 /**
@@ -26,11 +27,8 @@ export const SIN_MATRICULA = 'Matrícula no cargada';
 export function perfilClinico(cuenta: Account | null): PerfilClinico {
   const prof = cuenta?.profesional;
   const nombreProfesional = [prof?.nombre, prof?.apellido].filter(Boolean).join(' ').trim();
-  const nombreCuenta = [cuenta?.firstName, cuenta?.lastName].filter(Boolean).join(' ').trim();
-  const nombre = nombreProfesional || nombreCuenta || cuenta?.login || 'Profesional';
-
-  const partes = nombre.split(/\s+/).filter(Boolean);
-  const iniciales = (partes.length > 1 ? partes[0][0] + partes[partes.length - 1][0] : (partes[0] ?? 'P').slice(0, 2)).toUpperCase();
+  const nombre = nombreProfesional || nombreDeCuenta(cuenta, 'Profesional');
+  const iniciales = inicialesDe(nombre);
 
   const matricula = prof?.matricula
     ? [prof.tipoMatricula, prof.matricula].filter(Boolean).join(' ')

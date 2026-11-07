@@ -1,7 +1,8 @@
-import { Component, inject } from '@angular/core';
+import { Component, computed, inject } from '@angular/core';
 import { ThemeService } from '../../core/theme/theme.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { Router } from '@angular/router';
+import { inicialesDe, nombreDeCuenta } from '../../core/auth/account-display';
 
 @Component({
   selector: 'app-settings',
@@ -75,10 +76,10 @@ import { Router } from '@angular/router';
         <h2 class="eyebrow">Cuenta</h2>
         <div class="flex items-center gap-4">
           <div class="w-12 h-12 rounded-full flex items-center justify-center font-mono font-bold text-sm"
-            style="background: var(--accent-blue); color: white;">OP</div>
+            style="background: var(--accent-blue); color: white;">{{ iniciales() }}</div>
           <div>
-            <p class="font-semibold text-sm" style="color: var(--text-primary);">Operador</p>
-            <p class="text-xs mt-0.5" style="color: var(--text-muted);">Centro de operaciones</p>
+            <p class="font-semibold text-sm" style="color: var(--text-primary);">{{ nombre() }}</p>
+            <p class="text-xs mt-0.5" style="color: var(--text-muted);">{{ empresa() }}</p>
           </div>
         </div>
         <button
@@ -95,6 +96,10 @@ export class SettingsComponent {
   readonly theme = inject(ThemeService);
   private auth = inject(AuthService);
   private router = inject(Router);
+
+  readonly nombre = computed(() => nombreDeCuenta(this.auth.currentAccount()));
+  readonly iniciales = computed(() => inicialesDe(this.nombre()));
+  readonly empresa = computed(() => this.auth.currentAccount()?.empresa?.nombre ?? '');
 
   logout(): void {
     this.auth.logout();
