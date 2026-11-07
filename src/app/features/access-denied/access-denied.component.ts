@@ -1,5 +1,8 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { AuthService } from '../../core/auth/auth.service';
+import { rutaInicialParaRoles } from '../../core/navigation/ruta-inicial';
+import { SessionStore } from '../../core/stores/session.store';
 
 @Component({
   selector: 'app-access-denied',
@@ -22,8 +25,22 @@ import { RouterLink } from '@angular/router';
           No tenés permisos para acceder a esta sección. Contactá al administrador del sistema.
         </p>
       </div>
-      <a routerLink="/dashboard" class="btn btn--ghost btn--sm">Volver al centro de operaciones</a>
+      <div class="flex items-center gap-3">
+        <a [routerLink]="rutaInicial" data-testid="volver" class="btn btn--ghost btn--sm">Volver al inicio</a>
+        <button type="button" data-testid="cerrar-sesion" class="btn btn--ghost btn--sm" (click)="cerrarSesion()">
+          Cerrar sesión
+        </button>
+      </div>
     </div>
   `,
 })
-export class AccessDeniedComponent {}
+export class AccessDeniedComponent {
+  private readonly auth = inject(AuthService);
+  private readonly sessionStore = inject(SessionStore);
+
+  protected readonly rutaInicial = rutaInicialParaRoles((roles) => this.sessionStore.hasAnyRole(roles));
+
+  protected cerrarSesion(): void {
+    this.auth.logout();
+  }
+}
