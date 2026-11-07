@@ -23,6 +23,11 @@ import {
   ALL_PLANES,
   ALL_PROVINCIAS,
 } from '../../../data-access/dto/empresa.dto';
+import {
+  AUTHORITIES_ASIGNABLES,
+  authoritiesParaEnviar,
+  authoritiesSeleccionadas,
+} from './authorities-asignables';
 import { ModalShellComponent } from '../../../shared/components/modal-shell/modal-shell.component';
 import { LoadingStateComponent } from '../../../shared/components/loading-state/loading-state.component';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
@@ -110,6 +115,7 @@ const DEFAULT_MENU_FALLBACKS: Record<RolCentro, string[]> = {
 export class AdminGlobalComponent implements OnInit {
   protected readonly PAGE_SIZE = PAGE_SIZE;
   protected readonly ALL_ROLES = ALL_ROLES;
+  protected readonly AUTHORITIES_ASIGNABLES = AUTHORITIES_ASIGNABLES;
   readonly menuConfig = signal<Record<string, string[]>>({});
   readonly selectedConfigRol = signal<RolCentro>('OPERADOR');
   protected readonly CONFIGURABLE_MENU_ITEMS = CONFIGURABLE_MENU_ITEMS;
@@ -206,6 +212,7 @@ export class AdminGlobalComponent implements OnInit {
     lastName: string;
     password: string;
     rolCentro: RolCentro;
+    authorities: Set<string>;
   } = this.blankCreateForm();
 
   editForm: {
@@ -214,6 +221,7 @@ export class AdminGlobalComponent implements OnInit {
     lastName: string;
     activated: boolean;
     rol: RolCentro;
+    authorities: Set<string>;
   } = this.blankEditForm();
 
 
@@ -534,7 +542,7 @@ export class AdminGlobalComponent implements OnInit {
         lastName: this.createForm.lastName.trim() || undefined,
         activated: true,
         langKey: 'es',
-        authorities: ['ROLE_USER'],
+        authorities: authoritiesParaEnviar(this.createForm.authorities),
       },
       password: this.createForm.password,
       rolCentro: this.createForm.rolCentro,
@@ -555,6 +563,11 @@ export class AdminGlobalComponent implements OnInit {
     });
   }
 
+  protected toggleAuthority(seleccion: Set<string>, authority: string, marcado: boolean): void {
+    if (marcado) seleccion.add(authority);
+    else seleccion.delete(authority);
+  }
+
   // ── Edit user modal ──
 
   openEditUser(item: UsuarioEmpresaItem): void {
@@ -564,6 +577,7 @@ export class AdminGlobalComponent implements OnInit {
       lastName: item.user.lastName ?? '',
       activated: item.user.activated,
       rol: item.rol,
+      authorities: authoritiesSeleccionadas(item.user.authorities),
     };
     this.showEditUser.set(item);
   }
@@ -584,6 +598,7 @@ export class AdminGlobalComponent implements OnInit {
         firstName: this.editForm.firstName.trim(),
         lastName: this.editForm.lastName.trim(),
         activated: this.editForm.activated,
+        authorities: authoritiesParaEnviar(this.editForm.authorities),
       },
     };
 
@@ -664,11 +679,12 @@ export class AdminGlobalComponent implements OnInit {
       lastName: '',
       password: '',
       rolCentro: 'OPERADOR' as RolCentro,
+      authorities: new Set<string>(),
     };
   }
 
   private blankEditForm() {
-    return { email: '', firstName: '', lastName: '', activated: true, rol: 'OPERADOR' as RolCentro };
+    return { email: '', firstName: '', lastName: '', activated: true, rol: 'OPERADOR' as RolCentro, authorities: new Set<string>() };
   }
 
   private blankEmpresaForm() {

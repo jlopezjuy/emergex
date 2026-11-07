@@ -354,6 +354,26 @@
             }
           </select>
         </div>
+
+        <div class="col-span-2 flex flex-col gap-1">
+          <label class="modal-label">Permisos de acceso</label>
+          <p class="text-xs" style="color: var(--text-secondary);">
+            Definen qué pantallas y operaciones habilita el sistema. Sin ninguno, el usuario inicia sesión pero no accede a nada.
+          </p>
+          <div class="grid grid-cols-2 gap-1">
+            @for (a of AUTHORITIES_ASIGNABLES; track a.authority) {
+              <label class="authority-label">
+                <input
+                  type="checkbox"
+                  class="authority-checkbox"
+                  [checked]="createForm.authorities.has(a.authority)"
+                  (change)="toggleAuthority(createForm.authorities, a.authority, $any($event.target).checked)"
+                />
+                <span>{{ a.label }}</span>
+              </label>
+            }
+          </div>
+        </div>
       </div>
     </form>
 
@@ -398,6 +418,26 @@
               <option [value]="r">{{ r }}</option>
             }
           </select>
+        </div>
+
+        <div class="col-span-2 flex flex-col gap-1">
+          <label class="modal-label">Permisos de acceso</label>
+          <p class="text-xs" style="color: var(--text-secondary);">
+            Definen qué pantallas y operaciones habilita el sistema. Sin ninguno, el usuario inicia sesión pero no accede a nada.
+          </p>
+          <div class="grid grid-cols-2 gap-1">
+            @for (a of AUTHORITIES_ASIGNABLES; track a.authority) {
+              <label class="authority-label">
+                <input
+                  type="checkbox"
+                  class="authority-checkbox"
+                  [checked]="editForm.authorities.has(a.authority)"
+                  (change)="toggleAuthority(editForm.authorities, a.authority, $any($event.target).checked)"
+                />
+                <span>{{ a.label }}</span>
+              </label>
+            }
+          </div>
         </div>
 
 
