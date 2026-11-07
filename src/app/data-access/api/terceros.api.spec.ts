@@ -60,6 +60,17 @@ describe('TercerosApiService', () => {
     req.flush({ id: 10, ...dto, estado: 'PENDIENTE_VERIFICACION' });
   });
 
+  it('debería listar las cuentas bancarias de un tercero (QA-ROL-021)', () => {
+    service.listarCuentasBancarias(7).subscribe(res => {
+      expect(res.length).toBe(1);
+      expect(res[0].estado).toBe('PENDIENTE_VERIFICACION');
+    });
+
+    const req = httpMock.expectOne(`${environment.apiUrl}/api/terceros/7/cuentas-bancarias`);
+    expect(req.request.method).toBe('GET');
+    req.flush([{ id: 10, bancoNombre: 'Banco X', cbuMasked: '****1234', titularNombre: 'Prov SA', estado: 'PENDIENTE_VERIFICACION' }]);
+  });
+
   it('debería aprobar CBU de un tercero', () => {
     service.aprobarCbu(10).subscribe(res => {
       expect(res.estado).toBe('VERIFICADA');

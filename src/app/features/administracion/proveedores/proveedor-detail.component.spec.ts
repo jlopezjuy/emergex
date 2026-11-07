@@ -28,6 +28,9 @@ describe('ProveedorDetailComponent', () => {
     tercerosApiMock = {
       buscar: vi.fn().mockReturnValue(of([
         { id: 1, razonSocial: 'Proveedor Test SA', cuit: '30-12345678-9', nombreComercial: 'Test Insumos' }
+      ])),
+      listarCuentasBancarias: vi.fn().mockReturnValue(of([
+        { id: 5, bancoNombre: 'Banco X', cbuMasked: '****1234', titularNombre: 'Proveedor Test SA', estado: 'PENDIENTE_VERIFICACION' }
       ]))
     };
 
@@ -57,6 +60,25 @@ describe('ProveedorDetailComponent', () => {
     expect(tercerosApiMock.buscar).toHaveBeenCalled();
     expect(component.proveedorInfo()?.razonSocial).toBe('Proveedor Test SA');
     expect(component.proveedorInfo()?.cuit).toBe('30-12345678-9');
+  });
+
+  it('carga las cuentas bancarias del proveedor para que el Checker pueda aprobar (QA-ROL-021)', () => {
+    expect(tercerosApiMock.listarCuentasBancarias).toHaveBeenCalledWith(1);
+    expect(component.cuentasBancarias().length).toBe(1);
+    expect(component.cuentasBancarias()[0].estado).toBe('PENDIENTE_VERIFICACION');
+  });
+
+  it('el modal de CBU recibe las cuentas cargadas', () => {
+    const abrir = [...fixture.nativeElement.querySelectorAll('button')].find((b) =>
+      (b as HTMLElement).textContent?.includes('Workflow CBU Maker-Checker'),
+    ) as HTMLButtonElement;
+    abrir.click();
+    fixture.detectChanges();
+
+    const modal = fixture.nativeElement.querySelector('emx-cbu-maker-checker-modal');
+    expect(modal).not.toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Banco X');
+    expect(fixture.nativeElement.textContent).toContain('Aprobar');
   });
 
   it('debería cargar órdenes de pago en la solapa correspondiente', () => {

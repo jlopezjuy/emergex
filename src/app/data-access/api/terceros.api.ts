@@ -59,6 +59,10 @@ export class TercerosApiService {
     return this.http.post<CuentaBancariaTerceroDTO>(`${this.base}/cuentas-bancarias/solicitar`, dto);
   }
 
+  listarCuentasBancarias(terceroId: number): Observable<CuentaBancariaTerceroDTO[]> {
+    return this.http.get<CuentaBancariaTerceroDTO[]>(`${this.base}/${terceroId}/cuentas-bancarias`);
+  }
+
   aprobarCbu(id: number): Observable<CuentaBancariaTerceroDTO> {
     return this.http.post<CuentaBancariaTerceroDTO>(`${this.base}/cuentas-bancarias/${id}/aprobar`, {});
   }

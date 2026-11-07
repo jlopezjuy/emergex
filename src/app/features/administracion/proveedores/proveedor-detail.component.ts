@@ -7,6 +7,7 @@ import { LedgerApiService } from '../../../data-access/api/ledger.api';
 import { UserFeedbackService } from '../../../core/notifications/user-feedback.service';
 import { OrdenDePagoDTO } from '../../../data-access/dto/ordenes-pago.dto';
 import { TerceroResumenDTO, LedgerMovimientoDTO } from '../../../data-access/dto/ledger.dto';
+import { CuentaBancariaTerceroDTO } from '../../../data-access/dto/terceros.dto';
 import { CbuMakerCheckerModalComponent } from '../../../shared/components/finance/cbu-maker-checker-modal/cbu-maker-checker-modal.component';
 import { OrdenPagoFormModalComponent } from '../../../shared/components/finance/orden-pago-form-modal/orden-pago-form-modal.component';
 import { DocumentosAdjuntosComponent } from '../../../shared/components/documentos-adjuntos/documentos-adjuntos.component';
@@ -249,8 +250,9 @@ import { StatusBadgeComponent } from '../../../shared/components/status-badge/st
       @if (showCbuModal) {
         <emx-cbu-maker-checker-modal
           [terceroEmpresaId]="proveedorId"
+          [cuentas]="cuentasBancarias()"
           (closed)="showCbuModal = false"
-          (updated)="cargarOrdenesPago()"
+          (updated)="cargarCuentasBancarias(); cargarOrdenesPago()"
         ></emx-cbu-maker-checker-modal>
       }
 
@@ -272,6 +274,7 @@ export class ProveedorDetailComponent implements OnInit {
   activeTab = signal<'op' | 'cxp' | 'cbu' | 'docs'>('op');
   ordenesPago = signal<OrdenDePagoDTO[]>([]);
   showCbuModal = false;
+  readonly cuentasBancarias = signal<CuentaBancariaTerceroDTO[]>([]);
 
   readonly proveedorInfo = signal<TerceroResumenDTO | null>(null);
   readonly loadingProveedor = signal<boolean>(true);
@@ -301,7 +304,16 @@ export class ProveedorDetailComponent implements OnInit {
     }
 
     this.cargarOrdenesPago();
+    this.cargarCuentasBancarias();
     this.cargarSubmayorCxp();
+  }
+
+  cargarCuentasBancarias(): void {
+    if (!this.proveedorId) return;
+    this.tercerosApi.listarCuentasBancarias(this.proveedorId).subscribe({
+      next: (cuentas) => this.cuentasBancarias.set(cuentas || []),
+      error: () => this.cuentasBancarias.set([]),
+    });
   }
 
   cargarSubmayorCxp(): void {

@@ -21,11 +21,17 @@ export interface SolicitarCbuRequestDTO {
 export interface CuentaBancariaTerceroDTO {
   id: number;
   bancoNombre: string;
-  cbu: string;
+  /** Sólo existe en datos locales; el backend devuelve únicamente el CBU enmascarado. */
+  cbu?: string;
   alias?: string;
   titularNombre: string;
   estado: 'PENDIENTE_VERIFICACION' | 'VERIFICADA' | 'RECHAZADA';
   cbuMasked?: string;
+  moneda?: string;
+  solicitadoPor?: string;
+  solicitadoAt?: string;
+  aprobadoPor?: string;
+  aprobadoAt?: string;
 }
 
 export interface TerceroEmpresaDTO {
