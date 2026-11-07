@@ -257,8 +257,13 @@ export class TripulacionComponent implements OnInit, OnDestroy {
         this.loading.set(false);
         this.evaluarTransmisionGps();
       },
-      error: (_err) => {
-        this.errorMsg.set('No se pudo recuperar las asignaciones activas.');
+      error: (err) => {
+        const sinProfesional = String(err?.error?.message ?? '').includes('profesionalNotFound');
+        this.errorMsg.set(
+          sinProfesional
+            ? 'Tu usuario no está vinculado a un profesional activo, por eso no hay asignaciones para mostrar.'
+            : 'No se pudo recuperar las asignaciones activas.',
+        );
         this.loading.set(false);
       }
     });

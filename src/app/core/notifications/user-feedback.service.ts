@@ -138,6 +138,8 @@ export class UserFeedbackService {
       'error.sujetoRequerido': 'Debés informar un paciente o una persona asistida transitoria antes de continuar.',
       'error.tripulacionSinMedico': 'La tripulación activa de la ambulancia no cuenta con un médico asignado.',
       'error.ambulanciaOcupadaActiva': 'La ambulancia seleccionada ya tiene un ticket activo asignado.',
+      'error.profesionalNotFound': 'Tu usuario no está vinculado a un profesional activo. Pedile a un administrador que complete tu ficha de profesional.',
+      'profesionalNotFound': 'Tu usuario no está vinculado a un profesional activo. Pedile a un administrador que complete tu ficha de profesional.',
       'tripulacionSinMedico': 'La tripulación activa de la ambulancia no cuenta con un médico asignado.',
       'ambulanciaOcupadaActiva': 'La ambulancia seleccionada ya tiene un ticket activo asignado.',
     };
