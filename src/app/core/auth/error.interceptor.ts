@@ -1,14 +1,31 @@
 import { HttpContextToken, HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
-import { Router } from '@angular/router';
 import { catchError, throwError, switchMap } from 'rxjs';
+import { UserFeedbackService } from '../notifications/user-feedback.service';
 import { AuthService } from './auth.service';
+
+const VENTANA_AVISO_403_MS = 3000;
+// Por instancia del servicio de feedback: evita apilar un toast por cada llamada que una
+// pantalla dispara en paralelo, y no comparte estado entre tests.
+const ultimoAviso403 = new WeakMap<UserFeedbackService, number>();
+
+function avisarFaltaDePermiso(feedback: UserFeedbackService): void {
+  const ahora = Date.now();
+  const previo = ultimoAviso403.get(feedback);
+  if (previo !== undefined && ahora - previo < VENTANA_AVISO_403_MS) return;
+  ultimoAviso403.set(feedback, ahora);
+  feedback.push({
+    type: 'warning',
+    title: 'Sin permiso',
+    message: 'Tu rol no tiene acceso a parte de esta información. Contactá al administrador si lo necesitás.',
+  });
+}
 
 export const SKIP_AUTH_REFRESH = new HttpContextToken<boolean>(() => false);
 
 export const errorInterceptor: HttpInterceptorFn = (req, next) => {
   const authService = inject(AuthService);
-  const router = inject(Router);
+  const feedback = inject(UserFeedbackService);
   return next(req).pipe(
     catchError((error) => {
       if (
@@ -32,7 +49,9 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
       } else if (error.status === 401) {
         authService.logout();
       } else if (error.status === 403) {
-        router.navigate(['/access-denied']);
+        // QA-ROL-014/033/036: un 403 de una llamada (a menudo secundaria) ya no expulsa de la
+        // pantalla. El acceso a la ruta lo decide roleGuard; acá sólo se avisa.
+        avisarFaltaDePermiso(feedback);
       }
       return throwError(() => error);
     }),
