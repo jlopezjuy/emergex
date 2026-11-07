@@ -25,7 +25,7 @@ describe('TesoreriaComponent (F0-01)', () => {
     TestBed.resetTestingModule();
     apiMock = {
       obtenerCajas: vi.fn().mockReturnValue(of([])),
-      abrirCaja: vi.fn().mockReturnValue(of({ id: 1, nombre: 'Caja Central', montoInicial: 1000 })),
+      abrirCaja: vi.fn().mockReturnValue(of({ id: 1, nombre: 'Caja Central', estado: 'ABIERTA', saldoActual: 1000 })),
       registrarMovimientoCaja: vi.fn().mockReturnValue(of({ id: 2, tipo: 'INGRESO', monto: 500, concepto: 'Test' })),
       realizarArqueoCaja: vi.fn().mockReturnValue(of({ id: 3, montoFisicoContado: 1500 })),
     };
@@ -78,5 +78,84 @@ describe('TesoreriaComponent (F0-01)', () => {
     component.ejecutarAbrirCaja();
 
     expect(feedbackMock.fromHttpError).toHaveBeenCalled();
+  });
+
+  it('el aviso de apertura muestra el saldo real y no "undefined" (QA-ROL-017)', () => {
+    apiMock.abrirCaja.mockReturnValue(of({ id: 1, nombre: 'Caja Central', estado: 'ABIERTA', saldoActual: 50000 }));
+    const fixture = TestBed.createComponent(TesoreriaComponent);
+    fixture.detectChanges();
+
+    fixture.componentInstance.ejecutarAbrirCaja();
+
+    const msg = feedbackMock.push.mock.calls.at(-1)?.[0].message as string;
+    expect(msg).toContain('50000');
+    expect(msg).not.toContain('undefined');
+  });
+
+  it('la grilla muestra saldo actual y estado de cada caja, y los selectores sólo las abiertas (QA-ROL-017/025)', () => {
+    apiMock.obtenerCajas.mockReturnValue(
+      of([
+        { id: 1, nombre: 'Caja Abierta', estado: 'ABIERTA', saldoActual: 700 },
+        { id: 2, nombre: 'Caja Cerrada', estado: 'CERRADA', saldoActual: 200000 },
+      ]),
+    );
+    const fixture = TestBed.createComponent(TesoreriaComponent);
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+
+    const filas = [...el.querySelectorAll('li')].map((li) => li.textContent ?? '');
+    expect(filas.some((t) => t.includes('Caja Cerrada') && t.includes('CERRADA') && t.includes('200000'))).toBe(true);
+    expect(filas.some((t) => t.includes('Caja Abierta') && t.includes('ABIERTA') && t.includes('700'))).toBe(true);
+
+    const opciones = [...el.querySelectorAll('select option')].map((o) => o.textContent ?? '');
+    expect(opciones.some((t) => t.includes('Caja Abierta'))).toBe(true);
+    expect(opciones.some((t) => t.includes('Caja Cerrada'))).toBe(false);
+  });
+
+  it('un arqueo con diferencia exige justificación antes de llamar al backend (QA-ROL-018)', () => {
+    apiMock.obtenerCajas.mockReturnValue(of([{ id: 1, nombre: 'Caja', estado: 'ABIERTA', saldoActual: 1000 }]));
+    const fixture = TestBed.createComponent(TesoreriaComponent);
+    const c = fixture.componentInstance;
+    fixture.detectChanges();
+
+    c.arqMontoFisico.set(1150);
+    c.arqJustificacion.set('   ');
+    c.ejecutarArqueo();
+
+    expect(apiMock.realizarArqueoCaja).not.toHaveBeenCalled();
+    expect(feedbackMock.push).toHaveBeenCalledWith(expect.objectContaining({ type: 'warning' }));
+  });
+
+  it('envía la justificación y refresca las cajas tras el arqueo (la caja queda cerrada)', () => {
+    apiMock.obtenerCajas.mockReturnValue(of([{ id: 1, nombre: 'Caja', estado: 'ABIERTA', saldoActual: 1000 }]));
+    apiMock.realizarArqueoCaja.mockReturnValue(
+      of({ id: 3, montoFisicoContado: 1150, saldoTeorico: 1000, diferencia: 150, realizadoPor: 'admin', justificacion: 'Cobro sin registrar' }),
+    );
+    const fixture = TestBed.createComponent(TesoreriaComponent);
+    const c = fixture.componentInstance;
+    fixture.detectChanges();
+    apiMock.obtenerCajas.mockClear();
+
+    c.arqMontoFisico.set(1150);
+    c.arqJustificacion.set('Cobro sin registrar');
+    c.ejecutarArqueo();
+
+    expect(apiMock.realizarArqueoCaja).toHaveBeenCalledWith(1, 1150, 'Cobro sin registrar');
+    expect(apiMock.obtenerCajas).toHaveBeenCalledTimes(1);
+    const msg = feedbackMock.push.mock.calls.at(-1)?.[0].message as string;
+    expect(msg).toContain('admin');
+    expect(msg).toContain('150');
+  });
+
+  it('un arqueo sin diferencia no necesita justificación', () => {
+    apiMock.obtenerCajas.mockReturnValue(of([{ id: 1, nombre: 'Caja', estado: 'ABIERTA', saldoActual: 1000 }]));
+    const fixture = TestBed.createComponent(TesoreriaComponent);
+    const c = fixture.componentInstance;
+    fixture.detectChanges();
+
+    c.arqMontoFisico.set(1000);
+    c.ejecutarArqueo();
+
+    expect(apiMock.realizarArqueoCaja).toHaveBeenCalledWith(1, 1000, undefined);
   });
 });

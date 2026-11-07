@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, computed, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TesoreriaApi, Caja, MovimientoCaja, ArqueoCaja } from '../../data-access/api/tesoreria.api';
@@ -48,7 +48,7 @@ import { UserFeedbackService } from '../../core/notifications/user-feedback.serv
                 <select [ngModel]="cajaIdMovimiento()" (ngModelChange)="cajaIdMovimiento.set($event)"
                         class="w-full px-3 py-2 border rounded-lg text-sm bg-transparent" style="border-color: var(--border-glass); color: var(--text-primary)">
                   <option [ngValue]="null" disabled>{{ loadingCajas() ? 'Cargando...' : 'Seleccioná una caja' }}</option>
-                  <option *ngFor="let c of cajas()" [ngValue]="c.id">#{{ c.id }} · {{ c.nombre }}</option>
+                  <option *ngFor="let c of cajasAbiertas()" [ngValue]="c.id">#{{ c.id }} · {{ c.nombre }}</option>
                 </select>
               </div>
               <div>
@@ -94,7 +94,7 @@ import { UserFeedbackService } from '../../core/notifications/user-feedback.serv
               <select [ngModel]="cajaIdArqueo()" (ngModelChange)="cajaIdArqueo.set($event)"
                       class="w-full px-3 py-2 border rounded-lg text-sm bg-transparent" style="border-color: var(--border-glass); color: var(--text-primary)">
                 <option [ngValue]="null" disabled>{{ loadingCajas() ? 'Cargando...' : 'Seleccioná una caja' }}</option>
-                <option *ngFor="let c of cajas()" [ngValue]="c.id">#{{ c.id }} · {{ c.nombre }}</option>
+                <option *ngFor="let c of cajasAbiertas()" [ngValue]="c.id">#{{ c.id }} · {{ c.nombre }}</option>
               </select>
             </div>
 
@@ -134,6 +134,16 @@ import { UserFeedbackService } from '../../core/notifications/user-feedback.serv
               <input type="number" [ngModel]="arqMontoFisico()" (ngModelChange)="arqMontoFisico.set($event)" placeholder="0.00"
                      class="w-full px-3 py-2 border rounded-lg text-sm bg-transparent font-mono font-bold text-emerald-400" style="border-color: var(--border-glass);" />
             </div>
+            @if (hayDiferenciaDeArqueo()) {
+              <div>
+                <label class="block text-xs font-semibold uppercase mb-1" style="color: var(--accent-amber, #f59e0b)">
+                  Justificación de la diferencia ($ {{ diferenciaDeArqueo() | number:'1.2-2' }}) *
+                </label>
+                <textarea [ngModel]="arqJustificacion()" (ngModelChange)="arqJustificacion.set($event)" rows="2" maxlength="500"
+                          placeholder="Explicá el sobrante o faltante"
+                          class="w-full px-3 py-2 border rounded-lg text-sm bg-transparent" style="border-color: var(--border-glass); color: var(--text-primary);"></textarea>
+              </div>
+            }
             <button (click)="ejecutarArqueo()" [disabled]="loadingArqueo()" class="btn-primary w-full text-sm font-medium py-2 rounded-lg">
               {{ loadingArqueo() ? 'Procesando...' : 'Cerrar Arqueo' }}
             </button>
@@ -150,7 +160,10 @@ import { UserFeedbackService } from '../../core/notifications/user-feedback.serv
           <ul class="space-y-2">
             <li *ngFor="let c of cajas()" class="flex items-center justify-between text-sm px-3 py-2 rounded-lg border" style="border-color: var(--border-glass); color: var(--text-primary)">
               <span>#{{ c.id }} · {{ c.nombre }}</span>
-              <span class="font-mono">Monto inicial $&nbsp;{{ c.montoInicial }}</span>
+              <span class="flex items-center gap-3">
+                <span class="text-xs font-semibold uppercase" [style.color]="c.estado === 'CERRADA' ? 'var(--text-muted)' : 'var(--accent-green)'">{{ c.estado }}</span>
+                <span class="font-mono">Saldo actual $&nbsp;{{ c.saldoActual }}</span>
+              </span>
             </li>
           </ul>
         </ng-container>
@@ -185,7 +198,17 @@ export class TesoreriaComponent implements OnInit {
 
   cajaIdArqueo = signal<number | null>(null);
   arqMontoFisico = signal<number>(0);
+  arqJustificacion = signal<string>('');
   loadingArqueo = signal<boolean>(false);
+
+  /** Una caja cerrada ya no admite movimientos ni arqueos: sólo se ofrecen las abiertas (QA-ROL-025). */
+  readonly cajasAbiertas = computed(() => this.cajas().filter((c) => c.estado !== 'CERRADA'));
+
+  readonly diferenciaDeArqueo = computed(() => {
+    const caja = this.cajas().find((c) => c.id === this.cajaIdArqueo());
+    return caja ? this.arqMontoFisico() - caja.saldoActual : 0;
+  });
+  readonly hayDiferenciaDeArqueo = computed(() => this.diferenciaDeArqueo() !== 0);
 
   readonly denominaciones: number[] = [20000, 10000, 2000, 1000, 500, 200, 100];
   readonly billetes = signal<Record<number, number>>({
@@ -218,10 +241,10 @@ export class TesoreriaComponent implements OnInit {
       next: (list) => {
         this.cajas.set(list);
         this.loadingCajas.set(false);
-        if (list.length > 0) {
-          if (this.cajaIdMovimiento() == null) this.cajaIdMovimiento.set(list[0].id);
-          if (this.cajaIdArqueo() == null) this.cajaIdArqueo.set(list[0].id);
-        }
+        const abiertas = list.filter((c) => c.estado !== 'CERRADA');
+        const sigueAbierta = (id: number | null) => id != null && abiertas.some((c) => c.id === id);
+        if (!sigueAbierta(this.cajaIdMovimiento())) this.cajaIdMovimiento.set(abiertas[0]?.id ?? null);
+        if (!sigueAbierta(this.cajaIdArqueo())) this.cajaIdArqueo.set(abiertas[0]?.id ?? null);
       },
       error: (err) => {
         this.loadingCajas.set(false);
@@ -245,7 +268,7 @@ export class TesoreriaComponent implements OnInit {
         this.feedback.push({
           type: 'success',
           title: 'Caja abierta',
-          message: `Caja "${caja.nombre}" (ID #${caja.id}) abierta con monto inicial $${caja.montoInicial}.`,
+          message: `Caja "${caja.nombre}" (ID #${caja.id}) abierta con saldo inicial $${caja.saldoActual}.`,
         });
       },
       error: (err) => {
@@ -290,15 +313,29 @@ export class TesoreriaComponent implements OnInit {
       this.feedback.push({ type: 'warning', title: 'Validación', message: 'El monto físico contado debe ser igual o mayor a 0.' });
       return;
     }
+    const justificacion = this.arqJustificacion().trim() || undefined;
+    if (this.hayDiferenciaDeArqueo() && !justificacion) {
+      this.feedback.push({
+        type: 'warning',
+        title: 'Justificación requerida',
+        message: `El conteo difiere del saldo de la caja en $${this.diferenciaDeArqueo()}. Explicá la diferencia para cerrar el arqueo.`,
+      });
+      return;
+    }
     this.loadingArqueo.set(true);
-    this.api.realizarArqueoCaja(this.cajaIdArqueo()!, this.arqMontoFisico()).subscribe({
+    this.api.realizarArqueoCaja(this.cajaIdArqueo()!, this.arqMontoFisico(), justificacion).subscribe({
       next: (arq: ArqueoCaja) => {
         this.loadingArqueo.set(false);
+        const quien = arq.realizadoPor ? ` por ${arq.realizadoPor}` : '';
+        const dif = arq.diferencia ? ` Diferencia: $${arq.diferencia}.` : '';
         this.feedback.push({
           type: 'success',
           title: 'Arqueo realizado',
-          message: `Arqueo #${arq.id} procesado con un conteo de $${arq.montoFisicoContado}.`,
+          message: `Arqueo #${arq.id}${quien} con un conteo de $${arq.montoFisicoContado}.${dif} La caja quedó cerrada.`,
         });
+        this.arqJustificacion.set('');
+        this.arqMontoFisico.set(0);
+        this.cargarCajas();
       },
       error: (err) => {
         this.loadingArqueo.set(false);

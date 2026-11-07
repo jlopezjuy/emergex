@@ -6,7 +6,9 @@ import { environment } from '../../../environments/environment';
 export interface Caja {
   id: number;
   nombre: string;
-  montoInicial: number;
+  estado: 'ABIERTA' | 'CERRADA';
+  /** Saldo vigente de la caja. El backend no expone un "monto inicial". */
+  saldoActual: number;
 }
 
 export interface MovimientoCaja {
@@ -19,6 +21,11 @@ export interface MovimientoCaja {
 export interface ArqueoCaja {
   id: number;
   montoFisicoContado: number;
+  saldoTeorico?: number;
+  diferencia?: number;
+  realizadoPor?: string;
+  fechaHora?: string;
+  justificacion?: string;
 }
 
 @Injectable({
@@ -52,8 +59,11 @@ export class TesoreriaApi {
     return this.http.post<MovimientoCaja>(`${this.apiUrl}/cajas/${cajaId}/movimientos`, null, { params });
   }
 
-  realizarArqueoCaja(cajaId: number, montoFisicoContado: number): Observable<ArqueoCaja> {
-    const params = new HttpParams().set('montoFisicoContado', montoFisicoContado);
+  realizarArqueoCaja(cajaId: number, montoFisicoContado: number, justificacion?: string): Observable<ArqueoCaja> {
+    let params = new HttpParams().set('montoFisicoContado', montoFisicoContado);
+    if (justificacion) {
+      params = params.set('justificacion', justificacion);
+    }
     return this.http.post<ArqueoCaja>(`${this.apiUrl}/cajas/${cajaId}/arqueo`, null, { params });
   }
 }
