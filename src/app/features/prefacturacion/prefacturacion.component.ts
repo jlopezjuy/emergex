@@ -7,6 +7,8 @@ import { leerIdDeFoco, leerTabDeFoco } from '../../core/navigation/deep-link';
 import { StatusBadgeComponent, BadgeVariant } from '../../shared/components/status-badge/status-badge.component';
 import { PrefacturacionApiService, LotePrefacturacionDTO, TicketPendienteTarifacionDTO } from '../../data-access/api/prefacturacion.api';
 import { UserFeedbackService } from '../../core/notifications/user-feedback.service';
+import { TercerosApiService } from '../../data-access/api/terceros.api';
+import { TerceroResumenDTO } from '../../data-access/dto/ledger.dto';
 
 @Component({
   selector: 'app-prefacturacion',
@@ -356,8 +358,19 @@ import { UserFeedbackService } from '../../core/notifications/user-feedback.serv
             </div>
             <div class="p-5 flex flex-col gap-4">
               <div>
-                <label class="block text-xs uppercase tracking-wider font-semibold mb-2" style="color:var(--text-muted);">ID Financiador</label>
-                <input type="number" [(ngModel)]="newFinanciadorId" class="w-full px-3 py-2 rounded-lg" style="background:var(--bg-elevated);border:1px solid var(--border-glass);color:var(--text-primary);" />
+                <label class="block text-xs uppercase tracking-wider font-semibold mb-2" style="color:var(--text-muted);">Financiador</label>
+                <input type="text" [ngModel]="busquedaFinanciador()" (ngModelChange)="busquedaFinanciador.set($event)" placeholder="Buscar por nombre o CUIT"
+                       class="w-full px-3 py-2 rounded-lg mb-2" style="background:var(--bg-elevated);border:1px solid var(--border-glass);color:var(--text-primary);" />
+                <select data-testid="financiador" [ngModel]="newFinanciadorId()" (ngModelChange)="newFinanciadorId.set($event)"
+                        class="w-full px-3 py-2 rounded-lg" style="background:var(--bg-elevated);border:1px solid var(--border-glass);color:var(--text-primary);">
+                  <option [ngValue]="null" disabled>{{ loadingFinanciadores() ? 'Cargando…' : 'Seleccioná un financiador' }}</option>
+                  @for (t of financiadoresFiltrados(); track t.id) {
+                    <option [ngValue]="t.id">{{ t.razonSocial }} · {{ t.cuit }}</option>
+                  }
+                </select>
+                @if (!loadingFinanciadores() && financiadoresFiltrados().length === 0) {
+                  <p class="text-xs mt-2" style="color:var(--text-muted);">No hay financiadores que coincidan con la búsqueda.</p>
+                }
               </div>
             </div>
             <div class="px-5 py-4 border-t border-white/10 flex justify-end gap-3 bg-black/20">
@@ -464,6 +477,7 @@ export class PrefacturacionComponent implements OnInit {
   private api = inject(PrefacturacionApiService);
   private destroyRef = inject(DestroyRef);
   private feedback = inject(UserFeedbackService);
+  private tercerosApi = inject(TercerosApiService);
   private route = inject(ActivatedRoute);
 
   readonly activeTab = signal<'lotes' | 'pendientes'>('lotes');
@@ -478,6 +492,14 @@ export class PrefacturacionComponent implements OnInit {
 
   readonly showCreateModal = signal(false);
   readonly newFinanciadorId = signal<number | null>(null);
+  readonly financiadores = signal<TerceroResumenDTO[]>([]);
+  readonly busquedaFinanciador = signal('');
+  readonly loadingFinanciadores = signal(false);
+  readonly financiadoresFiltrados = computed(() => {
+    const q = this.busquedaFinanciador().trim().toLowerCase();
+    const lista = this.financiadores();
+    return q ? lista.filter((t) => `${t.razonSocial} ${t.cuit}`.toLowerCase().includes(q)) : lista;
+  });
   readonly processing = signal(false);
 
   readonly showGenerarLineasModal = signal(false);
@@ -673,7 +695,23 @@ export class PrefacturacionComponent implements OnInit {
 
   openCreateModal(): void {
     this.newFinanciadorId.set(null);
+    this.busquedaFinanciador.set('');
     this.showCreateModal.set(true);
+    this.loadingFinanciadores.set(true);
+    this.tercerosApi
+      .buscar('')
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (lista) => {
+          this.financiadores.set(lista ?? []);
+          this.loadingFinanciadores.set(false);
+        },
+        error: (err) => {
+          this.financiadores.set([]);
+          this.loadingFinanciadores.set(false);
+          this.feedback.fromHttpError(err);
+        },
+      });
   }
 
   createLote(): void {

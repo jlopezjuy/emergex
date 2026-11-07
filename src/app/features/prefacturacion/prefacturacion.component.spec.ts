@@ -3,12 +3,14 @@ import { provideRouter } from '@angular/router';
 import { PrefacturacionComponent } from './prefacturacion.component';
 import { PrefacturacionApiService } from '../../data-access/api/prefacturacion.api';
 import { UserFeedbackService } from '../../core/notifications/user-feedback.service';
+import { TercerosApiService } from '../../data-access/api/terceros.api';
 import { of } from 'rxjs';
 import { vi } from 'vitest';
 
 describe('PrefacturacionComponent', () => {
   let fixture: ComponentFixture<PrefacturacionComponent>;
   let apiMock: Record<string, ReturnType<typeof vi.fn>>;
+  let tercerosMock: Record<string, ReturnType<typeof vi.fn>>;
 
   beforeEach(async () => {
     apiMock = {
@@ -23,10 +25,20 @@ describe('PrefacturacionComponent', () => {
       tarifarManual: vi.fn().mockReturnValue(of({ id: 10, estadoTarifacion: 'TARIFA_MANUAL' })),
     };
 
+    tercerosMock = {
+      buscar: vi.fn().mockReturnValue(
+        of([
+          { id: 11, razonSocial: 'OSDE', cuit: '30-50000000-1' },
+          { id: 12, razonSocial: 'Swiss Medical', cuit: '30-60000000-2' },
+        ]),
+      ),
+    };
+
     await TestBed.configureTestingModule({
       imports: [PrefacturacionComponent],
       providers: [
         provideRouter([]),
+        { provide: TercerosApiService, useValue: tercerosMock },
         { provide: PrefacturacionApiService, useValue: apiMock },
         { provide: UserFeedbackService, useValue: { push: vi.fn(), fromHttpError: vi.fn() } },
       ],
@@ -122,5 +134,32 @@ describe('PrefacturacionComponent', () => {
       expect(component.fmtLoteImporte(null)).toBe('—');
       expect(component.fmtLoteImporte(undefined)).toBe('—');
     });
+  });
+
+  it('Nuevo Lote ofrece elegir el financiador por nombre y CUIT, sin pedir un ID numérico (QA-ROL-031)', () => {
+    const component = fixture.componentInstance;
+
+    component.openCreateModal();
+    fixture.detectChanges();
+
+    const texto = fixture.nativeElement.textContent as string;
+    expect(tercerosMock['buscar']).toHaveBeenCalled();
+    expect(texto).toContain('OSDE');
+    expect(texto).toContain('Swiss Medical');
+    expect(texto).not.toContain('ID Financiador');
+    expect(fixture.nativeElement.querySelector('select[data-testid="financiador"]')).not.toBeNull();
+  });
+
+  it('crear el lote usa el id del financiador elegido', () => {
+    (apiMock['crearLote'] as ReturnType<typeof vi.fn>).mockReturnValue(
+      of({ id: 9, fechaCreacion: '2026-11-07', estado: 'BORRADOR', financiadorId: 12, montoTotal: 0 }),
+    );
+    const component = fixture.componentInstance;
+    component.openCreateModal();
+    component.newFinanciadorId.set(12);
+
+    component.createLote();
+
+    expect(apiMock['crearLote']).toHaveBeenCalledWith(12);
   });
 });
