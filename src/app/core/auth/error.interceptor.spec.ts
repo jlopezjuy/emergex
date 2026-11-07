@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { vi } from 'vitest';
+import { signal } from '@angular/core';
 import { UserFeedbackService } from '../notifications/user-feedback.service';
 import { AuthService } from './auth.service';
 import { errorInterceptor } from './error.interceptor';
@@ -12,17 +13,19 @@ describe('errorInterceptor — 403 (QA-ROL-014/033/036)', () => {
   let backend: HttpTestingController;
   let navigate: ReturnType<typeof vi.fn>;
   let push: ReturnType<typeof vi.fn>;
+  let toasts: ReturnType<typeof signal<Array<{ title: string }>>>;
 
   beforeEach(() => {
     navigate = vi.fn();
-    push = vi.fn();
+    toasts = signal<Array<{ title: string }>>([]);
+    push = vi.fn().mockImplementation((t: { title: string }) => toasts.update((l) => [t, ...l]));
     TestBed.configureTestingModule({
       providers: [
         provideHttpClient(withInterceptors([errorInterceptor])),
         provideHttpClientTesting(),
         { provide: Router, useValue: { navigate } },
         { provide: AuthService, useValue: { logout: vi.fn(), refreshToken: vi.fn() } },
-        { provide: UserFeedbackService, useValue: { push } },
+        { provide: UserFeedbackService, useValue: { push, toasts: toasts.asReadonly() } },
       ],
     });
     http = TestBed.inject(HttpClient);
@@ -54,5 +57,40 @@ describe('errorInterceptor — 403 (QA-ROL-014/033/036)', () => {
       backend.expectOne(url).flush({}, { status: 403, statusText: 'Forbidden' });
     }
     expect(push).toHaveBeenCalledTimes(1);
+  });
+
+  it('no apila un segundo aviso mientras el primero sigue visible, aunque pase la ventana de 3 s (QA-ROL-047)', () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-11-07T10:00:00Z'));
+      http.get('/api/a').subscribe({ error: () => undefined });
+      backend.expectOne('/api/a').flush({}, { status: 403, statusText: 'Forbidden' });
+
+      vi.setSystemTime(new Date('2026-11-07T10:00:05Z'));
+      http.get('/api/b').subscribe({ error: () => undefined });
+      backend.expectOne('/api/b').flush({}, { status: 403, statusText: 'Forbidden' });
+
+      expect(push).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('vuelve a avisar cuando el aviso anterior ya se cerró', () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-11-07T10:00:00Z'));
+      http.get('/api/a').subscribe({ error: () => undefined });
+      backend.expectOne('/api/a').flush({}, { status: 403, statusText: 'Forbidden' });
+      toasts.set([]);
+
+      vi.setSystemTime(new Date('2026-11-07T10:00:05Z'));
+      http.get('/api/b').subscribe({ error: () => undefined });
+      backend.expectOne('/api/b').flush({}, { status: 403, statusText: 'Forbidden' });
+
+      expect(push).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
