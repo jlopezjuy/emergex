@@ -63,6 +63,8 @@ const CONFIGURABLE_MENU_ITEMS: MenuConfigItem[] = [
   { id: 'institutions', label: 'Instituciones', icon: '🏥' },
   { id: 'plans', label: 'Planes', icon: '📦' },
   { id: 'facturacion', label: 'Facturación', icon: '🧾' },
+  { id: 'compras', label: 'Compras', icon: '🛒' },
+  { id: 'cuentas-corrientes', label: 'Cuentas Corrientes', icon: '📒' },
   { id: 'events', label: 'Eventos', icon: '📅' },
   { id: 'hospitals', label: 'Hospitales', icon: '🏨' },
   // { id: 'communications', label: 'Comunicaciones', icon: '📡' },
