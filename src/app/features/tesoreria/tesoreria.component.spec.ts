@@ -158,4 +158,17 @@ describe('TesoreriaComponent (F0-01)', () => {
 
     expect(apiMock.realizarArqueoCaja).toHaveBeenCalledWith(1, 1000, undefined);
   });
+
+  it('el billetaje usa la misma grilla en el encabezado y en cada fila para que no se pisen (QA-ROL-020)', () => {
+    apiMock.obtenerCajas.mockReturnValue(of([{ id: 1, nombre: 'Caja', estado: 'ABIERTA', saldoActual: 1000 }]));
+    const fixture = TestBed.createComponent(TesoreriaComponent);
+    fixture.detectChanges();
+    fixture.componentInstance.mostrarBilletaje.set(true);
+    fixture.detectChanges();
+
+    const filas = fixture.nativeElement.querySelectorAll('.billetaje-fila');
+    expect(filas.length).toBe(1 + fixture.componentInstance.denominaciones.length);
+    const plantillas = new Set([...filas].map((f) => (f as HTMLElement).style.gridTemplateColumns));
+    expect(plantillas.size).toBe(1);
+  });
 });

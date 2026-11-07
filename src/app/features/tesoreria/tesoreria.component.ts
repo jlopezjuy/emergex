@@ -100,24 +100,25 @@ import { UserFeedbackService } from '../../core/notifications/user-feedback.serv
 
             @if (mostrarBilletaje()) {
               <div class="p-3 bg-[var(--surface-glass)] rounded-xl border border-[var(--border-glass)] space-y-2">
-                <div class="flex justify-between items-center text-xs font-bold uppercase text-[var(--text-muted)] border-b border-[var(--border-glass)] pb-1">
-                  <span>Denominación</span>
-                  <span>Cantidad</span>
-                  <span>Subtotal ($)</span>
+                <div class="billetaje-fila grid items-center gap-2 text-[10px] font-bold uppercase text-[var(--text-muted)] border-b border-[var(--border-glass)] pb-1"
+                     style="grid-template-columns: 4.5rem 5rem minmax(0, 1fr);">
+                  <span>Denom.</span>
+                  <span class="text-right">Cant.</span>
+                  <span class="text-right">Subtotal ($)</span>
                 </div>
                 @for (d of denominaciones; track d) {
-                  <div class="flex items-center justify-between gap-2 text-xs">
-                    <span class="font-mono font-bold w-16 text-[var(--text-primary)]">$ {{ d | number }}</span>
+                  <div class="billetaje-fila grid items-center gap-2 text-xs" style="grid-template-columns: 4.5rem 5rem minmax(0, 1fr);">
+                    <span class="font-mono font-bold text-[var(--text-primary)] whitespace-nowrap">$ {{ d | number }}</span>
                     <input
                       type="number"
                       min="0"
                       [value]="billetes()[d] || ''"
                       (input)="actualizarCantidadBillete(d, +$any($event.target).value)"
                       placeholder="0"
-                      class="w-20 px-2 py-1 border rounded text-right font-mono bg-[var(--surface-inset)]"
+                      class="w-full min-w-0 px-2 py-1 border rounded text-right font-mono bg-[var(--surface-inset)]"
                       style="border-color: var(--border-glass); color: var(--text-primary);"
                     />
-                    <span class="font-mono text-right w-24 font-bold text-emerald-400">
+                    <span class="font-mono text-right font-bold text-emerald-400 whitespace-nowrap overflow-hidden text-ellipsis">
                       $ {{ ((billetes()[d] || 0) * d) | number:'1.2-2' }}
                     </span>
                   </div>
