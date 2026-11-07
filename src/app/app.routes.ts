@@ -169,7 +169,7 @@ export const routes: Routes = [
       },
       {
         path: 'facturacion',
-        canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_ADMINISTRADOR', 'ROLE_CONTADOR')],
+        canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_ADMINISTRADOR', 'ROLE_PROPIETARIO', 'ROLE_CONTADOR')],
         loadComponent: () =>
           import('./features/facturacion/facturacion.component').then((m) => m.FacturacionComponent),
       },
@@ -201,7 +201,7 @@ export const routes: Routes = [
       },
       {
         path: 'tesoreria',
-        canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_ADMINISTRADOR', 'ROLE_CONTADOR')],
+        canActivate: [roleGuard('ROLE_ADMIN', 'ROLE_ADMINISTRADOR', 'ROLE_PROPIETARIO', 'ROLE_CONTADOR')],
         loadComponent: () =>
           import('./features/tesoreria/tesoreria.component').then((m) => m.TesoreriaComponent),
       },

@@ -339,7 +339,7 @@ export class SidebarComponent implements OnInit {
                   });
                 }
 
-                if (this.sessionStore.hasAnyRole(['ROLE_ADMIN', 'ROLE_ADMINISTRADOR', 'ROLE_CONTADOR'])) {
+                if (this.sessionStore.hasAnyRole(['ROLE_ADMIN', 'ROLE_ADMINISTRADOR', 'ROLE_PROPIETARIO', 'ROLE_CONTADOR'])) {
                   newItems.push({
                     id: 'tesoreria',
                     label: 'Tesorería',
