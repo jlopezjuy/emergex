@@ -105,8 +105,7 @@ describe('ComprasComponent', () => {
 
     expect(comprasApiMock['overrideMatching']).toHaveBeenCalledWith({
       comprobanteId: 100,
-      motivoExcepcion: 'Excepción gerencial',
-      usuarioAprobador: 'gerente.aprobador'
+      motivoExcepcion: 'Excepción gerencial'
     });
     expect(feedbackServiceMock['push']).toHaveBeenCalledWith(expect.objectContaining({ type: 'success' }));
   });

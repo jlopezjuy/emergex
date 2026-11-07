@@ -78,7 +78,8 @@ export interface ComprobanteProveedorDTO {
 export interface OverrideMatchingRequest {
   comprobanteId: number;
   motivoExcepcion: string;
-  usuarioAprobador: string;
+  /** Obsoleto: el backend toma el aprobador de la sesión y lo ignora. */
+  usuarioAprobador?: string;
 }
 
 @Injectable({

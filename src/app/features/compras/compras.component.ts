@@ -900,8 +900,7 @@ export class ComprasComponent implements OnInit {
 
     this.comprasApi.overrideMatching({
       comprobanteId: id,
-      motivoExcepcion: motivo,
-      usuarioAprobador: 'gerente.aprobador'
+      motivoExcepcion: motivo
     }).subscribe({
       next: () => {
         this.feedback.push({
