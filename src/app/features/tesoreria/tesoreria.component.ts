@@ -101,13 +101,12 @@ import { UserFeedbackService } from '../../core/notifications/user-feedback.serv
             @if (mostrarBilletaje()) {
               <div class="p-3 bg-[var(--surface-glass)] rounded-xl border border-[var(--border-glass)] space-y-2">
                 <div class="billetaje-fila grid items-center gap-2 text-[10px] font-bold uppercase text-[var(--text-muted)] border-b border-[var(--border-glass)] pb-1"
-                     style="grid-template-columns: 4.5rem 5rem minmax(0, 1fr);">
+                     style="grid-template-columns: 4.5rem minmax(0, 1fr);">
                   <span>Denom.</span>
-                  <span class="text-right">Cant.</span>
-                  <span class="text-right">Subtotal ($)</span>
+                  <span class="text-right">Cantidad</span>
                 </div>
                 @for (d of denominaciones; track d) {
-                  <div class="billetaje-fila grid items-center gap-2 text-xs" style="grid-template-columns: 4.5rem 5rem minmax(0, 1fr);">
+                  <div class="billetaje-fila grid items-center gap-x-2 gap-y-0.5 text-xs" style="grid-template-columns: 4.5rem minmax(0, 1fr);">
                     <span class="font-mono font-bold text-[var(--text-primary)] whitespace-nowrap">$ {{ d | number }}</span>
                     <input
                       type="number"
@@ -118,8 +117,8 @@ import { UserFeedbackService } from '../../core/notifications/user-feedback.serv
                       class="w-full min-w-0 px-2 py-1 border rounded text-right font-mono bg-[var(--surface-inset)]"
                       style="border-color: var(--border-glass); color: var(--text-primary);"
                     />
-                    <span class="font-mono text-right font-bold text-emerald-400 whitespace-nowrap overflow-hidden text-ellipsis">
-                      $ {{ ((billetes()[d] || 0) * d) | number:'1.2-2' }}
+                    <span class="col-span-2 font-mono text-right text-[11px] font-bold text-emerald-400 whitespace-nowrap">
+                      = $ {{ ((billetes()[d] || 0) * d) | number:'1.2-2' }}
                     </span>
                   </div>
                 }
