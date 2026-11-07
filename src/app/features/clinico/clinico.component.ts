@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ClinicalApiService, ScheduleItemDTO, WaitlistItemDTO } from '../../data-access/api/clinical.api';
 import { EpisodioClinicoDTO, GlasgowDTO, MedicamentoPrescritoDTO } from '../../data-access/dto/clinical.dto';
+import { AuthService } from '../../core/auth/auth.service';
+import { kpisDelDia, perfilClinico } from './perfil-clinico';
 
 @Component({
   selector: 'app-clinico',
@@ -14,6 +16,10 @@ import { EpisodioClinicoDTO, GlasgowDTO, MedicamentoPrescritoDTO } from '../../d
 })
 export class ClinicoComponent implements OnInit, OnDestroy {
   private clinicalApi = inject(ClinicalApiService);
+  private authService = inject(AuthService);
+
+  /** Identidad del profesional autenticado (cabecera, firma y receta). */
+  readonly perfil = computed(() => perfilClinico(this.authService.currentAccount()));
 
   // Shell & Clock state
   readonly now = signal<Date>(new Date());
@@ -98,6 +104,20 @@ export class ClinicoComponent implements OnInit, OnDestroy {
     if (tab === 'all') return list;
     return list.filter(p => p.tri === tab);
   });
+
+  readonly kpis = computed(() => kpisDelDia(this.schedule(), this.waitlist()));
+
+  /** Día de la semana de hoy, sin horarios inventados. */
+  readonly diaDeHoy = computed(() => {
+    const dia = new Intl.DateTimeFormat('es-AR', { weekday: 'long' }).format(this.now());
+    return dia.charAt(0).toUpperCase() + dia.slice(1);
+  });
+
+  readonly fechaLarga = computed(() =>
+    new Intl.DateTimeFormat('es-AR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+      .format(this.now())
+      .replace(/^./, (c) => c.toUpperCase()),
+  );
 
   // Count waitlist items per category
   readonly waitlistCounts = computed(() => {
@@ -272,7 +292,7 @@ export class ClinicoComponent implements OnInit, OnDestroy {
   signRecipe(): void {
     if (this.firmado() || !this.activeEpisode()) return;
 
-    this.clinicalApi.signEpisode(this.activeEpisode()!.id, 'Dra. Carolina Altieri').subscribe({
+    this.clinicalApi.signEpisode(this.activeEpisode()!.id, this.perfil().nombre).subscribe({
       next: (res) => {
         this.firmado.set(true);
         this.firmaHash.set(res.hash);

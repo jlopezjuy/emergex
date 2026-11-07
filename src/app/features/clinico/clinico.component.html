@@ -26,7 +26,7 @@
       </div>
       <div class="tp-tenant__lbls text-left">
         <div class="text-[9px] uppercase tracking-wider text-[var(--text-muted)]">Centro médico · Consultorio</div>
-        <div class="text-xs font-medium text-[var(--text-secondary)]">Clínica Médica Central · Consultorio 3</div>
+        <div class="text-xs font-medium text-[var(--text-secondary)]">{{ perfil().centro || 'Centro médico' }}</div>
       </div>
     </div>
 
@@ -38,11 +38,11 @@
       </div>
       <div class="tp-user flex items-center gap-3 border-l border-[var(--border-glass)] pl-4">
         <div class="w-8 h-8 rounded-full bg-[var(--accent-blue-dim)] text-[var(--accent-blue)] flex items-center justify-center font-bold text-xs">
-          CA
+          {{ perfil().iniciales }}
         </div>
         <div class="text-left hidden sm:block">
-          <div class="text-xs font-semibold text-[var(--text-primary)]">Dra. Carolina Altieri</div>
-          <div class="text-[9px] font-mono text-[var(--text-muted)]">M.N. 119.827 · CARDIO</div>
+          <div class="text-xs font-semibold text-[var(--text-primary)]">{{ perfil().nombre }}</div>
+          <div class="text-[9px] font-mono text-[var(--text-muted)]">{{ perfil().matricula }}@if (perfil().especialidad) { · {{ perfil().especialidad }} }</div>
         </div>
       </div>
     </div>
@@ -80,7 +80,7 @@
     } @else {
       <div class="pc-sess-timer">
         <span class="pc-sess-lbl">TURNO</span>
-        Viernes · 08:00 – 14:00
+        {{ diaDeHoy() }}
       </div>
     }
   </div>
@@ -93,30 +93,26 @@
         <div class="pc-kpi">
           <div class="pc-kpi__lbl">Pacientes atendidos</div>
           <div class="pc-kpi__val text-[var(--accent-blue)]">
-            8 <span class="pc-kpi__unit">/ 27 hoy</span>
+            {{ kpis().atendidos }} <span class="pc-kpi__unit">/ {{ kpis().totalHoy }} hoy</span>
           </div>
-          <span class="pc-kpi__delta pc-kpi__delta--up">▲ 2 vs ayer</span>
         </div>
         <div class="pc-kpi">
           <div class="pc-kpi__lbl">En espera en sala</div>
           <div class="pc-kpi__val text-[var(--accent-amber)]">
             {{ waitlistCounts().all }} <span class="pc-kpi__unit">pacientes</span>
           </div>
-          <span class="pc-kpi__delta">Sala 3 · Box 3</span>
         </div>
         <div class="pc-kpi">
           <div class="pc-kpi__lbl">Demora promedio</div>
           <div class="pc-kpi__val text-[var(--accent-emerald)]">
-            14 <span class="pc-kpi__unit">min</span>
+            {{ kpis().demoraPromedioMin ?? '—' }} <span class="pc-kpi__unit">min</span>
           </div>
-          <span class="pc-kpi__delta pc-kpi__delta--up">▼ 2 min vs. sem</span>
         </div>
         <div class="pc-kpi">
-          <div class="pc-kpi__lbl">Recetas firmadas</div>
+          <div class="pc-kpi__lbl">Turnos pendientes</div>
           <div class="pc-kpi__val text-[var(--accent-cyan)]">
-            12 <span class="pc-kpi__unit">hoy</span>
+            {{ kpis().pendientes }} <span class="pc-kpi__unit">hoy</span>
           </div>
-          <span class="pc-kpi__delta">4 con firma criptográfica</span>
         </div>
       </div>
 
@@ -200,10 +196,10 @@
           <div class="pc-sched__head">
             <div class="text-left">
               <div class="text-[10px] uppercase font-mono tracking-widest text-[var(--text-muted)]">Agenda del día</div>
-              <div class="pc-sched__title text-[var(--text-primary)] mt-0.5">Viernes 22 · Mayo 2026 · Consultorio 3</div>
+              <div class="pc-sched__title text-[var(--text-primary)] mt-0.5">{{ fechaLarga() }}</div>
             </div>
             <div class="flex items-center gap-2">
-              <span class="text-[10.5px] font-mono text-[var(--text-muted)] mr-2">8 / 11 atendidos</span>
+              <span class="text-[10.5px] font-mono text-[var(--text-muted)] mr-2">{{ kpis().atendidos }} / {{ kpis().totalHoy }} atendidos</span>
             </div>
           </div>
           <div class="pc-sched__body">
@@ -572,7 +568,7 @@
                   </div>
                   <div class="text-left">
                     <div class="pc-sign-card__t1 text-[var(--text-primary)]">Firma digital criptográfica</div>
-                    <div class="pc-sign-card__t2">Dra. Carolina Altieri · M.N. 119.827</div>
+                    <div class="pc-sign-card__t2">{{ perfil().nombre }} · {{ perfil().matricula }}</div>
                   </div>
                 </div>
                 <div class="pc-sign-card__check bg-[var(--accent-emerald)] text-white w-6 h-6 rounded flex items-center justify-center">
@@ -634,8 +630,8 @@
 
               <div class="pc-pdf__foot">
                 <div class="pc-pdf__sig">
-                  <span class="name">C. Altieri</span>
-                  Dra. Carolina Altieri · M.N. 119.827
+                  <span class="name">{{ perfil().nombre }}</span>
+                  {{ perfil().nombre }} · {{ perfil().matricula }}
                   @if (firmado()) {
                     <div class="mt-1 font-mono text-[7px] text-gray-500">
                       HASH · <span class="hash bg-gray-100 px-1 rounded">{{ firmaHash() }}</span>
