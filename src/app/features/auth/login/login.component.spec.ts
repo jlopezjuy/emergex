@@ -42,7 +42,7 @@ describe('LoginComponent (aterrizaje por rol, ADM-UX-013)', () => {
   });
 
   it('lleva a un rol operativo al dashboard, como antes', () => {
-    sessionStoreMock.hasAnyRole.mockReturnValue(false);
+    sessionStoreMock.hasAnyRole.mockImplementation((roles: string[]) => roles.includes('ROLE_DESPACHANTE'));
     submitLogin();
     expect(router.navigateByUrl).toHaveBeenCalledWith('/dashboard');
   });

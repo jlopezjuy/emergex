@@ -1,20 +1,29 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { rutaInicialParaRoles } from './ruta-inicial';
 
+const conRoles = (...authorities: string[]) => (roles: string[]) => roles.some((r) => authorities.includes(r));
+
 describe('rutaInicialParaRoles', () => {
-  it('aterriza al Centro Administrativo cuando el rol es administrativo', () => {
-    const hasAnyRole = vi.fn().mockReturnValue(true);
-    expect(rutaInicialParaRoles(hasAnyRole)).toBe('/administracion');
+  it.each([
+    ['ROLE_ADMIN', '/administracion'],
+    ['ROLE_PROPIETARIO', '/administracion'],
+    ['ROLE_ADMINISTRADOR', '/administracion'],
+    ['ROLE_CONTADOR', '/administracion'],
+    ['ROLE_DESPACHANTE', '/dashboard'],
+    ['ROLE_OPERADOR', '/dashboard'],
+    ['ROLE_PROFESIONAL', '/clinico'],
+    ['ROLE_MEDICO_CAMPO', '/clinico'],
+    ['ROLE_CHOFER', '/tripulacion'],
+    ['ROLE_AUDITOR', '/auditoria-medica'],
+  ])('%s aterriza en %s', (rol, ruta) => {
+    expect(rutaInicialParaRoles(conRoles('ROLE_USER', rol))).toBe(ruta);
   });
 
-  it('aterriza al dashboard operativo para el resto de los roles', () => {
-    const hasAnyRole = vi.fn().mockReturnValue(false);
-    expect(rutaInicialParaRoles(hasAnyRole)).toBe('/dashboard');
+  it('QA-ROL-038: un usuario sin rol funcional no cae en /dashboard (que su guard rechaza)', () => {
+    expect(rutaInicialParaRoles(conRoles('ROLE_USER'))).toBe('/access-denied');
   });
 
-  it('consulta los mismos 4 roles administrativos que la ruta raíz', () => {
-    const hasAnyRole = vi.fn().mockReturnValue(false);
-    rutaInicialParaRoles(hasAnyRole);
-    expect(hasAnyRole).toHaveBeenCalledWith(['ROLE_ADMIN', 'ROLE_PROPIETARIO', 'ROLE_ADMINISTRADOR', 'ROLE_CONTADOR']);
+  it('con varios roles gana el de mayor alcance administrativo', () => {
+    expect(rutaInicialParaRoles(conRoles('ROLE_PROFESIONAL', 'ROLE_ADMINISTRADOR'))).toBe('/administracion');
   });
 });
