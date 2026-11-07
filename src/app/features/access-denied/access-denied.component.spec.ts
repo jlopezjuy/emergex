@@ -39,4 +39,10 @@ describe('AccessDeniedComponent', () => {
     const volver = fixture.nativeElement.querySelector('[data-testid="volver"]') as HTMLAnchorElement;
     expect(volver.getAttribute('href')).toBe('/administracion');
   });
+
+  it('sin rol funcional no ofrece "Volver al inicio" (llevaría a esta misma pantalla, QA-ROL-045)', () => {
+    const volver = fixture.nativeElement.querySelector('[data-testid="volver"]');
+    expect(volver).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="cerrar-sesion"]')).not.toBeNull();
+  });
 });

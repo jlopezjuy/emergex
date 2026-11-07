@@ -26,7 +26,9 @@ import { SessionStore } from '../../core/stores/session.store';
         </p>
       </div>
       <div class="flex items-center gap-3">
-        <a [routerLink]="rutaInicial" data-testid="volver" class="btn btn--ghost btn--sm">Volver al inicio</a>
+        @if (rutaInicial !== RUTA_SIN_ACCESO) {
+          <a [routerLink]="rutaInicial" data-testid="volver" class="btn btn--ghost btn--sm">Volver al inicio</a>
+        }
         <button type="button" data-testid="cerrar-sesion" class="btn btn--ghost btn--sm" (click)="cerrarSesion()">
           Cerrar sesión
         </button>
@@ -38,6 +40,7 @@ export class AccessDeniedComponent {
   private readonly auth = inject(AuthService);
   private readonly sessionStore = inject(SessionStore);
 
+  protected readonly RUTA_SIN_ACCESO = '/access-denied';
   protected readonly rutaInicial = rutaInicialParaRoles((roles) => this.sessionStore.hasAnyRole(roles));
 
   protected cerrarSesion(): void {

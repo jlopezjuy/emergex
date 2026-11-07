@@ -4,6 +4,7 @@ import { ComprasComponent } from './compras.component';
 import { ComprasApiService } from '../../data-access/api/compras.api';
 import { CostosApiService } from '../../data-access/api/costos.api';
 import { UserFeedbackService } from '../../core/notifications/user-feedback.service';
+import { SessionStore } from '../../core/stores/session.store';
 import { of } from 'rxjs';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideHttpClient } from '@angular/common/http';
@@ -108,5 +109,57 @@ describe('ComprasComponent', () => {
       usuarioAprobador: 'gerente.aprobador'
     });
     expect(feedbackServiceMock['push']).toHaveBeenCalledWith(expect.objectContaining({ type: 'success' }));
+  });
+});
+
+describe('ComprasComponent — acciones según el rol (QA-ROL-048)', () => {
+  async function crearComo(...roles: string[]) {
+    TestBed.resetTestingModule();
+    const api = {
+      getSolicitudes: vi.fn().mockReturnValue(of([])),
+      getSolicitudesPage: vi.fn().mockReturnValue(
+        of({ data: [{ id: 1, concepto: 'Insumos', montoEstimado: 500, estado: 'PRESENTADA', centroCostoId: 1 }], total: 1, page: 0, size: 10, totalPages: 1 }),
+      ),
+      getOrdenesCompra: vi.fn().mockReturnValue(of([])),
+      getOrdenesCompraPage: vi.fn().mockReturnValue(of({ data: [], total: 0, page: 0, size: 10, totalPages: 0 })),
+      getComprobantesProveedor: vi.fn().mockReturnValue(of([])),
+    };
+    await TestBed.configureTestingModule({
+      imports: [ComprasComponent],
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: ComprasApiService, useValue: api },
+        { provide: CostosApiService, useValue: { getCentrosCosto: vi.fn().mockReturnValue(of([])) } },
+        { provide: UserFeedbackService, useValue: { push: vi.fn(), fromHttpError: vi.fn() } },
+        { provide: SessionStore, useValue: { hasAnyRole: (req: string[]) => req.some((r) => roles.includes(r)) } },
+      ],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(ComprasComponent);
+    fixture.detectChanges();
+    return (fixture.nativeElement as HTMLElement).textContent ?? '';
+  }
+
+  it('el contador ve las solicitudes pero no puede crearlas ni aprobarlas', async () => {
+    const texto = await crearComo('ROLE_CONTADOR');
+
+    expect(texto).toContain('Insumos');
+    expect(texto).not.toContain('+ Nueva Solicitud');
+    expect(texto).not.toContain('Aprobar');
+  });
+
+  it('el administrador conserva crear y aprobar', async () => {
+    const texto = await crearComo('ROLE_ADMINISTRADOR');
+
+    expect(texto).toContain('+ Nueva Solicitud');
+    expect(texto).toContain('Aprobar');
+  });
+
+  it('el operador puede crear solicitudes pero no aprobarlas', async () => {
+    const texto = await crearComo('ROLE_OPERADOR');
+
+    expect(texto).toContain('+ Nueva Solicitud');
+    expect(texto).not.toContain('Aprobar');
   });
 });

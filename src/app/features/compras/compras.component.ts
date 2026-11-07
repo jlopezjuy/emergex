@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, inject } from '@angular/core';
+import { Component, OnInit, computed, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
@@ -15,6 +15,7 @@ import { CostosApiService, CentroCostoDTO } from '../../data-access/api/costos.a
 import { TercerosApiService } from '../../data-access/api/terceros.api';
 import { TerceroResumenDTO } from '../../data-access/dto/ledger.dto';
 import { UserFeedbackService } from '../../core/notifications/user-feedback.service';
+import { SessionStore } from '../../core/stores/session.store';
 import { LoadingStateComponent } from '../../shared/components/loading-state/loading-state.component';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
@@ -87,9 +88,11 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
         <section class="bg-[var(--bg-elevated)] rounded-2xl p-6 border border-[var(--border-glass)] shadow-sm space-y-6">
           <div class="flex justify-between items-center">
             <h2 class="text-lg font-bold text-[var(--text-primary)]">Solicitudes de Compra & Imputación por Centro de Costo</h2>
-            <button (click)="showSolicitudModal = true" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium shadow transition">
-              + Nueva Solicitud
-            </button>
+            @if (puedeCrearSolicitud()) {
+              <button (click)="showSolicitudModal = true" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium shadow transition">
+                + Nueva Solicitud
+              </button>
+            }
           </div>
 
           @if (loading()) {
@@ -124,7 +127,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
                         </emx-status-badge>
                       </td>
                       <td class="px-4 py-3 text-right space-x-2">
-                        @if (sol.estado === 'PRESENTADA' || sol.estado === 'PENDIENTE') {
+                        @if (puedeAprobar() && (sol.estado === 'PRESENTADA' || sol.estado === 'PENDIENTE')) {
                           <button (click)="aprobarSolicitud(sol.id!)" class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-medium">
                             Aprobar
                           </button>
@@ -429,7 +432,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
                       </emx-status-badge>
                     </td>
                     <td class="px-4 py-3 text-right">
-                      @if (c.estadoMatching === 'BLOQUEADO_DIFERENCIA') {
+                      @if (puedeAprobar() && c.estadoMatching === 'BLOQUEADO_DIFERENCIA') {
                         <button (click)="iniciarOverride(c.id!)" class="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-medium">
                           Destrabar (Override)
                         </button>
@@ -620,6 +623,15 @@ export class ComprasComponent implements OnInit {
   lineasRecepcion: LineaRecepcionBienesDTO[] = [
     { descripcionItem: 'Insumo Farmacéutico General', cantidadRecibida: 1, numeroLote: '', fechaVencimiento: '' }
   ];
+
+  private session = inject(SessionStore);
+
+  // Espejo de los @PreAuthorize del backend (SolicitudCompraResource / ThreeWayMatchingResource):
+  // la UI no ofrece acciones que la API va a rechazar con 403 (QA-ROL-048).
+  readonly puedeCrearSolicitud = computed(() =>
+    this.session.hasAnyRole(['ROLE_ADMIN', 'ROLE_ADMINISTRADOR', 'ROLE_PROPIETARIO', 'ROLE_OPERADOR']),
+  );
+  readonly puedeAprobar = computed(() => this.session.hasAnyRole(['ROLE_ADMIN', 'ROLE_ADMINISTRADOR', 'ROLE_PROPIETARIO']));
 
   private comprasApi = inject(ComprasApiService);
   private costosApi = inject(CostosApiService);
