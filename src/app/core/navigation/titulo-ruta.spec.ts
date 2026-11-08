@@ -35,3 +35,18 @@ describe('tituloParaRuta', () => {
     expect(tituloParaRuta('/obras-sociales').titulo).toBe('Obras Sociales');
   });
 });
+
+describe('tituloParaRuta — rutas hijas de /administracion (S6)', () => {
+  it('muestra el título propio de Proveedores y su ficha', () => {
+    expect(tituloParaRuta('/administracion/proveedores').titulo).toBe('Proveedores');
+    expect(tituloParaRuta('/administracion/proveedores/7').titulo).toBe('Proveedores');
+  });
+
+  it('muestra el título propio de Reportes', () => {
+    expect(tituloParaRuta('/administracion/reportes?tab=x').titulo).toBe('Reportes');
+  });
+
+  it('sigue mostrando Centro Administrativo en la raíz', () => {
+    expect(tituloParaRuta('/administracion').titulo).toBe('Centro Administrativo');
+  });
+});

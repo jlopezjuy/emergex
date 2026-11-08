@@ -27,7 +27,7 @@ describe('ProveedorDetailComponent', () => {
 
     tercerosApiMock = {
       buscar: vi.fn().mockReturnValue(of([
-        { id: 1, razonSocial: 'Proveedor Test SA', cuit: '30-12345678-9', nombreComercial: 'Test Insumos' }
+        { id: 1, razonSocial: 'Proveedor Test SA', cuit: '30123456789', nombreComercial: 'Test Insumos' }
       ])),
       listarCuentasBancarias: vi.fn().mockReturnValue(of([
         { id: 5, bancoNombre: 'Banco X', cbuMasked: '****1234', titularNombre: 'Proveedor Test SA', estado: 'PENDIENTE_VERIFICACION' }
@@ -59,7 +59,7 @@ describe('ProveedorDetailComponent', () => {
   it('debería cargar la identidad del proveedor mediante la API de terceros', () => {
     expect(tercerosApiMock.buscar).toHaveBeenCalled();
     expect(component.proveedorInfo()?.razonSocial).toBe('Proveedor Test SA');
-    expect(component.proveedorInfo()?.cuit).toBe('30-12345678-9');
+    expect(component.proveedorInfo()?.cuit).toBe('30123456789');
   });
 
   it('carga las cuentas bancarias del proveedor para que el Checker pueda aprobar (QA-ROL-021)', () => {
@@ -70,7 +70,7 @@ describe('ProveedorDetailComponent', () => {
 
   it('el modal de CBU recibe las cuentas cargadas', () => {
     const abrir = [...fixture.nativeElement.querySelectorAll('button')].find((b) =>
-      (b as HTMLElement).textContent?.includes('Workflow CBU Maker-Checker'),
+      (b as HTMLElement).textContent?.includes('Cuentas bancarias (requiere aprobación)'),
     ) as HTMLButtonElement;
     abrir.click();
     fixture.detectChanges();
@@ -125,5 +125,26 @@ describe('ProveedorDetailComponent', () => {
   it('debería cambiar a la solapa de documentación adjunta', () => {
     component.activeTab.set('docs');
     expect(component.activeTab()).toBe('docs');
+  });
+
+  describe('lenguaje y formato (S2, S10)', () => {
+    it('muestra el CUIT con guiones', () => {
+      expect(fixture.nativeElement.textContent).toContain('30-12345678-9');
+    });
+
+    it('no muestra jerga técnica en la ficha', () => {
+      const texto = fixture.nativeElement.textContent as string;
+      expect(texto).toContain('Cuentas bancarias (requiere aprobación)');
+      expect(texto).not.toContain('Workflow');
+      expect(texto).not.toContain('Maker-Checker');
+      expect(texto).not.toContain('360');
+    });
+
+    it('muestra el estado de la orden de pago en lenguaje llano', () => {
+      component.activeTab.set('op');
+      fixture.detectChanges();
+      const texto = fixture.nativeElement.textContent as string;
+      expect(texto).not.toContain('PENDIENTE_APROBACION');
+    });
   });
 });

@@ -20,11 +20,14 @@ import { LoadingStateComponent } from '../../shared/components/loading-state/loa
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
 import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
+import { FechaPipe } from '../../shared/pipes/fecha.pipe';
+import { EstadoPipe } from '../../shared/pipes/estado.pipe';
+import { CuitPipe } from '../../shared/pipes/cuit.pipe';
 
 @Component({
   selector: 'emx-compras',
   standalone: true,
-  imports: [MonedaPipe, 
+  imports: [MonedaPipe, FechaPipe, EstadoPipe, CuitPipe,
     CommonModule,
     FormsModule,
     ReactiveFormsModule,
@@ -37,8 +40,8 @@ import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
       <!-- Header -->
       <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[var(--bg-elevated)] p-6 rounded-2xl border border-[var(--border-glass)] shadow-sm">
         <div>
-          <h1 class="text-2xl font-bold tracking-tight text-[var(--text-primary)]">Módulo Profesional de Compras</h1>
-          <p class="text-[var(--text-muted)] text-sm mt-1">Solicitudes, Cotizaciones, Órdenes de Compra, Recepción Multilínea y 3-Way Matching</p>
+          <h1 class="text-2xl font-bold tracking-tight text-[var(--text-primary)]">Compras</h1>
+          <p class="text-[var(--text-muted)] text-sm mt-1">Solicitudes, cotizaciones, órdenes de compra, recepciones y control de facturas de proveedores.</p>
         </div>
         <div class="flex flex-wrap gap-2">
           <button
@@ -63,7 +66,7 @@ import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
             [class.text-white]="activeTab() === 'ordenes'"
             class="px-4 py-2 rounded-lg font-medium text-sm transition bg-[var(--surface-glass)] text-[var(--text-muted)] hover:text-[var(--text-primary)] border border-[var(--border-glass)]"
           >
-            Órdenes de Compra
+            Órdenes de compra
           </button>
           <button
             (click)="activeTab.set('recepciones')"
@@ -79,7 +82,7 @@ import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
             [class.text-white]="activeTab() === 'matching'"
             class="px-4 py-2 rounded-lg font-medium text-sm transition bg-[var(--surface-glass)] text-[var(--text-muted)] hover:text-[var(--text-primary)] border border-[var(--border-glass)]"
           >
-            Comprobantes & 3-Way Match
+            Facturas de proveedores
           </button>
         </div>
       </header>
@@ -88,7 +91,7 @@ import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
       @if (activeTab() === 'solicitudes') {
         <section class="bg-[var(--bg-elevated)] rounded-2xl p-6 border border-[var(--border-glass)] shadow-sm space-y-6">
           <div class="flex justify-between items-center">
-            <h2 class="text-lg font-bold text-[var(--text-primary)]">Solicitudes de Compra & Imputación por Centro de Costo</h2>
+            <h2 class="text-lg font-bold text-[var(--text-primary)]">Solicitudes de compra</h2>
             @if (puedeCrearSolicitud()) {
               <button (click)="showSolicitudModal = true" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium shadow transition">
                 + Nueva Solicitud
@@ -103,12 +106,12 @@ import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
           } @else {
             <div class="overflow-x-auto">
               <table class="w-full text-left text-sm">
-                <thead class="bg-[var(--surface-glass)] text-xs uppercase font-semibold text-[var(--text-muted)] border-b border-[var(--border-glass)]">
+                <thead class="bg-[var(--surface-glass)] text-xs font-semibold text-[var(--text-muted)] border-b border-[var(--border-glass)]">
                   <tr>
-                    <th class="px-4 py-3">N° Solicitud</th>
-                    <th class="px-4 py-3">Justificación / Concepto</th>
-                    <th class="px-4 py-3">Centro de Costo</th>
-                    <th class="px-4 py-3">Monto Estimado</th>
+                    <th class="px-4 py-3">N.º de solicitud</th>
+                    <th class="px-4 py-3">Concepto</th>
+                    <th class="px-4 py-3">Centro de costo</th>
+                    <th class="px-4 py-3 text-right">Monto estimado</th>
                     <th class="px-4 py-3">Solicitante</th>
                     <th class="px-4 py-3">Estado</th>
                     <th class="px-4 py-3 text-right">Acciones</th>
@@ -117,19 +120,19 @@ import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
                 <tbody class="divide-y divide-[var(--border-glass)]">
                   @for (sol of solicitudes(); track sol.id) {
                     <tr class="hover:bg-[var(--surface-glass)] transition">
-                      <td class="px-4 py-3 font-mono text-xs font-bold text-[var(--text-primary)]">{{ sol.numeroSolicitud || ('SOL-' + sol.id) }}</td>
+                      <td class="px-4 py-3 num text-xs font-bold text-[var(--text-primary)]">{{ sol.numeroSolicitud || ('SOL-' + sol.id) }}</td>
                       <td class="px-4 py-3 font-medium text-[var(--text-primary)]">{{ sol.justificacion || sol.concepto }}</td>
                       <td class="px-4 py-3 text-xs text-[var(--text-muted)]">{{ sol.centroCostoNombre || (sol.centroCostoId ? 'CC #' + sol.centroCostoId : 'General') }}</td>
-                      <td class="px-4 py-3 font-mono text-xs">{{ (sol.montoEstimado || 0) | moneda }}</td>
+                      <td class="px-4 py-3 num text-right text-xs">{{ (sol.montoEstimado || 0) | moneda }}</td>
                       <td class="px-4 py-3 text-[var(--text-muted)]">{{ sol.solicitante || sol.solicitadoPor || 'Sistema' }}</td>
                       <td class="px-4 py-3">
                         <emx-status-badge [variant]="sol.estado === 'APROBADA' ? 'stable' : 'pending'">
-                          {{ sol.estado }}
+                          {{ sol.estado | estado }}
                         </emx-status-badge>
                       </td>
                       <td class="px-4 py-3 text-right space-x-2">
                         @if (puedeAprobar() && (sol.estado === 'PRESENTADA' || sol.estado === 'PENDIENTE')) {
-                          <button (click)="aprobarSolicitud(sol.id!)" class="px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-medium">
+                          <button (click)="aprobarSolicitud(sol.id!)" class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-medium">
                             Aprobar
                           </button>
                         }
@@ -143,7 +146,7 @@ import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
               </table>
             </div>
 
-            <!-- Controles Paginación Solicitudes (V3-S3-01) -->
+            <!-- Paginación de solicitudes -->
             <div class="flex items-center justify-between pt-4 border-t border-[var(--border-glass)]">
               <span class="text-xs text-[var(--text-muted)]">
                 Página <strong class="text-[var(--text-primary)]">{{ solicitudesPage() + 1 }}</strong> de <strong class="text-[var(--text-primary)]">{{ solicitudesTotalPages() }}</strong> (Total: {{ solicitudesTotal() }})
@@ -169,24 +172,24 @@ import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
         </section>
       }
 
-      <!-- SOLAPA 2: COTIZACIONES DE PROVEEDORES (V3-S3-02) -->
+      <!-- SOLAPA 2: COTIZACIONES DE PROVEEDORES -->
       @if (activeTab() === 'cotizaciones') {
         <section class="bg-[var(--bg-elevated)] rounded-2xl p-6 border border-[var(--border-glass)] shadow-sm space-y-6">
           <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-              <h2 class="text-lg font-bold text-[var(--text-primary)]">Comparativa de Cotizaciones por Solicitud</h2>
-              <p class="text-xs text-[var(--text-muted)]">Carga y comparativa de ofertas recibidas de proveedores.</p>
+              <h2 class="text-lg font-bold text-[var(--text-primary)]">Cotizaciones por solicitud</h2>
+              <p class="text-xs text-[var(--text-muted)]">Cargá y compará las ofertas recibidas de los proveedores.</p>
             </div>
             @if (solicitudSeleccionada()) {
               <button (click)="showCotizacionModal.set(true)" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium shadow transition">
-                + Registrar Cotización
+                + Registrar cotización
               </button>
             }
           </div>
 
           <!-- Selector de Solicitud de Compra -->
           <div class="p-4 rounded-xl border border-[var(--border-glass)] bg-[var(--surface-glass)] space-y-2">
-            <label class="block text-xs font-semibold text-[var(--text-muted)] uppercase">Seleccionar Solicitud para Comparar</label>
+            <label class="block text-xs font-semibold text-[var(--text-muted)]">Solicitud a comparar</label>
             <select
               [ngModel]="solicitudSeleccionada()?.id"
               (ngModelChange)="onSelectSolicitudId($event)"
@@ -210,11 +213,11 @@ import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
           } @else {
             <div class="overflow-x-auto">
               <table class="w-full text-left text-sm">
-                <thead class="bg-[var(--surface-glass)] text-xs uppercase font-semibold text-[var(--text-muted)] border-b border-[var(--border-glass)]">
+                <thead class="bg-[var(--surface-glass)] text-xs font-semibold text-[var(--text-muted)] border-b border-[var(--border-glass)]">
                   <tr>
                     <th class="px-4 py-3">Proveedor</th>
-                    <th class="px-4 py-3">Monto Cotizado</th>
-                    <th class="px-4 py-3">Plazo Entrega</th>
+                    <th class="px-4 py-3 text-right">Monto cotizado</th>
+                    <th class="px-4 py-3">Plazo de entrega</th>
                     <th class="px-4 py-3">Observaciones</th>
                     <th class="px-4 py-3">Estado</th>
                   </tr>
@@ -223,12 +226,12 @@ import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
                   @for (cot of cotizaciones(); track cot.id) {
                     <tr class="hover:bg-[var(--surface-glass)] transition">
                       <td class="px-4 py-3 font-medium text-[var(--text-primary)]">{{ cot.proveedorNombre || ('Proveedor #' + cot.proveedorId) }}</td>
-                      <td class="px-4 py-3 font-mono text-xs font-bold text-green-400">{{ cot.montoCotizado | moneda }}</td>
+                      <td class="px-4 py-3 num text-right text-xs font-bold text-[var(--text-primary)]">{{ cot.montoCotizado | moneda }}</td>
                       <td class="px-4 py-3 text-[var(--text-muted)]">{{ cot.plazoEntregaDias ? (cot.plazoEntregaDias + ' días') : 'Inmediato' }}</td>
                       <td class="px-4 py-3 text-xs text-[var(--text-muted)]">{{ cot.observaciones || '-' }}</td>
                       <td class="px-4 py-3">
                         <emx-status-badge [variant]="cot.seleccionada ? 'stable' : 'info'">
-                          {{ cot.seleccionada ? 'SELECCIONADA' : 'RECIBIDA' }}
+                          {{ cot.seleccionada ? 'Seleccionada' : 'Recibida' }}
                         </emx-status-badge>
                       </td>
                     </tr>
@@ -243,29 +246,29 @@ import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
       <!-- SOLAPA 3: ÓRDENES DE COMPRA CON PAGINACIÓN SERVER-SIDE -->
       @if (activeTab() === 'ordenes') {
         <section class="bg-[var(--bg-elevated)] rounded-2xl p-6 border border-[var(--border-glass)] shadow-sm space-y-6">
-          <h2 class="text-lg font-bold text-[var(--text-primary)]">Órdenes de Compra Emitidas</h2>
+          <h2 class="text-lg font-bold text-[var(--text-primary)]">Órdenes de compra emitidas</h2>
           @if (ordenesCompra().length === 0) {
             <emx-empty-state title="Sin órdenes de compra" message="No se registran órdenes de compra emitidas."></emx-empty-state>
           } @else {
             <div class="overflow-x-auto">
               <table class="w-full text-left text-sm">
-                <thead class="bg-[var(--surface-glass)] text-xs uppercase font-semibold text-[var(--text-muted)] border-b border-[var(--border-glass)]">
+                <thead class="bg-[var(--surface-glass)] text-xs font-semibold text-[var(--text-muted)] border-b border-[var(--border-glass)]">
                   <tr>
-                    <th class="px-4 py-3">N° Orden</th>
-                    <th class="px-4 py-3">Fecha Emisión</th>
-                    <th class="px-4 py-3">Monto Total</th>
+                    <th class="px-4 py-3">N.º de orden</th>
+                    <th class="px-4 py-3">Fecha de emisión</th>
+                    <th class="px-4 py-3 text-right">Monto total</th>
                     <th class="px-4 py-3">Estado</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-[var(--border-glass)]">
                   @for (oc of ordenesCompra(); track oc.id) {
                     <tr class="hover:bg-[var(--surface-glass)] transition" [class.bg-blue-500/10]="ordenFocoId() === oc.id">
-                      <td class="px-4 py-3 font-mono font-medium text-[var(--text-primary)]">{{ oc.numero || ('OC-' + oc.id) }}</td>
-                      <td class="px-4 py-3 text-[var(--text-muted)]">{{ oc.fechaEmision || '-' }}</td>
-                      <td class="px-4 py-3 font-mono text-xs font-bold">{{ (oc.montoTotal || 0) | moneda }}</td>
+                      <td class="px-4 py-3 num font-medium text-[var(--text-primary)]">{{ oc.numero || ('OC-' + oc.id) }}</td>
+                      <td class="px-4 py-3 num text-[var(--text-muted)]">{{ oc.fechaEmision | fecha }}</td>
+                      <td class="px-4 py-3 num text-right text-xs font-bold">{{ (oc.montoTotal || 0) | moneda }}</td>
                       <td class="px-4 py-3">
                         <emx-status-badge [variant]="oc.estado === 'RECEPCIONADA' ? 'stable' : 'info'">
-                          {{ oc.estado }}
+                          {{ oc.estado | estado }}
                         </emx-status-badge>
                       </td>
                     </tr>
@@ -274,7 +277,7 @@ import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
               </table>
             </div>
 
-            <!-- Controles Paginación Órdenes (V3-S3-01) -->
+            <!-- Paginación de órdenes -->
             <div class="flex items-center justify-between pt-4 border-t border-[var(--border-glass)]">
               <span class="text-xs text-[var(--text-muted)]">
                 Página <strong class="text-[var(--text-primary)]">{{ ordenesPage() + 1 }}</strong> de <strong class="text-[var(--text-primary)]">{{ ordenesTotalPages() }}</strong> (Total: {{ ordenesTotal() }})
@@ -303,12 +306,12 @@ import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
       <!-- SOLAPA 4: RECEPCIONES CON LÍNEAS MÚLTIPLES -->
       @if (activeTab() === 'recepciones') {
         <section class="bg-[var(--bg-elevated)] rounded-2xl p-6 border border-[var(--border-glass)] shadow-sm space-y-6">
-          <h2 class="text-lg font-bold text-[var(--text-primary)]">Registro de Recepción de Bienes con Trazabilidad Lote/Vencimiento</h2>
+          <h2 class="text-lg font-bold text-[var(--text-primary)]">Recepción de bienes (con lote y vencimiento)</h2>
 
           <form (ngSubmit)="onSubmitRecepcion()" class="space-y-6">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label class="block text-xs font-semibold text-[var(--text-muted)] uppercase mb-1">Orden de Compra</label>
+                <label class="block text-xs font-semibold text-[var(--text-muted)] mb-1">Orden de compra</label>
                 <select [(ngModel)]="newRecepcion.ordenCompraId" name="ordenCompraId" class="w-full px-3 py-2 border border-[var(--border-glass)] rounded-lg bg-[var(--surface-inset)] text-sm text-[var(--text-primary)]">
                   @for (oc of ordenesCompra(); track oc.id) {
                     <option [value]="oc.id">{{ oc.numero || ('OC-' + oc.id) }} ({{ oc.montoTotal | moneda }})</option>
@@ -317,7 +320,7 @@ import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
               </div>
 
               <div>
-                <label class="block text-xs font-semibold text-[var(--text-muted)] uppercase mb-1">N° Remito Físico</label>
+                <label class="block text-xs font-semibold text-[var(--text-muted)] mb-1">N.º de remito</label>
                 <input
                   type="text"
                   [(ngModel)]="newRecepcion.numeroRemito"
@@ -328,7 +331,7 @@ import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
               </div>
 
               <div>
-                <label class="block text-xs font-semibold text-[var(--text-muted)] uppercase mb-1">Recibido Por</label>
+                <label class="block text-xs font-semibold text-[var(--text-muted)] mb-1">Recibido por</label>
                 <input
                   type="text"
                   [(ngModel)]="newRecepcion.recibidoPor"
@@ -342,17 +345,17 @@ import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
             <!-- Líneas de Recepción -->
             <div class="bg-[var(--surface-glass)] p-4 rounded-xl border border-[var(--border-glass)] space-y-4">
               <div class="flex justify-between items-center">
-                <h3 class="text-sm font-bold text-[var(--text-primary)]">Líneas de Insumos Recibidos</h3>
+                <h3 class="text-sm font-bold text-[var(--text-primary)]">Insumos recibidos</h3>
                 <button type="button" (click)="agregarLineaRecepcion()" class="px-3 py-1 bg-blue-600 text-white rounded text-xs font-medium">
-                  + Agregar Línea
+                  + Agregar línea
                 </button>
               </div>
 
               @for (linea of lineasRecepcion; track $index) {
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-center bg-[var(--bg-elevated)] p-3 rounded-lg border border-[var(--border-glass)]">
-                  <input type="text" [(ngModel)]="linea.descripcionItem" [name]="'desc_' + $index" placeholder="Descripción Insumo Médico" class="px-2 py-1.5 border border-[var(--border-glass)] rounded bg-[var(--surface-inset)] text-xs text-[var(--text-primary)]" />
-                  <input type="number" [(ngModel)]="linea.cantidadRecibida" [name]="'cant_' + $index" placeholder="Cant" class="px-2 py-1.5 border border-[var(--border-glass)] rounded bg-[var(--surface-inset)] text-xs text-[var(--text-primary)]" />
-                  <input type="text" [(ngModel)]="linea.numeroLote" [name]="'lote_' + $index" placeholder="N° Lote" class="px-2 py-1.5 border border-[var(--border-glass)] rounded bg-[var(--surface-inset)] text-xs font-mono text-[var(--text-primary)]" />
+                  <input type="text" [(ngModel)]="linea.descripcionItem" [name]="'desc_' + $index" placeholder="Descripción del insumo" class="px-2 py-1.5 border border-[var(--border-glass)] rounded bg-[var(--surface-inset)] text-xs text-[var(--text-primary)]" />
+                  <input type="number" [(ngModel)]="linea.cantidadRecibida" [name]="'cant_' + $index" placeholder="Cantidad" class="px-2 py-1.5 border border-[var(--border-glass)] rounded bg-[var(--surface-inset)] text-xs text-[var(--text-primary)]" />
+                  <input type="text" [(ngModel)]="linea.numeroLote" [name]="'lote_' + $index" placeholder="N.º de lote" class="px-2 py-1.5 border border-[var(--border-glass)] rounded bg-[var(--surface-inset)] text-xs font-mono text-[var(--text-primary)]" />
                   <div class="flex gap-2 items-center">
                     <input type="date" [(ngModel)]="linea.fechaVencimiento" [name]="'venc_' + $index" class="w-full px-2 py-1.5 border border-[var(--border-glass)] rounded bg-[var(--surface-inset)] text-xs text-[var(--text-primary)]" />
                     @if (lineasRecepcion.length > 1) {
@@ -365,7 +368,7 @@ import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
 
             <div class="flex justify-end">
               <button type="submit" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm rounded-lg shadow transition">
-                Confirmar & Registrar Recepción Multilínea
+                Registrar recepción
               </button>
             </div>
           </form>
@@ -376,16 +379,16 @@ import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
       @if (activeTab() === 'matching') {
         <section class="bg-[var(--bg-elevated)] rounded-2xl p-6 border border-[var(--border-glass)] shadow-sm space-y-6">
           <div class="flex justify-between items-center">
-            <h2 class="text-lg font-bold text-[var(--text-primary)]">Comprobantes de Proveedores & 3-Way Match Triangular</h2>
+            <h2 class="text-lg font-bold text-[var(--text-primary)]">Facturas de proveedores: control contra orden y recepción</h2>
             <button (click)="loadComprobantes()" class="px-3 py-1.5 text-xs font-medium bg-[var(--surface-glass)] text-[var(--text-primary)] border border-[var(--border-glass)] rounded-lg">
-              Actualizar Listado
+              Actualizar
             </button>
           </div>
 
-          <!-- Formulario de Excepción Financial Override sin prompt() -->
+          <!-- Motivo de la excepción, sin prompt() -->
           @if (overrideModalId()) {
             <div class="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl space-y-3">
-              <h3 class="text-sm font-bold text-amber-500">Motivo Obligatorio de Excepción Gerencial (Comprobante #{{ overrideModalId() }})</h3>
+              <h3 class="text-sm font-bold text-amber-500">Motivo de la excepción (obligatorio) — comprobante n.º {{ overrideModalId() }}</h3>
               <div class="flex flex-col sm:flex-row gap-3">
                 <input
                   type="text"
@@ -396,7 +399,7 @@ import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
                 />
                 <div class="flex gap-2">
                   <button (click)="confirmarOverride()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-medium rounded-lg shadow">
-                    Confirmar Override
+                    Confirmar excepción
                   </button>
                   <button (click)="cancelarOverride()" class="px-3 py-2 bg-[var(--surface-glass)] text-[var(--text-primary)] border border-[var(--border-glass)] rounded-lg text-xs">
                     Cancelar
@@ -408,34 +411,34 @@ import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
 
           <div class="overflow-x-auto">
             <table class="w-full text-left text-sm">
-              <thead class="bg-[var(--surface-glass)] text-xs uppercase font-semibold text-[var(--text-muted)] border-b border-[var(--border-glass)]">
+              <thead class="bg-[var(--surface-glass)] text-xs font-semibold text-[var(--text-muted)] border-b border-[var(--border-glass)]">
                 <tr>
-                  <th class="px-4 py-3">ID</th>
-                  <th class="px-4 py-3">Tipo Doc</th>
-                  <th class="px-4 py-3">N° Comprobante</th>
+                  <th class="px-4 py-3">N.º</th>
+                  <th class="px-4 py-3">Tipo</th>
+                  <th class="px-4 py-3">Comprobante</th>
                   <th class="px-4 py-3">Fecha</th>
-                  <th class="px-4 py-3">Monto Total</th>
-                  <th class="px-4 py-3">Estado 3-Way Match</th>
+                  <th class="px-4 py-3 text-right">Monto total</th>
+                  <th class="px-4 py-3">Control</th>
                   <th class="px-4 py-3 text-right">Acciones</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-[var(--border-glass)]">
                 @for (c of comprobantes(); track c.id) {
                   <tr class="hover:bg-[var(--surface-glass)] transition">
-                    <td class="px-4 py-3 font-mono text-xs">{{ c.id }}</td>
-                    <td class="px-4 py-3 font-medium text-[var(--text-primary)]">{{ c.tipoDocumento }}</td>
-                    <td class="px-4 py-3 font-mono text-xs">{{ c.puntoVenta }}-{{ c.numeroDocumento }}</td>
-                    <td class="px-4 py-3 text-[var(--text-muted)]">{{ c.fechaComprobante }}</td>
-                    <td class="px-4 py-3 font-mono text-xs font-bold">{{ c.montoTotal | moneda }}</td>
+                    <td class="px-4 py-3 num text-xs text-[var(--text-muted)]">{{ c.id }}</td>
+                    <td class="px-4 py-3 font-medium text-[var(--text-primary)]">{{ c.tipoDocumento | estado }}</td>
+                    <td class="px-4 py-3 num text-xs whitespace-nowrap">{{ c.puntoVenta }}-{{ c.numeroDocumento }}</td>
+                    <td class="px-4 py-3 num text-[var(--text-muted)]">{{ c.fechaComprobante | fecha }}</td>
+                    <td class="px-4 py-3 num text-right text-xs font-bold">{{ c.montoTotal | moneda }}</td>
                     <td class="px-4 py-3">
-                      <emx-status-badge [variant]="c.estadoMatching === 'MATCH_OK' ? 'stable' : 'critical'">
-                        {{ c.estadoMatching || 'PENDIENTE' }}
+                      <emx-status-badge [variant]="c.estadoMatching === 'MATCH_OK' ? 'stable' : c.estadoMatching === 'BLOQUEADO_DIFERENCIA' ? 'critical' : 'pending'">
+                        {{ (c.estadoMatching || 'PENDIENTE') | estado }}
                       </emx-status-badge>
                     </td>
                     <td class="px-4 py-3 text-right">
                       @if (puedeAprobar() && c.estadoMatching === 'BLOQUEADO_DIFERENCIA') {
                         <button (click)="iniciarOverride(c.id!)" class="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-medium">
-                          Destrabar (Override)
+                          Destrabar
                         </button>
                       }
                     </td>
@@ -447,18 +450,18 @@ import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
         </section>
       }
 
-      <!-- Modal Alta Solicitud de Compra con Centro de Costo (V3-S3-03) -->
+      <!-- Alta de solicitud de compra con centro de costo -->
       @if (showSolicitudModal) {
         <div class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div class="bg-[var(--bg-elevated)] rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-[var(--border-glass)]">
             <div class="flex justify-between items-center mb-4">
-              <h3 class="text-lg font-bold text-[var(--text-primary)]">Nueva Solicitud de Compra</h3>
+              <h3 class="text-lg font-bold text-[var(--text-primary)]">Nueva solicitud de compra</h3>
               <button (click)="showSolicitudModal = false" class="text-[var(--text-muted)] hover:text-[var(--text-primary)]">✕</button>
             </div>
 
             <form [formGroup]="solicitudForm" (ngSubmit)="onSubmitSolicitud()" class="space-y-4">
               <div>
-                <label class="block text-xs font-semibold uppercase text-[var(--text-muted)] mb-1">Concepto / Descripción</label>
+                <label class="block text-xs font-semibold text-[var(--text-muted)] mb-1">Concepto</label>
                 <input
                   type="text"
                   formControlName="concepto"
@@ -468,17 +471,17 @@ import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
               </div>
 
               <div>
-                <label class="block text-xs font-semibold uppercase text-[var(--text-muted)] mb-1">Monto Estimado ($)</label>
+                <label class="block text-xs font-semibold text-[var(--text-muted)] mb-1">Monto estimado ($)</label>
                 <input
                   type="number"
                   formControlName="montoEstimado"
                   placeholder="15000.00"
-                  class="w-full px-3 py-2 border border-[var(--border-glass)] rounded-lg bg-[var(--surface-inset)] text-sm text-[var(--text-primary)] font-mono"
+                  class="w-full px-3 py-2 border border-[var(--border-glass)] rounded-lg bg-[var(--surface-inset)] text-sm text-[var(--text-primary)] num"
                 />
               </div>
 
               <div>
-                <label class="block text-xs font-semibold uppercase text-[var(--text-muted)] mb-1">Centro de Costo Imputable (V3-S3-03)</label>
+                <label class="block text-xs font-semibold text-[var(--text-muted)] mb-1">Centro de costo</label>
                 <select formControlName="centroCostoId" class="w-full px-3 py-2 border border-[var(--border-glass)] rounded-lg bg-[var(--surface-inset)] text-sm text-[var(--text-primary)]">
                   <option [ngValue]="null">-- Sin centro de costo --</option>
                   @for (cc of centrosCosto(); track cc.id) {
@@ -500,7 +503,7 @@ import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
                   [disabled]="solicitudForm.invalid"
                   class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
                 >
-                  Generar Solicitud
+                  Crear solicitud
                 </button>
               </div>
             </form>
@@ -508,47 +511,47 @@ import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
         </div>
       }
 
-      <!-- Modal Registrar Cotización de Proveedor (V3-S3-02) -->
+      <!-- Registrar cotización de proveedor -->
       @if (showCotizacionModal()) {
         <div class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div class="bg-[var(--bg-elevated)] rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-[var(--border-glass)]">
             <div class="flex justify-between items-center mb-4">
-              <h3 class="text-lg font-bold text-[var(--text-primary)]">Registrar Cotización de Proveedor</h3>
+              <h3 class="text-lg font-bold text-[var(--text-primary)]">Registrar cotización de proveedor</h3>
               <button (click)="showCotizacionModal.set(false)" class="text-[var(--text-muted)] hover:text-[var(--text-primary)]">✕</button>
             </div>
 
             <form [formGroup]="cotizacionForm" (ngSubmit)="onSubmitCotizacion()" class="space-y-4">
               <div>
-                <label class="block text-xs font-semibold uppercase text-[var(--text-muted)] mb-1">Proveedor</label>
+                <label class="block text-xs font-semibold text-[var(--text-muted)] mb-1">Proveedor</label>
                 <select formControlName="proveedorId" class="w-full px-3 py-2 border border-[var(--border-glass)] rounded-lg bg-[var(--surface-inset)] text-sm text-[var(--text-primary)]">
                   @for (prov of proveedores(); track prov.id) {
-                    <option [value]="prov.id">{{ prov.razonSocial }} ({{ prov.cuit }})</option>
+                    <option [value]="prov.id">{{ prov.razonSocial }} ({{ prov.cuit | cuit }})</option>
                   }
                 </select>
               </div>
 
               <div>
-                <label class="block text-xs font-semibold uppercase text-[var(--text-muted)] mb-1">Monto Cotizado ($)</label>
+                <label class="block text-xs font-semibold text-[var(--text-muted)] mb-1">Monto cotizado ($)</label>
                 <input
                   type="number"
                   formControlName="montoCotizado"
                   placeholder="12500.00"
-                  class="w-full px-3 py-2 border border-[var(--border-glass)] rounded-lg bg-[var(--surface-inset)] text-sm text-[var(--text-primary)] font-mono"
+                  class="w-full px-3 py-2 border border-[var(--border-glass)] rounded-lg bg-[var(--surface-inset)] text-sm text-[var(--text-primary)] num"
                 />
               </div>
 
               <div>
-                <label class="block text-xs font-semibold uppercase text-[var(--text-muted)] mb-1">Plazo de Entrega (Días)</label>
+                <label class="block text-xs font-semibold text-[var(--text-muted)] mb-1">Plazo de entrega (días)</label>
                 <input
                   type="number"
                   formControlName="plazoEntregaDias"
                   placeholder="3"
-                  class="w-full px-3 py-2 border border-[var(--border-glass)] rounded-lg bg-[var(--surface-inset)] text-sm text-[var(--text-primary)] font-mono"
+                  class="w-full px-3 py-2 border border-[var(--border-glass)] rounded-lg bg-[var(--surface-inset)] text-sm text-[var(--text-primary)] num"
                 />
               </div>
 
               <div>
-                <label class="block text-xs font-semibold uppercase text-[var(--text-muted)] mb-1">Observaciones</label>
+                <label class="block text-xs font-semibold text-[var(--text-muted)] mb-1">Observaciones</label>
                 <textarea
                   formControlName="observaciones"
                   placeholder="Incluye flete e IVA..."
@@ -844,7 +847,7 @@ export class ComprasComponent implements OnInit {
         this.feedback.push({
           type: 'success',
           title: 'Solicitud Aprobada',
-          message: 'La solicitud ha sido APROBADA.'
+          message: 'La solicitud quedó aprobada.'
         });
         this.cargarSolicitudes(this.solicitudesPage());
       },
@@ -871,7 +874,7 @@ export class ComprasComponent implements OnInit {
       next: () => {
         this.feedback.push({
           type: 'success',
-          title: 'Recepción Multilínea Registrada',
+          title: 'Recepción registrada',
           message: 'Recepción de bienes y remito registrados exitosamente.'
         });
         this.newRecepcion.numeroRemito = '';
@@ -907,7 +910,7 @@ export class ComprasComponent implements OnInit {
         this.feedback.push({
           type: 'success',
           title: 'Comprobante Destrabado',
-          message: 'Matching triangulado override registrado exitosamente.'
+          message: 'La excepción quedó registrada y el comprobante se destrabó.'
         });
         this.overrideModalId.set(null);
         this.motivoOverride.set('');

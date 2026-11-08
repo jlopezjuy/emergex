@@ -9,6 +9,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { EmergencyModalService } from '../../shared/components/emergency/emergency-modal.service';
 import { GlobalSearchComponent } from '../../shared/components/global-search/global-search.component';
 import { DateUtils } from '../../core/utils/date.utils';
+import { tieneAccesoOperativo } from '../../core/navigation/acceso-operativo';
 
 @Component({
   selector: 'emx-header',
@@ -20,12 +21,14 @@ import { DateUtils } from '../../core/utils/date.utils';
       style="background: var(--bg-elevated); border-color: var(--border-glass);"
     >
       <!-- Left: Title + breadcrumb -->
-      <div class="flex items-center gap-2 min-w-0">
-        <div class="flex flex-col min-w-0">
-          <span class="font-semibold text-sm leading-tight" style="color: var(--text-primary);">
-            <span class="truncate block">{{ tituloRuta().titulo }}</span>
-          </span>
-          <span class="text-xs truncate" style="color: var(--text-muted);">{{ tituloRuta().subtitulo }}</span>
+      <div class="flex items-center gap-2 flex-shrink-0 mr-3">
+        <div class="flex flex-col">
+          <span
+            data-testid="titulo-ruta"
+            class="font-semibold text-sm leading-tight whitespace-nowrap"
+            style="color: var(--text-primary);"
+          >{{ tituloRuta().titulo }}</span>
+          <span class="text-xs whitespace-nowrap" style="color: var(--text-muted);">{{ tituloRuta().subtitulo }}</span>
         </div>
       </div>
 
@@ -52,8 +55,9 @@ import { DateUtils } from '../../core/utils/date.utils';
 
       <!-- Right: Stats + clock + actions -->
       <div class="flex items-center gap-2 ml-auto flex-wrap justify-end min-w-0">
-        <!-- Sys stats -->
-        <div class="flex items-center gap-3 text-xs font-mono hide-below-xl">
+        @if (accesoOperativo()) {
+        <!-- Sys stats: sólo para quien opera emergencias (H-10) -->
+        <div class="flex items-center gap-3 text-xs num hide-below-xl">
           <div class="flex items-center gap-1.5">
             <span class="dot" style="background: var(--accent-cyan);"></span>
             <span style="color: var(--text-secondary);">Activas</span>
@@ -73,6 +77,7 @@ import { DateUtils } from '../../core/utils/date.utils';
 
         <!-- Separator -->
         <div class="h-5 border-l hide-below-xl" style="border-color: var(--border-glass);"></div>
+        }
 
         <!-- Clock + date -->
         <div class="flex flex-col items-end leading-tight hide-below-lg">
@@ -113,6 +118,7 @@ import { DateUtils } from '../../core/utils/date.utils';
           <emx-global-search (closed)="closeSearchModal()" />
         }
 
+        @if (accesoOperativo()) {
         <!-- Institucional -->
         <button
           type="button"
@@ -147,6 +153,7 @@ import { DateUtils } from '../../core/utils/date.utils';
             style="background: rgba(255,255,255,0.15); opacity: 0.8;"
           >N</span>
         </button>
+        }
 
         <!-- Notifications -->
         <button type="button" class="action-icon relative" title="Notificaciones">
@@ -288,6 +295,11 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
   /** H9: el topbar decía "Centro de Operaciones" en todas las rutas administrativas. */
   readonly tituloRuta = signal(tituloParaRuta(this.router.url));
+
+  /** H-10: los contadores y altas de emergencia sólo tienen sentido para quien opera la consola. */
+  readonly accesoOperativo = computed(() =>
+    tieneAccesoOperativo((roles) => this.sessionStore.hasAnyRole(roles)),
+  );
 
   readonly menuOpen = signal(false);
   readonly searchModalOpen = signal(false);

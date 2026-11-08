@@ -201,6 +201,10 @@
   .font-mono  { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
   .mono       { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
   .upper      { text-transform: uppercase; letter-spacing: 0.14em; }
+  /* H-16: importes y cantidades con cifras de ancho fijo, en la fuente del texto (no monoespaciada). */
+  .num        { font-variant-numeric: tabular-nums; }
+  .text-right { font-variant-numeric: tabular-nums; }
+  td.num, th.num { text-align: right; white-space: nowrap; }
   .eyebrow {
     font-family: var(--font-mono);
     font-size: 10.5px;

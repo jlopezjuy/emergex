@@ -20,16 +20,16 @@ import { MonedaPipe } from '../../../../../shared/pipes/moneda.pipe';
   template: `
     <div class="glass rounded-panel p-4 flex flex-col gap-3 border" style="border-color: var(--border-glass);">
       <div class="flex items-center justify-between border-b pb-2" style="border-color: var(--border-glass);">
-        <h3 class="text-sm font-bold uppercase tracking-wider flex items-center gap-2" style="color: var(--text-primary);">
+        <h3 class="text-sm font-bold flex items-center gap-2" style="color: var(--text-primary);">
           <span>{{ icon() }}</span> {{ titulo() }}
         </h3>
         <div class="flex items-center gap-2">
           @if (importeTotal() > 0) {
-            <span class="text-xs font-mono font-bold px-2 py-0.5 rounded" style="background: var(--bg-elevated); color: var(--accent-blue);">
+            <span class="text-xs num font-bold px-2 py-0.5 rounded" style="background: var(--bg-elevated); color: var(--text-primary);">
               {{ importeTotal() | moneda }}
             </span>
           }
-          <span class="text-xs font-mono font-semibold px-2 py-0.5 rounded" style="background: var(--bg-elevated); color: var(--text-secondary);">
+          <span class="text-xs num font-semibold px-2 py-0.5 rounded" style="background: var(--bg-elevated); color: var(--text-secondary);">
             {{ items().length }} ítems
           </span>
         </div>
@@ -66,7 +66,7 @@ import { MonedaPipe } from '../../../../../shared/pipes/moneda.pipe';
               }
 
               @if (item.importe || item.diasAntiguedad != null || item.responsable) {
-                <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-mono" style="color: var(--text-secondary);">
+                <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] num" style="color: var(--text-secondary);">
                   @if (item.importe) {
                     <span class="font-bold" style="color: var(--text-primary);">{{ item.importe | moneda }}</span>
                   }
@@ -81,7 +81,7 @@ import { MonedaPipe } from '../../../../../shared/pipes/moneda.pipe';
                 </div>
               }
 
-              <div class="flex items-center justify-between text-[11px] font-mono mt-1 pt-1.5 border-t" style="border-color: var(--border-glass); color: var(--text-muted);">
+              <div class="flex items-center justify-between text-[11px] mt-1 pt-1.5 border-t" style="border-color: var(--border-glass); color: var(--text-muted);">
                 <span class="font-bold text-[10px] uppercase tracking-wider">{{ item.categoria || categoriaDefault() }}</span>
                 @if (getRoute(item)) {
                   <button

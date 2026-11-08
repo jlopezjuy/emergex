@@ -71,3 +71,33 @@ describe('MenuService', () => {
     expect(config).toBeUndefined();
   });
 });
+
+describe('MenuService — una sola familia de íconos (S10)', () => {
+  it('reemplaza los íconos emoji del backend por SVG de trazo', () => {
+    TestBed.configureTestingModule({ imports: [HttpClientTestingModule], providers: [MenuService] });
+    const service = TestBed.inject(MenuService);
+    const items: IMenuItem[] = [
+      { id: 'facturacion', label: 'Facturación', title: 'Facturación', icon: '🧾', route: '/facturacion' },
+      { id: 'compras', label: 'Compras', title: 'Compras', icon: '🛒', route: '/compras' },
+      { id: 'id-desconocido', label: 'Otro', title: 'Otro', icon: '📦', route: '/otro' },
+    ];
+
+    const hijos = service.groupMenuItems(items).flatMap((s) => s.children ?? []);
+
+    expect(hijos.length).toBe(3);
+    for (const hijo of hijos) {
+      expect(hijo.icon.startsWith('<svg')).toBe(true);
+      expect(/\p{Extended_Pictographic}/u.test(hijo.icon)).toBe(false);
+    }
+  });
+
+  it('conserva un ícono que ya es SVG', () => {
+    TestBed.configureTestingModule({ imports: [HttpClientTestingModule], providers: [MenuService] });
+    const service = TestBed.inject(MenuService);
+    const svg = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/></svg>';
+    const hijos = service
+      .groupMenuItems([{ id: 'zz-x', label: 'X', title: 'X', icon: svg }])
+      .flatMap((s) => s.children ?? []);
+    expect(hijos[0].icon).toBe(svg);
+  });
+});

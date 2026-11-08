@@ -13,11 +13,14 @@ import { OrdenPagoFormModalComponent } from '../../../shared/components/finance/
 import { DocumentosAdjuntosComponent } from '../../../shared/components/documentos-adjuntos/documentos-adjuntos.component';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge/status-badge.component';
 import { MonedaPipe } from '../../../shared/pipes/moneda.pipe';
+import { FechaPipe } from '../../../shared/pipes/fecha.pipe';
+import { EstadoPipe } from '../../../shared/pipes/estado.pipe';
+import { CuitPipe } from '../../../shared/pipes/cuit.pipe';
 
 @Component({
   selector: 'emx-proveedor-detail',
   standalone: true,
-  imports: [MonedaPipe, 
+  imports: [MonedaPipe, FechaPipe, EstadoPipe, CuitPipe,
     CommonModule,
     RouterLink,
     CbuMakerCheckerModalComponent,
@@ -32,25 +35,25 @@ import { MonedaPipe } from '../../../shared/pipes/moneda.pipe';
         <a routerLink="/administracion/proveedores" class="text-sm text-[var(--accent-blue)] hover:underline font-medium">
           ← Volver al catálogo de proveedores
         </a>
-        <span class="text-xs font-mono text-[var(--text-muted)]">ID Proveedor: {{ proveedorId }}</span>
+        <span class="text-xs num text-[var(--text-muted)]">Proveedor n.º {{ proveedorId }}</span>
       </div>
 
-      <!-- Ficha 360 Encabezado -->
+      <!-- Encabezado de la ficha -->
       <div class="bg-[var(--bg-elevated)] p-6 rounded-2xl border border-[var(--border-glass)] shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           @if (proveedorInfo(); as info) {
             <h1 class="text-2xl font-bold text-[var(--text-primary)]">{{ info.razonSocial }}</h1>
             <div class="flex flex-wrap items-center gap-3 mt-1 text-sm text-[var(--text-muted)]">
-              <span>CUIT: <strong class="font-mono text-[var(--text-primary)]">{{ info.cuit }}</strong></span>
+              <span>CUIT: <strong class="num text-[var(--text-primary)]">{{ info.cuit | cuit }}</strong></span>
               @if (info.nombreComercial) {
-                <span>• Nombre Comercial: <strong class="text-[var(--text-primary)]">{{ info.nombreComercial }}</strong></span>
+                <span>• Nombre comercial: <strong class="text-[var(--text-primary)]">{{ info.nombreComercial }}</strong></span>
               }
             </div>
           } @else if (loadingProveedor()) {
             <h1 class="text-2xl font-bold text-[var(--text-muted)] animate-pulse">Cargando datos del proveedor...</h1>
           } @else {
-            <h1 class="text-2xl font-bold text-[var(--text-primary)]">Ficha 360 del Proveedor #{{ proveedorId }}</h1>
-            <p class="text-xs text-[var(--accent-amber)] mt-1">⚠️ {{ errorProveedor() || 'No se pudo resolver la razón social del proveedor.' }}</p>
+            <h1 class="text-2xl font-bold text-[var(--text-primary)]">Proveedor n.º {{ proveedorId }}</h1>
+            <p class="text-xs text-[var(--accent-red)] mt-1">{{ errorProveedor() || 'No se pudo resolver la razón social del proveedor.' }}</p>
           }
           <p class="text-xs text-[var(--text-muted)] mt-2">Gestión fiscal, cuentas bancarias y órdenes de pago (CxP).</p>
         </div>
@@ -58,7 +61,7 @@ import { MonedaPipe } from '../../../shared/pipes/moneda.pipe';
           (click)="showCbuModal = true"
           class="px-4 py-2 bg-[var(--accent-blue)] hover:opacity-90 text-white font-medium text-sm rounded-lg shadow transition"
         >
-          Workflow CBU Maker-Checker
+          Cuentas bancarias (requiere aprobación)
         </button>
       </div>
 
@@ -71,7 +74,7 @@ import { MonedaPipe } from '../../../shared/pipes/moneda.pipe';
           [class.text-[var(--accent-blue)]]="activeTab() === 'op'"
           class="pb-3 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition"
         >
-          Órdenes de Pago (CxP)
+          Órdenes de pago
         </button>
         <button
           (click)="activeTab.set('cxp')"
@@ -80,7 +83,7 @@ import { MonedaPipe } from '../../../shared/pipes/moneda.pipe';
           [class.text-[var(--accent-blue)]]="activeTab() === 'cxp'"
           class="pb-3 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition"
         >
-          Submayor de Cuenta Corriente (CxP)
+          Cuenta corriente
         </button>
         <button
           (click)="activeTab.set('cbu')"
@@ -89,7 +92,7 @@ import { MonedaPipe } from '../../../shared/pipes/moneda.pipe';
           [class.text-[var(--accent-blue)]]="activeTab() === 'cbu'"
           class="pb-3 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition"
         >
-          Cuentas Bancarias & CBU
+          Cuentas bancarias
         </button>
         <button
           (click)="activeTab.set('docs')"
@@ -98,7 +101,7 @@ import { MonedaPipe } from '../../../shared/pipes/moneda.pipe';
           [class.text-[var(--accent-blue)]]="activeTab() === 'docs'"
           class="pb-3 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition"
         >
-          Documentación Adjunta
+          Documentación adjunta
         </button>
       </div>
 
@@ -109,8 +112,7 @@ import { MonedaPipe } from '../../../shared/pipes/moneda.pipe';
             <h3 class="font-bold text-sm text-[var(--text-primary)]">Órdenes de pago de la empresa</h3>
           </div>
           <div class="px-4 py-2 bg-[var(--surface-glass)] text-xs text-[var(--accent-amber)] border-b border-[var(--border-glass)] flex items-center gap-2">
-            <span>⚠️</span>
-            <span>Atención: El listado expuesto corresponde a las órdenes de pago de toda la empresa.</span>
+            <span>Atención: el listado expuesto corresponde a las órdenes de pago de toda la empresa.</span>
           </div>
           @if (ordenesPago().length === 0) {
             <div class="p-8 text-center text-sm text-[var(--text-muted)]">
@@ -118,12 +120,12 @@ import { MonedaPipe } from '../../../shared/pipes/moneda.pipe';
             </div>
           } @else {
             <table class="w-full text-left text-sm">
-              <thead class="bg-[var(--surface-glass)] text-xs uppercase font-semibold text-[var(--text-muted)] border-b border-[var(--border-glass)]">
+              <thead class="bg-[var(--surface-glass)] text-xs font-semibold text-[var(--text-muted)] border-b border-[var(--border-glass)]">
                 <tr>
-                  <th class="px-6 py-3">Número OP</th>
-                  <th class="px-6 py-3">Monto Bruto</th>
-                  <th class="px-6 py-3">Retenciones</th>
-                  <th class="px-6 py-3">Monto Neto</th>
+                  <th class="px-6 py-3">Número de OP</th>
+                  <th class="px-6 py-3 text-right">Monto bruto</th>
+                  <th class="px-6 py-3 text-right">Retenciones</th>
+                  <th class="px-6 py-3 text-right">Monto neto</th>
                   <th class="px-6 py-3">Estado</th>
                   <th class="px-6 py-3 text-right">Acciones</th>
                 </tr>
@@ -131,12 +133,12 @@ import { MonedaPipe } from '../../../shared/pipes/moneda.pipe';
               <tbody class="divide-y divide-[var(--border-glass)]">
                 @for (op of ordenesPago(); track op.id) {
                   <tr class="hover:bg-[var(--surface-glass)] transition">
-                    <td class="px-6 py-4 font-mono font-medium text-[var(--text-primary)]">{{ op.numeroOp }}</td>
-                    <td class="px-6 py-4 font-mono text-xs text-[var(--text-primary)]">{{ op.montoBruto | moneda }}</td>
-                    <td class="px-6 py-4 font-mono text-xs text-[var(--accent-amber)]">{{ (op.montoRetenciones || 0) | moneda }}</td>
-                    <td class="px-6 py-4 font-mono font-bold text-xs text-[var(--accent-emerald)]">{{ op.montoNeto | moneda }}</td>
+                    <td class="px-6 py-4 num font-medium text-[var(--text-primary)]">{{ op.numeroOp }}</td>
+                    <td class="px-6 py-4 num text-right text-xs text-[var(--text-primary)]">{{ op.montoBruto | moneda }}</td>
+                    <td class="px-6 py-4 num text-right text-xs" [style.color]="op.montoRetenciones ? 'var(--text-primary)' : 'var(--text-muted)'">{{ (op.montoRetenciones || 0) | moneda }}</td>
+                    <td class="px-6 py-4 num text-right font-bold text-xs text-[var(--text-primary)]">{{ op.montoNeto | moneda }}</td>
                     <td class="px-6 py-4">
-                      <emx-status-badge [variant]="getOpBadgeVariant(op.estado)">{{ op.estado }}</emx-status-badge>
+                      <emx-status-badge [variant]="getOpBadgeVariant(op.estado)">{{ op.estado | estado }}</emx-status-badge>
                     </td>
                     <td class="px-6 py-4 text-right space-x-2">
                       @if (op.estado === 'PENDIENTE_APROBACION') {
@@ -152,7 +154,7 @@ import { MonedaPipe } from '../../../shared/pipes/moneda.pipe';
                           (click)="abrirModalEjecutar(op)"
                           class="px-3 py-1 bg-[var(--accent-emerald)] hover:opacity-90 text-white rounded text-xs font-medium"
                         >
-                          Ejecutar Pago
+                          Ejecutar pago
                         </button>
                       }
                     </td>
@@ -169,51 +171,51 @@ import { MonedaPipe } from '../../../shared/pipes/moneda.pipe';
         <div class="bg-[var(--bg-elevated)] rounded-xl border border-[var(--border-glass)] overflow-hidden shadow-sm space-y-4 p-6">
           <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[var(--surface-glass)] p-4 rounded-xl border border-[var(--border-glass)]">
             <div>
-              <span class="text-xs font-bold uppercase tracking-wider text-amber-400 block">Saldo Actual a Pagar (Deuda Proveedor)</span>
-              <span class="text-3xl font-extrabold text-[var(--text-primary)]">{{ saldoCxp() | moneda }}</span>
+              <span class="text-xs font-semibold text-[var(--text-muted)] block">Saldo a pagar al proveedor</span>
+              <span class="text-3xl font-extrabold num text-[var(--text-primary)]">{{ saldoCxp() | moneda }}</span>
             </div>
             <button
               type="button"
               (click)="cargarSubmayorCxp()"
               class="px-3 py-1.5 text-xs font-semibold rounded-lg border border-[var(--border-glass)] bg-[var(--bg-elevated)] hover:bg-white/5 transition"
             >
-              ↻ Actualizar Submayor
+              Actualizar
             </button>
           </div>
 
           @if (loadingCxp()) {
             <div class="p-8 text-center text-sm text-[var(--text-muted)]">
-              Cargando libro mayor de cuentas por pagar...
+              Cargando la cuenta corriente del proveedor…
             </div>
           } @else if (movimientosCxp().length === 0) {
             <div class="p-8 text-center text-sm text-[var(--text-muted)]">
-              Sin movimientos contables registrados en el Submayor CxP para este proveedor.
+              Este proveedor no tiene movimientos en su cuenta corriente.
             </div>
           } @else {
             <div class="overflow-x-auto">
               <table class="w-full text-left text-sm">
-                <thead class="bg-[var(--surface-glass)] text-xs uppercase font-semibold text-[var(--text-muted)] border-b border-[var(--border-glass)]">
+                <thead class="bg-[var(--surface-glass)] text-xs font-semibold text-[var(--text-muted)] border-b border-[var(--border-glass)]">
                   <tr>
-                    <th class="px-4 py-3">ID</th>
-                    <th class="px-4 py-3">Fecha Contable</th>
-                    <th class="px-4 py-3">Tipo Movimiento</th>
+                    <th class="px-4 py-3">N.º</th>
+                    <th class="px-4 py-3">Fecha</th>
+                    <th class="px-4 py-3">Tipo</th>
                     <th class="px-4 py-3">Concepto</th>
-                    <th class="px-4 py-3 text-right">DEBE</th>
-                    <th class="px-4 py-3 text-right">HABER</th>
+                    <th class="px-4 py-3 text-right">Debe</th>
+                    <th class="px-4 py-3 text-right">Haber</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-[var(--border-glass)]">
                   @for (m of movimientosCxp(); track m.id) {
                     <tr class="hover:bg-[var(--surface-glass)] transition">
-                      <td class="px-4 py-3 font-mono text-xs">{{ m.id }}</td>
-                      <td class="px-4 py-3 font-mono text-xs">{{ m.fechaContable }}</td>
-                      <td class="px-4 py-3 font-semibold text-xs">{{ m.tipoMovimiento }}</td>
+                      <td class="px-4 py-3 num text-xs text-[var(--text-muted)]">{{ m.id }}</td>
+                      <td class="px-4 py-3 num text-xs">{{ m.fechaContable | fecha }}</td>
+                      <td class="px-4 py-3 font-semibold text-xs">{{ m.tipoMovimiento | estado }}</td>
                       <td class="px-4 py-3 text-xs">{{ m.concepto }}</td>
-                      <td class="px-4 py-3 font-mono text-xs text-right" [class.text-emerald-400]="m.montoDebe > 0">
-                        {{ m.montoDebe > 0 ? ('$ ' + (m.montoDebe | number:'1.2-2')) : '—' }}
+                      <td class="px-4 py-3 num text-xs text-right" [style.color]="m.montoDebe > 0 ? 'var(--text-primary)' : 'var(--text-muted)'">
+                        {{ m.montoDebe > 0 ? (m.montoDebe | moneda) : '—' }}
                       </td>
-                      <td class="px-4 py-3 font-mono text-xs text-right" [class.text-amber-400]="m.montoHaber > 0">
-                        {{ m.montoHaber > 0 ? ('$ ' + (m.montoHaber | number:'1.2-2')) : '—' }}
+                      <td class="px-4 py-3 num text-xs text-right" [style.color]="m.montoHaber > 0 ? 'var(--text-primary)' : 'var(--text-muted)'">
+                        {{ m.montoHaber > 0 ? (m.montoHaber | moneda) : '—' }}
                       </td>
                     </tr>
                   }
@@ -229,14 +231,14 @@ import { MonedaPipe } from '../../../shared/pipes/moneda.pipe';
         <div class="bg-[var(--bg-elevated)] p-6 rounded-xl border border-[var(--border-glass)] space-y-4">
           <div class="flex justify-between items-center">
             <div>
-              <h3 class="font-bold text-sm text-[var(--text-primary)]">Verificación Segregada de CBU (Maker-Checker)</h3>
-              <p class="text-xs text-[var(--text-muted)]">El creador de la cuenta no puede ser la misma persona que aprueba.</p>
+              <h3 class="font-bold text-sm text-[var(--text-primary)]">Cuentas bancarias (requiere aprobación)</h3>
+              <p class="text-xs text-[var(--text-muted)]">Quien carga la cuenta no puede ser la misma persona que la aprueba.</p>
             </div>
             <button
               (click)="showCbuModal = true"
               class="px-3 py-1.5 bg-[var(--accent-blue)] hover:opacity-90 text-white rounded-lg text-xs font-medium"
             >
-              Abrir Workflow CBU
+              Ver cuentas bancarias
             </button>
           </div>
         </div>
@@ -247,7 +249,7 @@ import { MonedaPipe } from '../../../shared/pipes/moneda.pipe';
         <emx-documentos-adjuntos [entidadTipo]="'PROVEEDOR'" [entidadId]="proveedorId"></emx-documentos-adjuntos>
       }
 
-      <!-- Modal CBU Maker-Checker -->
+      <!-- Ventana de cuentas bancarias (carga y aprobación por personas distintas) -->
       @if (showCbuModal) {
         <emx-cbu-maker-checker-modal
           [terceroEmpresaId]="proveedorId"
@@ -380,7 +382,7 @@ export class ProveedorDetailComponent implements OnInit {
         this.feedbackService.push({
           type: 'success',
           title: 'OP Aprobada',
-          message: 'La orden de pago fue cambiada a estado APROBADA.'
+          message: 'La orden de pago quedó aprobada.'
         });
         this.cargarOrdenesPago();
       },
@@ -412,7 +414,7 @@ export class ProveedorDetailComponent implements OnInit {
         this.feedbackService.push({
           type: 'success',
           title: 'Pago Ejecutado',
-          message: 'La orden de pago ha sido EJECUTADA.'
+          message: 'El pago de la orden quedó registrado.'
         });
         this.cerrarModalEjecutar();
         this.cargarOrdenesPago();

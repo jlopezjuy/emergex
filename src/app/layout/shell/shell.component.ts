@@ -10,6 +10,8 @@ import { AuthService } from '../../core/auth/auth.service';
 import { TicketAsistenciaDTO } from '../../data-access/dto/ticket.dto';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { EmergencyModalService } from '../../shared/components/emergency/emergency-modal.service';
+import { SessionStore } from '../../core/stores/session.store';
+import { tieneAccesoOperativo } from '../../core/navigation/acceso-operativo';
 
 @Component({
   selector: 'emx-shell',
@@ -55,6 +57,12 @@ export class ShellComponent implements OnInit {
   private readonly fleetStore = inject(FleetStore);
   private auth = inject(AuthService);
   readonly emergencyModalService = inject(EmergencyModalService);
+  private readonly sessionStore = inject(SessionStore);
+
+  /** H-10: los atajos N / I abren altas de emergencia; un usuario sólo administrativo no los tiene. */
+  private readonly accesoOperativo = computed(() =>
+    tieneAccesoOperativo((roles) => this.sessionStore.hasAnyRole(roles)),
+  );
 
   readonly showInstitutionalModal = signal(false);
 
@@ -76,6 +84,12 @@ export class ShellComponent implements OnInit {
   onKeydown(event: KeyboardEvent): void {
     const tag = (event.target as HTMLElement).tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    if (event.key === 'Escape') {
+      this.emergencyModalService.close();
+      this.showInstitutionalModal.set(false);
+      return;
+    }
+    if (!this.accesoOperativo()) return;
     if (event.key === 'n' || event.key === 'N') {
       event.preventDefault();
       this.emergencyModalService.open();
@@ -83,10 +97,6 @@ export class ShellComponent implements OnInit {
     if (event.key === 'i' || event.key === 'I') {
       event.preventDefault();
       this.showInstitutionalModal.set(true);
-    }
-    if (event.key === 'Escape') {
-      this.emergencyModalService.close();
-      this.showInstitutionalModal.set(false);
     }
   }
 

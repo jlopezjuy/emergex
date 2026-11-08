@@ -161,4 +161,31 @@ describe('ComprasComponent — acciones según el rol (QA-ROL-048)', () => {
     expect(texto).toContain('+ Nueva Solicitud');
     expect(texto).not.toContain('Aprobar');
   });
+
+  describe('lenguaje (S2)', () => {
+    it('titula la pantalla «Compras» y muestra los estados en lenguaje llano', async () => {
+      const texto = await crearComo('ROLE_ADMINISTRADOR');
+
+      expect(texto).toContain('Compras');
+      expect(texto).not.toContain('Módulo Profesional de Compras');
+      expect(texto).not.toContain('PRESENTADA');
+      expect(texto).toContain('Presentada');
+    });
+
+    it('el alta de solicitud dice «Centro de costo» sin código de tarea', async () => {
+      await crearComo('ROLE_ADMINISTRADOR');
+      const fixture = TestBed.createComponent(ComprasComponent);
+      fixture.detectChanges();
+      const abrir = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')].find((btn) =>
+        btn.textContent?.includes('+ Nueva Solicitud'),
+      ) as HTMLButtonElement;
+      abrir.click();
+      fixture.detectChanges();
+      const texto = (fixture.nativeElement as HTMLElement).textContent ?? '';
+
+      expect(texto).toContain('Centro de costo');
+      expect(texto).not.toContain('Centro de Costo Imputable');
+      expect(texto).not.toContain('V3-S3');
+    });
+  });
 });

@@ -235,4 +235,62 @@ describe('CentroAdministrativoComponent', () => {
       expect((fixture.nativeElement.textContent as string)).toContain('no incluye la facturación particular');
     });
   });
+
+  describe('lenguaje y formato (S2, S3, S10)', () => {
+    const kpiConFormula = {
+      ...mockKpis[0],
+      codigo: 'O-03',
+      nombre: 'Cobranzas sin aplicar',
+      descripcion: 'Plata cobrada que todavía no se aplicó a ninguna factura.',
+      formula: 'sum(Cobranza.montoRemanente)',
+      estadoSalud: 'ALERTA',
+    };
+
+    it('titula el tablero «Indicadores» sin jerga', async () => {
+      bandejasApiMock.getKpisAdministrativos.mockReturnValue(of([kpiConFormula]));
+      await setup();
+      const fixture = TestBed.createComponent(CentroAdministrativoComponent);
+      fixture.detectChanges();
+      const texto = fixture.nativeElement.textContent as string;
+
+      expect(texto).toContain('Indicadores');
+      expect(texto).not.toContain('Tablero de Gobierno');
+      expect(texto).not.toContain('Drill-Down');
+      expect(texto).not.toContain('ALERTA');
+    });
+
+    it('en el detalle explica el cálculo en palabras y deja la fórmula técnica plegada', async () => {
+      bandejasApiMock.getKpisAdministrativos.mockReturnValue(of([kpiConFormula]));
+      await setup();
+      const fixture = TestBed.createComponent(CentroAdministrativoComponent);
+      fixture.detectChanges();
+      fixture.componentInstance.kpiSeleccionado.set(fixture.componentInstance.kpis()[0]);
+      fixture.detectChanges();
+
+      const el = fixture.nativeElement as HTMLElement;
+      expect(el.textContent).toContain('Plata cobrada que todavía no se aplicó a ninguna factura.');
+      expect(el.textContent).not.toContain('Fórmula Oficial');
+      const plegado = el.querySelector('details');
+      expect(plegado).not.toBeNull();
+      expect(plegado!.open).toBe(false);
+      expect(plegado!.querySelector('summary')!.textContent).toContain('Ver fórmula técnica');
+      expect(plegado!.textContent).toContain('sum(Cobranza.montoRemanente)');
+      // El estado del drill-down pasa por el pipe de estado.
+      expect(el.textContent).not.toContain('PENDIENTE');
+    });
+
+    it('muestra el CUIT del financiador con guiones y el estado de identificación en lenguaje llano', async () => {
+      bandejasApiMock.getResumenCobertura.mockReturnValue(of({
+        ...mockResumenCobertura,
+        desgloseFinanciadores: [{ ...mockResumenCobertura.desgloseFinanciadores[0], cuit: '30546741253' }],
+      }));
+      await setup();
+      const fixture = TestBed.createComponent(CentroAdministrativoComponent);
+      fixture.detectChanges();
+      const texto = fixture.nativeElement.textContent as string;
+
+      expect(texto).toContain('30-54674125-3');
+      expect(texto).not.toContain('NO_IDENTIFICADO');
+    });
+  });
 });

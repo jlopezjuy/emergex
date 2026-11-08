@@ -17,14 +17,14 @@ describe('ProveedoresComponent', () => {
   beforeEach(async () => {
     tercerosApiMock = {
       getPage: vi.fn().mockReturnValue(of({
-        data: [{ id: 1, razonSocial: 'Proveedor Uno SA', cuit: '30-11111111-9', nombreComercial: 'Prov Uno' }],
+        data: [{ id: 1, razonSocial: 'Proveedor Uno SA', cuit: '30111111119', nombreComercial: 'Prov Uno' }],
         total: 1,
         page: 0,
         size: 10,
         totalPages: 1
       })),
       buscar: vi.fn().mockReturnValue(of([
-        { id: 1, razonSocial: 'Proveedor Uno SA', cuit: '30-11111111-9', nombreComercial: 'Prov Uno' }
+        { id: 1, razonSocial: 'Proveedor Uno SA', cuit: '30111111119', nombreComercial: 'Prov Uno' }
       ])),
       registrarTercero: vi.fn().mockReturnValue(of({ id: 2, razonSocialCanonica: 'Nuevo Proveedor' }))
     };
@@ -67,5 +67,12 @@ describe('ProveedoresComponent', () => {
 
   it('debería permitir abrir modal de alta si el usuario es Admin (G1-04)', () => {
     expect(component.puedeCrearProveedor()).toBe(true);
+  });
+
+  it('muestra el CUIT con guiones y sin jerga técnica en la lista (S2, S10)', () => {
+    fixture.detectChanges();
+    const texto = fixture.nativeElement.textContent as string;
+    expect(texto).toContain('30-11111111-9');
+    expect(texto).not.toContain('360');
   });
 });

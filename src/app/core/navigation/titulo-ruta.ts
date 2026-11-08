@@ -50,8 +50,18 @@ const TITULOS_POR_SEGMENTO: Record<string, TituloRuta> = {
 
 const DEFAULT_TITULO: TituloRuta = { titulo: 'Centro de Operaciones', subtitulo: 'Emergex · Dashboard operativo' };
 
+/** Pantallas hijas de /administracion con título propio (H-10: antes todas decían «Centro Administrativo»). */
+const TITULOS_ADMINISTRACION: Record<string, TituloRuta> = {
+  proveedores: { titulo: 'Proveedores', subtitulo: 'Emergex · Administración' },
+  reportes: { titulo: 'Reportes', subtitulo: 'Emergex · Administración' },
+};
+
 export function tituloParaRuta(url: string): TituloRuta {
-  const primerSegmento = url.split('?')[0].split('/').filter(Boolean)[0];
+  const segmentos = url.split('?')[0].split('#')[0].split('/').filter(Boolean);
+  const primerSegmento = segmentos[0];
+  if (primerSegmento === 'administracion' && segmentos[1] && TITULOS_ADMINISTRACION[segmentos[1]]) {
+    return TITULOS_ADMINISTRACION[segmentos[1]];
+  }
   if (!primerSegmento) {
     return DEFAULT_TITULO;
   }

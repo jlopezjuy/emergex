@@ -12,6 +12,7 @@ import { LoadingStateComponent } from '../../../shared/components/loading-state/
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../../shared/components/error-state/error-state.component';
 import { ModalShellComponent } from '../../../shared/components/modal-shell/modal-shell.component';
+import { CuitPipe } from '../../../shared/pipes/cuit.pipe';
 
 @Component({
   selector: 'emx-proveedores',
@@ -24,14 +25,15 @@ import { ModalShellComponent } from '../../../shared/components/modal-shell/moda
     LoadingStateComponent,
     EmptyStateComponent,
     ErrorStateComponent,
-    ModalShellComponent
+    ModalShellComponent,
+    CuitPipe
   ],
   template: `
     <div class="p-6 space-y-6" style="background: var(--bg-deep); min-height: 100vh; color: var(--text-primary);">
       <!-- Header -->
       <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 class="text-2xl font-bold" style="color: var(--text-primary);">Gestión de Proveedores</h1>
+          <h1 class="text-2xl font-bold" style="color: var(--text-primary);">Proveedores</h1>
           <p class="text-sm" style="color: var(--text-muted);">Catálogo de terceros con rol proveedor y gestión fiscal.</p>
         </div>
         @if (puedeCrearProveedor()) {
@@ -55,11 +57,11 @@ import { ModalShellComponent } from '../../../shared/components/modal-shell/moda
             type="text"
             [value]="searchTerm()"
             (input)="onSearchChange($event)"
-            placeholder="Buscar por Razón Social, CUIT o Nombre Comercial..."
+            placeholder="Buscá por razón social, CUIT o nombre comercial"
             class="w-full pl-9 pr-4 py-2 border rounded-lg text-sm"
             style="background: var(--surface-inset); border-color: var(--border-glass); color: var(--text-primary);"
           />
-          <span class="absolute left-3 top-2.5" style="color: var(--text-muted);">🔍</span>
+          <span class="absolute left-3 top-2.5" style="color: var(--text-muted);" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span>
         </div>
       </div>
 
@@ -73,11 +75,11 @@ import { ModalShellComponent } from '../../../shared/components/modal-shell/moda
       } @else {
         <div class="rounded-xl border overflow-hidden" style="background: var(--bg-elevated); border-color: var(--border-glass);">
           <table class="w-full text-left text-sm">
-            <thead class="text-xs uppercase font-semibold border-b" style="background: var(--surface-glass); color: var(--text-muted); border-color: var(--border-glass);">
+            <thead class="text-xs font-semibold border-b" style="background: var(--surface-glass); color: var(--text-muted); border-color: var(--border-glass);">
               <tr>
-                <th class="px-6 py-3">Razón Social</th>
-                <th class="px-6 py-3">CUIT / Identificador</th>
-                <th class="px-6 py-3">Nombre Comercial</th>
+                <th class="px-6 py-3">Razón social</th>
+                <th class="px-6 py-3">CUIT</th>
+                <th class="px-6 py-3">Nombre comercial</th>
                 <th class="px-6 py-3 text-right">Acciones</th>
               </tr>
             </thead>
@@ -85,7 +87,7 @@ import { ModalShellComponent } from '../../../shared/components/modal-shell/moda
               @for (prov of proveedores(); track prov.id) {
                 <tr class="border-b transition" style="border-color: var(--border-glass);">
                   <td class="px-6 py-4 font-medium" style="color: var(--text-primary);">{{ prov.razonSocial }}</td>
-                  <td class="px-6 py-4 font-mono text-xs" style="color: var(--text-muted);">{{ prov.cuit }}</td>
+                  <td class="px-6 py-4 num text-xs whitespace-nowrap" style="color: var(--text-muted);">{{ prov.cuit | cuit }}</td>
                   <td class="px-6 py-4" style="color: var(--text-muted);">{{ prov.nombreComercial || '-' }}</td>
                   <td class="px-6 py-4 text-right">
                     <a
@@ -94,7 +96,7 @@ import { ModalShellComponent } from '../../../shared/components/modal-shell/moda
                       class="font-medium text-xs"
                       style="color: var(--accent-blue);"
                     >
-                      Ver Ficha 360 →
+                      Ver ficha →
                     </a>
                   </td>
                 </tr>
@@ -103,7 +105,7 @@ import { ModalShellComponent } from '../../../shared/components/modal-shell/moda
           </table>
         </div>
 
-        <!-- Paginación Server-Side (V3-S3-01) -->
+        <!-- Paginación del servidor -->
         <div class="flex items-center justify-between p-4 rounded-xl border" style="background: var(--bg-elevated); border-color: var(--border-glass);">
           <span class="text-xs font-medium" style="color: var(--text-muted);">
             Mostrando página <strong style="color: var(--text-primary);">{{ page() + 1 }}</strong> de <strong style="color: var(--text-primary);">{{ totalPages() || 1 }}</strong> (Total: {{ totalElements() }} proveedores)
@@ -138,7 +140,7 @@ import { ModalShellComponent } from '../../../shared/components/modal-shell/moda
         <emx-modal-shell title="Alta de Proveedor" (closed)="showModal.set(false)">
           <form [formGroup]="provForm" (ngSubmit)="onSubmit()" class="flex flex-col gap-4">
             <div>
-              <label class="block text-xs font-semibold uppercase mb-1" style="color: var(--text-muted);">Razón Social</label>
+              <label class="block text-xs font-semibold mb-1" style="color: var(--text-muted);">Razón social</label>
               <input
                 type="text"
                 formControlName="razonSocialCanonica"
@@ -149,7 +151,7 @@ import { ModalShellComponent } from '../../../shared/components/modal-shell/moda
             </div>
 
             <div>
-              <label class="block text-xs font-semibold uppercase mb-1" style="color: var(--text-muted);">Nombre Comercial</label>
+              <label class="block text-xs font-semibold mb-1" style="color: var(--text-muted);">Nombre comercial</label>
               <input
                 type="text"
                 formControlName="nombreComercial"
@@ -160,7 +162,7 @@ import { ModalShellComponent } from '../../../shared/components/modal-shell/moda
             </div>
 
             <div>
-              <label class="block text-xs font-semibold uppercase mb-1" style="color: var(--text-muted);">CUIT / Identificador</label>
+              <label class="block text-xs font-semibold mb-1" style="color: var(--text-muted);">CUIT</label>
               <input
                 type="text"
                 formControlName="identificador"

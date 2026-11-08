@@ -1,5 +1,5 @@
 import { Component, computed, inject, signal, OnInit } from '@angular/core';
-import { RouterLink, RouterLinkActive } from '@angular/router';
+import { IsActiveMatchOptions, RouterLink, RouterLinkActive } from '@angular/router';
 import { FleetStore } from '../../core/stores/fleet.store';
 import { ThemeService } from '../../core/theme/theme.service';
 import { SafeHtmlPipe } from '../../shared/pipes/safe-html.pipe';
@@ -10,6 +10,11 @@ import { MenuService, IMenuItem } from '../../core/menu/menu.service';
 import { SessionStore } from '../../core/stores/session.store';
 
 const STORAGE_KEY_SECTIONS = 'emx_sidebar_sections';
+
+/** Coincidencia exacta de path: para rutas padre que tienen otro ítem del menú debajo (H-10). */
+const ACTIVO_EXACTO: IsActiveMatchOptions = { paths: 'exact', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored' };
+/** Coincidencia por prefijo: la ficha /patients/7 sigue marcando «Afiliados». */
+const ACTIVO_PREFIJO: IsActiveMatchOptions = { paths: 'subset', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored' };
 
 @Component({
   selector: 'emx-sidebar',
@@ -93,6 +98,7 @@ const STORAGE_KEY_SECTIONS = 'emx_sidebar_sections';
                     <a
                       [routerLink]="item.route || ''"
                       routerLinkActive="nav-active"
+                      [routerLinkActiveOptions]="opcionesActivo(item)"
                       class="nav-item"
                       [title]="item.title"
                     >
@@ -115,6 +121,7 @@ const STORAGE_KEY_SECTIONS = 'emx_sidebar_sections';
                 <a
                   [routerLink]="item.route || ''"
                   routerLinkActive="nav-active"
+                  [routerLinkActiveOptions]="opcionesActivo(item)"
                   class="nav-item"
                   [title]="sec.label + ': ' + item.title"
                 >
@@ -134,9 +141,9 @@ const STORAGE_KEY_SECTIONS = 'emx_sidebar_sections';
         <button type="button" class="nav-item" title="Cambiar tema" (click)="theme.toggleTheme()">
           <span class="icon">
             @if (theme.theme() === 'dark') {
-              ☀️
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
             } @else {
-              🌙
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/></svg>
             }
           </span>
           @if (expanded()) {
@@ -145,7 +152,7 @@ const STORAGE_KEY_SECTIONS = 'emx_sidebar_sections';
         </button>
 
         <a routerLink="/settings" routerLinkActive="nav-active" class="nav-item" title="Configuración">
-          <span class="icon">⚙️</span>
+          <span class="icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
           @if (expanded()) {
             <span class="label">Configuración</span>
           }
@@ -243,6 +250,21 @@ export class SidebarComponent implements OnInit {
   readonly groupedItems = computed(() =>
     this.menuService.groupMenuItems(this.flatMenuItems())
   );
+
+  /**
+   * Rutas del menú que son prefijo de otro ítem (p. ej. /administracion y /administracion/proveedores).
+   * Se activan sólo por coincidencia exacta para que el menú marque un único ítem.
+   */
+  private readonly rutasPadre = computed(() => {
+    const rutas = this.flatMenuItems()
+      .map((i) => i.route)
+      .filter((r): r is string => !!r);
+    return new Set(rutas.filter((r) => rutas.some((otra) => otra !== r && otra.startsWith(`${r}/`))));
+  });
+
+  opcionesActivo(item: IMenuItem): IsActiveMatchOptions {
+    return item.route && this.rutasPadre().has(item.route) ? ACTIVO_EXACTO : ACTIVO_PREFIJO;
+  }
 
   ngOnInit(): void {
     this.loadSavedSectionStates();
