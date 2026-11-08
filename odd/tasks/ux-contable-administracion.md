@@ -23,12 +23,12 @@ Branch: `feat/ux-contable-administracion` (from `develop`). Delivery: work-unit 
 | ID | Specs | Route | Status | Evidence |
 |---|---|---|---|---|
 | T0 | steps 1-3 (H-01..H-05) | inline | done | `acdb51c` |
-| T1 | S1 | inline | pending | |
-| T2 | S2, S3, S8 (010), S9 (Facturación), S10 (Facturación parts), S11 | delegated (parallel unit A, Facturación + Comprobantes) | pending | |
-| T3 | S2, S3, S7, S8 (registrar cobro), S9 (submayor), S10 (CC parts), Reportes language | delegated (parallel unit B, Cuentas corrientes + Reportes) | pending | |
-| T4 | S2, S3, S4, S5 | delegated (parallel unit C, Tesorería) | pending | |
-| T5 | S2, S6, S10 (menu, typography, Proveedores CUIT), Centro Adm./Compras/Proveedores language | delegated (parallel unit D, layout + Centro Adm. + Compras + Proveedores) | pending | |
-| T6 | integration: full suite, lint, build, live check | inline | pending | |
+| T1 | S1 | inline | done | `032e336`, `6ad8303` (accents) |
+| T2 | S2, S3, S8 (010), S9 (Facturación), S10 (Facturación parts), S11 | delegated (parallel unit A, Facturación + Comprobantes) | done (filters act on the loaded page only) | `149c0b6` |
+| T3 | S2, S3, S7, S8 (registrar cobro), S9 (submayor), S10 (CC parts), Reportes language | delegated (parallel unit B, Cuentas corrientes + Reportes) | done except S7 (backend gap: no third-party role in DTO) | `6fd9ec1` |
+| T4 | S2, S3, S4, S5 | delegated (parallel unit C, Tesorería) | done (S5 without date/user: backend entity lacks them) | `8cfcec1` |
+| T5 | S2, S6, S10 (menu, typography, Proveedores CUIT), Centro Adm./Compras/Proveedores language | delegated (parallel unit D, layout + Centro Adm. + Compras + Proveedores) | done | `4af6b93` |
+| T6 | integration: full suite, lint, build, live check, independent verifier | inline | done: 546/546, lint, build, live check (contador, despachante); verifier blockers B1/B2 fixed | latest `fix(layout)` commit |
 
 Route evidence: units A-D are independent pieces of behavior with disjoint files and several minutes of work each, launched together (Writer trigger, parallel). The parent owns git and the shared helper file.
 
@@ -37,3 +37,5 @@ Route evidence: units A-D are independent pieces of behavior with disjoint files
 - **L1 (2026-11-08, user):** «Procede con todo»
 - **L2:** context. The user previously asked: «Que quede pendiente de las mejoras de ux ui?». The answer listed steps 4-7, the voucher bug, 010, 017 and 015, plus backend-only gaps (not in scope).
 - **L3:** decision. 015 (consolidate analytics) is left out: it is structural and needs a product decision.
+- **L4 (2026-11-08):** verification. An independent verifier found 2 blockers: B1, the global `td.num` rule right-aligned ids and dates in Compras; B2, the exact-match parent rule turned off the Encuestas highlight on its sub-pages. It also found «Workflow Maker-Checker de CBU» still visible in the shared CBU modal. All three were fixed in one correction batch, with the suite still green. Advisories not fixed: menu items driven by the DB with unknown ids show a generic icon; a long header title could squeeze the controls on narrow widths.
+- **L5:** backend gaps recorded. Third-party role (S7); date and user of cash movements (S5); server-side search, date and type filters for invoices (S9).
