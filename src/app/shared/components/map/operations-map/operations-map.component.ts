@@ -17,6 +17,14 @@ import type { FeatureCollection, LineString, Point } from 'geojson';
 import { UnidadMovilDTO } from '../../../../data-access/dto/ambulancia.dto';
 import { TicketAsistenciaDTO } from '../../../../data-access/dto/ticket.dto';
 import { ThemeService } from '../../../../core/theme/theme.service';
+import {
+  LADO_ICONO,
+  crearLienzo,
+  dibujarAmbulancia,
+  dibujarInsigniaEstacionada,
+  dibujarSombra,
+} from './ambulance-icon';
+import { resolverRumbo } from './rumbo-unidad';
 
 // ─── San Salvador de Jujuy default center ─────────────────────────────────────
 
@@ -58,151 +66,30 @@ function emgColor(prioridad?: string): string {
   }
 }
 
-// ─── Ambulance Icon Canvas Generator ──────────────────────────────────────────
+// ─── Ambulance icons ──────────────────────────────────────────────────────────
 
-function generateAmbulanceImageData(colorHex: string, moving = false): ImageData {
-  const size = moving ? 44 : 36;
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d')!;
+/** Densidad con la que se rasterizan los íconos: 2× se ve nítido en pantallas comunes y retina. */
+const DENSIDAD_ICONO = 2;
 
-  const cx = size / 2;
-  const cy = size / 2;
+/** Escala del ícono en el mapa: 48 unidades de grilla a 0.85 dan una ambulancia de ~36 px de largo. */
+const ESCALA_ICONO = 0.85;
 
-  if (moving) {
-    // ─── MOVING AMBULANCE ICON ───
+function imagenDe(lado: number, dibujar: (ctx: CanvasRenderingContext2D) => void): ImageData {
+  const { ctx } = crearLienzo(lado, DENSIDAD_ICONO);
+  dibujar(ctx);
+  return ctx.getImageData(0, 0, Math.round(lado * DENSIDAD_ICONO), Math.round(lado * DENSIDAD_ICONO));
+}
 
-    // Outer Siren Pulse Aura Glow
-    ctx.beginPath();
-    ctx.arc(cx, cy, 19, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(56, 189, 248, 0.25)';
-    ctx.fill();
+function generateAmbulanceImageData(colorEstado: string, enMovimiento: boolean): ImageData {
+  return imagenDe(LADO_ICONO, (ctx) => dibujarAmbulancia(ctx, DENSIDAD_ICONO, { colorEstado, enMovimiento }));
+}
 
-    // Main Circle Badge with Status Color
-    ctx.beginPath();
-    ctx.arc(cx, cy, 16, 0, Math.PI * 2);
-    ctx.fillStyle = colorHex;
-    ctx.fill();
-    ctx.lineWidth = 2.5;
-    ctx.strokeStyle = '#38BDF8';
-    ctx.stroke();
+function generateShadowImageData(): ImageData {
+  return imagenDe(LADO_ICONO, (ctx) => dibujarSombra(ctx, DENSIDAD_ICONO));
+}
 
-    // Speed Lines behind vehicle
-    ctx.strokeStyle = '#FFFFFF';
-    ctx.lineWidth = 1.8;
-    ctx.beginPath();
-    ctx.moveTo(cx - 12, cy - 4);
-    ctx.lineTo(cx - 17, cy - 4);
-    ctx.moveTo(cx - 12, cy + 1);
-    ctx.lineTo(cx - 18, cy + 1);
-    ctx.moveTo(cx - 12, cy + 6);
-    ctx.lineTo(cx - 15, cy + 6);
-    ctx.stroke();
-
-    // White Vehicle Body
-    ctx.fillStyle = '#FFFFFF';
-    ctx.beginPath();
-    ctx.roundRect(cx - 9, cy - 5, 13, 10, 2);
-    ctx.fill();
-
-    // Cabin
-    ctx.beginPath();
-    ctx.roundRect(cx + 3, cy - 3, 6, 8, 1.5);
-    ctx.fill();
-
-    // Windshield
-    ctx.fillStyle = colorHex;
-    ctx.fillRect(cx + 5, cy - 2, 3, 3);
-
-    // Wheels
-    ctx.fillStyle = '#0f172a';
-    ctx.beginPath();
-    ctx.arc(cx - 5, cy + 5, 2.5, 0, Math.PI * 2);
-    ctx.arc(cx + 5, cy + 5, 2.5, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Medical Cross
-    ctx.fillStyle = colorHex;
-    ctx.fillRect(cx - 3.5, cy - 3.5, 2.5, 6);
-    ctx.fillRect(cx - 5.5, cy - 1.75, 6.5, 2.5);
-
-    // Red & Blue Siren Beacons on Roof
-    ctx.fillStyle = '#EF4444';
-    ctx.beginPath();
-    ctx.arc(cx - 3, cy - 8, 2.5, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = '#3B82F6';
-    ctx.beginPath();
-    ctx.arc(cx + 2, cy - 8, 2.5, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Siren Light Rays
-    ctx.strokeStyle = '#FBBF24';
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.moveTo(cx - 3, cy - 11);
-    ctx.lineTo(cx - 3, cy - 13);
-    ctx.moveTo(cx + 2, cy - 11);
-    ctx.lineTo(cx + 2, cy - 13);
-    ctx.stroke();
-  } else {
-    // ─── STATIONARY / PARKED AMBULANCE ICON ───
-
-    // Circle Badge
-    ctx.beginPath();
-    ctx.arc(cx, cy, 14, 0, Math.PI * 2);
-    ctx.fillStyle = colorHex;
-    ctx.fill();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = '#FFFFFF';
-    ctx.stroke();
-
-    // White Vehicle Body
-    ctx.fillStyle = '#FFFFFF';
-    ctx.beginPath();
-    ctx.roundRect(cx - 9, cy - 5, 12, 9, 2);
-    ctx.fill();
-
-    // Cabin
-    ctx.beginPath();
-    ctx.roundRect(cx + 2, cy - 3, 6, 7, 1.5);
-    ctx.fill();
-
-    // Windshield
-    ctx.fillStyle = colorHex;
-    ctx.fillRect(cx + 4, cy - 2, 3, 3);
-
-    // Wheels
-    ctx.fillStyle = '#0f172a';
-    ctx.beginPath();
-    ctx.arc(cx - 5, cy + 4, 2.2, 0, Math.PI * 2);
-    ctx.arc(cx + 5, cy + 4, 2.2, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Medical Cross
-    ctx.fillStyle = colorHex;
-    ctx.fillRect(cx - 4, cy - 3.5, 2, 5);
-    ctx.fillRect(cx - 5.5, cy - 2, 5, 2);
-
-    // Small Parked "P" Badge on Top Right
-    ctx.beginPath();
-    ctx.arc(cx + 9, cy - 9, 5, 0, Math.PI * 2);
-    ctx.fillStyle = '#475569';
-    ctx.fill();
-    ctx.strokeStyle = '#FFFFFF';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 7px monospace';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('P', cx + 9, cy - 8.5);
-  }
-
-  return ctx.getImageData(0, 0, size, size);
+function generateParkedBadgeImageData(): ImageData {
+  return imagenDe(16, (ctx) => dibujarInsigniaEstacionada(ctx, DENSIDAD_ICONO));
 }
 
 // ─── Marker element factories ─────────────────────────────────────────────────
@@ -582,19 +469,26 @@ export class OperationsMapComponent implements OnDestroy {
 
       if (this.map && !this.map.hasImage(imgStatic)) {
         try {
-          this.map.addImage(imgStatic, generateAmbulanceImageData(c, false));
+          this.map.addImage(imgStatic, generateAmbulanceImageData(c, false), { pixelRatio: DENSIDAD_ICONO });
         } catch {
           // ignore duplicate
         }
       }
       if (this.map && !this.map.hasImage(imgMoving)) {
         try {
-          this.map.addImage(imgMoving, generateAmbulanceImageData(c, true));
+          this.map.addImage(imgMoving, generateAmbulanceImageData(c, true), { pixelRatio: DENSIDAD_ICONO });
         } catch {
           // ignore duplicate
         }
       }
     });
+    // Sombra e insignia de "estacionada": comparten estilo para todos los estados.
+    if (!this.map.hasImage('amb-shadow')) {
+      this.map.addImage('amb-shadow', generateShadowImageData(), { pixelRatio: DENSIDAD_ICONO });
+    }
+    if (!this.map.hasImage('amb-parked-badge')) {
+      this.map.addImage('amb-parked-badge', generateParkedBadgeImageData(), { pixelRatio: DENSIDAD_ICONO });
+    }
 
     if (!this.map.getSource(this.AMB_SOURCE)) {
       this.map.addSource(this.AMB_SOURCE, {
@@ -615,14 +509,49 @@ export class OperationsMapComponent implements OnDestroy {
           'circle-stroke-opacity': 0.95,
         },
       });
+      // La sombra gira con la ambulancia pero se desplaza siempre hacia el mismo lado de la pantalla
+      // (`icon-translate` anclado al viewport): así la luz no cambia de dirección al girar.
+      this.map.addLayer({
+        id: 'emx-amb-shadows',
+        type: 'symbol',
+        source: this.AMB_SOURCE,
+        layout: {
+          'icon-image': 'amb-shadow',
+          'icon-size': ESCALA_ICONO,
+          'icon-rotate': ['get', 'heading'],
+          'icon-rotation-alignment': 'map',
+          'icon-allow-overlap': true,
+          'icon-ignore-placement': true,
+          'icon-anchor': 'center',
+        },
+        paint: { 'icon-translate': [2.2, 3], 'icon-translate-anchor': 'viewport' },
+      });
       this.map.addLayer({
         id: 'emx-amb-icons',
         type: 'symbol',
         source: this.AMB_SOURCE,
         layout: {
           'icon-image': ['get', 'iconName'],
-          'icon-size': 1,
+          'icon-size': ESCALA_ICONO,
+          // El ícono se dibuja mirando al norte; `heading` lo gira hacia donde va la unidad.
+          'icon-rotate': ['get', 'heading'],
+          'icon-rotation-alignment': 'map',
           'icon-allow-overlap': true,
+          'icon-anchor': 'center',
+        },
+      });
+      // La "P" de estacionada no rota: tiene que leerse siempre derecha.
+      this.map.addLayer({
+        id: 'emx-amb-parked-badges',
+        type: 'symbol',
+        source: this.AMB_SOURCE,
+        filter: ['==', ['get', 'isMoving'], false],
+        layout: {
+          'icon-image': 'amb-parked-badge',
+          'icon-size': ESCALA_ICONO,
+          'icon-offset': [13, -15],
+          'icon-allow-overlap': true,
+          'icon-ignore-placement': true,
           'icon-anchor': 'center',
         },
       });
@@ -635,7 +564,7 @@ export class OperationsMapComponent implements OnDestroy {
           'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'],
           'text-size': 10,
           'text-anchor': 'top',
-          'text-offset': [0, 1.4],
+          'text-offset': [0, 2.3],
           'text-allow-overlap': false,
           'text-optional': true,
         },
@@ -789,6 +718,28 @@ export class OperationsMapComponent implements OnDestroy {
 
   private lastPositionsMap = new Map<number, { lat: number; lng: number; lastMoveTime: number }>();
 
+  /** Última posición y último rumbo mostrados por unidad, para deducir y conservar el rumbo. */
+  private readonly ultimaPosicion = new Map<number, [number, number]>();
+  private readonly ultimoRumbo = new Map<number, number>();
+
+  /**
+   * Hacia dónde mira la unidad, en grados desde el norte en sentido horario. Prefiere el rumbo del
+   * GPS (`direccion`); si no viene, lo deduce del desplazamiento; y si está quieta conserva el
+   * último, así al frenar no vuelve sola a mirar al norte.
+   */
+  private rumboDe(unit: UnidadMovilDTO, actual: [number, number]): number {
+    const id = unit.id as number;
+    const rumbo = resolverRumbo({
+      direccion: unit.direccion,
+      previa: this.ultimaPosicion.get(id),
+      actual,
+      ultimo: this.ultimoRumbo.get(id),
+    });
+    this.ultimaPosicion.set(id, actual);
+    this.ultimoRumbo.set(id, rumbo);
+    return rumbo;
+  }
+
   private isUnitMoving(unit: UnidadMovilDTO): boolean {
     if (unit.id == null) return false;
     if (unit.velocidad != null && unit.velocidad > 0) return true;
@@ -835,6 +786,7 @@ export class OperationsMapComponent implements OnDestroy {
             color: color,
             iconName: iconName,
             isMoving: isMoving,
+            heading: this.rumboDe(unit, lngLat),
           },
           geometry: {
             type: 'Point' as const,
