@@ -250,10 +250,10 @@ import { RegistrarCobranzaModalComponent } from './components/registrar-cobranza
 
       @if (mostrarModalCobranza()) {
         <app-registrar-cobranza-modal
-          [terceroEmpresaId]="terceroSeleccionado()!.id"
+          [terceroEmpresaId]="terceroCobroId()!"
           [documentosPendientes]="documentosPendientes()"
           (cerrar)="mostrarModalCobranza.set(false)"
-          (cobranzaRegistrada)="onCobranzaRegistrada(terceroSeleccionado()!.id)"
+          (cobranzaRegistrada)="onCobranzaRegistrada(terceroCobroId()!)"
         ></app-registrar-cobranza-modal>
       }
     </div>
@@ -284,6 +284,12 @@ export class CuentasCorrientesComponent implements OnInit {
   readonly loadingRecientes = signal(false);
 
   readonly mostrarModalCobranza = signal(false);
+  /**
+   * Tercero al que se le registra el cobro. Es propio del modal y no sale de
+   * `terceroSeleccionado`: el cobro también se abre desde la fila de la lista, donde no hay ningún
+   * tercero seleccionado (QA-ROL-019).
+   */
+  readonly terceroCobroId = signal<number | null>(null);
   readonly documentosPendientes = signal<DocumentoPendienteDTO[]>([]);
 
   ngOnInit(): void {
@@ -405,6 +411,7 @@ export class CuentasCorrientesComponent implements OnInit {
     this.cobranzasApi.getDocumentosPendientes(terceroId).subscribe({
       next: (docs) => {
         this.documentosPendientes.set(docs);
+        this.terceroCobroId.set(terceroId);
         this.mostrarModalCobranza.set(true);
       },
       error: (err) => {
@@ -415,7 +422,10 @@ export class CuentasCorrientesComponent implements OnInit {
 
   onCobranzaRegistrada(terceroId: number): void {
     this.mostrarModalCobranza.set(false);
-    this.cargarEstadoCuenta(terceroId);
+    // Sólo hay un estado de cuenta abierto si se entró por "Ver Submayor"; desde la lista no.
+    if (this.terceroSeleccionado()?.id === terceroId) {
+      this.cargarEstadoCuenta(terceroId);
+    }
     this.cargarAging(); // Update aging numbers as well
   }
 

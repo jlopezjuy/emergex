@@ -113,4 +113,31 @@ describe('CuentasCorrientesComponent (F0-07)', () => {
     expect(ledgerApiMock.getAgingDeuda).toHaveBeenCalledOnce();
     expect(component.agingDeuda()?.totalVencido).toBe(9500);
   });
+  it('abre el modal de cobro desde la lista, sin tercero seleccionado, y lo ata al tercero de la fila (QA-ROL-019)', () => {
+    const fixture = TestBed.createComponent(CuentasCorrientesComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    expect(component.terceroSeleccionado()).toBeNull();
+
+    component.abrirModalCobranza(77);
+    // Antes el modal leía `terceroSeleccionado()!.id` y explotaba al renderizar si venía de la lista.
+    expect(() => fixture.detectChanges()).not.toThrow();
+
+    const modal = fixture.nativeElement.querySelector('app-registrar-cobranza-modal');
+    expect(modal).not.toBeNull();
+    expect(component.terceroCobroId()).toBe(77);
+  });
+
+  it('al registrar un cobro desde la lista cierra el modal y refresca el aging sin exigir un tercero seleccionado', () => {
+    const fixture = TestBed.createComponent(CuentasCorrientesComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    component.abrirModalCobranza(77);
+    ledgerApiMock.getAgingDeuda.mockClear();
+
+    expect(() => component.onCobranzaRegistrada(77)).not.toThrow();
+
+    expect(component.mostrarModalCobranza()).toBe(false);
+    expect(ledgerApiMock.getAgingDeuda).toHaveBeenCalled();
+  });
 });

@@ -145,8 +145,8 @@ import {
                 <span class="text-sm font-medium text-blue-800">Total a imputar: $ {{ totalAImputar() | number:'1.2-2' }}</span>
                 <span class="text-sm font-medium text-blue-800">Saldo remanente del recibo: $ {{ saldoRemanente() | number:'1.2-2' }}</span>
               </div>
-              @if (error()) {
-                <div class="mt-2 text-sm text-red-600 bg-red-50 p-2 rounded">{{ error() }}</div>
+              @if (errorImputacion() ?? error(); as mensaje) {
+                <div class="mt-2 text-sm text-red-600 bg-red-50 p-2 rounded">{{ mensaje }}</div>
               }
             </div>
           </form>
@@ -283,16 +283,19 @@ export class RegistrarCobranzaModalComponent {
   }
 
   /**
-   * Valida que el total a imputar no supere el monto cobrado del recibo.
-   * Actualiza el signal de error en consecuencia.
+   * Mensaje de error si el total a imputar supera el monto cobrado, o `null` si está bien.
+   *
+   * Es una función pura a propósito: el template la llama en cada renderizado, y escribir una señal
+   * ahí (como hacía antes con `error.set`) hace que Angular aborte el render con NG0600 en cuanto
+   * el formulario es válido, dejando la pantalla congelada.
    */
+  errorImputacion(): string | null {
+    return this.saldoRemanente() < 0 ? 'El total a imputar no puede superar el monto cobrado del recibo.' : null;
+  }
+
+  /** Indica si hay un error de imputación que bloquea el registro. */
   hasImputacionError(): boolean {
-    if (this.saldoRemanente() < 0) {
-      this.error.set('El total a imputar no puede superar el monto cobrado del recibo.');
-      return true;
-    }
-    this.error.set(null);
-    return false;
+    return this.errorImputacion() !== null;
   }
 
   /**

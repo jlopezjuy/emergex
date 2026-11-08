@@ -91,4 +91,27 @@ describe('RegistrarCobranzaModalComponent — medio de pago y retenciones (QA-RO
 
     expect(c.retenciones().length).toBe(1);
   });
+  it('renderiza con el formulario válido: el template no escribe señales (NG0600)', () => {
+    const fixture = crear();
+    fixture.componentInstance.form.patchValue({ numeroRecibo: 'R-9', montoCobrado: 1000, medioPago: 'EFECTIVO' });
+
+    // Antes, hasImputacionError() hacía error.set(...) y el template lo llamaba: con el formulario
+    // válido, Angular abortaba el render con NG0600 y la pantalla quedaba congelada.
+    expect(() => fixture.detectChanges()).not.toThrow();
+  });
+
+  it('avisa en pantalla cuando lo imputado supera lo cobrado y bloquea el registro', () => {
+    const fixture = crear();
+    const c = fixture.componentInstance;
+    c.form.patchValue({ numeroRecibo: 'R-10', montoCobrado: 1000, medioPago: 'EFECTIVO' });
+    c.imputaciones.set({ 1: 5000 });
+
+    fixture.detectChanges();
+
+    expect(c.hasImputacionError()).toBe(true);
+    expect(fixture.nativeElement.textContent).toContain('no puede superar el monto cobrado');
+    registrar.mockClear();
+    c.onSubmit();
+    expect(registrar).not.toHaveBeenCalled();
+  });
 });
