@@ -14,7 +14,7 @@ import { StatusBadgeComponent } from '../../status-badge/status-badge.component'
     <div class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <div class="bg-[var(--bg-elevated)] rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-[var(--border-glass)] text-[var(--text-primary)]">
         <div class="flex justify-between items-center mb-6">
-          <h3 class="text-lg font-bold text-[var(--text-primary)]">Workflow Maker-Checker de CBU</h3>
+          <h3 class="text-lg font-bold text-[var(--text-primary)]">Cuentas bancarias (requiere aprobación)</h3>
           <button (click)="closeModal()" class="text-[var(--text-muted)] hover:text-[var(--text-primary)]">✕</button>
         </div>
 

@@ -1,10 +1,11 @@
 import { Component, computed, inject, signal, OnInit } from '@angular/core';
-import { IsActiveMatchOptions, RouterLink, RouterLinkActive } from '@angular/router';
+import { IsActiveMatchOptions, NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { FleetStore } from '../../core/stores/fleet.store';
 import { ThemeService } from '../../core/theme/theme.service';
 import { SafeHtmlPipe } from '../../shared/pipes/safe-html.pipe';
-import { toObservable, takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { switchMap, of, map } from 'rxjs';
+import { toObservable, takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { switchMap, of, map, filter } from 'rxjs';
+import { coincidenciaExacta } from './activo-menu';
 import { AuthService } from '../../core/auth/auth.service';
 import { MenuService, IMenuItem } from '../../core/menu/menu.service';
 import { SessionStore } from '../../core/stores/session.store';
@@ -251,19 +252,25 @@ export class SidebarComponent implements OnInit {
     this.menuService.groupMenuItems(this.flatMenuItems())
   );
 
-  /**
-   * Rutas del menú que son prefijo de otro ítem (p. ej. /administracion y /administracion/proveedores).
-   * Se activan sólo por coincidencia exacta para que el menú marque un único ítem.
-   */
-  private readonly rutasPadre = computed(() => {
-    const rutas = this.flatMenuItems()
+  private readonly router = inject(Router);
+  private readonly urlActual = toSignal(
+    this.router.events.pipe(
+      filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+      map((e) => e.urlAfterRedirects),
+    ),
+    { initialValue: this.router.url },
+  );
+  private readonly rutasMenu = computed(() =>
+    this.flatMenuItems()
       .map((i) => i.route)
-      .filter((r): r is string => !!r);
-    return new Set(rutas.filter((r) => rutas.some((otra) => otra !== r && otra.startsWith(`${r}/`))));
-  });
+      .filter((r): r is string => !!r),
+  );
 
+  /** One highlighted item: a parent turns off only while a more specific menu item is the current page. */
   opcionesActivo(item: IMenuItem): IsActiveMatchOptions {
-    return item.route && this.rutasPadre().has(item.route) ? ACTIVO_EXACTO : ACTIVO_PREFIJO;
+    return item.route && coincidenciaExacta(item.route, this.rutasMenu(), this.urlActual())
+      ? ACTIVO_EXACTO
+      : ACTIVO_PREFIJO;
   }
 
   ngOnInit(): void {
