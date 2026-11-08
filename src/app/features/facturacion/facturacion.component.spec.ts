@@ -233,7 +233,8 @@ describe('FacturacionComponent (Comprehensive TDD Spec)', () => {
     const component = fixture.componentInstance;
     const banner = fixture.nativeElement.querySelector('.arca-warning-banner');
     expect(banner).toBeTruthy();
-    expect(banner.textContent).toContain('MODO PRUEBAS AFIP');
+    expect(banner.textContent).toContain('MODO PRUEBAS ARCA');
+    expect(banner.textContent).not.toContain('AFIP');
     expect(component.arcaModoPruebas()).toBe(true);
   });
 
@@ -337,15 +338,20 @@ describe('FacturacionComponent (Comprehensive TDD Spec)', () => {
     expect(component.selectedCount()).toBe(0);
   });
 
-  it('debería ejecutar la anulación masiva y reportar el resultado por ítem', () => {
+  it('la barra de selección no ofrece una anulación masiva que no existe en el backend', () => {
+    // Antes había un botón «Anular seleccionadas» que sólo mostraba un aviso de éxito sin llamar
+    // a ninguna API: la barra ofrece únicamente acciones que existen (H-19).
     const fixture = TestBed.createComponent(FacturacionComponent);
     fixture.detectChanges();
     const component = fixture.componentInstance;
 
     component.toggleSelect(1);
-    expect(component.selectedCount()).toBe(1);
+    fixture.detectChanges();
 
-    component.ejecutarAnulacionMasiva();
+    const barra = fixture.nativeElement.querySelector('[data-testid="barra-seleccion"]');
+    expect(barra).toBeTruthy();
+    expect(barra.textContent).not.toContain('Anular');
+    component.clearSelection();
     expect(component.selectedCount()).toBe(0);
   });
 
@@ -368,5 +374,159 @@ describe('FacturacionComponent (Comprehensive TDD Spec)', () => {
 
     component.actualizarEstadoDebito(1, 'ACEPTADO', 500);
     expect(debitosApiMock.actualizarEstado).toHaveBeenCalledWith(1, { nuevoEstado: 'ACEPTADO', montoRecuperado: 500 });
+  });
+
+  describe('lista de facturas a afiliados (H-07, H-09, H-15 a H-19)', () => {
+    const filas = [
+      { id: 1, numeroFactura: 'FAC-001', estado: 'EMITIDA', importeTotal: 1000, saldoPendiente: 1000, tipoPeriodo: 'MENSUAL', fechaEmision: '2026-10-01', grupoNumeroCuenta: 'G-100' },
+      { id: 2, numeroFactura: 'FAC-002', estado: 'PAGADA', importeTotal: 500, saldoPendiente: 0, tipoPeriodo: 'MENSUAL', fechaEmision: '2026-10-15', grupoNumeroCuenta: 'G-200' },
+      { id: 3, numeroFactura: 'FAC-003', estado: 'VENCIDA', importeTotal: 250, saldoPendiente: 250, tipoPeriodo: 'MENSUAL', fechaEmision: '2026-11-02', grupoNumeroCuenta: 'G-300' },
+    ];
+
+    function crear(data: unknown[] = filas) {
+      facturacionApiMock.getFacturasPage.mockReturnValueOnce(of({ data, total: data.length }));
+      const fixture = TestBed.createComponent(FacturacionComponent);
+      fixture.detectChanges();
+      return { fixture, component: fixture.componentInstance, el: fixture.nativeElement as HTMLElement };
+    }
+
+    function textoTotales(el: HTMLElement): string {
+      return el.querySelector('[data-testid="fila-totales"]')?.textContent ?? '';
+    }
+
+    it('muestra una fila de totales con importe y saldo de las filas visibles', () => {
+      const { el } = crear();
+      const totales = textoTotales(el);
+      expect(totales).toContain('1.750,00');
+      expect(totales).toContain('1.250,00');
+    });
+
+    it('busca por número de factura o por grupo y recalcula los totales', () => {
+      const { fixture, component, el } = crear();
+      component.busqueda.set('fac-003');
+      fixture.detectChanges();
+      expect(component.paged().map((f) => f.id)).toEqual([3]);
+      expect(textoTotales(el)).toContain('250,00');
+
+      component.busqueda.set('g-200');
+      fixture.detectChanges();
+      expect(component.paged().map((f) => f.id)).toEqual([2]);
+    });
+
+    it('filtra por rango de fecha de emisión', () => {
+      const { fixture, component } = crear();
+      component.fechaDesde.set('2026-10-10');
+      component.fechaHasta.set('2026-10-31');
+      fixture.detectChanges();
+      expect(component.paged().map((f) => f.id)).toEqual([2]);
+    });
+
+    it('rotula «Tipo» el filtro de mensual/anual', () => {
+      const { el } = crear();
+      const rotulos = Array.from(el.querySelectorAll('.ft-toolbar .eyebrow')).map((e) => e.textContent?.trim());
+      expect(rotulos).toContain('Tipo:');
+      expect(rotulos).not.toContain('Período:');
+    });
+
+    it('exporta a CSV las filas filtradas', () => {
+      const { fixture, component } = crear();
+      component.busqueda.set('G-100');
+      fixture.detectChanges();
+      const csv = component.csvDeFilas(component.paged());
+      const lineas = csv.trim().split('\n');
+      expect(lineas[0]).toBe('N° factura;Período;Grupo;Importe;Saldo;Tipo;Estado;Emisión');
+      expect(lineas.length).toBe(2);
+      expect(lineas[1]).toContain('FAC-001');
+      expect(lineas[1]).toContain('Emitida');
+      expect(lineas[1]).toContain('01/10/2026');
+    });
+
+    it('alinea a la derecha los encabezados numéricos y usa números tabulares', () => {
+      const { el } = crear();
+      const ths = Array.from(el.querySelectorAll('thead th')) as HTMLElement[];
+      const importe = ths.find((t) => t.textContent?.trim() === 'Importe');
+      const saldo = ths.find((t) => t.textContent?.trim() === 'Saldo');
+      expect(importe?.classList.contains('num')).toBe(true);
+      expect(saldo?.classList.contains('num')).toBe(true);
+      const celdas = el.querySelectorAll('tbody td.num');
+      expect(celdas.length).toBe(6);
+    });
+
+    it('no repite la columna «Tipo» cuando todas las filas visibles tienen el mismo', () => {
+      const { el } = crear();
+      const ths = Array.from(el.querySelectorAll('thead th')).map((t) => t.textContent?.trim());
+      expect(ths).not.toContain('Tipo');
+      expect(el.querySelector('[data-testid="tipo-unico"]')?.textContent).toContain('Mensual');
+    });
+
+    it('muestra la columna «Tipo» cuando hay tipos distintos', () => {
+      const { el } = crear([filas[0], { ...filas[1], tipoPeriodo: 'ANUAL' }]);
+      const ths = Array.from(el.querySelectorAll('thead th')).map((t) => t.textContent?.trim());
+      expect(ths).toContain('Tipo');
+      expect(el.querySelector('[data-testid="tipo-unico"]')).toBeNull();
+    });
+
+    it('muestra el estado en castellano y no el enum técnico', () => {
+      const { el } = crear();
+      const cuerpo = el.querySelector('tbody')?.textContent ?? '';
+      expect(cuerpo).toContain('Emitida');
+      expect(cuerpo).not.toContain('EMITIDA');
+    });
+
+    it('pinta de rojo el saldo sólo cuando la factura está vencida', () => {
+      const { el } = crear();
+      const saldos = Array.from(el.querySelectorAll('[data-testid="saldo"]')) as HTMLElement[];
+      expect(saldos[0].style.color).not.toContain('accent-red');
+      expect(saldos[2].style.color).toContain('accent-red');
+      // El saldo cero va en gris apagado.
+      expect(saldos[1].style.color).toContain('text-muted');
+    });
+
+    it('no pinta de rojo el KPI de vencidas cuando no hay ninguna', () => {
+      facturacionApiMock.listarFacturas.mockReturnValueOnce(
+        of([{ id: 1, numeroFactura: 'FAC-001', estado: 'EMITIDA', importeTotal: 1000 }]),
+      );
+      const { el } = crear();
+      const vencidas = el.querySelector('[data-testid="kpi-vencidas"]') as HTMLElement;
+      expect(vencidas.textContent?.trim()).toBe('0');
+      expect(vencidas.style.color).not.toContain('accent-red');
+    });
+
+    it('rotula los CITI con ARCA y no con AFIP', () => {
+      const { el } = crear();
+      const acciones = el.querySelector('.screen-head__actions')?.textContent ?? '';
+      expect(acciones).toContain('CITI Ventas (ARCA)');
+      expect(acciones).toContain('CITI Compras (ARCA)');
+      expect(acciones).not.toContain('AFIP');
+    });
+
+    it('la barra de selección ofrece exportar las seleccionadas y «Registrar cobro» sólo con una sola', () => {
+      const { fixture, component, el } = crear();
+      component.toggleSelect(1);
+      fixture.detectChanges();
+      let barra = el.querySelector('[data-testid="barra-seleccion"]') as HTMLElement;
+      expect(barra.textContent).toContain('Exportar seleccionadas');
+      expect(barra.querySelector('[data-testid="cobrar-seleccionada"]')).toBeTruthy();
+
+      component.toggleSelect(3);
+      fixture.detectChanges();
+      barra = el.querySelector('[data-testid="barra-seleccion"]') as HTMLElement;
+      expect(barra.textContent).toContain('Exportar seleccionadas');
+      expect(barra.querySelector('[data-testid="cobrar-seleccionada"]')).toBeNull();
+      expect(component.filasSeleccionadas().map((f) => f.id)).toEqual([1, 3]);
+    });
+
+    it('no ofrece cobrar desde la barra cuando la única seleccionada ya está pagada', () => {
+      const { fixture, component, el } = crear();
+      component.toggleSelect(2);
+      fixture.detectChanges();
+      expect(el.querySelector('[data-testid="cobrar-seleccionada"]')).toBeNull();
+    });
+
+    it('la ventana de cobro muestra a quién se le cobra (grupo de la factura)', () => {
+      const { component } = crear();
+      component.openPayModal(filas[0] as never);
+      expect(component.payInvoiceContext()?.patientLabel).toBe('Grupo G-100');
+    });
   });
 });

@@ -36,7 +36,9 @@ import {
 import { DebitosApiService } from '../../data-access/api/debitos.api';
 import { DebitoDocumentoDTO, EstadoDebito } from '../../data-access/dto/debitos.dto';
 import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
-import { formatFecha, formatMoneda } from '../../core/i18n/formato';
+import { EstadoPipe } from '../../shared/pipes/estado.pipe';
+import { etiquetaEstado, formatFecha, formatMoneda } from '../../core/i18n/formato';
+import { descargarCsv, facturasACsv } from './facturas-csv';
 import { calcularKpisFacturacion } from './kpis-facturacion';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -81,11 +83,23 @@ function fmtPeriodo(desde?: string, hasta?: string, tipoPeriodo?: string): strin
   return `${MESES[d.month - 1]} ${d.year}`;
 }
 
+/** Neutral by default; red only for overdue (H-09). */
 function estadoColor(estado: string): string {
-  if (estado === 'PAGADA') return 'var(--accent-emerald)';
   if (estado === 'VENCIDA') return 'var(--accent-red)';
   if (estado === 'ANULADA') return 'var(--text-dim)';
-  return 'var(--accent-amber)';
+  if (estado === 'PAGADA') return 'var(--text-muted)';
+  return 'var(--text-secondary)';
+}
+
+/** Balance is red only when the invoice is overdue; a zero balance goes muted (H-09). */
+function saldoColor(f: FacturaDTO): string {
+  const saldo = f.saldoPendiente ?? 0;
+  if (!saldo) return 'var(--text-muted)';
+  return f.estado === 'VENCIDA' ? 'var(--accent-red)' : 'var(--text-primary)';
+}
+
+function etiquetaTipoPeriodo(tipo: string | null | undefined): string {
+  return tipo === 'ANUAL' ? 'Anual' : 'Mensual';
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -93,7 +107,7 @@ function estadoColor(estado: string): string {
 @Component({
   selector: 'app-facturacion',
   standalone: true,
-  imports: [MonedaPipe, FormsModule, QuickPaymentModalComponent, ServiciosParticularesComponent],
+  imports: [MonedaPipe, EstadoPipe, FormsModule, QuickPaymentModalComponent, ServiciosParticularesComponent],
   template: `
     <div class="screen">
       <!-- ── Header ── -->
@@ -125,40 +139,49 @@ function estadoColor(estado: string): string {
         <div class="screen-head__kpis">
           <div class="screen-kpi">
             <div class="eyebrow">Total facturado</div>
-            <div class="mono" style="font-size:18px;font-weight:500">
+            <div class="mono num" style="font-size:18px;font-weight:500">
               {{ fmtCurrency(kpis().totalFacturado) }}
             </div>
           </div>
           <div class="screen-kpi">
             <div class="eyebrow">Cobrado</div>
-            <div class="mono" style="font-size:18px;font-weight:500;color:var(--accent-emerald)">
+            <div class="mono num" style="font-size:18px;font-weight:500">
               {{ fmtCurrency(kpis().cobrado) }}
             </div>
           </div>
           <div class="screen-kpi">
             <div class="eyebrow">Pendiente</div>
-            <div class="mono" style="font-size:18px;font-weight:500;color:var(--accent-amber)">
+            <div
+              class="mono num"
+              style="font-size:18px;font-weight:500"
+              [style.color]="kpis().pendiente > 0 ? 'var(--accent-amber)' : 'var(--text-muted)'"
+            >
               {{ fmtCurrency(kpis().pendiente) }}
             </div>
           </div>
           <div class="screen-kpi">
             <div class="eyebrow">Vencidas</div>
-            <div class="mono" style="font-size:18px;font-weight:500;color:var(--accent-red)">
+            <div
+              class="mono num"
+              data-testid="kpi-vencidas"
+              style="font-size:18px;font-weight:500"
+              [style.color]="kpis().vencidas > 0 ? 'var(--accent-red)' : 'var(--text-muted)'"
+            >
               {{ kpis().vencidas }}
             </div>
           </div>
         </div>
         <p class="kpi-alcance" data-testid="kpi-conciliacion" style="margin:0;font-size:11.5px;color:var(--text-muted)">
-          Sólo facturas a afiliados (B2C). Facturado = Cobrado + Pendiente + Anulado ({{ kpis().anulado | moneda }}).
+          Sólo facturas a afiliados. Facturado = Cobrado + Pendiente + Anulado ({{ kpis().anulado | moneda }}).
         </p>
         </div>
 
         <div class="screen-head__actions">
           <button class="btn btn--ghost btn--sm" (click)="onExportCitiVentas()">
-            CITI Ventas (AFIP)
+            CITI Ventas (ARCA)
           </button>
           <button class="btn btn--ghost btn--sm" (click)="onExportCitiCompras()">
-            CITI Compras (AFIP)
+            CITI Compras (ARCA)
           </button>
           <button class="btn btn--primary btn--sm" (click)="openGenerarModal()">
             <svg
@@ -201,30 +224,30 @@ function estadoColor(estado: string): string {
             <line x1="12" y1="17" x2="12.01" y2="17" />
           </svg>
           <div>
-            <strong>MODO PRUEBAS AFIP — CAE SIMULADO</strong>
+            <strong>MODO PRUEBAS ARCA — CAE SIMULADO</strong>
             <div>
-              La integración fiscal con ARCA/AFIP está desactivada. Los comprobantes emitidos llevan
+              La integración fiscal con ARCA está desactivada. Los comprobantes emitidos llevan
               un CAE simulado y NO tienen validez fiscal.
             </div>
           </div>
         </div>
       }
 
-      <!-- ── Tabs B2C / B2B ── -->
+      <!-- ── Tabs afiliados / institucional ── -->
       <div class="ft-tabs">
         <button
           class="ft-tab"
           [attr.data-active]="tabActivo() === 'b2c'"
           (click)="tabActivo.set('b2c')"
         >
-          Facturación B2C
+          Afiliados
         </button>
         <button
           class="ft-tab"
           [attr.data-active]="tabActivo() === 'b2b'"
           (click)="tabActivo.set('b2b')"
         >
-          Facturación Institucional
+          Institucional
         </button>
         <button
           class="ft-tab"
@@ -281,8 +304,8 @@ function estadoColor(estado: string): string {
                 class="glass"
                 style="padding:10px;border-radius:10px;border:1px solid var(--border-glass)"
               >
-                <div class="eyebrow">Facturas B2B</div>
-                <div class="mono" style="font-size:18px;font-weight:600">
+                <div class="eyebrow">Facturas institucionales</div>
+                <div class="mono num" style="font-size:18px;font-weight:600">
                   {{ facturasInstitucionales().length }}
                 </div>
               </div>
@@ -291,7 +314,7 @@ function estadoColor(estado: string): string {
                 style="padding:10px;border-radius:10px;border:1px solid var(--border-glass)"
               >
                 <div class="eyebrow">Importe institucional</div>
-                <div class="mono" style="font-size:18px;font-weight:600;color:var(--accent-blue)">
+                <div class="mono num" style="font-size:18px;font-weight:600">
                   {{ fmtCurrency(kpisInstitucionales().totalFacturado) }}
                 </div>
               </div>
@@ -299,8 +322,12 @@ function estadoColor(estado: string): string {
                 class="glass"
                 style="padding:10px;border-radius:10px;border:1px solid var(--border-glass)"
               >
-                <div class="eyebrow">Deuda B2C vigente</div>
-                <div class="mono" style="font-size:18px;font-weight:600;color:var(--accent-amber)">
+                <div class="eyebrow">Deuda de afiliados vigente</div>
+                <div
+                  class="mono num"
+                  style="font-size:18px;font-weight:600"
+                  [style.color]="kpis().pendiente > 0 ? 'var(--accent-amber)' : 'var(--text-muted)'"
+                >
                   {{ fmtCurrency(kpis().pendiente) }}
                 </div>
               </div>
@@ -323,8 +350,8 @@ function estadoColor(estado: string): string {
                     <th>Contrato</th>
                     <th>Período desde</th>
                     <th>Período hasta</th>
-                    <th>Miembros</th>
-                    <th style="text-align:right">Importe total</th>
+                    <th class="num">Miembros</th>
+                    <th class="num">Importe total</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -335,10 +362,10 @@ function estadoColor(estado: string): string {
                           fc.contratoCobertura?.nombre ?? 'Contrato #' + fc.contratoCobertura?.id
                         }}
                       </td>
-                      <td class="mono micro">{{ fc.periodoDesde }}</td>
-                      <td class="mono micro">{{ fc.periodoHasta }}</td>
-                      <td>{{ fc.cantidadMiembrosFacturados }}</td>
-                      <td class="mono" style="text-align:right;font-weight:600">
+                      <td class="mono micro">{{ fmtDate(fc.periodoDesde) }}</td>
+                      <td class="mono micro">{{ fmtDate(fc.periodoHasta) }}</td>
+                      <td class="num">{{ fc.cantidadMiembrosFacturados }}</td>
+                      <td class="mono num" style="font-weight:600">
                         {{ fmtCurrency(fc.importeTotal) }}
                       </td>
                     </tr>
@@ -365,7 +392,7 @@ function estadoColor(estado: string): string {
               }
             </div>
             <div class="ft-filters">
-              <span class="eyebrow" style="white-space:nowrap">Período:</span>
+              <span class="eyebrow" style="white-space:nowrap">Tipo:</span>
               @for (t of ['MENSUAL', 'ANUAL', 'all']; track t) {
                 <button
                   class="filter-chip"
@@ -377,23 +404,75 @@ function estadoColor(estado: string): string {
               }
             </div>
           </div>
+          <div class="ft-toolbar">
+            <input
+              class="form-input ft-search"
+              type="search"
+              data-testid="buscar-factura"
+              placeholder="Buscar por N° de factura o grupo"
+              aria-label="Buscar por número de factura o grupo"
+              [ngModel]="busqueda()"
+              (ngModelChange)="busqueda.set($event)"
+            />
+            <label class="ft-filters">
+              <span class="eyebrow" style="white-space:nowrap">Emitidas desde</span>
+              <input
+                class="form-input"
+                type="date"
+                data-testid="fecha-desde"
+                [ngModel]="fechaDesde()"
+                (ngModelChange)="fechaDesde.set($event)"
+              />
+            </label>
+            <label class="ft-filters">
+              <span class="eyebrow" style="white-space:nowrap">hasta</span>
+              <input
+                class="form-input"
+                type="date"
+                data-testid="fecha-hasta"
+                [ngModel]="fechaHasta()"
+                (ngModelChange)="fechaHasta.set($event)"
+              />
+            </label>
+            @if (tipoUnico(); as tipo) {
+              <span class="mono micro" data-testid="tipo-unico" style="color:var(--text-muted)">
+                Todas las facturas visibles son de tipo {{ tipo }}
+              </span>
+            }
+            <button
+              class="btn btn--ghost btn--sm"
+              style="margin-left:auto"
+              data-testid="exportar-csv"
+              [disabled]="paged().length === 0"
+              (click)="exportarCsv(paged(), 'facturas')"
+            >
+              Exportar CSV
+            </button>
+          </div>
 
           @if (selectedCount() > 0) {
             <div
-              style="padding:10px 16px; margin:8px 16px; border-radius:8px; background:var(--bg-elevated); border:1px solid var(--accent-blue); display:flex; justify-content:space-between; align-items:center; font-size:12px"
+              data-testid="barra-seleccion"
+              style="padding:10px 16px; margin:8px 16px; border-radius:8px; background:var(--bg-elevated); border:1px solid var(--border-glass); display:flex; justify-content:space-between; align-items:center; font-size:12px"
             >
               <div style="display:flex; align-items:center; gap:8px">
                 <span style="font-weight:600; color:var(--text-primary)">
-                  {{ selectedCount() }} facturas seleccionadas
-                </span>
-                <span style="color:var(--text-muted); font-size:11px">
-                  (página visible, lote de {{ paged().length }})
+                  {{ selectedCount() === 1 ? '1 factura seleccionada' : selectedCount() + ' facturas seleccionadas' }}
                 </span>
               </div>
               <div style="display:flex; gap:8px">
-                <button class="btn btn--ghost btn--sm" style="color:var(--accent-red)" (click)="ejecutarAnulacionMasiva()">
-                  Anular seleccionadas
+                <button class="btn btn--ghost btn--sm" (click)="exportarCsv(filasSeleccionadas(), 'facturas-seleccionadas')">
+                  Exportar seleccionadas
                 </button>
+                @if (cobrableSeleccionada(); as unica) {
+                  <button
+                    class="btn btn--ghost btn--sm"
+                    data-testid="cobrar-seleccionada"
+                    (click)="openPayModal(unica)"
+                  >
+                    Registrar cobro
+                  </button>
+                }
                 <button class="btn btn--ghost btn--sm" (click)="clearSelection()">
                   Desmarcar todas
                 </button>
@@ -425,8 +504,12 @@ function estadoColor(estado: string): string {
                 <div style="font-size:13px;color:var(--text-muted)">
                   No hay facturas que mostrar
                 </div>
-                <div class="mono micro" style="margin-top:4px;color:var(--text-dim)">
-                  Generá la facturación mensual o anual desde el botón superior.
+                <div class="micro" style="margin-top:4px;color:var(--text-dim)">
+                  @if (hayFiltrosLocales()) {
+                    Ninguna factura de esta página coincide con la búsqueda o las fechas elegidas.
+                  } @else {
+                    Generá la facturación mensual o anual desde el botón superior.
+                  }
                 </div>
               </div>
             } @else {
@@ -440,12 +523,14 @@ function estadoColor(estado: string): string {
                         (change)="toggleAllB2c($any($event.target).checked)"
                       />
                     </th>
-                    <th>N° Factura</th>
+                    <th>N° factura</th>
                     <th>Período</th>
                     <th>Grupo</th>
-                    <th style="text-align:right">Importe</th>
-                    <th style="text-align:right">Saldo</th>
-                    <th>Tipo</th>
+                    <th class="num">Importe</th>
+                    <th class="num">Saldo</th>
+                    @if (!tipoUnico()) {
+                      <th>Tipo</th>
+                    }
                     <th>Estado</th>
                     <th>Emisión</th>
                     <th style="width:48px"></th>
@@ -468,24 +553,32 @@ function estadoColor(estado: string): string {
                         {{ fmtPeriodo(f.periodoDesde, f.periodoHasta, f.tipoPeriodo) }}
                       </td>
                       <td class="mono micro">{{ f.grupoNumeroCuenta ?? '—' }}</td>
-                      <td class="mono" style="text-align:right;font-weight:600;font-size:13px">
+                      <td
+                        class="mono num"
+                        style="font-weight:600;font-size:13px"
+                        [style.color]="f.importeTotal ? 'var(--text-primary)' : 'var(--text-muted)'"
+                      >
                         {{ fmtCurrency(f.importeTotal) }}
                       </td>
-                      <td class="mono" style="text-align:right;font-size:13px" [style.color]="(f.saldoPendiente ?? 0) > 0 ? 'var(--accent-red)' : 'var(--text-muted)'" [style.font-weight]="(f.saldoPendiente ?? 0) > 0 ? '700' : '400'">
+                      <td
+                        class="mono num"
+                        data-testid="saldo"
+                        style="font-size:13px"
+                        [style.color]="saldoColor(f)"
+                        [style.font-weight]="f.estado === 'VENCIDA' && (f.saldoPendiente ?? 0) > 0 ? '700' : '400'"
+                      >
                         {{ fmtCurrency(f.saldoPendiente ?? 0) }}
                       </td>
+                      @if (!tipoUnico()) {
+                        <td>
+                          <span class="period-badge" [attr.data-type]="f.tipoPeriodo">
+                            {{ etiquetaTipoPeriodo(f.tipoPeriodo) }}
+                          </span>
+                        </td>
+                      }
                       <td>
-                        <span class="period-badge" [attr.data-type]="f.tipoPeriodo">
-                          {{ f.tipoPeriodo === 'ANUAL' ? 'Anual' : 'Mensual' }}
-                        </span>
-                      </td>
-                      <td>
-                        <span
-                          class="mono micro"
-                          style="text-transform:uppercase;letter-spacing:0.1em;font-weight:600"
-                          [style.color]="estadoColor(f.estado)"
-                        >
-                          ● {{ f.estado }}
+                        <span style="font-size:12px;font-weight:600" [style.color]="estadoColor(f.estado)">
+                          ● {{ f.estado | estado }}
                         </span>
                       </td>
                       <td class="mono micro" style="color:var(--text-muted)">
@@ -498,13 +591,22 @@ function estadoColor(estado: string): string {
                             style="font-size:11px;height:26px;padding:0 8px"
                             (click)="openPayModal(f)"
                           >
-                            Cobrar
+                            Registrar cobro
                           </button>
                         }
                       </td>
                     </tr>
                   }
                 </tbody>
+                <tfoot>
+                  <tr data-testid="fila-totales" class="ft-totales">
+                    <td></td>
+                    <td colspan="3">Total de las {{ paged().length }} facturas visibles</td>
+                    <td class="mono num">{{ fmtCurrency(totalesVisibles().importe) }}</td>
+                    <td class="mono num">{{ fmtCurrency(totalesVisibles().saldo) }}</td>
+                    <td [attr.colspan]="tipoUnico() ? 3 : 4"></td>
+                  </tr>
+                </tfoot>
               </table>
             }
           </div>
@@ -515,8 +617,8 @@ function estadoColor(estado: string): string {
               <div class="mono micro" style="color:var(--text-muted)">
                 Mostrando <strong style="color:var(--text-primary)">{{ paged().length }}</strong> de
                 <strong style="color:var(--text-primary)">{{ tableTotal() }}</strong>
-                @if (periodoFilter() !== 'all') {
-                  <span style="color:var(--text-dim)"> (filtro de período aplicado solo sobre esta página)</span>
+                @if (periodoFilter() !== 'all' || hayFiltrosLocales()) {
+                  <span style="color:var(--text-dim)"> (tipo, búsqueda y fechas se aplican sólo sobre esta página)</span>
                 }
               </div>
               <div style="display:flex;gap:4px;align-items:center">
@@ -590,8 +692,8 @@ function estadoColor(estado: string): string {
                 <thead>
                   <tr>
                     <th>ID</th>
-                    <th>Doc ID</th>
-                    <th>Monto Débito</th>
+                    <th>Documento</th>
+                    <th class="num">Monto del débito</th>
                     <th>Motivo / Causa</th>
                     <th>Estado</th>
                     <th>Acciones</th>
@@ -602,11 +704,11 @@ function estadoColor(estado: string): string {
                     <tr [class.bg-blue-500/10]="debitoFocoId() === d.id">
                       <td>#{{ d.id }}</td>
                       <td>Doc #{{ d.documentoId }}</td>
-                      <td>{{ d.montoDebito | moneda }}</td>
-                      <td>{{ d.motivo || d.causaPrincipal || 'Sin motivo' }}</td>
+                      <td class="mono num">{{ d.montoDebito | moneda }}</td>
+                      <td>{{ d.motivo || (d.causaPrincipal ? (d.causaPrincipal | estado) : 'Sin motivo') }}</td>
                       <td>
                         <span class="status-badge" [attr.data-status]="d.estado.toLowerCase()">
-                          {{ d.estado }}
+                          {{ d.estado | estado }}
                         </span>
                       </td>
                       <td>
@@ -642,7 +744,7 @@ function estadoColor(estado: string): string {
             <div
               style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px"
             >
-              <div class="eyebrow" style="color:var(--accent-emerald)">DÉBITOS AUTOMÁTICOS B2C</div>
+              <div class="eyebrow" style="color:var(--accent-emerald)">DÉBITOS AUTOMÁTICOS DE AFILIADOS</div>
             </div>
 
             <div
@@ -1108,6 +1210,20 @@ function estadoColor(estado: string): string {
         align-items: center;
         gap: 6px;
       }
+      .ft-search {
+        min-width: 240px;
+      }
+      .num,
+      .data-table th.num,
+      .data-table td.num {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .ft-totales td {
+        font-weight: 600;
+        border-top: 1px solid var(--border-hairline);
+        color: var(--text-primary);
+      }
       .filter-chip {
         height: 28px;
         padding: 0 12px;
@@ -1521,15 +1637,29 @@ export class FacturacionComponent implements OnInit {
     this.selectedIds.set(new Set());
   }
 
-  ejecutarAnulacionMasiva(): void {
-    const count = this.selectedCount();
-    if (count === 0) return;
-    this.feedback.push({
-      type: 'info',
-      title: 'Acción masiva completada',
-      message: `Se procesó la anulación masiva de ${count} facturas (página visible).`,
-    });
-    this.clearSelection();
+  /** Selected invoices of the loaded page, in table order. */
+  readonly filasSeleccionadas = computed(() => {
+    const ids = this.selectedIds();
+    return this.tableRows().filter((f) => ids.has(f.id));
+  });
+
+  /** The bulk bar offers «Registrar cobro» only for exactly one invoice that can still be charged. */
+  readonly cobrableSeleccionada = computed<FacturaDTO | null>(() => {
+    const filas = this.filasSeleccionadas();
+    if (filas.length !== 1) return null;
+    const f = filas[0];
+    return f.estado === 'PAGADA' || f.estado === 'ANULADA' ? null : f;
+  });
+
+  csvDeFilas(filas: FacturaDTO[]): string {
+    return facturasACsv(filas, (f) => fmtPeriodo(f.periodoDesde, f.periodoHasta, f.tipoPeriodo));
+  }
+
+  exportarCsv(filas: FacturaDTO[], nombre: string): void {
+    if (filas.length === 0) return;
+    const hoy = DateUtils.now();
+    const sufijo = `${hoy.year}${String(hoy.month).padStart(2, '0')}${String(hoy.day).padStart(2, '0')}`;
+    descargarCsv(this.csvDeFilas(filas), `${nombre}_${sufijo}.csv`);
   }
 
   // ── Constants ──
@@ -1579,7 +1709,7 @@ export class FacturacionComponent implements OnInit {
         this.feedback.push({
           type: 'success',
           title: 'Estado actualizado',
-          message: `Débito #${id} actualizado a ${nuevoEstado}.`,
+          message: `Débito #${id} actualizado a «${etiquetaEstado(nuevoEstado)}».`,
         });
       },
       error: (err) => this.feedback.fromHttpError(err),
@@ -1617,6 +1747,10 @@ export class FacturacionComponent implements OnInit {
   readonly facturas = signal<FacturaDTO[]>([]);
   readonly estadoFilter = signal<EstadoFactura | 'all'>('all');
   readonly periodoFilter = signal<string>('all');
+  /** Client-side filters over the loaded page: invoice number or group, and emission date range. */
+  readonly busqueda = signal('');
+  readonly fechaDesde = signal('');
+  readonly fechaHasta = signal('');
   readonly page = signal(0);
 
   // Tabla paginada server-side (S0-12)
@@ -1638,7 +1772,7 @@ export class FacturacionComponent implements OnInit {
   readonly savingPay = signal(false);
   readonly payError = signal<string | null>(null);
 
-  // ── Estado emisión fiscal ARCA/AFIP ──
+  // ── Estado emisión fiscal ARCA ──
   // La fuente de verdad es el backend (GET /api/arca/status), NO environment.production del
   // frontend: los flags que gobiernan la emisión real/simulada viven en el servidor y el build del
   // frontend podría estar desactualizado respecto de la configuración real desplegada. El backend
@@ -1653,6 +1787,8 @@ export class FacturacionComponent implements OnInit {
       numero: f.numeroFactura,
       periodo: fmtPeriodo(f.periodoDesde, f.periodoHasta, f.tipoPeriodo),
       importe: f.saldoPendiente ?? f.importeTotal,
+      // Who is being charged: the invoice belongs to a family group (item 010).
+      patientLabel: f.grupoNumeroCuenta ? `Grupo ${f.grupoNumeroCuenta}` : undefined,
     };
   });
 
@@ -1668,8 +1804,44 @@ export class FacturacionComponent implements OnInit {
    */
   readonly paged = computed(() => {
     const per = this.periodoFilter();
-    const rows = this.tableRows();
-    return per === 'all' ? rows : rows.filter((f) => f.tipoPeriodo === per);
+    const texto = this.busqueda().trim().toLowerCase();
+    const desde = this.fechaDesde();
+    const hasta = this.fechaHasta();
+    return this.tableRows().filter((f) => {
+      if (per !== 'all' && f.tipoPeriodo !== per) return false;
+      if (texto) {
+        const numero = (f.numeroFactura ?? '').toLowerCase();
+        const grupo = (f.grupoNumeroCuenta ?? '').toLowerCase();
+        if (!numero.includes(texto) && !grupo.includes(texto)) return false;
+      }
+      const emision = (f.fechaEmision ?? '').slice(0, 10);
+      if (desde && (!emision || emision < desde)) return false;
+      if (hasta && (!emision || emision > hasta)) return false;
+      return true;
+    });
+  });
+
+  readonly hayFiltrosLocales = computed(
+    () => !!this.busqueda().trim() || !!this.fechaDesde() || !!this.fechaHasta(),
+  );
+
+  /** Totals of the visible rows (H-07). */
+  readonly totalesVisibles = computed(() =>
+    this.paged().reduce(
+      (acc, f) => ({
+        importe: acc.importe + (Number(f.importeTotal) || 0),
+        saldo: acc.saldo + (Number(f.saldoPendiente) || 0),
+      }),
+      { importe: 0, saldo: 0 },
+    ),
+  );
+
+  /** "Mensual"/"Anual" when every visible row shares it, so the column is not repeated (H-18). */
+  readonly tipoUnico = computed<string | null>(() => {
+    const filas = this.paged();
+    if (filas.length === 0) return null;
+    const primero = filas[0].tipoPeriodo;
+    return filas.every((f) => f.tipoPeriodo === primero) ? etiquetaTipoPeriodo(primero) : null;
   });
 
   readonly totalPages = computed(() => Math.max(1, Math.ceil(this.tableTotal() / this.PAGE_SIZE)));
@@ -1750,7 +1922,7 @@ export class FacturacionComponent implements OnInit {
   private loadArcaStatus(): void {
     // Consulta el flag modoPruebas del backend (derivado como !arcaEnabled && caeSimuladoHabilitado):
     // si la integración ARCA está desactivada y la simulación está habilitada por configuración se
-    // advierte con el banner "MODO PRUEBAS AFIP — CAE SIMULADO", porque los comprobantes emitidos
+    // advierte con el banner "MODO PRUEBAS ARCA — CAE SIMULADO", porque los comprobantes emitidos
     // llevan un CAE simulado y NO tienen validez fiscal. Si el endpoint falla se asume modo real
     // (false) para no mostrar una advertencia errónea.
     this.api
@@ -1926,6 +2098,8 @@ export class FacturacionComponent implements OnInit {
   readonly fmtDate = fmtDate;
   readonly fmtPeriodo = fmtPeriodo;
   readonly estadoColor = estadoColor;
+  readonly saldoColor = saldoColor;
+  readonly etiquetaTipoPeriodo = etiquetaTipoPeriodo;
 
   @HostListener('document:keydown.escape')
   onEsc(): void {

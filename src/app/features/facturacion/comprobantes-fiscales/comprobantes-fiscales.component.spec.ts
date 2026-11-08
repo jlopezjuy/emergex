@@ -99,8 +99,9 @@ describe('ComprobantesFiscalesComponent (TDD Spec - S6-T2)', () => {
   it('muestra los comprobantes devueltos por el servicio', () => {
     expect(component.comprobantes().length).toBe(3);
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.textContent).toContain('FACTURA_A');
-    expect(compiled.textContent).toContain('FACTURA_B');
+    expect(compiled.textContent).toContain('Factura A');
+    expect(compiled.textContent).toContain('Factura B');
+    expect(compiled.textContent).not.toContain('FACTURA_A');
     expect(compiled.textContent).toContain('12.100,00');
   });
 
@@ -153,5 +154,21 @@ describe('ComprobantesFiscalesComponent (TDD Spec - S6-T2)', () => {
     const errorEl = compiled.querySelector('[data-testid="error-3"]');
     expect(errorEl).toBeTruthy();
     expect(errorEl?.textContent).toContain('Error 10014');
+  });
+
+  it('muestra punto de venta y número como enteros con ceros a la izquierda, nunca como decimales', () => {
+    const compiled = fixture.nativeElement as HTMLElement;
+    const pv = compiled.querySelector('[data-testid="pv-1"]');
+    const nro = compiled.querySelector('[data-testid="nro-1"]');
+    expect(pv?.textContent?.trim()).toBe('0004');
+    expect(nro?.textContent?.trim()).toBe('00000001');
+    expect(compiled.textContent).not.toContain('0,004');
+    expect(compiled.textContent).not.toContain('0.004');
+  });
+
+  it('usa números tabulares en los importes', () => {
+    const compiled = fixture.nativeElement as HTMLElement;
+    const monto = compiled.querySelector('[data-testid="monto-1"]') as HTMLElement;
+    expect(monto.classList.contains('num')).toBe(true);
   });
 });

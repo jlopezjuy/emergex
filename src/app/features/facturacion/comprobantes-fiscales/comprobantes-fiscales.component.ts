@@ -1,13 +1,40 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
-import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ComprobantesFiscalesApiService, ComprobanteFiscalDTO } from '../../../data-access/api/comprobantes-fiscales.api';
 import { MonedaPipe } from '../../../shared/pipes/moneda.pipe';
+import { FechaPipe } from '../../../shared/pipes/fecha.pipe';
+
+/** Fiscal numbers are identifiers, not quantities: "0004" and "00000001", never "0,004". */
+export function numeroFiscal(valor: number | string | null | undefined, digitos: number): string {
+  if (valor === null || valor === undefined || valor === '') return '—';
+  const entero = String(valor).replace(/\D/g, '');
+  return entero ? entero.padStart(digitos, '0') : '—';
+}
+
+const PALABRAS_TIPO: Record<string, string> = { CREDITO: 'crédito', DEBITO: 'débito' };
+
+/** "FACTURA_A" -> "Factura A", "NOTA_CREDITO_B" -> "Nota crédito B". */
+export function etiquetaTipoComprobante(tipo: string | null | undefined): string {
+  if (!tipo) return '—';
+  const palabras = tipo.split('_').map((p) =>
+    p.length === 1 ? p.toUpperCase() : (PALABRAS_TIPO[p] ?? p.toLowerCase()),
+  );
+  const texto = palabras.join(' ');
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
 
 @Component({
   selector: 'app-comprobantes-fiscales',
   standalone: true,
-  imports: [MonedaPipe, CommonModule, DatePipe, DecimalPipe, FormsModule],
+  imports: [MonedaPipe, FechaPipe, CommonModule, FormsModule],
+  styles: [
+    `
+      .num {
+        font-variant-numeric: tabular-nums;
+      }
+    `,
+  ],
   template: `
     <div class="h-full flex flex-col overflow-hidden">
       <!-- ── Banner de Modo Simulado ──────────────────────────────────────── -->
@@ -22,7 +49,7 @@ import { MonedaPipe } from '../../../shared/pipes/moneda.pipe';
             <line x1="12" y1="9" x2="12" y2="13"></line>
             <line x1="12" y1="17" x2="12.01" y2="17"></line>
           </svg>
-          <span>MODO DE PRUEBAS ACTIVO: La emisión real hacia ARCA está desactivada. Los comprobantes se generan con CAE simulado sin validez fiscal.</span>
+          <span>Modo de pruebas: la emisión real hacia ARCA está desactivada. Los comprobantes se generan con CAE simulado sin validez fiscal.</span>
         </div>
       }
 
@@ -41,8 +68,8 @@ import { MonedaPipe } from '../../../shared/pipes/moneda.pipe';
             </svg>
           </div>
           <div>
-            <h1 class="font-semibold text-lg" style="color:var(--text-primary);">Bandeja Fiscal ARCA</h1>
-            <p class="text-xs mt-0.5 font-mono" style="color:var(--text-muted);">COMPROBANTES FISCALES ELECTRÓNICOS Y FACTURACIÓN</p>
+            <h1 class="font-semibold text-lg" style="color:var(--text-primary);">Comprobantes fiscales (ARCA)</h1>
+            <p class="text-xs mt-0.5" style="color:var(--text-muted);">Comprobantes electrónicos emitidos y su estado ante ARCA</p>
           </div>
         </div>
 
@@ -51,7 +78,7 @@ import { MonedaPipe } from '../../../shared/pipes/moneda.pipe';
           <div class="flex items-center gap-2">
             <input
               type="number"
-              placeholder="ID Documento..."
+              placeholder="N.º de documento"
               [ngModel]="documentoIdInput()"
               (ngModelChange)="documentoIdInput.set($event)"
               class="px-3 py-1.5 rounded-lg text-xs font-mono outline-none"
@@ -67,7 +94,7 @@ import { MonedaPipe } from '../../../shared/pipes/moneda.pipe';
               @if (emitLoading()) {
                 <span>Emitiendo...</span>
               } @else {
-                <span>+ Emitir Fiscal</span>
+                <span>+ Emitir comprobante</span>
               }
             </button>
           </div>
@@ -96,7 +123,7 @@ import { MonedaPipe } from '../../../shared/pipes/moneda.pipe';
             [style.color]="filtroEstado() === 'PENDIENTE_CAE' ? 'var(--accent-cyan, #06b6d4)' : 'var(--text-muted)'"
             (click)="setFiltroEstado('PENDIENTE_CAE')"
           >
-            En Trámite ({{ totalPendientes() }})
+            En trámite ({{ totalPendientes() }})
           </button>
           <button
             type="button"
@@ -129,15 +156,15 @@ import { MonedaPipe } from '../../../shared/pipes/moneda.pipe';
             <thead>
               <tr style="border-bottom:1px solid var(--border-glass);background:rgba(0,0,0,0.2);color:var(--text-muted);">
                 <th class="py-3 px-4 font-semibold">Tipo</th>
-                <th class="py-3 px-4 font-semibold">P. Venta</th>
-                <th class="py-3 px-4 font-semibold">Número</th>
+                <th class="py-3 px-4 font-semibold text-right">Punto de venta</th>
+                <th class="py-3 px-4 font-semibold text-right">Número</th>
                 <th class="py-3 px-4 font-semibold">Fecha</th>
-                <th class="py-3 px-4 font-semibold">Receptor / Doc</th>
-                <th class="py-3 px-4 font-semibold text-right">Monto Total</th>
+                <th class="py-3 px-4 font-semibold">Receptor / documento</th>
+                <th class="py-3 px-4 font-semibold text-right">Monto total</th>
                 <th class="py-3 px-4 font-semibold">Estado</th>
-                <th class="py-3 px-4 font-semibold">CAE / Vencimiento</th>
+                <th class="py-3 px-4 font-semibold">CAE / vencimiento</th>
                 <th class="py-3 px-4 font-semibold">Reintentos</th>
-                <th class="py-3 px-4 font-semibold">Detalle / Error</th>
+                <th class="py-3 px-4 font-semibold">Detalle / error</th>
               </tr>
             </thead>
             <tbody>
@@ -146,17 +173,17 @@ import { MonedaPipe } from '../../../shared/pipes/moneda.pipe';
                   class="transition-colors hover:bg-white/5"
                   style="border-bottom:1px solid var(--border-glass);color:var(--text-primary);"
                 >
-                  <td class="py-3 px-4 font-bold font-mono">{{ c.tipoComprobante }}</td>
-                  <td class="py-3 px-4 font-mono">{{ c.puntoVenta | number:'4.0-0' }}</td>
-                  <td class="py-3 px-4 font-mono">{{ c.numeroComprobante | number:'8.0-0' }}</td>
-                  <td class="py-3 px-4 font-mono text-muted">{{ c.fechaEmision | date:'dd/MM/yyyy' }}</td>
+                  <td class="py-3 px-4 font-semibold">{{ etiquetaTipo(c.tipoComprobante) }}</td>
+                  <td class="py-3 px-4 font-mono num text-right" [attr.data-testid]="'pv-' + c.id">{{ numeroFiscal(c.puntoVenta, 4) }}</td>
+                  <td class="py-3 px-4 font-mono num text-right" [attr.data-testid]="'nro-' + c.id">{{ numeroFiscal(c.numeroComprobante, 8) }}</td>
+                  <td class="py-3 px-4 font-mono num text-muted">{{ c.fechaEmision | fecha }}</td>
                   <td class="py-3 px-4">
                     <div class="font-semibold">{{ c.receptorNombre || 'Financiador' }}</div>
                     @if (c.documentoComercialId) {
-                      <div class="text-[10px] font-mono text-muted">Doc ID: {{ c.documentoComercialId }}</div>
+                      <div class="text-[10px] text-muted">Documento {{ c.documentoComercialId }}</div>
                     }
                   </td>
-                  <td class="py-3 px-4 text-right font-mono font-semibold">
+                  <td class="py-3 px-4 text-right font-mono font-semibold num" [attr.data-testid]="'monto-' + c.id">
                     {{ c.montoTotal | moneda }}
                   </td>
                   <td class="py-3 px-4">
@@ -187,15 +214,15 @@ import { MonedaPipe } from '../../../shared/pipes/moneda.pipe';
                   </td>
                   <td class="py-3 px-4 font-mono">
                     @if (c.cae) {
-                      <div class="font-bold text-green-400">{{ c.cae }}</div>
+                      <div class="font-semibold num" style="color:var(--text-primary);">{{ c.cae }}</div>
                       @if (c.vencimientoCae) {
-                        <div class="text-[10px] text-muted">Vto: {{ c.vencimientoCae | date:'dd/MM/yyyy' }}</div>
+                        <div class="text-[10px] text-muted">Vence: {{ c.vencimientoCae | fecha }}</div>
                       }
                     } @else {
                       <span class="text-muted italic">-</span>
                     }
                   </td>
-                  <td class="py-3 px-4 font-mono text-muted">
+                  <td class="py-3 px-4 font-mono num text-muted">
                     {{ c.retryCount }} / {{ c.maxRetries }}
                   </td>
                   <td class="py-3 px-4">
@@ -228,6 +255,9 @@ import { MonedaPipe } from '../../../shared/pipes/moneda.pipe';
 })
 export class ComprobantesFiscalesComponent implements OnInit {
   private api = inject(ComprobantesFiscalesApiService);
+
+  readonly numeroFiscal = numeroFiscal;
+  readonly etiquetaTipo = etiquetaTipoComprobante;
 
   comprobantes = signal<ComprobanteFiscalDTO[]>([]);
   filtroEstado = signal<string | null>(null);
