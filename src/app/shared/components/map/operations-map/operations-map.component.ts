@@ -685,12 +685,33 @@ export class OperationsMapComponent implements OnDestroy {
     const nombre = nombreIcono(color, enMovimiento, bucket);
     if (this.map && !this.map.hasImage(nombre)) {
       try {
+        // Respaldo inmediato (dibujo 2D con volumen): el sprite 3D tarda un instante en estar listo.
         this.map.addImage(nombre, generateAmbulanceImageData(color, enMovimiento, bucket), { pixelRatio: DENSIDAD_ICONO });
+        void this.mejorarIcono(nombre, color, enMovimiento, bucket);
       } catch {
         // ya registrado por otra actualización en curso
       }
     }
     return nombre;
+  }
+
+  /** `true` una vez que se comprobó que el navegador no puede renderizar en 3D: no se reintenta. */
+  private render3dNoDisponible = false;
+
+  /**
+   * Reemplaza en el lugar el sprite de respaldo por el renderizado en 3D (three.js). La librería se
+   * carga recién acá, en un chunk aparte. Si no hay WebGL o falla, el respaldo se queda como está.
+   */
+  private async mejorarIcono(nombre: string, color: string, enMovimiento: boolean, bucket: number): Promise<void> {
+    if (this.render3dNoDisponible) return;
+    try {
+      const { renderizarAmbulancia3D } = await import('./ambulance-3d');
+      const imagen = renderizarAmbulancia3D({ colorEstado: color, enMovimiento, rumbo: rumboDeBucket(bucket), densidad: DENSIDAD_ICONO });
+      if (this.map?.hasImage(nombre)) this.map.updateImage(nombre, imagen);
+    } catch (error) {
+      this.render3dNoDisponible = true;
+      console.warn('No se pudo renderizar la ambulancia en 3D; se usa el dibujo 2D.', error);
+    }
   }
 
   /** Última posición y último rumbo mostrados por unidad, para deducir y conservar el rumbo. */
