@@ -77,4 +77,15 @@ describe('TesoreriaApi (TDD Integration Spec)', () => {
     expect(req.request.method).toBe('POST');
     req.flush({ id: 5, montoFisicoContado: 4800 });
   });
+  it('debería enviar GET a /api/v2/tesoreria/cajas/:id/movimientos para ver el historial de la caja (017)', () => {
+    let recibidos = 0;
+    service.obtenerMovimientosCaja(7).subscribe((res) => {
+      recibidos = res.length;
+    });
+
+    const req = httpMock.expectOne((r) => r.url === `${environment.apiUrl}/api/v2/tesoreria/cajas/7/movimientos`);
+    expect(req.request.method).toBe('GET');
+    req.flush([{ id: 1, tipo: 'INGRESO', monto: 100, concepto: 'Coseguro' }]);
+    expect(recibidos).toBe(1);
+  });
 });

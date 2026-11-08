@@ -16,6 +16,10 @@ export interface MovimientoCaja {
   tipo: 'INGRESO' | 'EGRESO';
   monto: number;
   concepto: string;
+  /** Not exposed by the backend yet (MovimientoCaja has no date column); shown when present. */
+  fecha?: string;
+  /** Not exposed by the backend yet (MovimientoCaja has no user column); shown when present. */
+  usuario?: string;
 }
 
 export interface ArqueoCaja {
@@ -57,6 +61,11 @@ export class TesoreriaApi {
       .set('monto', monto)
       .set('concepto', concepto);
     return this.http.post<MovimientoCaja>(`${this.apiUrl}/cajas/${cajaId}/movimientos`, null, { params });
+  }
+
+  /** Movements of one cash box, scoped by tenant in the backend (GET /cajas/{id}/movimientos). */
+  obtenerMovimientosCaja(cajaId: number): Observable<MovimientoCaja[]> {
+    return this.http.get<MovimientoCaja[]>(`${this.apiUrl}/cajas/${cajaId}/movimientos`);
   }
 
   realizarArqueoCaja(cajaId: number, montoFisicoContado: number, justificacion?: string): Observable<ArqueoCaja> {
