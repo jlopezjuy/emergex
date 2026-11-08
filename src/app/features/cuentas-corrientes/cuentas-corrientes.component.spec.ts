@@ -175,4 +175,104 @@ describe('CuentasCorrientesComponent (F0-07)', () => {
     const nota = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="aging-alcance"]');
     expect(nota?.textContent).toContain('Las cuotas de afiliados se controlan en Facturación');
   });
+
+  describe('UX contable (T3)', () => {
+    const texto = (el: Element | null) => (el?.textContent ?? '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+
+    it('uses a normal page header with a plain-language subtitle (S2, S10)', () => {
+      const fixture = TestBed.createComponent(CuentasCorrientesComponent);
+      fixture.detectChanges();
+      const el = fixture.nativeElement as HTMLElement;
+
+      expect(el.textContent).toContain('Movimientos de cuenta corriente. No se pueden borrar ni editar.');
+      expect(el.textContent).not.toContain('Append-Only');
+      expect(el.querySelector('header')!.className).not.toContain('bg-slate-900');
+    });
+
+    it('shows $0 aging buckets muted and a zero «Total vencido» without red (S3)', () => {
+      ledgerApiMock.getAgingDeuda.mockReturnValueOnce(
+        of({ noVencido: 0, tramo0a30: 5000, tramo31a60: 0, tramo61a90: 0, tramo90plus: 0, totalVencido: 0 }),
+      );
+      const fixture = TestBed.createComponent(CuentasCorrientesComponent);
+      fixture.detectChanges();
+      const el = fixture.nativeElement as HTMLElement;
+
+      const noVencido = el.querySelector('[data-testid="aging-noVencido"]')!;
+      expect(noVencido.className).not.toContain('green');
+      expect(noVencido.className).toContain('bg-slate-50');
+      const tramo31 = el.querySelector('[data-testid="aging-tramo31a60"]')!;
+      expect(tramo31.className).not.toContain('amber');
+      const tramo0 = el.querySelector('[data-testid="aging-tramo0a30"]')!;
+      expect(tramo0.className).toContain('amber');
+      const total = el.querySelector('[data-testid="aging-totalVencido"]')!;
+      expect(total.className).not.toContain('red');
+    });
+
+    it('paints «Total vencido» red only when it is greater than zero (S3)', () => {
+      const fixture = TestBed.createComponent(CuentasCorrientesComponent);
+      fixture.detectChanges();
+      const total = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="aging-totalVencido"]')!;
+      expect(total.className).toContain('red');
+    });
+
+    it('shows movement types in plain Spanish (S2)', () => {
+      ledgerApiMock.getMovimientosCxc.mockReturnValueOnce(
+        of([{ id: 9, fechaContable: '2026-08-03', tipoMovimiento: 'CREDITO_COBRANZA', concepto: 'Recibo 1', montoDebe: 0, montoHaber: 100 }]),
+      );
+      const fixture = TestBed.createComponent(CuentasCorrientesComponent);
+      fixture.componentInstance.seleccionarTercero(tercero);
+      fixture.detectChanges();
+      const el = fixture.nativeElement as HTMLElement;
+
+      expect(texto(el.querySelector('[data-testid="tipo-movimiento"]'))).toBe('Cobro');
+      expect(el.textContent).not.toContain('CREDITO_COBRANZA');
+    });
+
+    it('adds a running «Saldo» column, debe − haber cumulative by date then id (S9)', () => {
+      ledgerApiMock.getMovimientosCxc.mockReturnValueOnce(
+        of([
+          { id: 3, fechaContable: '2026-08-05', tipoMovimiento: 'CREDITO_COBRANZA', concepto: 'Recibo', montoDebe: 0, montoHaber: 400 },
+          { id: 2, fechaContable: '2026-08-01', tipoMovimiento: 'DEBITO_DOCUMENTO', concepto: 'Factura B', montoDebe: 500, montoHaber: 0 },
+          { id: 1, fechaContable: '2026-08-01', tipoMovimiento: 'DEBITO_DOCUMENTO', concepto: 'Factura A', montoDebe: 1000, montoHaber: 0 },
+        ]),
+      );
+      const fixture = TestBed.createComponent(CuentasCorrientesComponent);
+      fixture.componentInstance.seleccionarTercero(tercero);
+      fixture.detectChanges();
+      const el = fixture.nativeElement as HTMLElement;
+
+      const header = Array.from(el.querySelectorAll('th')).find((th) => texto(th) === 'Saldo')!;
+      expect(header).toBeTruthy();
+      expect(header.className).toContain('text-right');
+      const filas = Array.from(el.querySelectorAll('[data-testid="fila-movimiento"]'));
+      expect(filas.map((f) => texto(f.querySelector('[data-testid="concepto"]')))).toEqual(['Factura A', 'Factura B', 'Recibo']);
+      expect(filas.map((f) => texto(f.querySelector('[data-testid="saldo-acumulado"]')))).toEqual([
+        '$ 1.000,00',
+        '$ 1.500,00',
+        '$ 1.100,00',
+      ]);
+    });
+
+    it('shows the CUIT formatted with dashes (S10)', () => {
+      const sinGuiones = { ...tercero, cuit: '30712345678' };
+      tercerosApiMock.buscar.mockReturnValueOnce(of([sinGuiones]));
+      const fixture = TestBed.createComponent(CuentasCorrientesComponent);
+      fixture.detectChanges();
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('30-71234567-8');
+
+      fixture.componentInstance.seleccionarTercero(sinGuiones);
+      fixture.detectChanges();
+      expect((fixture.nativeElement as HTMLElement).textContent).toContain('CUIT 30-71234567-8');
+    });
+
+    it('tells the cobro window who is being charged (S8)', () => {
+      const fixture = TestBed.createComponent(CuentasCorrientesComponent);
+      fixture.detectChanges();
+      fixture.componentInstance.abrirModalCobranza(5, 'Farmacia del Sur');
+      fixture.detectChanges();
+
+      const modal = (fixture.nativeElement as HTMLElement).querySelector('app-registrar-cobranza-modal')!;
+      expect(modal.textContent).toContain('Farmacia del Sur');
+    });
+  });
 });

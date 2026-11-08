@@ -11,16 +11,28 @@ import {
   validarRetenciones,
 } from './retenciones-cobro';
 import { MonedaPipe } from '../../../../shared/pipes/moneda.pipe';
+import { FechaPipe } from '../../../../shared/pipes/fecha.pipe';
+import { formatFecha } from '../../../../core/i18n/formato';
+
+/** Today's local date as yyyy-mm-dd (toISOString would shift it to UTC). */
+function hoyIso(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 @Component({
   selector: 'app-registrar-cobranza-modal',
   standalone: true,
-  imports: [MonedaPipe, ReactiveFormsModule],
+  imports: [MonedaPipe, FechaPipe, ReactiveFormsModule],
   template: `
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
       <div class="bg-white text-gray-900 rounded-lg shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
         <div class="px-6 py-4 border-b flex justify-between items-center bg-gray-50">
-          <h3 class="text-lg font-semibold">Registrar Cobro</h3>
+          <div>
+            <h3 class="text-lg font-semibold">Registrar cobro</h3>
+            <p class="text-sm text-gray-600" data-testid="cobro-tercero">A: <span class="font-semibold text-gray-900">{{ terceroNombre || 'Tercero seleccionado' }}</span></p>
+            <p class="text-xs text-gray-500" data-testid="cobro-fecha">Fecha del cobro: hoy ({{ fechaHoy }})</p>
+          </div>
           <button type="button" class="text-gray-400 hover:text-gray-600" (click)="cerrar.emit()">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
           </button>
@@ -30,12 +42,12 @@ import { MonedaPipe } from '../../../../shared/pipes/moneda.pipe';
           <form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-4">
             <div class="grid grid-cols-2 gap-4">
               <div>
-                <label class="block text-sm font-medium text-gray-700">Número de Recibo</label>
+                <label class="block text-sm font-medium text-gray-700">Número de recibo</label>
                 <input type="text" formControlName="numeroRecibo" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2" placeholder="Ej: 0001-00000123">
               </div>
               <div>
-                <label class="block text-sm font-medium text-gray-700">Monto Total Cobrado</label>
-                <input type="number" formControlName="montoCobrado" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2">
+                <label class="block text-sm font-medium text-gray-700">Monto total cobrado</label>
+                <input type="number" formControlName="montoCobrado" (input)="montoEditadoAMano = true" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2 tabular-nums">
                 <p class="mt-1 text-xs text-gray-500">Total que cancela deuda, incluidas las retenciones.</p>
               </div>
               <div>
@@ -48,8 +60,8 @@ import { MonedaPipe } from '../../../../shared/pipes/moneda.pipe';
                 </select>
               </div>
               <div>
-                <label class="block text-sm font-medium text-gray-700">Moneda</label>
-                <input type="text" formControlName="moneda" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-100 sm:text-sm border p-2" readonly>
+                <span class="block text-sm font-medium text-gray-700">Moneda</span>
+                <p class="mt-1 py-2 text-sm text-gray-900" data-testid="moneda">Pesos ({{ form.value.moneda }})</p>
               </div>
             </div>
 
@@ -105,36 +117,45 @@ import { MonedaPipe } from '../../../../shared/pipes/moneda.pipe';
             </div>
 
             <div class="mt-6">
-              <h4 class="text-md font-medium text-gray-700 mb-2">Documentos Pendientes</h4>
-              <p class="text-sm text-gray-500 mb-4">Seleccione los documentos a imputar (hasta cubrir el monto cobrado).</p>
+              <h4 class="text-md font-medium text-gray-700 mb-2">Documentos pendientes</h4>
+              <p class="text-sm text-gray-500 mb-4">Seleccioná los documentos a imputar (hasta cubrir el monto cobrado). Al marcarlos se completa el monto cobrado; lo podés ajustar.</p>
               
               <div class="overflow-x-auto border rounded-md">
                 <table class="min-w-full divide-y divide-gray-200">
                   <thead class="bg-gray-50">
                     <tr>
-                      <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Documento</th>
-                      <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vencimiento</th>
-                      <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Saldo Pendiente</th>
-                      <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">A Imputar</th>
+                      <th class="px-4 py-3 text-left text-xs font-medium text-gray-500"><span class="sr-only">Seleccionar</span></th>
+                      <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Documento</th>
+                      <th class="px-4 py-3 text-left text-xs font-medium text-gray-500">Vencimiento</th>
+                      <th class="px-4 py-3 text-right text-xs font-medium text-gray-500">Saldo pendiente</th>
+                      <th class="px-4 py-3 text-right text-xs font-medium text-gray-500">A imputar</th>
                     </tr>
                   </thead>
                   <tbody class="bg-white divide-y divide-gray-200">
                     @for (doc of documentosPendientes; track doc.id) {
                       <tr>
+                        <td class="px-4 py-3 text-sm">
+                          <input type="checkbox"
+                                 data-testid="seleccionar-documento"
+                                 [attr.aria-label]="'Imputar ' + doc.numeroDocumento"
+                                 [checked]="imputaciones()[doc.id] > 0"
+                                 (change)="seleccionarDocumento(doc.id, $any($event.target).checked)">
+                        </td>
                         <td class="px-4 py-3 whitespace-nowrap text-sm">{{ doc.numeroDocumento }}</td>
-                        <td class="px-4 py-3 whitespace-nowrap text-sm">{{ doc.fechaVencimiento || 'N/A' }}</td>
-                        <td class="px-4 py-3 whitespace-nowrap text-sm text-right font-medium text-gray-900">{{ doc.saldoPendiente | moneda }}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm tabular-nums">{{ doc.fechaVencimiento | fecha }}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-right font-medium text-gray-900 tabular-nums">{{ doc.saldoPendiente | moneda }}</td>
                         <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
-                          <input type="number" 
-                                 class="w-24 border-gray-300 rounded-md text-right border p-1 sm:text-sm"
+                          <input type="number"
+                                 class="w-24 border-gray-300 rounded-md text-right border p-1 sm:text-sm tabular-nums"
                                  [max]="doc.saldoPendiente"
                                  min="0"
+                                 [value]="imputaciones()[doc.id] || ''"
                                  (input)="onImputarChange(doc.id, $event)">
                         </td>
                       </tr>
                     } @empty {
                       <tr>
-                        <td colspan="4" class="px-4 py-8 text-center text-gray-500 text-sm">No hay documentos pendientes para este tercero.</td>
+                        <td colspan="5" class="px-4 py-8 text-center text-gray-500 text-sm">No hay documentos pendientes para este tercero.</td>
                       </tr>
                     }
                   </tbody>
@@ -142,8 +163,8 @@ import { MonedaPipe } from '../../../../shared/pipes/moneda.pipe';
               </div>
               
               <div class="mt-4 flex justify-between bg-blue-50 p-3 rounded-md">
-                <span class="text-sm font-medium text-blue-800">Total a imputar: {{ totalAImputar() | moneda }}</span>
-                <span class="text-sm font-medium text-blue-800">Saldo remanente del recibo: {{ saldoRemanente() | moneda }}</span>
+                <span class="text-sm font-medium text-blue-800 tabular-nums">Total a imputar: {{ totalAImputar() | moneda }}</span>
+                <span class="text-sm font-medium text-blue-800 tabular-nums">Saldo sin imputar del recibo: {{ saldoRemanente() | moneda }}</span>
               </div>
               @if (errorImputacion() ?? error(); as mensaje) {
                 <div class="mt-2 text-sm text-red-600 bg-red-50 p-2 rounded">{{ mensaje }}</div>
@@ -156,11 +177,12 @@ import { MonedaPipe } from '../../../../shared/pipes/moneda.pipe';
           <button type="button" class="px-4 py-2 border rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50" (click)="cerrar.emit()">
             Cancelar
           </button>
-          <button type="button" 
+          <button type="button"
+                  data-testid="confirmar-cobro"
                   class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400"
                   [disabled]="form.invalid || subiendo() || hasImputacionError() || errorRetenciones() !== null"
                   (click)="onSubmit()">
-            {{ subiendo() ? 'Registrando...' : 'Registrar Cobranza' }}
+            {{ subiendo() ? 'Registrando...' : 'Registrar cobro' }}
           </button>
         </div>
       </div>
@@ -183,6 +205,9 @@ export class RegistrarCobranzaModalComponent {
   /** ID del tercero (TerceroEmpresa) para el que se registra la cobranza. */
   @Input({ required: true }) terceroEmpresaId!: number;
 
+  /** Nombre del tercero, para que el encabezado diga a quién se le cobra. */
+  @Input() terceroNombre = '';
+
   /** Documentos comerciales con saldo pendiente del tercero, provistos por el componente padre. */
   @Input() documentosPendientes: DocumentoPendienteDTO[] = [];
 
@@ -203,6 +228,15 @@ export class RegistrarCobranzaModalComponent {
     // Obligatorio en la pantalla; el backend lo acepta vacío sólo por compatibilidad con clientes viejos.
     medioPago: ['', [Validators.required]],
   });
+
+  /** The backend stamps the cobro with the current date; the DTO has no date field. */
+  readonly fechaHoy = formatFecha(hoyIso());
+
+  /**
+   * Once the user types the amount, selecting documents no longer overwrites it: the
+   * automatic fill is a starting point, not a lock.
+   */
+  montoEditadoAMano = false;
 
   readonly mediosPago = MEDIOS_PAGO;
   readonly tiposRetencion = TIPOS_RETENCION;
@@ -266,6 +300,23 @@ export class RegistrarCobranzaModalComponent {
     }
 
     this.imputaciones.update((prev) => ({ ...prev, [docId]: finalValue }));
+    this.sincronizarMontoCobrado();
+  }
+
+  /**
+   * Marks or unmarks a document: marking imputes its whole pending balance, unmarking clears it.
+   * The total collected follows the imputed total until the user edits it by hand.
+   */
+  seleccionarDocumento(docId: number, seleccionado: boolean): void {
+    const doc = this.documentosPendientes.find((d) => d.id === docId);
+    const monto = seleccionado && doc ? doc.saldoPendiente : 0;
+    this.imputaciones.update((prev) => ({ ...prev, [docId]: monto }));
+    this.sincronizarMontoCobrado();
+  }
+
+  private sincronizarMontoCobrado(): void {
+    if (this.montoEditadoAMano) return;
+    this.form.patchValue({ montoCobrado: Math.round(this.totalAImputar() * 100) / 100 });
   }
 
   /** Calcula el total de montos a imputar entre todos los documentos seleccionados. */

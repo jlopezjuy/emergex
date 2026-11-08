@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, inject, DestroyRef } from '@angular/core';
+import { Component, OnInit, signal, inject, DestroyRef, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -9,6 +9,8 @@ import { KpiCardComponent } from '../../../shared/components/kpi-card/kpi-card.c
 import { LoadingStateComponent } from '../../../shared/components/loading-state/loading-state.component';
 import { EmptyStateComponent } from '../../../shared/components/empty-state/empty-state.component';
 import { ErrorStateComponent } from '../../../shared/components/error-state/error-state.component';
+import { MonedaPipe } from '../../../shared/pipes/moneda.pipe';
+import { FechaPipe } from '../../../shared/pipes/fecha.pipe';
 
 export type ReporteTab = 'FINANCIERO' | 'COMPRAS' | 'PADRON';
 
@@ -22,6 +24,8 @@ export type ReporteTab = 'FINANCIERO' | 'COMPRAS' | 'PADRON';
     LoadingStateComponent,
     EmptyStateComponent,
     ErrorStateComponent,
+    MonedaPipe,
+    FechaPipe,
   ],
   template: `
     <div class="p-6 max-w-7xl mx-auto flex flex-col gap-6">
@@ -29,10 +33,10 @@ export type ReporteTab = 'FINANCIERO' | 'COMPRAS' | 'PADRON';
       <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 class="text-xl font-bold" style="color: var(--text-primary);">
-            Reportes Administrativos Consolidados
+            Reportes administrativos
           </h1>
           <p class="text-xs" style="color: var(--text-muted);">
-            Indicadores financieros, gestión de compras y métricas de padrón de contratos
+            Cobranzas y deuda, compras a proveedores, padrón y contratos
           </p>
         </div>
 
@@ -63,7 +67,7 @@ export type ReporteTab = 'FINANCIERO' | 'COMPRAS' | 'PADRON';
             class="px-4 py-2 text-xs font-bold rounded-lg text-white transition-opacity bg-blue-600 hover:opacity-90 flex items-center gap-1.5"
             (click)="exportarCsvActual()"
           >
-            <span>📥</span> Exportar CSV
+            Exportar CSV
           </button>
         </div>
       </div>
@@ -77,7 +81,7 @@ export type ReporteTab = 'FINANCIERO' | 'COMPRAS' | 'PADRON';
           [style.color]="tabActiva() === 'FINANCIERO' ? 'var(--accent-blue)' : 'var(--text-muted)'"
           (click)="setTab('FINANCIERO')"
         >
-          <span>💰</span> Financiero & Aging
+          Financiero y antigüedad de deuda
         </button>
         <button
           type="button"
@@ -86,7 +90,7 @@ export type ReporteTab = 'FINANCIERO' | 'COMPRAS' | 'PADRON';
           [style.color]="tabActiva() === 'COMPRAS' ? 'var(--accent-blue)' : 'var(--text-muted)'"
           (click)="setTab('COMPRAS')"
         >
-          <span>🛒</span> Compras & CxP
+          Compras y cuentas a pagar
         </button>
         <button
           type="button"
@@ -95,7 +99,7 @@ export type ReporteTab = 'FINANCIERO' | 'COMPRAS' | 'PADRON';
           [style.color]="tabActiva() === 'PADRON' ? 'var(--accent-blue)' : 'var(--text-muted)'"
           (click)="setTab('PADRON')"
         >
-          <span>📋</span> Padrón & Contratos
+          Padrón y contratos
         </button>
       </div>
 
@@ -108,9 +112,9 @@ export type ReporteTab = 'FINANCIERO' | 'COMPRAS' | 'PADRON';
         @if (tabActiva() === 'FINANCIERO') {
           <div class="flex flex-col gap-6">
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <emx-kpi-card label="Total Cobranza" [value]="financiero()?.totalCobranza | currency:'ARS':'symbol-narrow':'1.2-2'" accentColor="emerald" />
-              <emx-kpi-card label="Total Deuda Pendiente" [value]="financiero()?.totalDeuda | currency:'ARS':'symbol-narrow':'1.2-2'" accentColor="red" />
-              <emx-kpi-card label="Débitos Procesados" [value]="financiero()?.totalDebitos | currency:'ARS':'symbol-narrow':'1.2-2'" accentColor="amber" />
+              <emx-kpi-card label="Total cobrado" [value]="financiero()?.totalCobranza | moneda" accentColor="emerald" />
+              <emx-kpi-card label="Total deuda pendiente" [value]="financiero()?.totalDeuda | moneda" [accentColor]="acentoDeuda()" />
+              <emx-kpi-card label="Débitos procesados" [value]="financiero()?.totalDebitos | moneda" accentColor="amber" />
             </div>
             <p class="text-xs -mt-3" style="color: var(--text-muted);" data-testid="reporte-alcance">
               Cobranza: recibos registrados en Cuentas corrientes. Deuda pendiente: documentos de Cuentas corrientes.
@@ -119,8 +123,8 @@ export type ReporteTab = 'FINANCIERO' | 'COMPRAS' | 'PADRON';
 
             <!-- Tabla de Facturación por Cliente -->
             <div class="glass rounded-panel p-4 border flex flex-col gap-3" style="border-color: var(--border-glass);">
-              <h3 class="text-sm font-bold uppercase tracking-wider" style="color: var(--text-primary);">
-                Resumen de Facturación y Saldo por Cliente
+              <h3 class="text-sm font-bold" style="color: var(--text-primary);">
+                Facturación y saldo por cliente
               </h3>
               @if ((financiero()?.facturacionPorCliente?.length || 0) === 0) {
                 <emx-empty-state message="Sin registros de facturación por cliente en el período." />
@@ -128,20 +132,20 @@ export type ReporteTab = 'FINANCIERO' | 'COMPRAS' | 'PADRON';
                 <div class="overflow-x-auto">
                   <table class="w-full text-left text-xs border-collapse">
                     <thead>
-                      <tr class="border-b text-muted font-semibold uppercase tracking-wider" style="border-color: var(--border-glass); color: var(--text-muted);">
+                      <tr class="border-b text-muted font-semibold" style="border-color: var(--border-glass); color: var(--text-muted);">
                         <th class="py-2 px-3">Cliente</th>
                         <th class="py-2 px-3 text-right">Facturado</th>
                         <th class="py-2 px-3 text-right">Cobrado</th>
-                        <th class="py-2 px-3 text-right">Saldo Pendiente</th>
+                        <th class="py-2 px-3 text-right">Saldo pendiente</th>
                       </tr>
                     </thead>
                     <tbody>
                       @for (c of financiero()?.facturacionPorCliente; track c.clienteId) {
                         <tr class="border-b hover:bg-black/5 dark:hover:bg-white/5 transition-colors" style="border-color: var(--border-glass); color: var(--text-primary);">
                           <td class="py-2.5 px-3 font-semibold">{{ c.nombreCliente }}</td>
-                          <td class="py-2.5 px-3 text-right font-mono">{{ c.totalFacturado | currency:'ARS':'symbol-narrow':'1.2-2' }}</td>
-                          <td class="py-2.5 px-3 text-right font-mono text-green-600">{{ c.totalCobrado | currency:'ARS':'symbol-narrow':'1.2-2' }}</td>
-                          <td class="py-2.5 px-3 text-right font-mono text-red-500 font-bold">{{ c.saldoPendiente | currency:'ARS':'symbol-narrow':'1.2-2' }}</td>
+                          <td class="py-2.5 px-3 text-right tabular-nums">{{ c.totalFacturado | moneda }}</td>
+                          <td class="py-2.5 px-3 text-right tabular-nums">{{ c.totalCobrado | moneda }}</td>
+                          <td class="py-2.5 px-3 text-right tabular-nums font-bold" [class.text-slate-400]="!c.saldoPendiente">{{ c.saldoPendiente | moneda }}</td>
                         </tr>
                       }
                     </tbody>
@@ -156,16 +160,16 @@ export type ReporteTab = 'FINANCIERO' | 'COMPRAS' | 'PADRON';
         @if (tabActiva() === 'COMPRAS') {
           <div class="flex flex-col gap-6">
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <emx-kpi-card label="Total CxP Proveedores" [value]="compras()?.totalCuentasPorPagar | currency:'ARS':'symbol-narrow':'1.2-2'" accentColor="blue" />
-              <emx-kpi-card label="Proveedores Registrados" [value]="compras()?.gastoPorProveedor?.length" accentColor="cyan" />
-              <emx-kpi-card label="Centros de Costo Imputados" [value]="compras()?.gastoPorCentroCosto?.length" accentColor="amber" />
-              <emx-kpi-card label="Próximos Pagos" [value]="compras()?.pagosProximos?.length" accentColor="red" />
+              <emx-kpi-card label="Total a pagar a proveedores" [value]="compras()?.totalCuentasPorPagar | moneda" accentColor="blue" />
+              <emx-kpi-card label="Proveedores con compras" [value]="compras()?.gastoPorProveedor?.length" accentColor="cyan" />
+              <emx-kpi-card label="Centros de costo con gasto" [value]="compras()?.gastoPorCentroCosto?.length" accentColor="amber" />
+              <emx-kpi-card label="Próximos pagos" [value]="compras()?.pagosProximos?.length" accentColor="amber" />
             </div>
 
             <!-- Tabla de Gasto por Proveedor -->
             <div class="glass rounded-panel p-4 border flex flex-col gap-3" style="border-color: var(--border-glass);">
-              <h3 class="text-sm font-bold uppercase tracking-wider" style="color: var(--text-primary);">
-                Gasto Consolidado por Proveedor
+              <h3 class="text-sm font-bold" style="color: var(--text-primary);">
+                Gasto por proveedor
               </h3>
               @if ((compras()?.gastoPorProveedor?.length || 0) === 0) {
                 <emx-empty-state message="Sin compras acumuladas en el período seleccionado." />
@@ -173,16 +177,16 @@ export type ReporteTab = 'FINANCIERO' | 'COMPRAS' | 'PADRON';
                 <div class="overflow-x-auto">
                   <table class="w-full text-left text-xs border-collapse">
                     <thead>
-                      <tr class="border-b text-muted font-semibold uppercase tracking-wider" style="border-color: var(--border-glass); color: var(--text-muted);">
-                        <th class="py-2 px-3">Razón Social</th>
-                        <th class="py-2 px-3 text-right">Total Acumulado</th>
+                      <tr class="border-b text-muted font-semibold" style="border-color: var(--border-glass); color: var(--text-muted);">
+                        <th class="py-2 px-3">Razón social</th>
+                        <th class="py-2 px-3 text-right">Total acumulado</th>
                       </tr>
                     </thead>
                     <tbody>
                       @for (p of compras()?.gastoPorProveedor; track p.proveedorId) {
                         <tr class="border-b hover:bg-black/5 dark:hover:bg-white/5 transition-colors" style="border-color: var(--border-glass); color: var(--text-primary);">
                           <td class="py-2.5 px-3 font-semibold">{{ p.razonSocial }}</td>
-                          <td class="py-2.5 px-3 text-right font-mono font-bold">{{ p.totalGasto | currency:'ARS':'symbol-narrow':'1.2-2' }}</td>
+                          <td class="py-2.5 px-3 text-right tabular-nums font-bold">{{ p.totalGasto | moneda }}</td>
                         </tr>
                       }
                     </tbody>
@@ -197,18 +201,18 @@ export type ReporteTab = 'FINANCIERO' | 'COMPRAS' | 'PADRON';
         @if (tabActiva() === 'PADRON') {
           <div class="flex flex-col gap-6">
             <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-              <emx-kpi-card label="Afiliados Activos" [value]="padron()?.totalAfiliadosActivos" accentColor="cyan" />
-              <emx-kpi-card label="Altas en Período" [value]="padron()?.altasEnPeriodo" accentColor="emerald" />
-              <emx-kpi-card label="Bajas en Período" [value]="padron()?.bajasEnPeriodo" accentColor="red" />
-              <emx-kpi-card label="Grupos Fam." [value]="padron()?.totalGruposFamiliares" accentColor="blue" />
-              <emx-kpi-card label="Contratos Activos" [value]="padron()?.contratosActivos" accentColor="amber" />
-              <emx-kpi-card label="Contratos x Vencer" [value]="padron()?.contratosPorVencer" accentColor="red" />
+              <emx-kpi-card label="Afiliados activos" [value]="padron()?.totalAfiliadosActivos" accentColor="cyan" />
+              <emx-kpi-card label="Altas en el período" [value]="padron()?.altasEnPeriodo" accentColor="emerald" />
+              <emx-kpi-card label="Bajas en el período" [value]="padron()?.bajasEnPeriodo" accentColor="red" />
+              <emx-kpi-card label="Grupos familiares" [value]="padron()?.totalGruposFamiliares" accentColor="blue" />
+              <emx-kpi-card label="Contratos activos" [value]="padron()?.contratosActivos" accentColor="amber" />
+              <emx-kpi-card label="Contratos por vencer" [value]="padron()?.contratosPorVencer" accentColor="amber" />
             </div>
 
             <!-- Tabla Resumen de Contratos por Vencer -->
             <div class="glass rounded-panel p-4 border flex flex-col gap-3" style="border-color: var(--border-glass);">
-              <h3 class="text-sm font-bold uppercase tracking-wider" style="color: var(--text-primary);">
-                Contratos Próximos a Vencer
+              <h3 class="text-sm font-bold" style="color: var(--text-primary);">
+                Contratos próximos a vencer
               </h3>
               @if ((padron()?.resumenContratosPorVencer?.length || 0) === 0) {
                 <emx-empty-state message="Sin contratos próximos a vencer." />
@@ -216,20 +220,20 @@ export type ReporteTab = 'FINANCIERO' | 'COMPRAS' | 'PADRON';
                 <div class="overflow-x-auto">
                   <table class="w-full text-left text-xs border-collapse">
                     <thead>
-                      <tr class="border-b text-muted font-semibold uppercase tracking-wider" style="border-color: var(--border-glass); color: var(--text-muted);">
-                        <th class="py-2 px-3">Contrato #</th>
+                      <tr class="border-b text-muted font-semibold" style="border-color: var(--border-glass); color: var(--text-muted);">
+                        <th class="py-2 px-3">Contrato N°</th>
                         <th class="py-2 px-3">Institución</th>
                         <th class="py-2 px-3">Vencimiento</th>
-                        <th class="py-2 px-3 text-right">Días Restantes</th>
+                        <th class="py-2 px-3 text-right">Días restantes</th>
                       </tr>
                     </thead>
                     <tbody>
                       @for (c of padron()?.resumenContratosPorVencer; track c.contratoId) {
                         <tr class="border-b hover:bg-black/5 dark:hover:bg-white/5 transition-colors" style="border-color: var(--border-glass); color: var(--text-primary);">
-                          <td class="py-2.5 px-3 font-mono font-bold">{{ c.numeroContrato }}</td>
+                          <td class="py-2.5 px-3 font-bold tabular-nums">{{ c.numeroContrato }}</td>
                           <td class="py-2.5 px-3 font-semibold">{{ c.institucionNombre }}</td>
-                          <td class="py-2.5 px-3">{{ c.fechaVencimiento }}</td>
-                          <td class="py-2.5 px-3 text-right font-mono font-bold text-red-500">{{ c.diasParaVencer }} días</td>
+                          <td class="py-2.5 px-3 tabular-nums">{{ c.fechaVencimiento | fecha }}</td>
+                          <td class="py-2.5 px-3 text-right tabular-nums font-bold text-amber-600">{{ c.diasParaVencer }} días</td>
                         </tr>
                       }
                     </tbody>
@@ -257,6 +261,9 @@ export class ReportesAdminComponent implements OnInit {
   readonly financiero = signal<ReporteFinancieroDTO | null>(null);
   readonly compras = signal<ReporteComprasDTO | null>(null);
   readonly padron = signal<ReportePadronContratosDTO | null>(null);
+
+  /** Pending debt is "attention", not an error: amber when there is some, neutral at $0. */
+  readonly acentoDeuda = computed<'amber' | 'cyan'>(() => ((this.financiero()?.totalDeuda ?? 0) > 0 ? 'amber' : 'cyan'));
 
   ngOnInit(): void {
     this.cargarReportes();

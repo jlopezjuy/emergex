@@ -114,4 +114,75 @@ describe('RegistrarCobranzaModalComponent — medio de pago y retenciones (QA-RO
     c.onSubmit();
     expect(registrar).not.toHaveBeenCalled();
   });
+
+  describe('ventana de cobro (S8)', () => {
+    const docs = [
+      { id: 1, numeroDocumento: 'FC-1', fechaEmision: '2026-10-01', fechaVencimiento: '2026-11-01', montoTotal: 1000, saldoPendiente: 1000, moneda: 'ARS' },
+      { id: 2, numeroDocumento: 'FC-2', fechaEmision: '2026-10-05', montoTotal: 800, saldoPendiente: 500, moneda: 'ARS' },
+    ];
+    const texto = (el: Element | null) => (el?.textContent ?? '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+
+    function crearConDocs() {
+      const fixture = crear();
+      fixture.componentRef.setInput('terceroNombre', 'Clínica del Valle');
+      fixture.componentRef.setInput('documentosPendientes', docs);
+      fixture.detectChanges();
+      return fixture;
+    }
+
+    it('shows who is being charged and today as the date of the cobro', () => {
+      const fixture = crearConDocs();
+      const el = fixture.nativeElement as HTMLElement;
+      const hoy = new Date();
+      const dd = String(hoy.getDate()).padStart(2, '0');
+      const mm = String(hoy.getMonth() + 1).padStart(2, '0');
+
+      expect(texto(el.querySelector('[data-testid="cobro-tercero"]'))).toContain('Clínica del Valle');
+      expect(el.textContent).toContain(`Fecha del cobro: hoy (${dd}/${mm}/${hoy.getFullYear()})`);
+    });
+
+    it('uses «Registrar cobro» as both title and button', () => {
+      const el = crearConDocs().nativeElement as HTMLElement;
+      expect(texto(el.querySelector('h3'))).toBe('Registrar cobro');
+      expect(texto(el.querySelector('[data-testid="confirmar-cobro"]'))).toBe('Registrar cobro');
+      expect(el.textContent).not.toContain('Registrar Cobranza');
+    });
+
+    it('shows the currency as plain text, not a read-only input', () => {
+      const el = crearConDocs().nativeElement as HTMLElement;
+      expect(el.querySelector('input[formControlName="moneda"]')).toBeNull();
+      expect(texto(el.querySelector('[data-testid="moneda"]'))).toContain('ARS');
+    });
+
+    it('talks with voseo', () => {
+      const el = crearConDocs().nativeElement as HTMLElement;
+      expect(el.textContent).toContain('Seleccioná los documentos');
+      expect(el.textContent).not.toContain('Seleccione');
+    });
+
+    it('fills «Monto total cobrado» when documents are selected, and the user can still edit it', () => {
+      const fixture = crearConDocs();
+      const el = fixture.nativeElement as HTMLElement;
+      const checks = el.querySelectorAll<HTMLInputElement>('input[type="checkbox"][data-testid="seleccionar-documento"]');
+      expect(checks.length).toBe(2);
+
+      checks[0].click();
+      checks[1].click();
+      fixture.detectChanges();
+      const monto = el.querySelector<HTMLInputElement>('input[formControlName="montoCobrado"]')!;
+      expect(fixture.componentInstance.form.value.montoCobrado).toBe(1500);
+      expect(monto.value).toBe('1500');
+      expect(fixture.componentInstance.totalAImputar()).toBe(1500);
+
+      monto.value = '1200';
+      monto.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      expect(fixture.componentInstance.form.value.montoCobrado).toBe(1200);
+
+      checks[1].click();
+      fixture.detectChanges();
+      expect(fixture.componentInstance.totalAImputar()).toBe(1000);
+      expect(fixture.componentInstance.form.value.montoCobrado).toBe(1200);
+    });
+  });
 });

@@ -77,4 +77,41 @@ describe('ReportesAdminComponent', () => {
     expect(component.loading()).toBe(false);
     expect(component.error()).toBeTruthy();
   });
+
+  const colorDeEtiqueta = (label: string): string => {
+    const span = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('emx-kpi-card span')).find(
+      (s) => s.textContent?.trim() === label,
+    ) as HTMLElement | undefined;
+    return span?.getAttribute('style') ?? '';
+  };
+
+  it('does not paint «Total deuda pendiente» red when it is zero (S3)', () => {
+    reportesApiSpy.financiero.mockReturnValue(of({ ...mockFinanciero, totalDeuda: 0 }));
+    fixture.detectChanges();
+    expect(colorDeEtiqueta('Total deuda pendiente')).not.toContain('accent-red');
+  });
+
+  it('uses plain Spanish labels with no ampersands or abbreviations (S2)', () => {
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).not.toContain('&');
+    expect(text).not.toContain('Aging');
+    expect(text).not.toContain('CxP');
+    expect(text).toContain('Financiero y antigüedad de deuda');
+  });
+
+  it('shows contract due dates as dd/mm/aaaa (S2)', () => {
+    reportesApiSpy.padronContratos.mockReturnValue(
+      of({
+        ...mockPadron,
+        resumenContratosPorVencer: [{ contratoId: 1, numeroContrato: 'C-1', institucionNombre: 'Club', fechaVencimiento: '2026-12-31', diasParaVencer: 10 }],
+      }),
+    );
+    fixture.detectChanges();
+    component.setTab('PADRON');
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('31/12/2026');
+    expect(text).not.toContain('2026-12-31');
+  });
 });

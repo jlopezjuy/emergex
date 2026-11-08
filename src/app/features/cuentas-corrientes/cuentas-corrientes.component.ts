@@ -10,19 +10,41 @@ import { CobranzasApiService, DocumentoPendienteDTO } from '../../data-access/ap
 import { RegistrarCobranzaModalComponent } from './components/registrar-cobranza-modal/registrar-cobranza-modal.component';
 import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
 import { FechaPipe } from '../../shared/pipes/fecha.pipe';
-import { leyendaSaldo } from '../../core/i18n/formato';
+import { EstadoPipe } from '../../shared/pipes/estado.pipe';
+import { CuitPipe } from '../../shared/pipes/cuit.pipe';
+import { etiquetaEstado, leyendaSaldo } from '../../core/i18n/formato';
+
+/** A ledger movement plus the running balance up to and including it. */
+export interface MovimientoConSaldo extends LedgerMovimientoDTO {
+  saldoAcumulado: number;
+}
+
+type TramoAging = 'noVencido' | 'tramo0a30' | 'tramo31a60' | 'tramo61a90' | 'tramo90plus';
+
+/**
+ * Orders movements by accounting date (ties by id) and adds the running balance,
+ * debe − haber cumulative, the same sign rule the backend uses for both books.
+ */
+export function conSaldoAcumulado(movimientos: LedgerMovimientoDTO[]): MovimientoConSaldo[] {
+  const ordenados = [...movimientos].sort(
+    (a, b) => (a.fechaContable ?? '').localeCompare(b.fechaContable ?? '') || a.id - b.id,
+  );
+  let saldo = 0;
+  return ordenados.map((m) => {
+    saldo += (Number(m.montoDebe) || 0) - (Number(m.montoHaber) || 0);
+    return { ...m, saldoAcumulado: Math.round(saldo * 100) / 100 };
+  });
+}
 
 @Component({
   selector: 'app-cuentas-corrientes',
   standalone: true,
-  imports: [MonedaPipe, FechaPipe, CommonModule, FormsModule, RegistrarCobranzaModalComponent],
+  imports: [MonedaPipe, FechaPipe, EstadoPipe, CuitPipe, CommonModule, FormsModule, RegistrarCobranzaModalComponent],
   template: `
     <div class="cxp-container p-6 space-y-6">
-      <header class="flex justify-between items-center bg-slate-900 text-white p-6 rounded-xl shadow-lg border border-slate-800">
-        <div>
-          <h1 class="text-2xl font-bold tracking-tight">Submayor de Cuentas Corrientes</h1>
-          <p class="text-slate-400 text-sm mt-1">Libro de Entrada Inmutable (Append-Only) para Auditoría Financiera SAE</p>
-        </div>
+      <header>
+        <h1 class="text-xl font-bold text-slate-800">Cuentas corrientes</h1>
+        <p class="text-sm text-slate-500 mt-1">Movimientos de cuenta corriente. No se pueden borrar ni editar.</p>
       </header>
 
       <section class="bg-white rounded-xl shadow p-6 border border-slate-200 space-y-3">
@@ -47,7 +69,7 @@ import { leyendaSaldo } from '../../core/i18n/formato';
                 (click)="seleccionarTercero(t)"
               >
                 <span class="font-medium text-slate-800">{{ t.nombreComercial || t.razonSocial }}</span>
-                <span class="text-slate-400 ml-2">{{ t.razonSocial }} · CUIT {{ t.cuit }}</span>
+                <span class="text-slate-400 ml-2">{{ t.razonSocial }} · CUIT {{ t.cuit | cuit }}</span>
               </li>
             }
           </ul>
@@ -61,29 +83,23 @@ import { leyendaSaldo } from '../../core/i18n/formato';
           Las cuotas de afiliados se controlan en Facturación.
         </p>
         <section class="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <div class="bg-green-50 border border-green-200 rounded-xl p-4 shadow-sm">
-            <p class="text-xs font-semibold text-green-700 uppercase">No Vencido</p>
-            <p class="text-xl font-bold text-green-900 mt-1">{{ agingDeuda()?.noVencido | moneda }}</p>
-          </div>
-          <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 shadow-sm">
-            <p class="text-xs font-semibold text-amber-700 uppercase">0–30 días</p>
-            <p class="text-xl font-bold text-amber-900 mt-1">{{ agingDeuda()?.tramo0a30 | moneda }}</p>
-          </div>
-          <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 shadow-sm">
-            <p class="text-xs font-semibold text-amber-700 uppercase">31–60 días</p>
-            <p class="text-xl font-bold text-amber-900 mt-1">{{ agingDeuda()?.tramo31a60 | moneda }}</p>
-          </div>
-          <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 shadow-sm">
-            <p class="text-xs font-semibold text-amber-700 uppercase">61–90 días</p>
-            <p class="text-xl font-bold text-amber-900 mt-1">{{ agingDeuda()?.tramo61a90 | moneda }}</p>
-          </div>
-          <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 shadow-sm">
-            <p class="text-xs font-semibold text-amber-700 uppercase">+90 días</p>
-            <p class="text-xl font-bold text-amber-900 mt-1">{{ agingDeuda()?.tramo90plus | moneda }}</p>
-          </div>
-          <div class="bg-red-50 border border-red-200 rounded-xl p-4 shadow-sm md:col-span-5 flex justify-between items-center">
-            <p class="text-sm font-semibold text-red-700 uppercase">Total Vencido</p>
-            <p class="text-2xl font-bold text-red-900">{{ agingDeuda()?.totalVencido | moneda }}</p>
+          @for (tramo of tramosAging; track tramo.clave) {
+            <div
+              class="border rounded-xl p-4 shadow-sm"
+              [attr.data-testid]="'aging-' + tramo.clave"
+              [ngClass]="claseTramo(tramo.clave, tramo.color)"
+            >
+              <p class="text-xs font-semibold">{{ tramo.etiqueta }}</p>
+              <p class="text-xl font-bold mt-1 tabular-nums">{{ montoTramo(tramo.clave) | moneda }}</p>
+            </div>
+          }
+          <div
+            class="border rounded-xl p-4 shadow-sm md:col-span-5 flex justify-between items-center"
+            data-testid="aging-totalVencido"
+            [ngClass]="(agingDeuda()?.totalVencido ?? 0) > 0 ? 'bg-red-50 border-red-200 text-red-800' : 'bg-slate-50 border-slate-200 text-slate-500'"
+          >
+            <p class="text-sm font-semibold">Total vencido</p>
+            <p class="text-2xl font-bold tabular-nums">{{ agingDeuda()?.totalVencido | moneda }}</p>
           </div>
         </section>
       }
@@ -128,21 +144,21 @@ import { leyendaSaldo } from '../../core/i18n/formato';
                           <span class="text-slate-400 font-normal ml-1">({{ t.razonSocial }})</span>
                         }
                       </td>
-                      <td class="py-3 px-4 font-mono text-slate-500">{{ t.cuit || '—' }}</td>
+                      <td class="py-3 px-4 text-slate-500 tabular-nums">{{ t.cuit | cuit }}</td>
                       <td class="py-3 px-4 text-right space-x-2">
                         <button
                           type="button"
                           class="px-2.5 py-1 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition border border-blue-200"
                           (click)="seleccionarTercero(t)"
                         >
-                          Ver Submayor →
+                          Ver movimientos →
                         </button>
                         <button
                           type="button"
                           class="px-2.5 py-1 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition shadow-sm"
-                          (click)="abrirModalCobranza(t.id)"
+                          (click)="abrirModalCobranza(t.id, t.nombreComercial || t.razonSocial)"
                         >
-                          + Registrar Cobro
+                          + Registrar cobro
                         </button>
                       </td>
                     </tr>
@@ -159,11 +175,11 @@ import { leyendaSaldo } from '../../core/i18n/formato';
           <div class="flex justify-between items-start">
             <div>
               <h2 class="text-lg font-semibold text-slate-800">{{ tercero.nombreComercial || tercero.razonSocial }}</h2>
-              <p class="text-sm text-slate-500">{{ tercero.razonSocial }} · CUIT {{ tercero.cuit }}</p>
+              <p class="text-sm text-slate-500">{{ tercero.razonSocial }} · CUIT {{ tercero.cuit | cuit }}</p>
             </div>
             <div class="flex gap-2">
               @if (tipoSubmayor() === 'CXC') {
-                <button type="button" class="px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition" (click)="abrirModalCobranza(tercero.id)">Registrar Cobro</button>
+                <button type="button" class="px-3 py-1.5 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition" (click)="abrirModalCobranza(tercero.id, tercero.nombreComercial || tercero.razonSocial)">Registrar cobro</button>
               }
               <button type="button" class="px-3 py-1.5 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition" (click)="limpiarSeleccion()">Cambiar tercero</button>
             </div>
@@ -180,7 +196,7 @@ import { leyendaSaldo } from '../../core/i18n/formato';
               [class.text-slate-700]="tipoSubmayor() !== 'CXC'"
               class="px-4 py-2 text-xs font-bold rounded-lg transition shadow-sm"
             >
-              Cuentas por Cobrar (CxC — Clientes)
+              Cuentas a cobrar (clientes)
             </button>
             <button
               type="button"
@@ -191,7 +207,7 @@ import { leyendaSaldo } from '../../core/i18n/formato';
               [class.text-slate-700]="tipoSubmayor() !== 'CXP'"
               class="px-4 py-2 text-xs font-bold rounded-lg transition shadow-sm"
             >
-              Cuentas por Pagar (CxP — Proveedores)
+              Cuentas a pagar (proveedores)
             </button>
           </div>
 
@@ -204,49 +220,51 @@ import { leyendaSaldo } from '../../core/i18n/formato';
           } @else {
             <div class="bg-slate-50 border border-slate-200 rounded-lg p-4 flex justify-between items-center">
               <div>
-                <span class="text-xs font-bold uppercase tracking-wider block" [class.text-emerald-700]="tipoSubmayor() === 'CXC'" [class.text-amber-700]="tipoSubmayor() === 'CXP'">
+                <span class="text-xs font-bold block" [class.text-emerald-700]="tipoSubmayor() === 'CXC'" [class.text-amber-700]="tipoSubmayor() === 'CXP'">
                   {{ leyendaSaldo() }}
                 </span>
-                <span class="text-2xl font-extrabold text-slate-800" data-testid="saldo-submayor">{{ saldoAbsoluto() | moneda }}</span>
+                <span class="text-2xl font-extrabold text-slate-800 tabular-nums" data-testid="saldo-submayor">{{ saldoAbsoluto() | moneda }}</span>
               </div>
               <div class="flex items-center gap-2">
                 <button type="button" class="px-3 py-1.5 text-xs font-bold text-slate-700 bg-white hover:bg-slate-100 rounded-lg transition border border-slate-300" (click)="exportarCsvPage()">
-                  📥 Exportar CSV (Página)
+                  Exportar CSV
                 </button>
                 <span class="text-xs px-3 py-1 font-semibold rounded-full bg-slate-200 text-slate-700">
-                  Submayor {{ tipoSubmayor() }}
+                  {{ tipoSubmayor() === 'CXC' ? 'A cobrar' : 'A pagar' }}
                 </span>
               </div>
             </div>
 
             <table class="w-full text-left text-sm border-collapse">
               <thead>
-                <tr class="bg-slate-100 border-b border-slate-200 text-slate-600 font-semibold text-xs uppercase">
-                  <th class="p-3">ID</th>
-                  <th class="p-3">Fecha Contable</th>
-                  <th class="p-3">Tipo Movimiento</th>
+                <tr class="bg-slate-100 border-b border-slate-200 text-slate-600 font-semibold text-xs">
+                  <th class="p-3">N°</th>
+                  <th class="p-3">Fecha</th>
+                  <th class="p-3">Tipo</th>
                   <th class="p-3">Concepto</th>
-                  <th class="p-3 text-right">DEBE</th>
-                  <th class="p-3 text-right">HABER</th>
+                  <th class="p-3 text-right">Debe</th>
+                  <th class="p-3 text-right">Haber</th>
+                  <th class="p-3 text-right">Saldo</th>
                 </tr>
               </thead>
               <tbody>
-                @for (m of movimientos(); track m.id) {
-                  <tr class="border-b border-slate-100 hover:bg-slate-50">
-                    <td class="p-3 font-mono text-xs">{{ m.id }}</td>
-                    <td class="p-3">{{ m.fechaContable | fecha }}</td>
+                @for (m of movimientosConSaldo(); track m.id) {
+                  <tr class="border-b border-slate-100 hover:bg-slate-50" data-testid="fila-movimiento">
+                    <td class="p-3 text-xs text-slate-500 tabular-nums">{{ m.id }}</td>
+                    <td class="p-3 tabular-nums">{{ m.fechaContable | fecha }}</td>
                     <td class="p-3">
-                      <span class="px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-800">
-                        {{ m.tipoMovimiento }}
+                      <span class="px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-800" data-testid="tipo-movimiento">
+                        {{ m.tipoMovimiento | estado }}
                       </span>
                     </td>
-                    <td class="p-3 font-medium text-slate-800">{{ m.concepto }}</td>
-                    <td class="p-3 text-right font-mono font-semibold text-slate-800">{{ m.montoDebe | moneda }}</td>
-                    <td class="p-3 text-right font-mono font-semibold text-slate-800">{{ m.montoHaber | moneda }}</td>
+                    <td class="p-3 font-medium text-slate-800" data-testid="concepto">{{ m.concepto }}</td>
+                    <td class="p-3 text-right tabular-nums font-semibold" [ngClass]="m.montoDebe ? 'text-slate-800' : 'text-slate-400'">{{ m.montoDebe | moneda }}</td>
+                    <td class="p-3 text-right tabular-nums font-semibold" [ngClass]="m.montoHaber ? 'text-slate-800' : 'text-slate-400'">{{ m.montoHaber | moneda }}</td>
+                    <td class="p-3 text-right tabular-nums font-semibold text-slate-800" data-testid="saldo-acumulado">{{ m.saldoAcumulado | moneda }}</td>
                   </tr>
                 } @empty {
                   <tr>
-                    <td colspan="6" class="p-6 text-center text-slate-400">Sin movimientos registrados en {{ tipoSubmayor() }}.</td>
+                    <td colspan="7" class="p-6 text-center text-slate-400">Sin movimientos registrados en {{ tipoSubmayor() === 'CXC' ? 'cuentas a cobrar' : 'cuentas a pagar' }}.</td>
                   </tr>
                 }
               </tbody>
@@ -258,6 +276,7 @@ import { leyendaSaldo } from '../../core/i18n/formato';
       @if (mostrarModalCobranza()) {
         <app-registrar-cobranza-modal
           [terceroEmpresaId]="terceroCobroId()!"
+          [terceroNombre]="terceroCobroNombre()"
           [documentosPendientes]="documentosPendientes()"
           (cerrar)="mostrarModalCobranza.set(false)"
           (cobranzaRegistrada)="onCobranzaRegistrada(terceroCobroId()!)"
@@ -288,6 +307,17 @@ export class CuentasCorrientesComponent implements OnInit {
   /** The label already says who owes whom, so the amount is shown without sign. */
   readonly saldoAbsoluto = computed(() => Math.abs(this.saldo()));
   readonly movimientos = signal<LedgerMovimientoDTO[]>([]);
+  /** Movements in date order with the running balance (debe − haber), computed in the client. */
+  readonly movimientosConSaldo = computed(() => conSaldoAcumulado(this.movimientos()));
+
+  /** Aging buckets; a bucket is colored only when it holds money, $0 stays muted. */
+  readonly tramosAging: { clave: TramoAging; etiqueta: string; color: 'green' | 'amber' }[] = [
+    { clave: 'noVencido', etiqueta: 'No vencido', color: 'green' },
+    { clave: 'tramo0a30', etiqueta: '0 a 30 días', color: 'amber' },
+    { clave: 'tramo31a60', etiqueta: '31 a 60 días', color: 'amber' },
+    { clave: 'tramo61a90', etiqueta: '61 a 90 días', color: 'amber' },
+    { clave: 'tramo90plus', etiqueta: 'Más de 90 días', color: 'amber' },
+  ];
 
   readonly agingDeuda = signal<AgingDeudaDTO | null>(null);
   readonly loadingAging = signal(false);
@@ -301,6 +331,8 @@ export class CuentasCorrientesComponent implements OnInit {
    * tercero seleccionado (QA-ROL-019).
    */
   readonly terceroCobroId = signal<number | null>(null);
+  /** Name shown in the cobro window header so the user sees who is being charged. */
+  readonly terceroCobroNombre = signal<string>('');
   readonly documentosPendientes = signal<DocumentoPendienteDTO[]>([]);
 
   ngOnInit(): void {
@@ -418,11 +450,21 @@ export class CuentasCorrientesComponent implements OnInit {
     });
   }
 
-  abrirModalCobranza(terceroId: number): void {
+  montoTramo(clave: TramoAging): number | undefined {
+    return this.agingDeuda()?.[clave];
+  }
+
+  claseTramo(clave: TramoAging, color: 'green' | 'amber'): string {
+    if (!((this.montoTramo(clave) ?? 0) > 0)) return 'bg-slate-50 border-slate-200 text-slate-500';
+    return color === 'green' ? 'bg-green-50 border-green-200 text-green-800' : 'bg-amber-50 border-amber-200 text-amber-800';
+  }
+
+  abrirModalCobranza(terceroId: number, nombre = ''): void {
     this.cobranzasApi.getDocumentosPendientes(terceroId).subscribe({
       next: (docs) => {
         this.documentosPendientes.set(docs);
         this.terceroCobroId.set(terceroId);
+        this.terceroCobroNombre.set(nombre);
         this.mostrarModalCobranza.set(true);
       },
       error: (err) => {
@@ -443,11 +485,11 @@ export class CuentasCorrientesComponent implements OnInit {
   // NOTA F4-04: Exportación de página/lista visible actual según decisión humana #6.
   // Para iterar todo el filtro server-side a futuro, extender con llamadas paginadas.
   exportarCsvPage(): void {
-    const list = this.movimientos();
+    const list = this.movimientosConSaldo();
     if (!list || list.length === 0) return;
-    let csv = 'data:text/csv;charset=utf-8,ID,Fecha Contable,Tipo Movimiento,Concepto,Debe,Haber\n';
+    let csv = 'data:text/csv;charset=utf-8,N°,Fecha,Tipo,Concepto,Debe,Haber,Saldo\n';
     list.forEach((m) => {
-      csv += `${m.id},"${m.fechaContable || ''}","${m.tipoMovimiento || ''}","${m.concepto || ''}",${m.montoDebe || 0},${m.montoHaber || 0}\n`;
+      csv += `${m.id},"${m.fechaContable || ''}","${etiquetaEstado(m.tipoMovimiento)}","${m.concepto || ''}",${m.montoDebe || 0},${m.montoHaber || 0},${m.saldoAcumulado}\n`;
     });
     const encoded = encodeURI(csv);
     const a = document.createElement('a');
