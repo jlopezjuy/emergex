@@ -22,9 +22,21 @@ export interface AplicarCobranzaRequestDTO {
 export interface RegistrarCobranzaConImputacionesRequestDTO {
   terceroEmpresaId: number;
   numeroRecibo: string;
+  /** Total que cancela deuda (bruto): lo recibido es este monto menos las retenciones. */
   montoCobrado: number;
   moneda?: string;
   imputaciones: AplicarCobranzaRequestDTO[];
+  medioPago?: 'EFECTIVO' | 'TRANSFERENCIA' | 'CHEQUE' | 'OTRO';
+  retenciones?: RetencionSufridaDTO[];
+}
+
+/** Retención que el cliente practicó al pagar; cancela deuda pero no es plata recibida. */
+export interface RetencionSufridaDTO {
+  tipo: 'GANANCIAS' | 'IIBB' | 'IVA' | 'SUSS';
+  monto: number;
+  numeroCertificado: string;
+  /** Obligatoria sólo para IIBB. */
+  jurisdiccion?: string;
 }
 
 export interface RevertirAplicacionRequestDTO {

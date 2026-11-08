@@ -2,6 +2,15 @@ import { Component, EventEmitter, Input, Output, inject, signal } from '@angular
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { DecimalPipe } from '@angular/common';
 import { CobranzasApiService, DocumentoPendienteDTO } from '../../../../data-access/api/cobranzas.api';
+import {
+  MEDIOS_PAGO,
+  MedioPago,
+  RetencionForm,
+  TIPOS_RETENCION,
+  montoNeto,
+  retencionVacia,
+  validarRetenciones,
+} from './retenciones-cobro';
 
 @Component({
   selector: 'app-registrar-cobranza-modal',
@@ -27,11 +36,72 @@ import { CobranzasApiService, DocumentoPendienteDTO } from '../../../../data-acc
               <div>
                 <label class="block text-sm font-medium text-gray-700">Monto Total Cobrado</label>
                 <input type="number" formControlName="montoCobrado" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm border p-2">
+                <p class="mt-1 text-xs text-gray-500">Total que cancela deuda, incluidas las retenciones.</p>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Medio de pago</label>
+                <select formControlName="medioPago" data-testid="medio-pago" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm sm:text-sm border p-2 bg-white">
+                  <option value="" disabled>Seleccioná un medio</option>
+                  @for (m of mediosPago; track m.valor) {
+                    <option [value]="m.valor">{{ m.etiqueta }}</option>
+                  }
+                </select>
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-700">Moneda</label>
                 <input type="text" formControlName="moneda" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-100 sm:text-sm border p-2" readonly>
               </div>
+            </div>
+
+            <div class="mt-2">
+              <div class="flex items-center justify-between mb-2">
+                <h4 class="text-md font-medium text-gray-700">Retenciones sufridas</h4>
+                <button type="button" data-testid="agregar-retencion" class="text-sm font-medium text-indigo-600 hover:text-indigo-800" (click)="agregarRetencion()">
+                  + Agregar retención
+                </button>
+              </div>
+              <p class="text-xs text-gray-500 mb-2">Lo que el cliente retuvo al pagar. Cancela deuda igual que el cobro, pero no es plata recibida.</p>
+              @for (r of retenciones(); track $index; let i = $index) {
+                <div class="grid grid-cols-12 gap-2 mb-2 items-end" data-testid="fila-retencion">
+                  <div class="col-span-3">
+                    <label class="block text-xs text-gray-600">Tributo</label>
+                    <select class="block w-full rounded-md border border-gray-300 p-1.5 text-sm bg-white" [value]="r.tipo"
+                            (change)="actualizarRetencion(i, { tipo: $any($event.target).value })">
+                      @for (t of tiposRetencion; track t.valor) {
+                        <option [value]="t.valor" [selected]="t.valor === r.tipo">{{ t.etiqueta }}</option>
+                      }
+                    </select>
+                  </div>
+                  <div class="col-span-2">
+                    <label class="block text-xs text-gray-600">Monto</label>
+                    <input type="number" min="0" class="block w-full rounded-md border border-gray-300 p-1.5 text-sm" [value]="r.monto ?? ''"
+                           (input)="actualizarRetencion(i, { monto: $any($event.target).value === '' ? null : +$any($event.target).value })">
+                  </div>
+                  <div class="col-span-3">
+                    <label class="block text-xs text-gray-600">N° certificado</label>
+                    <input type="text" maxlength="50" class="block w-full rounded-md border border-gray-300 p-1.5 text-sm" [value]="r.numeroCertificado"
+                           (input)="actualizarRetencion(i, { numeroCertificado: $any($event.target).value })">
+                  </div>
+                  <div class="col-span-3">
+                    @if (r.tipo === 'IIBB') {
+                      <label class="block text-xs text-gray-600">Jurisdicción</label>
+                      <input type="text" maxlength="50" class="block w-full rounded-md border border-gray-300 p-1.5 text-sm" [value]="r.jurisdiccion"
+                             (input)="actualizarRetencion(i, { jurisdiccion: $any($event.target).value })">
+                    }
+                  </div>
+                  <div class="col-span-1 text-right">
+                    <button type="button" class="text-gray-400 hover:text-red-600 text-lg leading-none" aria-label="Quitar retención" (click)="quitarRetencion(i)">×</button>
+                  </div>
+                </div>
+              }
+              @if (errorRetenciones()) {
+                <div class="mt-1 text-sm text-red-600 bg-red-50 p-2 rounded">{{ errorRetenciones() }}</div>
+              }
+              @if (retenciones().length > 0) {
+                <div class="mt-2 text-sm font-medium text-gray-700 bg-gray-50 p-2 rounded">
+                  Neto recibido: $ {{ montoNetoRecibido() | number:'1.2-2' }}
+                </div>
+              }
             </div>
 
             <div class="mt-6">
@@ -88,7 +158,7 @@ import { CobranzasApiService, DocumentoPendienteDTO } from '../../../../data-acc
           </button>
           <button type="button" 
                   class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400"
-                  [disabled]="form.invalid || subiendo() || hasImputacionError()"
+                  [disabled]="form.invalid || subiendo() || hasImputacionError() || errorRetenciones() !== null"
                   (click)="onSubmit()">
             {{ subiendo() ? 'Registrando...' : 'Registrar Cobranza' }}
           </button>
@@ -130,7 +200,38 @@ export class RegistrarCobranzaModalComponent {
     numeroRecibo: ['', [Validators.required]],
     montoCobrado: [0, [Validators.required, Validators.min(0.01)]],
     moneda: ['ARS'],
+    // Obligatorio en la pantalla; el backend lo acepta vacío sólo por compatibilidad con clientes viejos.
+    medioPago: ['', [Validators.required]],
   });
+
+  readonly mediosPago = MEDIOS_PAGO;
+  readonly tiposRetencion = TIPOS_RETENCION;
+
+  /** Retenciones que el cliente practicó en este pago, tal como se editan en pantalla. */
+  readonly retenciones = signal<RetencionForm[]>([]);
+
+  agregarRetencion(): void {
+    this.retenciones.update((lista) => [...lista, retencionVacia()]);
+  }
+
+  quitarRetencion(indice: number): void {
+    this.retenciones.update((lista) => lista.filter((_, i) => i !== indice));
+  }
+
+  /** Aplica un cambio parcial a una fila, sin mutar las demás. */
+  actualizarRetencion(indice: number, cambios: Partial<RetencionForm>): void {
+    this.retenciones.update((lista) => lista.map((r, i) => (i === indice ? { ...r, ...cambios } : r)));
+  }
+
+  /** Problema de las retenciones cargadas (o `null`); espeja las reglas del backend. */
+  errorRetenciones(): string | null {
+    return validarRetenciones(this.form.value.montoCobrado ?? 0, this.retenciones());
+  }
+
+  /** Lo realmente recibido: el total que cancela deuda menos lo retenido por el cliente. */
+  montoNetoRecibido(): number {
+    return montoNeto(this.form.value.montoCobrado ?? 0, this.retenciones());
+  }
 
   readonly subiendo = signal(false);
   readonly error = signal<string | null>(null);
@@ -206,7 +307,7 @@ export class RegistrarCobranzaModalComponent {
    * Emite {@link cobranzaRegistrada} al padre cuando la operación completa con éxito.
    */
   onSubmit(): void {
-    if (this.form.invalid || this.hasImputacionError()) return;
+    if (this.form.invalid || this.hasImputacionError() || this.errorRetenciones() !== null) return;
 
     const val = this.form.value;
     this.subiendo.set(true);
@@ -223,6 +324,14 @@ export class RegistrarCobranzaModalComponent {
           numeroRecibo: val.numeroRecibo!,
           montoCobrado: val.montoCobrado!,
           moneda: val.moneda!,
+          medioPago: val.medioPago as MedioPago,
+          // La jurisdicción sólo viaja en IIBB: al cambiar de tributo puede quedar texto viejo.
+          retenciones: this.retenciones().map((r) => ({
+            tipo: r.tipo,
+            monto: r.monto!,
+            numeroCertificado: r.numeroCertificado.trim(),
+            jurisdiccion: r.tipo === 'IIBB' ? r.jurisdiccion.trim() : undefined,
+          })),
           imputaciones: docIdsToApply.map((docId) => ({
             documentoComercialId: docId,
             montoImputado: this.imputaciones()[docId],
