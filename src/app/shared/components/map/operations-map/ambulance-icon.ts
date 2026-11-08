@@ -1,208 +1,386 @@
 /**
- * Ícono de ambulancia para el mapa de operaciones: vista cenital con volumen simulado.
+ * Ícono de ambulancia para el mapa de operaciones: modelo 3D visto desde arriba y de costado.
  *
- * Por qué cenital y no en perspectiva: el ícono gira según hacia dónde va la unidad, y una vista
- * en tres cuartos se rompe al rotar (la luz y las proporciones dejan de tener sentido). Una vista
- * desde arriba rota limpio, y el volumen se logra con capas: cuerpo con degradado lateral, techo
- * levemente elevado, parabrisas con reflejo y una sombra que va en una capa aparte para que la luz
- * siempre caiga hacia el mismo lado de la pantalla aunque la ambulancia gire.
+ * La ambulancia es un modelo 3D simple (perfil lateral extruido, decales, ruedas) que se dibuja con
+ * una cámara fija elevada, mirando hacia el norte desde el sur. Como una vista en perspectiva no
+ * se puede rotar como imagen sin romperse, no se gira el dibujo: se vuelve a dibujar el modelo para
+ * cada rumbo (16 direcciones). Así, yendo al norte se ve la parte trasera y el techo, yendo al este
+ * el costado, y en diagonal una esquina, siempre con la luz y la sombra cayendo del mismo lado.
  *
- * El dibujo está pensado en una grilla de 48×48 con la ambulancia mirando hacia ARRIBA (norte); las
- * formas son trazados SVG (`Path2D`), así se dibuja de forma síncrona y nítida a cualquier densidad
- * de píxeles. No depende de Angular ni de MapLibre.
+ * Es un mini renderizador: proyecta cada cara, descarta las que dan la espalda a la cámara, las
+ * ordena de más lejana a más cercana, y las pinta con un sombreado según su orientación respecto
+ * de la luz. No depende de Angular ni de MapLibre.
+ *
+ * Convenciones: el modelo mira hacia +Y (adelante), +X es su derecha y +Z arriba; el mundo tiene +X
+ * al este, +Y al norte. El rumbo se mide en grados desde el norte, en sentido horario.
  */
 
-/** Lado, en unidades de la grilla, del lienzo de la ambulancia. */
-export const LADO_ICONO = 48;
+// ─── Constantes ─────────────────────────────────────────────────────────────
 
-/** Color de la carrocería y de las luces; sólo el anillo del techo cambia con el estado. */
-const PALETA = {
-  contorno: '#94A3B8',
-  rueda: '#0F172A',
-  parabrisasArriba: '#1E3A5F',
-  parabrisasAbajo: '#4F7CAC',
-  estrella: '#1D4ED8',
-  luzRoja: '#EF4444',
-  luzAzul: '#3B82F6',
-  luzRojaApagada: '#7F1D1D',
-  luzAzulApagada: '#1E3A8A',
-  faro: '#FEF3C7',
-  trasera: '#DC2626',
-} as const;
+/** Cantidad de direcciones para las que se dibuja un sprite. */
+export const PASOS_RUMBO = 16;
 
-// ─── Formas (trazados SVG en la grilla de 48×48, frente hacia arriba) ───────────
+/** Lado, en píxeles lógicos, del lienzo de cada sprite. */
+export const LADO_SPRITE = 72;
 
-/** Silueta completa: capot achaflanado adelante y caja más ancha atrás. */
-export const SILUETA = 'M18.5 3H29.5Q33 3 33 7V15.5L33.8 17V41Q33.8 45 29.8 45H18.2Q14.2 45 14.2 41V17L15 15.5V7Q15 3 18.5 3Z';
+/** Píxeles por unidad del modelo. */
+const ESCALA = 9.5;
 
-const CAPOT = 'M17 5.4H31Q31.9 5.4 31.9 6.4V9.2H16.1V6.4Q16.1 5.4 17 5.4Z';
-const PARABRISAS = 'M16.8 9.7H31.2L30.1 15.4H17.9Z';
-const REFLEJO = 'M19.4 10.3H22.9L21 15H19Z';
-const TECHO_CABINA = 'M17.4 16H30.6Q31 16 31 16.5V17.2H17V16.5Q17 16 17.4 16Z';
-const TECHO_CAJA = 'M18.8 20.2H29.2Q31.6 20.2 31.6 22.6V41Q31.6 43 29.6 43H18.4Q16.4 43 16.4 41V22.6Q16.4 20.2 18.8 20.2Z';
+/** Elevación de la cámara sobre el horizonte, en grados: 90 sería cenital, 0 de costado. */
+const ELEVACION_GRADOS = 38;
+const SEN_EL = Math.sin((ELEVACION_GRADOS * Math.PI) / 180);
+const COS_EL = Math.cos((ELEVACION_GRADOS * Math.PI) / 180);
 
-/** Brazo de la Estrella de la Vida, centrado en el origen y apuntando hacia arriba. */
-const BRAZO_ESTRELLA = 'M-0.95 -5.3H0.95V5.3H-0.95Z';
+/** Dónde queda, dentro del sprite, el punto del suelo bajo el centro de la ambulancia. */
+const ORIGEN = { x: LADO_SPRITE / 2, y: 47 };
 
-// ─── Dibujo ─────────────────────────────────────────────────────────────────
+/** Hacia dónde está la cámara, vista desde la escena: al sur y arriba. */
+const HACIA_CAMARA = [0, -COS_EL, SEN_EL] as const;
+
+/** Dirección de la luz (de dónde viene): arriba, al oeste y algo al sur. Unitaria. */
+const LUZ = normalizar([-0.5, -0.4, 0.78]);
+
+// ─── Geometría ──────────────────────────────────────────────────────────────
+
+type Vec = readonly [number, number, number];
+
+function normalizar(v: Vec | number[]): Vec {
+  const largo = Math.hypot(v[0], v[1], v[2]) || 1;
+  return [v[0] / largo, v[1] / largo, v[2] / largo];
+}
+const restar = (a: Vec, b: Vec): Vec => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const cruz = (a: Vec, b: Vec): Vec => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const punto = (a: Vec, b: Vec): number => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+
+/** Ancho de la carrocería: va de −MEDIO_ANCHO a +MEDIO_ANCHO. */
+const MEDIO_ANCHO = 1.0;
+
+/**
+ * Perfil lateral de la ambulancia en (y, z), recorrido desde atrás-abajo: caja alta, escalón al
+ * techo de la cabina, parabrisas inclinado, capot y trompa. Se extruye a lo ancho para armar el cuerpo.
+ */
+const PERFIL: ReadonlyArray<readonly [number, number]> = [
+  [-2.6, 0.35],
+  [-2.6, 2.2],
+  [-2.45, 2.4],
+  [0.85, 2.4],
+  [0.85, 2.0],
+  [1.45, 2.0],
+  [2.05, 1.4],
+  [2.65, 1.2],
+  [2.8, 1.0],
+  [2.8, 0.5],
+  [2.6, 0.35],
+];
+
+/** Nombre de la cara que genera el tramo del perfil que empieza en cada índice. */
+const NOMBRE_TRAMO = ['trasera', 'trasera', 'techo', 'escalon', 'techo-cabina', 'parabrisas', 'capot', 'frente', 'frente', 'frente', 'fondo'];
+
+/** Un polígono del modelo, con su orientación, su color base y cómo se ordena respecto de otros. */
+interface Cara {
+  nombre: string;
+  puntos: Vec[];
+  /** Normal hacia afuera, ya unitaria. */
+  normal: Vec;
+  color: string;
+  /** Un decal va pegado a una superficie: se pinta justo encima de ella. */
+  decal?: boolean;
+  /** Corrimiento al ordenar; negativo la acerca a la cámara. */
+  sesgo?: number;
+  /** Multiplica el brillo (el vidrio brilla más que la chapa). */
+  brillo?: number;
+}
+
+function caraDe(nombre: string, puntos: Vec[], color: string, dentro: Vec, extra: Partial<Cara> = {}): Cara {
+  let normal = normalizar(cruz(restar(puntos[1], puntos[0]), restar(puntos[2], puntos[0])));
+  const centro: Vec = [
+    puntos.reduce((s, p) => s + p[0], 0) / puntos.length,
+    puntos.reduce((s, p) => s + p[1], 0) / puntos.length,
+    puntos.reduce((s, p) => s + p[2], 0) / puntos.length,
+  ];
+  // La normal tiene que apuntar hacia afuera del cuerpo: si mira hacia el centro, se da vuelta.
+  if (punto(normal, restar(centro, dentro)) < 0) normal = [-normal[0], -normal[1], -normal[2]];
+  return { nombre, puntos, normal, color, ...extra };
+}
+
+/** Plano lateral del cuerpo (x = ±MEDIO_ANCHO) en el que se pegan decales. */
+function enLado(lado: 1 | -1, puntos: ReadonlyArray<readonly [number, number]>, afuera = 0.012): Vec[] {
+  return puntos.map(([y, z]) => [lado * (MEDIO_ANCHO + afuera), y, z] as Vec);
+}
+
+/** Círculo (o polígono regular) en el plano lateral, de `lados` lados. */
+function disco(lado: 1 | -1, y: number, z: number, radio: number, afuera: number, lados = 14): Vec[] {
+  return Array.from({ length: lados }, (_, i) => {
+    const a = (i / lados) * Math.PI * 2;
+    return [lado * (MEDIO_ANCHO + afuera), y + Math.cos(a) * radio, z + Math.sin(a) * radio] as Vec;
+  });
+}
+
+/** Brazo de la Estrella de la Vida en el plano lateral, rotado `grados`, centrado en (y, z). */
+function brazoEstrella(lado: 1 | -1, y: number, z: number, largo: number, ancho: number, grados: number): Vec[] {
+  const a = (grados * Math.PI) / 180;
+  const rotar = (u: number, v: number): readonly [number, number] => [y + u * Math.cos(a) - v * Math.sin(a), z + u * Math.sin(a) + v * Math.cos(a)];
+  return enLado(lado, [rotar(-ancho, -largo), rotar(ancho, -largo), rotar(ancho, largo), rotar(-ancho, largo)], 0.02);
+}
 
 export interface OpcionesAmbulancia {
-  /** Color del estado de la unidad (disponible, en ruta…); pinta el anillo del techo. */
+  /** Color del estado de la unidad: pinta la franja lateral. */
   colorEstado: string;
   /** En movimiento las luces de la barra se prenden y emiten un resplandor. */
   enMovimiento: boolean;
 }
 
-/** Cantidad de píxeles del lienzo por unidad de grilla, según la densidad de pantalla. */
-function escala(ctx: CanvasRenderingContext2D, densidad: number): void {
-  ctx.setTransform(densidad, 0, 0, densidad, 0, 0);
-}
+const COLOR = {
+  chapa: '#F3F5F8',
+  vidrio: '#27456B',
+  neumatico: '#141B2B',
+  llanta: '#B8C2D1',
+  estrella: '#1D4ED8',
+  faro: '#FFF3C4',
+  trasera: '#D92D2D',
+  luzRoja: '#EF4444',
+  luzAzul: '#3B82F6',
+  luzRojaApagada: '#7F1D1D',
+  luzAzulApagada: '#1E3A8A',
+} as const;
 
-function rellenar(ctx: CanvasRenderingContext2D, trazado: string, relleno: string | CanvasGradient): void {
-  ctx.fillStyle = relleno;
-  ctx.fill(new Path2D(trazado));
-}
+const v0 = (x: number, y: number, z: number): Vec => [x, y, z];
 
-function degradado(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, paradas: ReadonlyArray<[number, string]>): CanvasGradient {
-  const g = ctx.createLinearGradient(x0, y0, x1, y1);
-  for (const [posicion, color] of paradas) g.addColorStop(posicion, color);
-  return g;
-}
+/** Construye todas las caras del modelo. Depende sólo del estado, no del rumbo. */
+function construirModelo({ colorEstado, enMovimiento }: OpcionesAmbulancia): Cara[] {
+  const centro: Vec = [0, 0, 1.2];
+  const caras: Cara[] = [];
 
-/** Dibuja la ambulancia (sin sombra) en un contexto ya dimensionado a `LADO_ICONO × densidad`. */
-export function dibujarAmbulancia(ctx: CanvasRenderingContext2D, densidad: number, { colorEstado, enMovimiento }: OpcionesAmbulancia): void {
-  escala(ctx, densidad);
-  ctx.clearRect(0, 0, LADO_ICONO, LADO_ICONO);
+  // Cuerpo: un tramo del perfil extruido por cada par de puntos consecutivos.
+  PERFIL.forEach(([y0, z0], i) => {
+    const [y1, z1] = PERFIL[(i + 1) % PERFIL.length];
+    const nombre = NOMBRE_TRAMO[i];
+    const esVidrio = nombre === 'parabrisas';
+    caras.push(
+      caraDe(
+        nombre,
+        [
+          [-MEDIO_ANCHO, y0, z0],
+          [MEDIO_ANCHO, y0, z0],
+          [MEDIO_ANCHO, y1, z1],
+          [-MEDIO_ANCHO, y1, z1],
+        ],
+        esVidrio ? COLOR.vidrio : COLOR.chapa,
+        centro,
+        esVidrio ? { brillo: 1.25 } : {},
+      ),
+    );
+  });
+  // Costados: el perfil completo a cada lado.
+  const perfilLado = (lado: 1 | -1): Vec[] => PERFIL.map(([y, z]) => [lado * MEDIO_ANCHO, y, z] as Vec);
+  caras.push(caraDe('lado-izquierdo', perfilLado(-1), COLOR.chapa, centro));
+  caras.push(caraDe('lado-derecho', perfilLado(1), COLOR.chapa, centro));
 
-  // 1. Ruedas: sólo asoman por los costados, desde arriba no se ven enteras.
-  ctx.fillStyle = PALETA.rueda;
-  for (const [x, y, alto] of [[12.5, 9.5, 6.5], [33.5, 9.5, 6.5], [12.5, 31.5, 7.5], [33.5, 31.5, 7.5]] as const) {
-    ctx.beginPath();
-    ctx.roundRect(x, y, 2, alto, 0.9);
-    ctx.fill();
-  }
+  for (const lado of [-1, 1] as const) {
+    const nombreLado = lado === 1 ? 'lado-derecho' : 'lado-izquierdo';
+    const lateral = (nombre: string, puntos: Vec[], color: string, extra: Partial<Cara> = {}): void => {
+      caras.push(caraDe(`${nombre}-${nombreLado}`, puntos, color, centro, { decal: true, ...extra }));
+    };
 
-  // 2. Carrocería: degradado de izquierda a derecha, la luz entra desde la izquierda.
-  const lateral = degradado(ctx, 14, 0, 34, 0, [[0, '#FFFFFF'], [0.42, '#F8FAFC'], [1, '#B8C4D4']]);
-  const silueta = new Path2D(SILUETA);
-  ctx.fillStyle = lateral;
-  ctx.fill(silueta);
-  ctx.lineWidth = 0.6;
-  ctx.strokeStyle = PALETA.contorno;
-  ctx.stroke(silueta);
-
-  // 3. Capot con un velo más oscuro: baja hacia el frente.
-  rellenar(ctx, CAPOT, degradado(ctx, 0, 5, 0, 9.5, [[0, 'rgba(148,163,184,0.15)'], [1, 'rgba(100,116,139,0.45)']]));
-
-  // 4. Parabrisas con degradado vertical y un reflejo diagonal.
-  rellenar(ctx, PARABRISAS, degradado(ctx, 0, 9.7, 0, 15.4, [[0, PALETA.parabrisasArriba], [1, PALETA.parabrisasAbajo]]));
-  rellenar(ctx, REFLEJO, 'rgba(255,255,255,0.38)');
-
-  // 5. Techo de la cabina y de la caja: la caja lleva un anillo del color del estado.
-  rellenar(ctx, TECHO_CABINA, '#E2E8F0');
-  const techo = new Path2D(TECHO_CAJA);
-  ctx.fillStyle = degradado(ctx, 0, 20, 0, 43, [[0, '#FFFFFF'], [1, '#E5EAF1']]);
-  ctx.fill(techo);
-  // El estado es lo que el operador mira primero: a 40 px un anillo fino no se distingue, así que
-  // además de un anillo grueso el techo lleva un velo del mismo color.
-  ctx.save();
-  ctx.globalAlpha = 0.2;
-  ctx.fillStyle = colorEstado;
-  ctx.fill(techo);
-  ctx.restore();
-  ctx.lineWidth = 1.9;
-  ctx.strokeStyle = colorEstado;
-  ctx.stroke(techo);
-  // Brillo fino en el borde izquierdo del techo: es lo que lo hace sentir elevado.
-  ctx.beginPath();
-  ctx.moveTo(17.7, 23);
-  ctx.lineTo(17.7, 40.5);
-  ctx.lineWidth = 0.5;
-  ctx.strokeStyle = 'rgba(255,255,255,0.95)';
-  ctx.stroke();
-
-  // 6. Estrella de la Vida: seis brazos a 0°, 60° y 120°.
-  ctx.save();
-  ctx.translate(24, 31.6);
-  ctx.fillStyle = PALETA.estrella;
-  for (const grados of [0, 60, 120]) {
-    ctx.save();
-    ctx.rotate((grados * Math.PI) / 180);
-    ctx.fill(new Path2D(BRAZO_ESTRELLA));
-    ctx.restore();
-  }
-  ctx.restore();
-
-  // 7. Barra de luces sobre el techo de la cabina, con resplandor si está en movimiento.
-  if (enMovimiento) {
-    for (const [cx, color] of [[20.2, 'rgba(239,68,68,0.55)'], [27.8, 'rgba(59,130,246,0.55)']] as const) {
-      const g = ctx.createRadialGradient(cx, 18.6, 0, cx, 18.6, 7);
-      g.addColorStop(0, color);
-      g.addColorStop(1, 'rgba(255,255,255,0)');
-      ctx.fillStyle = g;
-      ctx.fillRect(cx - 7, 11.6, 14, 14);
+    // Franja del color del estado a lo largo de la caja, con un filete oscuro debajo.
+    lateral('franja', enLado(lado, [[-2.55, 0.92], [0.8, 0.92], [0.8, 1.26], [-2.55, 1.26]]), colorEstado);
+    lateral('filete', enLado(lado, [[-2.55, 0.8], [0.8, 0.8], [0.8, 0.9], [-2.55, 0.9]]), '#CBD3DE');
+    // Ventana de la cabina.
+    lateral('ventana', enLado(lado, [[1.0, 1.52], [1.0, 1.9], [1.42, 1.9], [1.88, 1.46]]), COLOR.vidrio, { brillo: 1.2 });
+    // Estrella de la Vida sobre la caja: tres brazos a 0°, 60° y 120°.
+    for (const grados of [0, 60, 120]) {
+      lateral('estrella', brazoEstrella(lado, -1.0, 1.82, 0.5, 0.075, grados), COLOR.estrella, { sesgo: -0.02 });
+    }
+    // Pasarruedas, neumático y llanta.
+    for (const y of [-1.55, 1.75]) {
+      lateral('pasarueda', disco(lado, y, 0.55, 0.62, 0.014), '#0B1020');
+      lateral('neumatico', disco(lado, y, 0.52, 0.5, 0.03), COLOR.neumatico, { sesgo: -0.02 });
+      lateral('llanta', disco(lado, y, 0.52, 0.22, 0.045, 10), COLOR.llanta, { sesgo: -0.04 });
     }
   }
-  ctx.beginPath();
-  ctx.roundRect(16.3, 17.2, 15.4, 2.8, 1.3);
-  ctx.fillStyle = '#1E293B';
-  ctx.fill();
-  ctx.fillStyle = enMovimiento ? PALETA.luzRoja : PALETA.luzRojaApagada;
-  ctx.beginPath();
-  ctx.roundRect(16.8, 17.55, 7, 2.1, 1);
-  ctx.fill();
-  ctx.fillStyle = enMovimiento ? PALETA.luzAzul : PALETA.luzAzulApagada;
-  ctx.beginPath();
-  ctx.roundRect(24.2, 17.55, 7, 2.1, 1);
-  ctx.fill();
 
-  // 8. Espejos, faros y luces traseras: los detalles chicos que dan escala.
-  ctx.fillStyle = '#CBD5E1';
-  ctx.strokeStyle = '#64748B';
-  ctx.lineWidth = 0.3;
-  for (const x of [12.9, 33.3]) {
-    ctx.beginPath();
-    ctx.roundRect(x, 12, 1.8, 2.3, 0.6);
-    ctx.fill();
-    ctx.stroke();
-  }
-  ctx.fillStyle = PALETA.faro;
-  for (const x of [16.1, 29.3]) {
-    ctx.beginPath();
-    ctx.roundRect(x, 3.7, 2.6, 1.2, 0.5);
-    ctx.fill();
-  }
-  ctx.fillStyle = PALETA.trasera;
-  for (const x of [15.1, 30.5]) {
-    ctx.beginPath();
-    ctx.roundRect(x, 43.2, 2.4, 1.2, 0.4);
-    ctx.fill();
+  // Franja del color del estado a lo largo del techo: el techo se ve desde cualquier rumbo, así que
+  // es lo que permite distinguir los estados cuando la ambulancia no muestra su costado.
+  caras.push(
+    caraDe(
+      'franja-techo',
+      [v0(-0.62, -2.2, 2.412), v0(0.62, -2.2, 2.412), v0(0.62, 0.62, 2.412), v0(-0.62, 0.62, 2.412)],
+      colorEstado,
+      centro,
+      { decal: true, sesgo: -0.02, brillo: 1.08 },
+    ),
+  );
+
+  // Barra de luces sobre el techo de la cabina: una caja baja con el techo mitad rojo, mitad azul.
+  const luzRoja = enMovimiento ? COLOR.luzRoja : COLOR.luzRojaApagada;
+  const luzAzul = enMovimiento ? COLOR.luzAzul : COLOR.luzAzulApagada;
+  const barra = { y0: 1.0, y1: 1.32, z0: 2.0, z1: 2.22, x: 0.78 };
+  const cajaBarra: Vec = [0, (barra.y0 + barra.y1) / 2, (barra.z0 + barra.z1) / 2];
+  const v = (x: number, y: number, z: number): Vec => [x, y, z];
+  const barraCara = (nombre: string, puntos: Vec[], color: string, extra: Partial<Cara> = {}): void => {
+    caras.push(caraDe(nombre, puntos, color, cajaBarra, { sesgo: -0.3, ...extra }));
+  };
+  barraCara('barra-techo-rojo', [v(-barra.x, barra.y0, barra.z1), v(0, barra.y0, barra.z1), v(0, barra.y1, barra.z1), v(-barra.x, barra.y1, barra.z1)], luzRoja, { brillo: 1.15 });
+  barraCara('barra-techo-azul', [v(0, barra.y0, barra.z1), v(barra.x, barra.y0, barra.z1), v(barra.x, barra.y1, barra.z1), v(0, barra.y1, barra.z1)], luzAzul, { brillo: 1.15 });
+  barraCara('barra-trasera-rojo', [v(-barra.x, barra.y0, barra.z0), v(0, barra.y0, barra.z0), v(0, barra.y0, barra.z1), v(-barra.x, barra.y0, barra.z1)], luzRoja);
+  barraCara('barra-trasera-azul', [v(0, barra.y0, barra.z0), v(barra.x, barra.y0, barra.z0), v(barra.x, barra.y0, barra.z1), v(0, barra.y0, barra.z1)], luzAzul);
+  barraCara('barra-frente-rojo', [v(-barra.x, barra.y1, barra.z0), v(0, barra.y1, barra.z0), v(0, barra.y1, barra.z1), v(-barra.x, barra.y1, barra.z1)], luzRoja);
+  barraCara('barra-frente-azul', [v(0, barra.y1, barra.z0), v(barra.x, barra.y1, barra.z0), v(barra.x, barra.y1, barra.z1), v(0, barra.y1, barra.z1)], luzAzul);
+  barraCara('barra-izquierda', [v(-barra.x, barra.y0, barra.z0), v(-barra.x, barra.y1, barra.z0), v(-barra.x, barra.y1, barra.z1), v(-barra.x, barra.y0, barra.z1)], luzRoja);
+  barraCara('barra-derecha', [v(barra.x, barra.y0, barra.z0), v(barra.x, barra.y1, barra.z0), v(barra.x, barra.y1, barra.z1), v(barra.x, barra.y0, barra.z1)], luzAzul);
+
+  // Detalles de las puntas: luces traseras y faros, pegados al plano de cada punta.
+  for (const x of [-0.8, 0.8]) {
+    caras.push(caraDe('luz-trasera', [v(x - 0.16, -2.612, 0.62), v(x + 0.16, -2.612, 0.62), v(x + 0.16, -2.612, 1.0), v(x - 0.16, -2.612, 1.0)], COLOR.trasera, centro, { decal: true, sesgo: -0.02, brillo: 1.1 }));
+    caras.push(caraDe('faro', [v(x - 0.18, 2.812, 0.66), v(x + 0.18, 2.812, 0.66), v(x + 0.18, 2.812, 0.92), v(x - 0.18, 2.812, 0.92)], COLOR.faro, centro, { decal: true, sesgo: -0.02, brillo: 1.2 }));
   }
   // Junta de las puertas traseras.
+  caras.push(caraDe('puertas', [v(-0.02, -2.612, 0.5), v(0.02, -2.612, 0.5), v(0.02, -2.612, 2.1), v(-0.02, -2.612, 2.1)], '#9AA6B6', centro, { decal: true, sesgo: -0.02 }));
+
+  return caras;
+}
+
+// ─── Cámara ─────────────────────────────────────────────────────────────────
+
+/** Rota un vector del modelo al mundo según el rumbo (grados, horario desde el norte). */
+function aMundo(p: Vec, rumbo: number): Vec {
+  const a = (rumbo * Math.PI) / 180;
+  const s = Math.sin(a);
+  const c = Math.cos(a);
+  return [p[0] * c + p[1] * s, -p[0] * s + p[1] * c, p[2]];
+}
+
+/** Proyección de la cámara fija: x queda igual y lo más lejano (al norte) y lo más alto suben. */
+function proyectar(p: Vec): readonly [number, number] {
+  return [ORIGEN.x + p[0] * ESCALA, ORIGEN.y - (p[1] * SEN_EL + p[2] * COS_EL) * ESCALA];
+}
+
+/** Distancia a la cámara, sin escala: mayor es más lejos. */
+const profundidad = (p: Vec): number => p[1] * COS_EL - p[2] * SEN_EL;
+
+/** Nombres de las caras (sin repetir) que la cámara ve cuando la ambulancia va hacia `rumbo`. */
+export function carasVisiblesDe(rumbo: number): string[] {
+  const nombres = new Set<string>();
+  for (const cara of construirModelo({ colorEstado: '#10B981', enMovimiento: false })) {
+    if (punto(aMundo(cara.normal, rumbo), HACIA_CAMARA) > 1e-6) nombres.add(cara.nombre);
+  }
+  return [...nombres];
+}
+
+// ─── Rumbos discretos ───────────────────────────────────────────────────────
+
+/** Lleva un rumbo cualquiera a la franja (0…PASOS_RUMBO−1) cuyo sprite se muestra. */
+export function rumboABucket(rumbo: number): number {
+  const normalizado = ((rumbo % 360) + 360) % 360;
+  return Math.round(normalizado / (360 / PASOS_RUMBO)) % PASOS_RUMBO;
+}
+
+/** Rumbo central de una franja. */
+export function rumboDeBucket(bucket: number): number {
+  return bucket * (360 / PASOS_RUMBO);
+}
+
+/** Nombre con el que se registra el sprite en el mapa. */
+export function nombreIcono(colorEstado: string, enMovimiento: boolean, bucket: number): string {
+  return `amb3d-${colorEstado.replace('#', '').toUpperCase()}${enMovimiento ? '-MOVING' : ''}-${bucket}`;
+}
+
+// ─── Pintado ────────────────────────────────────────────────────────────────
+
+/** Mezcla un color #RRGGBB con un brillo (1 = igual) y un leve tinte frío en las sombras. */
+function sombrear(hex: string, brillo: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const canal = (desplazamiento: number, frio: number): number => {
+    const base = (n >> desplazamiento) & 255;
+    const oscuridad = Math.max(0, 1 - brillo);
+    // En la sombra se acerca un poco al azul: se ve más natural que un gris plano.
+    return Math.max(0, Math.min(255, Math.round(base * Math.min(brillo, 1.12) + frio * oscuridad * 40)));
+  };
+  return `rgb(${canal(16, -0.4)},${canal(8, -0.1)},${canal(0, 1)})`;
+}
+
+function trazarPoligono(ctx: CanvasRenderingContext2D, puntos: ReadonlyArray<readonly [number, number]>): void {
   ctx.beginPath();
-  ctx.moveTo(24, 43.2);
-  ctx.lineTo(24, 44.7);
-  ctx.lineWidth = 0.4;
-  ctx.strokeStyle = PALETA.contorno;
-  ctx.stroke();
+  puntos.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)));
+  ctx.closePath();
+}
+
+/** Sombra proyectada en el suelo: la huella del cuerpo, corrida hacia el sureste y difusa. */
+function pintarSombra(ctx: CanvasRenderingContext2D, rumbo: number, densidad: number): void {
+  const huella: Vec[] = [
+    [-MEDIO_ANCHO - 0.1, -2.7, 0],
+    [MEDIO_ANCHO + 0.1, -2.7, 0],
+    [MEDIO_ANCHO + 0.1, 2.9, 0],
+    [-MEDIO_ANCHO - 0.1, 2.9, 0],
+  ];
+  ctx.save();
+  ctx.shadowColor = 'rgba(8,15,30,0.55)';
+  ctx.shadowBlur = 4 * densidad;
+  ctx.fillStyle = 'rgba(8,15,30,0.38)';
+  // Tres pasos entre la huella y su desplazamiento dan una sombra alargada, no un simple duplicado.
+  for (const t of [0.35, 0.7, 1]) {
+    const desplazada = huella.map((p) => aMundo(p, rumbo)).map((p): Vec => [p[0] + 1.1 * t, p[1] - 0.8 * t, 0]);
+    trazarPoligono(ctx, desplazada.map(proyectar));
+    ctx.fill();
+  }
+  ctx.restore();
 }
 
 /**
- * Sombra de la ambulancia: la misma silueta, oscura y difusa. Se dibuja en una capa aparte del mapa
- * que gira igual que el cuerpo pero se desplaza siempre hacia el mismo lado de la pantalla.
+ * Dibuja la ambulancia mirando hacia `rumbo` en un contexto de `LADO_SPRITE × densidad` píxeles.
+ * Cada rumbo es una imagen distinta: no se rota, se vuelve a dibujar el modelo.
  */
-export function dibujarSombra(ctx: CanvasRenderingContext2D, densidad: number): void {
-  escala(ctx, densidad);
-  ctx.clearRect(0, 0, LADO_ICONO, LADO_ICONO);
-  ctx.shadowColor = 'rgba(15,23,42,0.5)';
-  ctx.shadowBlur = 3.2 * densidad;
-  ctx.fillStyle = 'rgba(15,23,42,0.42)';
-  ctx.fill(new Path2D(SILUETA));
+export function dibujarAmbulancia(ctx: CanvasRenderingContext2D, densidad: number, rumbo: number, opciones: OpcionesAmbulancia): void {
+  ctx.setTransform(densidad, 0, 0, densidad, 0, 0);
+  ctx.clearRect(0, 0, LADO_SPRITE, LADO_SPRITE);
+  ctx.lineJoin = 'round';
+
+  pintarSombra(ctx, rumbo, densidad);
+
+  // Se descartan las caras que dan la espalda a la cámara y se ordenan de lejos a cerca.
+  const visibles = construirModelo(opciones)
+    .map((cara) => {
+      const normal = aMundo(cara.normal, rumbo);
+      const puntos = cara.puntos.map((p) => aMundo(p, rumbo));
+      const centro: Vec = [
+        puntos.reduce((s, p) => s + p[0], 0) / puntos.length,
+        puntos.reduce((s, p) => s + p[1], 0) / puntos.length,
+        puntos.reduce((s, p) => s + p[2], 0) / puntos.length,
+      ];
+      return { cara, normal, puntos, orden: profundidad(centro) + (cara.sesgo ?? 0) - (cara.decal ? 0.25 : 0) };
+    })
+    .filter(({ normal }) => punto(normal, HACIA_CAMARA) > 1e-6)
+    .sort((a, b) => b.orden - a.orden);
+
+  for (const { cara, normal, puntos } of visibles) {
+    // Sombreado: base ambiente más la parte difusa que recibe de la luz.
+    const difusa = Math.max(0, punto(normal, LUZ));
+    const brillo = (0.5 + 0.62 * difusa) * (cara.brillo ?? 1);
+    trazarPoligono(ctx, puntos.map(proyectar));
+    ctx.fillStyle = sombrear(cara.color, brillo);
+    ctx.fill();
+    // Contorno fino: da definición a tamaño chico, donde las caras claras se funden entre sí.
+    ctx.lineWidth = cara.decal ? 0.25 : 0.55;
+    ctx.strokeStyle = cara.decal ? 'rgba(15,23,42,0.22)' : 'rgba(15,23,42,0.4)';
+    ctx.stroke();
+  }
+
+  // Resplandor de las luces en movimiento, en el espacio de pantalla, sobre el techo de la cabina.
+  if (opciones.enMovimiento) {
+    const [cx, cy] = proyectar(aMundo([0, 1.16, 2.22], rumbo));
+    for (const [dx, color] of [[-0.5, 'rgba(239,68,68,0.5)'], [0.5, 'rgba(59,130,246,0.5)']] as const) {
+      const g = ctx.createRadialGradient(cx + dx * 6, cy, 0, cx + dx * 6, cy, 11);
+      g.addColorStop(0, color);
+      g.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(cx + dx * 6 - 11, cy - 11, 22, 22);
+    }
+  }
 }
 
 /** Insignia "estacionada" (la P): va sin rotar, en su propia capa, para que siempre se lea derecha. */
 export function dibujarInsigniaEstacionada(ctx: CanvasRenderingContext2D, densidad: number): void {
-  escala(ctx, densidad);
+  ctx.setTransform(densidad, 0, 0, densidad, 0, 0);
   ctx.clearRect(0, 0, 16, 16);
   ctx.beginPath();
   ctx.arc(8, 8, 6.2, 0, Math.PI * 2);

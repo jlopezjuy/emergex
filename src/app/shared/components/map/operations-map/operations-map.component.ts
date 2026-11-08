@@ -18,11 +18,13 @@ import { UnidadMovilDTO } from '../../../../data-access/dto/ambulancia.dto';
 import { TicketAsistenciaDTO } from '../../../../data-access/dto/ticket.dto';
 import { ThemeService } from '../../../../core/theme/theme.service';
 import {
-  LADO_ICONO,
+  LADO_SPRITE,
   crearLienzo,
   dibujarAmbulancia,
   dibujarInsigniaEstacionada,
-  dibujarSombra,
+  nombreIcono,
+  rumboABucket,
+  rumboDeBucket,
 } from './ambulance-icon';
 import { resolverRumbo } from './rumbo-unidad';
 
@@ -71,8 +73,8 @@ function emgColor(prioridad?: string): string {
 /** Densidad con la que se rasterizan los íconos: 2× se ve nítido en pantallas comunes y retina. */
 const DENSIDAD_ICONO = 2;
 
-/** Escala del ícono en el mapa: 48 unidades de grilla a 0.85 dan una ambulancia de ~36 px de largo. */
-const ESCALA_ICONO = 0.85;
+/** Escala del ícono en el mapa: el sprite ya viene dibujado al tamaño final. */
+const ESCALA_ICONO = 1;
 
 function imagenDe(lado: number, dibujar: (ctx: CanvasRenderingContext2D) => void): ImageData {
   const { ctx } = crearLienzo(lado, DENSIDAD_ICONO);
@@ -80,12 +82,11 @@ function imagenDe(lado: number, dibujar: (ctx: CanvasRenderingContext2D) => void
   return ctx.getImageData(0, 0, Math.round(lado * DENSIDAD_ICONO), Math.round(lado * DENSIDAD_ICONO));
 }
 
-function generateAmbulanceImageData(colorEstado: string, enMovimiento: boolean): ImageData {
-  return imagenDe(LADO_ICONO, (ctx) => dibujarAmbulancia(ctx, DENSIDAD_ICONO, { colorEstado, enMovimiento }));
-}
-
-function generateShadowImageData(): ImageData {
-  return imagenDe(LADO_ICONO, (ctx) => dibujarSombra(ctx, DENSIDAD_ICONO));
+/** Sprite de la ambulancia para un estado y una dirección: cada rumbo es un dibujo distinto. */
+function generateAmbulanceImageData(colorEstado: string, enMovimiento: boolean, bucket: number): ImageData {
+  return imagenDe(LADO_SPRITE, (ctx) =>
+    dibujarAmbulancia(ctx, DENSIDAD_ICONO, rumboDeBucket(bucket), { colorEstado, enMovimiento }),
+  );
 }
 
 function generateParkedBadgeImageData(): ImageData {
@@ -461,31 +462,7 @@ export class OperationsMapComponent implements OnDestroy {
   private setupMapLayers(): void {
     if (!this.map) return;
 
-    const colors = ['#10B981', '#3B82F6', '#F59E0B', '#22D3EE', '#64748B', '#64748b'];
-    colors.forEach((c) => {
-      const hex = c.replace('#', '').toUpperCase();
-      const imgStatic = `amb-icon-${hex}`;
-      const imgMoving = `amb-icon-${hex}-MOVING`;
-
-      if (this.map && !this.map.hasImage(imgStatic)) {
-        try {
-          this.map.addImage(imgStatic, generateAmbulanceImageData(c, false), { pixelRatio: DENSIDAD_ICONO });
-        } catch {
-          // ignore duplicate
-        }
-      }
-      if (this.map && !this.map.hasImage(imgMoving)) {
-        try {
-          this.map.addImage(imgMoving, generateAmbulanceImageData(c, true), { pixelRatio: DENSIDAD_ICONO });
-        } catch {
-          // ignore duplicate
-        }
-      }
-    });
-    // Sombra e insignia de "estacionada": comparten estilo para todos los estados.
-    if (!this.map.hasImage('amb-shadow')) {
-      this.map.addImage('amb-shadow', generateShadowImageData(), { pixelRatio: DENSIDAD_ICONO });
-    }
+    // Los sprites de las ambulancias se registran a demanda (ver `asegurarIcono`): son 16 por estado.
     if (!this.map.hasImage('amb-parked-badge')) {
       this.map.addImage('amb-parked-badge', generateParkedBadgeImageData(), { pixelRatio: DENSIDAD_ICONO });
     }
@@ -509,23 +486,6 @@ export class OperationsMapComponent implements OnDestroy {
           'circle-stroke-opacity': 0.95,
         },
       });
-      // La sombra gira con la ambulancia pero se desplaza siempre hacia el mismo lado de la pantalla
-      // (`icon-translate` anclado al viewport): así la luz no cambia de dirección al girar.
-      this.map.addLayer({
-        id: 'emx-amb-shadows',
-        type: 'symbol',
-        source: this.AMB_SOURCE,
-        layout: {
-          'icon-image': 'amb-shadow',
-          'icon-size': ESCALA_ICONO,
-          'icon-rotate': ['get', 'heading'],
-          'icon-rotation-alignment': 'map',
-          'icon-allow-overlap': true,
-          'icon-ignore-placement': true,
-          'icon-anchor': 'center',
-        },
-        paint: { 'icon-translate': [2.2, 3], 'icon-translate-anchor': 'viewport' },
-      });
       this.map.addLayer({
         id: 'emx-amb-icons',
         type: 'symbol',
@@ -533,9 +493,7 @@ export class OperationsMapComponent implements OnDestroy {
         layout: {
           'icon-image': ['get', 'iconName'],
           'icon-size': ESCALA_ICONO,
-          // El ícono se dibuja mirando al norte; `heading` lo gira hacia donde va la unidad.
-          'icon-rotate': ['get', 'heading'],
-          'icon-rotation-alignment': 'map',
+          // No se rota: cada rumbo tiene su propio sprite (ver `rumboABucket`).
           'icon-allow-overlap': true,
           'icon-anchor': 'center',
         },
@@ -549,7 +507,7 @@ export class OperationsMapComponent implements OnDestroy {
         layout: {
           'icon-image': 'amb-parked-badge',
           'icon-size': ESCALA_ICONO,
-          'icon-offset': [13, -15],
+          'icon-offset': [21, -21],
           'icon-allow-overlap': true,
           'icon-ignore-placement': true,
           'icon-anchor': 'center',
@@ -564,7 +522,7 @@ export class OperationsMapComponent implements OnDestroy {
           'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'],
           'text-size': 10,
           'text-anchor': 'top',
-          'text-offset': [0, 2.3],
+          'text-offset': [0, 2.7],
           'text-allow-overlap': false,
           'text-optional': true,
         },
@@ -718,6 +676,23 @@ export class OperationsMapComponent implements OnDestroy {
 
   private lastPositionsMap = new Map<number, { lat: number; lng: number; lastMoveTime: number }>();
 
+  /**
+   * Registra en el mapa el sprite de este estado y esta dirección si todavía no está, y devuelve su
+   * nombre. Se hace a demanda porque son 16 direcciones por color y movimiento, y la mayoría de las
+   * combinaciones nunca se usan.
+   */
+  private asegurarIcono(color: string, enMovimiento: boolean, bucket: number): string {
+    const nombre = nombreIcono(color, enMovimiento, bucket);
+    if (this.map && !this.map.hasImage(nombre)) {
+      try {
+        this.map.addImage(nombre, generateAmbulanceImageData(color, enMovimiento, bucket), { pixelRatio: DENSIDAD_ICONO });
+      } catch {
+        // ya registrado por otra actualización en curso
+      }
+    }
+    return nombre;
+  }
+
   /** Última posición y último rumbo mostrados por unidad, para deducir y conservar el rumbo. */
   private readonly ultimaPosicion = new Map<number, [number, number]>();
   private readonly ultimoRumbo = new Map<number, number>();
@@ -776,8 +751,8 @@ export class OperationsMapComponent implements OnDestroy {
         if (!lngLat || unit.id == null) return [];
         const isMoving = this.isUnitMoving(unit);
         const color = ambColor(unit.estado);
-        const hex = color.replace('#', '').toUpperCase();
-        const iconName = isMoving ? `amb-icon-${hex}-MOVING` : `amb-icon-${hex}`;
+        const heading = this.rumboDe(unit, lngLat);
+        const iconName = this.asegurarIcono(color, isMoving, rumboABucket(heading));
         return [{
           type: 'Feature' as const,
           properties: {
@@ -786,7 +761,7 @@ export class OperationsMapComponent implements OnDestroy {
             color: color,
             iconName: iconName,
             isMoving: isMoving,
-            heading: this.rumboDe(unit, lngLat),
+            heading,
           },
           geometry: {
             type: 'Point' as const,
