@@ -86,6 +86,13 @@ describe('etiquetaEstado', () => {
     expect(etiquetaEstado('EMITIDA')).toBe('Emitida');
   });
 
+  it('keeps the accents of health and severity labels', () => {
+    expect(etiquetaEstado('OPTIMO')).toBe('Óptimo');
+    expect(etiquetaEstado('CRITICO')).toBe('Crítico');
+    expect(etiquetaEstado('CRITICA')).toBe('Crítica');
+    expect(etiquetaEstado('ATENCION')).toBe('Atención');
+  });
+
   it('humanizes unknown states instead of showing the raw enum', () => {
     expect(etiquetaEstado('ALGO_RARO')).toBe('Algo raro');
   });

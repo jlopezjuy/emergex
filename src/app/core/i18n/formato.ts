@@ -66,6 +66,10 @@ const ETIQUETAS_ESTADO: Record<string, string> = {
   BLOQUEADO_DIFERENCIA: 'Bloqueado por diferencia',
   PENDIENTE_APROBACION: 'Pendiente de aprobación',
   EN_TRAMITE: 'En trámite',
+  OPTIMO: 'Óptimo',
+  CRITICO: 'Crítico',
+  CRITICA: 'Crítica',
+  ATENCION: 'Atención',
 };
 
 /**
