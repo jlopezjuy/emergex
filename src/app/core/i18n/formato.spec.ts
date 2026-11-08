@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatFecha, formatMoneda, leyendaSaldo } from './formato';
+import { etiquetaEstado, formatCuit, formatFecha, formatMoneda, leyendaSaldo } from './formato';
 
 const NBSP = /\u00a0/g;
 const plano = (s: string) => s.replace(NBSP, ' ');
@@ -56,5 +56,41 @@ describe('leyendaSaldo', () => {
   it('says there is no balance when it is zero', () => {
     expect(leyendaSaldo('CXC', 0)).toBe('Sin saldo');
     expect(leyendaSaldo('CXP', 0)).toBe('Sin saldo');
+  });
+});
+
+describe('formatCuit', () => {
+  it('adds the dashes to an 11-digit CUIT', () => {
+    expect(formatCuit('30667788994')).toBe('30-66778899-4');
+  });
+
+  it('normalizes a CUIT that already has dashes or spaces', () => {
+    expect(formatCuit('30-66778899-4')).toBe('30-66778899-4');
+    expect(formatCuit(' 30 66778899 4 ')).toBe('30-66778899-4');
+  });
+
+  it('leaves anything that is not a CUIT untouched and shows a dash when empty', () => {
+    expect(formatCuit('12345')).toBe('12345');
+    expect(formatCuit(null)).toBe('—');
+  });
+});
+
+describe('etiquetaEstado', () => {
+  it('translates the technical states shown in admin screens into plain Spanish', () => {
+    expect(etiquetaEstado('PENDIENTE_AFIP')).toBe('Pendiente ARCA');
+    expect(etiquetaEstado('CREDITO_COBRANZA')).toBe('Cobro');
+    expect(etiquetaEstado('DEBITO_DOCUMENTO')).toBe('Factura');
+    expect(etiquetaEstado('CREDITO_DOCUMENTO')).toBe('Factura de proveedor');
+    expect(etiquetaEstado('BLOQUEADO_DIFERENCIA')).toBe('Bloqueado por diferencia');
+    expect(etiquetaEstado('PENDIENTE_APROBACION')).toBe('Pendiente de aprobación');
+    expect(etiquetaEstado('EMITIDA')).toBe('Emitida');
+  });
+
+  it('humanizes unknown states instead of showing the raw enum', () => {
+    expect(etiquetaEstado('ALGO_RARO')).toBe('Algo raro');
+  });
+
+  it('shows a dash when there is no state', () => {
+    expect(etiquetaEstado(undefined)).toBe('—');
   });
 });

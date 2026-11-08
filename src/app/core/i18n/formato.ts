@@ -48,3 +48,34 @@ export function leyendaSaldo(tipo: TipoCuentaCorriente, saldo: number): string {
   }
   return saldo < 0 ? 'Le debemos al proveedor' : 'Saldo a nuestro favor con el proveedor (anticipo)';
 }
+
+/** "30-66778899-4" from an 11-digit CUIT with or without separators; anything else is returned as is. */
+export function formatCuit(valor: string | null | undefined): string {
+  if (!valor) return SIN_DATO;
+  const digitos = valor.replace(/\D/g, '');
+  if (digitos.length !== 11) return valor;
+  return `${digitos.slice(0, 2)}-${digitos.slice(2, 10)}-${digitos.slice(10)}`;
+}
+
+const ETIQUETAS_ESTADO: Record<string, string> = {
+  PENDIENTE_AFIP: 'Pendiente ARCA',
+  CREDITO_COBRANZA: 'Cobro',
+  DEBITO_DOCUMENTO: 'Factura',
+  CREDITO_DOCUMENTO: 'Factura de proveedor',
+  DEBITO_RECHAZO_PRESTACION: 'Débito por prestación rechazada',
+  BLOQUEADO_DIFERENCIA: 'Bloqueado por diferencia',
+  PENDIENTE_APROBACION: 'Pendiente de aprobación',
+  EN_TRAMITE: 'En trámite',
+};
+
+/**
+ * Plain-Spanish label for a technical state or movement type. Known values use the table above;
+ * unknown ones are humanized ("ALGO_RARO" -> "Algo raro") so a raw enum never reaches the screen.
+ */
+export function etiquetaEstado(valor: string | null | undefined): string {
+  if (!valor) return SIN_DATO;
+  const conocida = ETIQUETAS_ESTADO[valor];
+  if (conocida) return conocida;
+  const texto = valor.replace(/_/g, ' ').toLowerCase();
+  return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
