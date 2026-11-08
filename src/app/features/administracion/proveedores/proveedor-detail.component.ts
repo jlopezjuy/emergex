@@ -12,11 +12,12 @@ import { CbuMakerCheckerModalComponent } from '../../../shared/components/financ
 import { OrdenPagoFormModalComponent } from '../../../shared/components/finance/orden-pago-form-modal/orden-pago-form-modal.component';
 import { DocumentosAdjuntosComponent } from '../../../shared/components/documentos-adjuntos/documentos-adjuntos.component';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge/status-badge.component';
+import { MonedaPipe } from '../../../shared/pipes/moneda.pipe';
 
 @Component({
   selector: 'emx-proveedor-detail',
   standalone: true,
-  imports: [
+  imports: [MonedaPipe, 
     CommonModule,
     RouterLink,
     CbuMakerCheckerModalComponent,
@@ -131,9 +132,9 @@ import { StatusBadgeComponent } from '../../../shared/components/status-badge/st
                 @for (op of ordenesPago(); track op.id) {
                   <tr class="hover:bg-[var(--surface-glass)] transition">
                     <td class="px-6 py-4 font-mono font-medium text-[var(--text-primary)]">{{ op.numeroOp }}</td>
-                    <td class="px-6 py-4 font-mono text-xs text-[var(--text-primary)]">$ {{ op.montoBruto | number:'1.2-2' }}</td>
-                    <td class="px-6 py-4 font-mono text-xs text-[var(--accent-amber)]">$ {{ (op.montoRetenciones || 0) | number:'1.2-2' }}</td>
-                    <td class="px-6 py-4 font-mono font-bold text-xs text-[var(--accent-emerald)]">$ {{ op.montoNeto | number:'1.2-2' }}</td>
+                    <td class="px-6 py-4 font-mono text-xs text-[var(--text-primary)]">{{ op.montoBruto | moneda }}</td>
+                    <td class="px-6 py-4 font-mono text-xs text-[var(--accent-amber)]">{{ (op.montoRetenciones || 0) | moneda }}</td>
+                    <td class="px-6 py-4 font-mono font-bold text-xs text-[var(--accent-emerald)]">{{ op.montoNeto | moneda }}</td>
                     <td class="px-6 py-4">
                       <emx-status-badge [variant]="getOpBadgeVariant(op.estado)">{{ op.estado }}</emx-status-badge>
                     </td>
@@ -169,7 +170,7 @@ import { StatusBadgeComponent } from '../../../shared/components/status-badge/st
           <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[var(--surface-glass)] p-4 rounded-xl border border-[var(--border-glass)]">
             <div>
               <span class="text-xs font-bold uppercase tracking-wider text-amber-400 block">Saldo Actual a Pagar (Deuda Proveedor)</span>
-              <span class="text-3xl font-extrabold text-[var(--text-primary)]">$ {{ saldoCxp() | number:'1.2-2' }}</span>
+              <span class="text-3xl font-extrabold text-[var(--text-primary)]">{{ saldoCxp() | moneda }}</span>
             </div>
             <button
               type="button"

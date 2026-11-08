@@ -140,4 +140,39 @@ describe('CuentasCorrientesComponent (F0-07)', () => {
     expect(component.mostrarModalCobranza()).toBe(false);
     expect(ledgerApiMock.getAgingDeuda).toHaveBeenCalled();
   });
+
+  it('reads a negative receivable balance as a customer credit and shows dates as dd/mm/aaaa', () => {
+    ledgerApiMock.getSaldoCxc.mockReturnValueOnce(of(-30500));
+    const fixture = TestBed.createComponent(CuentasCorrientesComponent);
+    fixture.componentInstance.seleccionarTercero(tercero);
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent!.replace(/\u00a0/g, ' ');
+    expect(text).toContain('Saldo a favor del cliente (anticipo)');
+    expect(text).not.toContain('nos deben');
+    const saldo = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="saldo-submayor"]')!;
+    expect(saldo.textContent!.replace(/\u00a0/g, ' ').trim()).toBe('$ 30.500,00');
+    expect(text).toContain('01/08/2026');
+    expect(text).not.toContain('2026-08-01');
+  });
+
+  it('labels a negative payable balance as money we owe the supplier', () => {
+    ledgerApiMock.getSaldoCxp.mockReturnValueOnce(of(-45000));
+    const fixture = TestBed.createComponent(CuentasCorrientesComponent);
+    const component = fixture.componentInstance;
+    component.seleccionarTercero(tercero);
+    component.setSubmayor('CXP');
+    fixture.detectChanges();
+
+    expect(component.tipoSubmayor()).toBe('CXP');
+    expect(component.leyendaSaldo()).toBe('Le debemos al proveedor');
+    expect(component.saldoAbsoluto()).toBe(45000);
+  });
+
+  it('says the aging only covers the current-account book', () => {
+    const fixture = TestBed.createComponent(CuentasCorrientesComponent);
+    fixture.detectChanges();
+    const nota = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="aging-alcance"]');
+    expect(nota?.textContent).toContain('Las cuotas de afiliados se controlan en Facturación');
+  });
 });

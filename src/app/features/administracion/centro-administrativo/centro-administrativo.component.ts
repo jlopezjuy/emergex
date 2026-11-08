@@ -23,13 +23,16 @@ import { BandejaPanelComponent } from './components/bandeja-panel/bandeja-panel.
 
 import { CxcAgingDashboardComponent } from '../../../shared/components/finance/cxc-aging-dashboard/cxc-aging-dashboard.component';
 import { CxpAgingDashboardComponent } from '../../../shared/components/finance/cxp-aging-dashboard/cxp-aging-dashboard.component';
+import { MonedaPipe } from '../../../shared/pipes/moneda.pipe';
+import { FechaPipe } from '../../../shared/pipes/fecha.pipe';
+import { formatMoneda } from '../../../core/i18n/formato';
 
 export type SeveridadFiltro = 'TODAS' | 'CRITICA' | 'URGENTE' | 'ATENCION';
 
 @Component({
   selector: 'emx-centro-administrativo',
   standalone: true,
-  imports: [
+  imports: [MonedaPipe, FechaPipe, 
     FormsModule,
     KpiCardComponent,
     StatusBadgeComponent,
@@ -109,7 +112,7 @@ export type SeveridadFiltro = 'TODAS' | 'CRITICA' | 'URGENTE' | 'ATENCION';
                       </div>
                       <span class="text-xs font-semibold truncate" style="color: var(--text-primary);" [title]="kpi.nombre">{{ kpi.nombre }}</span>
                       <span class="font-mono text-lg font-bold leading-tight" style="color: var(--text-primary)">
-                        {{ kpi.valorFormateado }}
+                        {{ valorKpi(kpi) }}
                       </span>
                       <span class="text-[10px] text-muted truncate">{{ kpi.periodo }}</span>
                     </div>
@@ -156,7 +159,7 @@ export type SeveridadFiltro = 'TODAS' | 'CRITICA' | 'URGENTE' | 'ATENCION';
                       </div>
                       <span class="text-xs font-semibold truncate" style="color: var(--text-primary);" [title]="kpi.nombre">{{ kpi.nombre }}</span>
                       <span class="font-mono text-lg font-bold leading-tight" style="color: var(--text-primary)">
-                        {{ kpi.valorFormateado }}
+                        {{ valorKpi(kpi) }}
                       </span>
                       <span class="text-[10px] text-muted truncate">{{ kpi.periodo }}</span>
                     </div>
@@ -189,7 +192,7 @@ export type SeveridadFiltro = 'TODAS' | 'CRITICA' | 'URGENTE' | 'ATENCION';
                 <span>🏥</span> Bandeja de Cobertura y Financiadores (Quién paga — Últimas 24h)
               </h2>
               <p class="text-xs" style="color: var(--text-muted);">
-                Total: {{ resumenCobertura()?.totalAtenciones || 0 }} atenciones · Facturable estimado: $ {{ resumenCobertura()?.totalImporteEstimado || 0 }}
+                Total: {{ resumenCobertura()?.totalAtenciones || 0 }} atenciones · Facturable estimado: {{ (resumenCobertura()?.totalImporteEstimado || 0) | moneda }}
               </p>
             </div>
             <div class="flex items-center gap-3">
@@ -215,7 +218,7 @@ export type SeveridadFiltro = 'TODAS' | 'CRITICA' | 'URGENTE' | 'ATENCION';
                         <span class="text-[11px]" style="color: var(--text-muted);">CUIT: {{ fin.cuit || 'S/D' }}</span>
                       </div>
                       <div class="text-right">
-                        <span class="font-bold text-emerald-400 block">$ {{ fin.importeEstimado }}</span>
+                        <span class="font-bold text-emerald-400 block">{{ fin.importeEstimado | moneda }}</span>
                         <span class="text-[11px]" style="color: var(--text-secondary);">{{ fin.cantidadAtenciones }} aten.</span>
                       </div>
                     </div>
@@ -243,7 +246,7 @@ export type SeveridadFiltro = 'TODAS' | 'CRITICA' | 'URGENTE' | 'ATENCION';
                     >
                       <div class="flex items-center justify-between">
                         <span class="font-semibold" style="color: var(--text-primary);">{{ item.numeroTicket || 'Ticket #' + item.ticketId }}</span>
-                        <span class="font-mono text-amber-300 font-bold">$ {{ item.importeUnitario || 0 }}</span>
+                        <span class="font-mono text-amber-300 font-bold">{{ (item.importeUnitario || 0) | moneda }}</span>
                       </div>
                       <span class="text-[11px]" style="color: var(--text-muted);">{{ item.sujetoNombre || 'Sujeto no especificado' }} · {{ item.modalidadCobertura }}</span>
                       <div class="flex items-center justify-between mt-0.5">
@@ -393,7 +396,7 @@ export type SeveridadFiltro = 'TODAS' | 'CRITICA' | 'URGENTE' | 'ATENCION';
                   Composición del Total ({{ kpiSeleccionado()?.drillDown?.length || 0 }} registros)
                 </h4>
                 <span class="font-mono font-bold text-emerald-400 text-sm">
-                  Total: {{ kpiSeleccionado()?.valorFormateado }}
+                  Total: {{ valorKpi(kpiSeleccionado()) }}
                 </span>
               </div>
 
@@ -417,12 +420,12 @@ export type SeveridadFiltro = 'TODAS' | 'CRITICA' | 'URGENTE' | 'ATENCION';
                         <tr class="hover:bg-white/5 transition-colors">
                           <td class="p-2 font-mono font-semibold text-blue-400">{{ item.identificador }}</td>
                           <td class="p-2 text-muted">{{ item.descripcion }}</td>
-                          <td class="p-2 font-mono text-[11px] text-muted">{{ item.fecha }}</td>
+                          <td class="p-2 font-mono text-[11px] text-muted">{{ item.fecha | fecha }}</td>
                           <td class="p-2 text-muted">{{ item.responsable || '—' }}</td>
                           <td class="p-2 font-mono text-[10px]">
                             <span class="px-1.5 py-0.5 rounded bg-white/10 text-gray-300">{{ item.estado }}</span>
                           </td>
-                          <td class="p-2 text-right font-mono font-bold text-emerald-400">$ {{ item.importe }}</td>
+                          <td class="p-2 text-right font-mono font-bold text-emerald-400">{{ item.importe | moneda }}</td>
                         </tr>
                       }
                     </tbody>
@@ -480,7 +483,7 @@ export type SeveridadFiltro = 'TODAS' | 'CRITICA' | 'URGENTE' | 'ATENCION';
               </div>
               <div class="flex justify-between">
                 <span class="text-muted">Importe Prestación:</span>
-                <span class="font-mono font-bold text-emerald-400">$ {{ modal.item.importeUnitario || 0 }}</span>
+                <span class="font-mono font-bold text-emerald-400">{{ (modal.item.importeUnitario || 0) | moneda }}</span>
               </div>
               <div class="flex justify-between">
                 <span class="text-muted">Prestación / Diagnóstico:</span>
@@ -582,6 +585,12 @@ export class CentroAdministrativoComponent implements OnInit {
     return !!kpi && CentroAdministrativoComponent.CODIGOS_KPI_SIN_B2C.has(kpi.codigo);
   }
   readonly kpiSeleccionado = signal<KpiAdministrativoDTO | null>(null);
+
+  /** Money KPIs come preformatted by the backend as "$ 30500.00"; reformat them like the rest of the app. */
+  valorKpi(kpi: KpiAdministrativoDTO | null): string {
+    if (!kpi) return '';
+    return kpi.unidad === 'ARS' ? formatMoneda(kpi.valorNumerico) : kpi.valorFormateado;
+  }
 
   readonly coberturaModal = signal<{ item: ItemAtencionBandejaCoberturaDTO; tipo: 'financiador' | 'nn' } | null>(null);
   readonly financiadores = signal<TerceroResumenDTO[]>([]);

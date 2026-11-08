@@ -104,8 +104,8 @@ describe('TesoreriaComponent (F0-01)', () => {
     const el = fixture.nativeElement as HTMLElement;
 
     const filas = [...el.querySelectorAll('li')].map((li) => li.textContent ?? '');
-    expect(filas.some((t) => t.includes('Caja Cerrada') && t.includes('CERRADA') && t.includes('200000'))).toBe(true);
-    expect(filas.some((t) => t.includes('Caja Abierta') && t.includes('ABIERTA') && t.includes('700'))).toBe(true);
+    expect(filas.some((t) => t.includes('Caja Cerrada') && t.includes('CERRADA') && t.includes('200.000,00'))).toBe(true);
+    expect(filas.some((t) => t.includes('Caja Abierta') && t.includes('ABIERTA') && t.includes('700,00'))).toBe(true);
 
     const opciones = [...el.querySelectorAll('select option')].map((o) => o.textContent ?? '');
     expect(opciones.some((t) => t.includes('Caja Abierta'))).toBe(true);

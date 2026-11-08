@@ -1,6 +1,5 @@
 import { Component, EventEmitter, Input, Output, inject, signal } from '@angular/core';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
-import { DecimalPipe } from '@angular/common';
 import { CobranzasApiService, DocumentoPendienteDTO } from '../../../../data-access/api/cobranzas.api';
 import {
   MEDIOS_PAGO,
@@ -11,11 +10,12 @@ import {
   retencionVacia,
   validarRetenciones,
 } from './retenciones-cobro';
+import { MonedaPipe } from '../../../../shared/pipes/moneda.pipe';
 
 @Component({
   selector: 'app-registrar-cobranza-modal',
   standalone: true,
-  imports: [ReactiveFormsModule, DecimalPipe],
+  imports: [MonedaPipe, ReactiveFormsModule],
   template: `
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
       <div class="bg-white text-gray-900 rounded-lg shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -99,7 +99,7 @@ import {
               }
               @if (retenciones().length > 0) {
                 <div class="mt-2 text-sm font-medium text-gray-700 bg-gray-50 p-2 rounded">
-                  Neto recibido: $ {{ montoNetoRecibido() | number:'1.2-2' }}
+                  Neto recibido: {{ montoNetoRecibido() | moneda }}
                 </div>
               }
             </div>
@@ -123,7 +123,7 @@ import {
                       <tr>
                         <td class="px-4 py-3 whitespace-nowrap text-sm">{{ doc.numeroDocumento }}</td>
                         <td class="px-4 py-3 whitespace-nowrap text-sm">{{ doc.fechaVencimiento || 'N/A' }}</td>
-                        <td class="px-4 py-3 whitespace-nowrap text-sm text-right font-medium text-gray-900">$ {{ doc.saldoPendiente | number:'1.2-2' }}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-right font-medium text-gray-900">{{ doc.saldoPendiente | moneda }}</td>
                         <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
                           <input type="number" 
                                  class="w-24 border-gray-300 rounded-md text-right border p-1 sm:text-sm"
@@ -142,8 +142,8 @@ import {
               </div>
               
               <div class="mt-4 flex justify-between bg-blue-50 p-3 rounded-md">
-                <span class="text-sm font-medium text-blue-800">Total a imputar: $ {{ totalAImputar() | number:'1.2-2' }}</span>
-                <span class="text-sm font-medium text-blue-800">Saldo remanente del recibo: $ {{ saldoRemanente() | number:'1.2-2' }}</span>
+                <span class="text-sm font-medium text-blue-800">Total a imputar: {{ totalAImputar() | moneda }}</span>
+                <span class="text-sm font-medium text-blue-800">Saldo remanente del recibo: {{ saldoRemanente() | moneda }}</span>
               </div>
               @if (errorImputacion() ?? error(); as mensaje) {
                 <div class="mt-2 text-sm text-red-600 bg-red-50 p-2 rounded">{{ mensaje }}</div>

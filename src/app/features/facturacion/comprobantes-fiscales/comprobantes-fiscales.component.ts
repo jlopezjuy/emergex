@@ -2,11 +2,12 @@ import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ComprobantesFiscalesApiService, ComprobanteFiscalDTO } from '../../../data-access/api/comprobantes-fiscales.api';
+import { MonedaPipe } from '../../../shared/pipes/moneda.pipe';
 
 @Component({
   selector: 'app-comprobantes-fiscales',
   standalone: true,
-  imports: [CommonModule, DatePipe, DecimalPipe, FormsModule],
+  imports: [MonedaPipe, CommonModule, DatePipe, DecimalPipe, FormsModule],
   template: `
     <div class="h-full flex flex-col overflow-hidden">
       <!-- ── Banner de Modo Simulado ──────────────────────────────────────── -->
@@ -156,7 +157,7 @@ import { ComprobantesFiscalesApiService, ComprobanteFiscalDTO } from '../../../d
                     }
                   </td>
                   <td class="py-3 px-4 text-right font-mono font-semibold">
-                    $ {{ c.montoTotal | number:'1.2-2' }}
+                    {{ c.montoTotal | moneda }}
                   </td>
                   <td class="py-3 px-4">
                     @if (c.estado === 'PENDIENTE_CAE') {

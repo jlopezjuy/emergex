@@ -112,7 +112,10 @@ describe('FacturacionComponent (Comprehensive TDD Spec)', () => {
     const component = fixture.componentInstance;
     expect(component).toBeTruthy();
     expect(component.kpis().totalFacturado).toBe(1750);
-    expect(component.kpis().pendiente).toBe(1000);
+    // Overdue invoices are still owed, so they count as pending; the header always reconciles.
+    expect(component.kpis().pendiente).toBe(1250);
+    expect(component.kpis().cobrado).toBe(500);
+    expect(component.kpis().cobrado + component.kpis().pendiente + component.kpis().anulado).toBe(1750);
     expect(component.kpisInstitucionales().totalFacturado).toBe(8000);
     expect(institutionsApiMock.getAllFacturasInstitucionales).toHaveBeenCalled();
   });

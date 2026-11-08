@@ -1,9 +1,9 @@
 import { Component, computed, input, output } from '@angular/core';
-import { DecimalPipe } from '@angular/common';
 import { ItemBandejaDTO } from '../../../../../data-access/dto/bandejas.dto';
 import { StatusBadgeComponent } from '../../../../../shared/components/status-badge/status-badge.component';
 import { EmptyStateComponent } from '../../../../../shared/components/empty-state/empty-state.component';
 import { rutaParaEntidad } from '../../../../../core/navigation/entidad-ruta';
+import { MonedaPipe } from '../../../../../shared/pipes/moneda.pipe';
 
 /**
  * Panel unico de bandeja de trabajo por excepcion.
@@ -16,7 +16,7 @@ import { rutaParaEntidad } from '../../../../../core/navigation/entidad-ruta';
 @Component({
   selector: 'emx-bandeja-panel',
   standalone: true,
-  imports: [DecimalPipe, StatusBadgeComponent, EmptyStateComponent],
+  imports: [MonedaPipe, StatusBadgeComponent, EmptyStateComponent],
   template: `
     <div class="glass rounded-panel p-4 flex flex-col gap-3 border" style="border-color: var(--border-glass);">
       <div class="flex items-center justify-between border-b pb-2" style="border-color: var(--border-glass);">
@@ -26,7 +26,7 @@ import { rutaParaEntidad } from '../../../../../core/navigation/entidad-ruta';
         <div class="flex items-center gap-2">
           @if (importeTotal() > 0) {
             <span class="text-xs font-mono font-bold px-2 py-0.5 rounded" style="background: var(--bg-elevated); color: var(--accent-blue);">
-              $ {{ importeTotal() | number: '1.0-0' }}
+              {{ importeTotal() | moneda }}
             </span>
           }
           <span class="text-xs font-mono font-semibold px-2 py-0.5 rounded" style="background: var(--bg-elevated); color: var(--text-secondary);">
@@ -68,7 +68,7 @@ import { rutaParaEntidad } from '../../../../../core/navigation/entidad-ruta';
               @if (item.importe || item.diasAntiguedad != null || item.responsable) {
                 <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-mono" style="color: var(--text-secondary);">
                   @if (item.importe) {
-                    <span class="font-bold" style="color: var(--text-primary);">$ {{ item.importe | number: '1.2-2' }}</span>
+                    <span class="font-bold" style="color: var(--text-primary);">{{ item.importe | moneda }}</span>
                   }
                   @if (item.diasAntiguedad != null) {
                     <span [class.font-bold]="item.diasAntiguedad >= 30">

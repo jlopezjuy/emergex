@@ -101,7 +101,7 @@ describe('ComprobantesFiscalesComponent (TDD Spec - S6-T2)', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('FACTURA_A');
     expect(compiled.textContent).toContain('FACTURA_B');
-    expect(compiled.textContent).toContain('12,100');
+    expect(compiled.textContent).toContain('12.100,00');
   });
 
   it('muestra PENDIENTE_CAE como estado en tramite y no como error', () => {

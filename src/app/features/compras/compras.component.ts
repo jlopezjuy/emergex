@@ -19,11 +19,12 @@ import { SessionStore } from '../../core/stores/session.store';
 import { LoadingStateComponent } from '../../shared/components/loading-state/loading-state.component';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { StatusBadgeComponent } from '../../shared/components/status-badge/status-badge.component';
+import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
 
 @Component({
   selector: 'emx-compras',
   standalone: true,
-  imports: [
+  imports: [MonedaPipe, 
     CommonModule,
     FormsModule,
     ReactiveFormsModule,
@@ -119,7 +120,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
                       <td class="px-4 py-3 font-mono text-xs font-bold text-[var(--text-primary)]">{{ sol.numeroSolicitud || ('SOL-' + sol.id) }}</td>
                       <td class="px-4 py-3 font-medium text-[var(--text-primary)]">{{ sol.justificacion || sol.concepto }}</td>
                       <td class="px-4 py-3 text-xs text-[var(--text-muted)]">{{ sol.centroCostoNombre || (sol.centroCostoId ? 'CC #' + sol.centroCostoId : 'General') }}</td>
-                      <td class="px-4 py-3 font-mono text-xs">$ {{ (sol.montoEstimado || 0) | number:'1.2-2' }}</td>
+                      <td class="px-4 py-3 font-mono text-xs">{{ (sol.montoEstimado || 0) | moneda }}</td>
                       <td class="px-4 py-3 text-[var(--text-muted)]">{{ sol.solicitante || sol.solicitadoPor || 'Sistema' }}</td>
                       <td class="px-4 py-3">
                         <emx-status-badge [variant]="sol.estado === 'APROBADA' ? 'stable' : 'pending'">
@@ -194,7 +195,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
               <option [ngValue]="null">-- Seleccioná una solicitud --</option>
               @for (sol of solicitudes(); track sol.id) {
                 <option [value]="sol.id">
-                  {{ sol.numeroSolicitud || ('SOL-' + sol.id) }} - {{ sol.justificacion || sol.concepto }} ($ {{ sol.montoEstimado | number:'1.2-2' }})
+                  {{ sol.numeroSolicitud || ('SOL-' + sol.id) }} - {{ sol.justificacion || sol.concepto }} ({{ sol.montoEstimado | moneda }})
                 </option>
               }
             </select>
@@ -222,7 +223,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
                   @for (cot of cotizaciones(); track cot.id) {
                     <tr class="hover:bg-[var(--surface-glass)] transition">
                       <td class="px-4 py-3 font-medium text-[var(--text-primary)]">{{ cot.proveedorNombre || ('Proveedor #' + cot.proveedorId) }}</td>
-                      <td class="px-4 py-3 font-mono text-xs font-bold text-green-400">$ {{ cot.montoCotizado | number:'1.2-2' }}</td>
+                      <td class="px-4 py-3 font-mono text-xs font-bold text-green-400">{{ cot.montoCotizado | moneda }}</td>
                       <td class="px-4 py-3 text-[var(--text-muted)]">{{ cot.plazoEntregaDias ? (cot.plazoEntregaDias + ' días') : 'Inmediato' }}</td>
                       <td class="px-4 py-3 text-xs text-[var(--text-muted)]">{{ cot.observaciones || '-' }}</td>
                       <td class="px-4 py-3">
@@ -261,7 +262,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
                     <tr class="hover:bg-[var(--surface-glass)] transition" [class.bg-blue-500/10]="ordenFocoId() === oc.id">
                       <td class="px-4 py-3 font-mono font-medium text-[var(--text-primary)]">{{ oc.numero || ('OC-' + oc.id) }}</td>
                       <td class="px-4 py-3 text-[var(--text-muted)]">{{ oc.fechaEmision || '-' }}</td>
-                      <td class="px-4 py-3 font-mono text-xs font-bold">$ {{ (oc.montoTotal || 0) | number:'1.2-2' }}</td>
+                      <td class="px-4 py-3 font-mono text-xs font-bold">{{ (oc.montoTotal || 0) | moneda }}</td>
                       <td class="px-4 py-3">
                         <emx-status-badge [variant]="oc.estado === 'RECEPCIONADA' ? 'stable' : 'info'">
                           {{ oc.estado }}
@@ -310,7 +311,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
                 <label class="block text-xs font-semibold text-[var(--text-muted)] uppercase mb-1">Orden de Compra</label>
                 <select [(ngModel)]="newRecepcion.ordenCompraId" name="ordenCompraId" class="w-full px-3 py-2 border border-[var(--border-glass)] rounded-lg bg-[var(--surface-inset)] text-sm text-[var(--text-primary)]">
                   @for (oc of ordenesCompra(); track oc.id) {
-                    <option [value]="oc.id">{{ oc.numero || ('OC-' + oc.id) }} ($ {{ oc.montoTotal }})</option>
+                    <option [value]="oc.id">{{ oc.numero || ('OC-' + oc.id) }} ({{ oc.montoTotal | moneda }})</option>
                   }
                 </select>
               </div>
@@ -425,7 +426,7 @@ import { StatusBadgeComponent } from '../../shared/components/status-badge/statu
                     <td class="px-4 py-3 font-medium text-[var(--text-primary)]">{{ c.tipoDocumento }}</td>
                     <td class="px-4 py-3 font-mono text-xs">{{ c.puntoVenta }}-{{ c.numeroDocumento }}</td>
                     <td class="px-4 py-3 text-[var(--text-muted)]">{{ c.fechaComprobante }}</td>
-                    <td class="px-4 py-3 font-mono text-xs font-bold">$ {{ c.montoTotal | number:'1.2-2' }}</td>
+                    <td class="px-4 py-3 font-mono text-xs font-bold">{{ c.montoTotal | moneda }}</td>
                     <td class="px-4 py-3">
                       <emx-status-badge [variant]="c.estadoMatching === 'MATCH_OK' ? 'stable' : 'critical'">
                         {{ c.estadoMatching || 'PENDIENTE' }}

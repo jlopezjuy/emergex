@@ -10,7 +10,6 @@ import {
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { leerIdDeFoco, leerTabDeFoco } from '../../core/navigation/deep-link';
-import { DecimalPipe } from '@angular/common';
 import { ServiciosParticularesComponent } from './servicios-particulares.component';
 import {
   QuickPaymentModalComponent,
@@ -36,6 +35,9 @@ import {
 } from '../../data-access/dto/institution.dto';
 import { DebitosApiService } from '../../data-access/api/debitos.api';
 import { DebitoDocumentoDTO, EstadoDebito } from '../../data-access/dto/debitos.dto';
+import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
+import { formatFecha, formatMoneda } from '../../core/i18n/formato';
+import { calcularKpisFacturacion } from './kpis-facturacion';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -65,15 +67,11 @@ const ESTADOS_FILTER: { value: EstadoFactura | 'all'; label: string }[] = [
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function fmtCurrency(n: number): string {
-  return '$' + n.toLocaleString('es-AR', { minimumFractionDigits: 0 });
+  return formatMoneda(n);
 }
 
 function fmtDate(s?: string): string {
-  if (!s) return '—';
-  const parts = s.split('T')[0].split('-');
-  if (parts.length < 3) return s;
-  const [y, m, d] = parts;
-  return `${d} ${MESES[parseInt(m) - 1].slice(0, 3)} ${y}`;
+  return formatFecha(s);
 }
 
 function fmtPeriodo(desde?: string, hasta?: string, tipoPeriodo?: string): string {
@@ -95,7 +93,7 @@ function estadoColor(estado: string): string {
 @Component({
   selector: 'app-facturacion',
   standalone: true,
-  imports: [FormsModule, DecimalPipe, QuickPaymentModalComponent, ServiciosParticularesComponent],
+  imports: [MonedaPipe, FormsModule, QuickPaymentModalComponent, ServiciosParticularesComponent],
   template: `
     <div class="screen">
       <!-- ── Header ── -->
@@ -123,6 +121,7 @@ function estadoColor(estado: string): string {
           </div>
         </div>
 
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
         <div class="screen-head__kpis">
           <div class="screen-kpi">
             <div class="eyebrow">Total facturado</div>
@@ -148,6 +147,10 @@ function estadoColor(estado: string): string {
               {{ kpis().vencidas }}
             </div>
           </div>
+        </div>
+        <p class="kpi-alcance" data-testid="kpi-conciliacion" style="margin:0;font-size:11.5px;color:var(--text-muted)">
+          Sólo facturas a afiliados (B2C). Facturado = Cobrado + Pendiente + Anulado ({{ kpis().anulado | moneda }}).
+        </p>
         </div>
 
         <div class="screen-head__actions">
@@ -599,7 +602,7 @@ function estadoColor(estado: string): string {
                     <tr [class.bg-blue-500/10]="debitoFocoId() === d.id">
                       <td>#{{ d.id }}</td>
                       <td>Doc #{{ d.documentoId }}</td>
-                      <td>\${{ d.montoDebito | number:'1.2-2' }}</td>
+                      <td>{{ d.montoDebito | moneda }}</td>
                       <td>{{ d.motivo || d.causaPrincipal || 'Sin motivo' }}</td>
                       <td>
                         <span class="status-badge" [attr.data-status]="d.estado.toLowerCase()">
@@ -832,9 +835,7 @@ function estadoColor(estado: string): string {
               >
                 <div style="color:var(--accent-emerald);font-weight:600">Factura generada</div>
                 <div class="mono" style="font-size:13px;margin-top:4px">
-                  {{ generarInstResult()!.cantidadMiembrosFacturados }} miembros · \${{
-                    generarInstResult()!.importeTotal | number: '1.0-0'
-                  }}
+                  {{ generarInstResult()!.cantidadMiembrosFacturados }} miembros · {{ generarInstResult()!.importeTotal | moneda }}
                 </div>
               </div>
               <button
@@ -1674,18 +1675,7 @@ export class FacturacionComponent implements OnInit {
   readonly totalPages = computed(() => Math.max(1, Math.ceil(this.tableTotal() / this.PAGE_SIZE)));
   readonly pageRange = computed(() => Array.from({ length: this.totalPages() }, (_, i) => i));
 
-  readonly kpis = computed(() => {
-    const list = this.facturas();
-    const totalFacturado = list.reduce((s, f) => s + f.importeTotal, 0);
-    const cobrado = list
-      .filter((f) => f.estado === 'PAGADA')
-      .reduce((s, f) => s + f.importeTotal, 0);
-    const pendiente = list
-      .filter((f) => f.estado === 'EMITIDA')
-      .reduce((s, f) => s + f.importeTotal, 0);
-    const vencidas = list.filter((f) => f.estado === 'VENCIDA').length;
-    return { totalFacturado, cobrado, pendiente, vencidas };
-  });
+  readonly kpis = computed(() => calcularKpisFacturacion(this.facturas()));
 
   readonly kpisInstitucionales = computed(() => {
     const list = this.facturasInstitucionales();

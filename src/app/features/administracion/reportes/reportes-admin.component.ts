@@ -112,6 +112,10 @@ export type ReporteTab = 'FINANCIERO' | 'COMPRAS' | 'PADRON';
               <emx-kpi-card label="Total Deuda Pendiente" [value]="financiero()?.totalDeuda | currency:'ARS':'symbol-narrow':'1.2-2'" accentColor="red" />
               <emx-kpi-card label="Débitos Procesados" [value]="financiero()?.totalDebitos | currency:'ARS':'symbol-narrow':'1.2-2'" accentColor="amber" />
             </div>
+            <p class="text-xs -mt-3" style="color: var(--text-muted);" data-testid="reporte-alcance">
+              Cobranza: recibos registrados en Cuentas corrientes. Deuda pendiente: documentos de Cuentas corrientes.
+              No incluye las cuotas de afiliados, que se controlan en Facturación.
+            </p>
 
             <!-- Tabla de Facturación por Cliente -->
             <div class="glass rounded-panel p-4 border flex flex-col gap-3" style="border-color: var(--border-glass);">

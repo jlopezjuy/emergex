@@ -5,11 +5,12 @@ import { TesoreriaApi, Caja, MovimientoCaja, ArqueoCaja } from '../../data-acces
 import { GlassCardComponent } from '../../shared/components/glass-card/glass-card.component';
 import { EmptyStateComponent } from '../../shared/components/empty-state/empty-state.component';
 import { UserFeedbackService } from '../../core/notifications/user-feedback.service';
+import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
 
 @Component({
   selector: 'emx-tesoreria',
   standalone: true,
-  imports: [CommonModule, FormsModule, GlassCardComponent, EmptyStateComponent],
+  imports: [MonedaPipe, CommonModule, FormsModule, GlassCardComponent, EmptyStateComponent],
   template: `
     <div class="p-6">
       <div class="mb-6">
@@ -118,13 +119,13 @@ import { UserFeedbackService } from '../../core/notifications/user-feedback.serv
                       style="border-color: var(--border-glass); color: var(--text-primary);"
                     />
                     <span class="col-span-2 font-mono text-right text-[11px] font-bold text-emerald-400 whitespace-nowrap">
-                      = $ {{ ((billetes()[d] || 0) * d) | number:'1.2-2' }}
+                      = {{ ((billetes()[d] || 0) * d) | moneda }}
                     </span>
                   </div>
                 }
                 <div class="border-t border-[var(--border-glass)] pt-2 flex justify-between items-center text-xs font-bold">
                   <span class="text-[var(--text-primary)]">Total Conteo Físico:</span>
-                  <span class="text-base text-emerald-400 font-mono font-extrabold">$ {{ arqMontoFisico() | number:'1.2-2' }}</span>
+                  <span class="text-base text-emerald-400 font-mono font-extrabold">{{ arqMontoFisico() | moneda }}</span>
                 </div>
               </div>
             }
@@ -137,7 +138,7 @@ import { UserFeedbackService } from '../../core/notifications/user-feedback.serv
             @if (hayDiferenciaDeArqueo()) {
               <div>
                 <label class="block text-xs font-semibold uppercase mb-1" style="color: var(--accent-amber, #f59e0b)">
-                  Justificación de la diferencia ($ {{ diferenciaDeArqueo() | number:'1.2-2' }}) *
+                  Justificación de la diferencia ({{ diferenciaDeArqueo() | moneda }}) *
                 </label>
                 <textarea [ngModel]="arqJustificacion()" (ngModelChange)="arqJustificacion.set($event)" rows="2" maxlength="500"
                           placeholder="Explicá el sobrante o faltante"
@@ -162,7 +163,7 @@ import { UserFeedbackService } from '../../core/notifications/user-feedback.serv
               <span>#{{ c.id }} · {{ c.nombre }}</span>
               <span class="flex items-center gap-3">
                 <span class="text-xs font-semibold uppercase" [style.color]="c.estado === 'CERRADA' ? 'var(--text-muted)' : 'var(--accent-green)'">{{ c.estado }}</span>
-                <span class="font-mono">Saldo actual $&nbsp;{{ c.saldoActual }}</span>
+                <span class="font-mono">Saldo actual {{ c.saldoActual | moneda }}</span>
               </span>
             </li>
           </ul>

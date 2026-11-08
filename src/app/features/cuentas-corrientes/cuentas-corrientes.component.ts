@@ -1,4 +1,4 @@
-import { Component, OnInit, DestroyRef, inject, signal } from '@angular/core';
+import { Component, OnInit, DestroyRef, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject, debounceTime, distinctUntilChanged, forkJoin } from 'rxjs';
@@ -8,11 +8,14 @@ import { TercerosApiService } from '../../data-access/api/terceros.api';
 import { LedgerMovimientoDTO, TerceroResumenDTO, AgingDeudaDTO } from '../../data-access/dto/ledger.dto';
 import { CobranzasApiService, DocumentoPendienteDTO } from '../../data-access/api/cobranzas.api';
 import { RegistrarCobranzaModalComponent } from './components/registrar-cobranza-modal/registrar-cobranza-modal.component';
+import { MonedaPipe } from '../../shared/pipes/moneda.pipe';
+import { FechaPipe } from '../../shared/pipes/fecha.pipe';
+import { leyendaSaldo } from '../../core/i18n/formato';
 
 @Component({
   selector: 'app-cuentas-corrientes',
   standalone: true,
-  imports: [CommonModule, FormsModule, RegistrarCobranzaModalComponent],
+  imports: [MonedaPipe, FechaPipe, CommonModule, FormsModule, RegistrarCobranzaModalComponent],
   template: `
     <div class="cxp-container p-6 space-y-6">
       <header class="flex justify-between items-center bg-slate-900 text-white p-6 rounded-xl shadow-lg border border-slate-800">
@@ -53,30 +56,34 @@ import { RegistrarCobranzaModalComponent } from './components/registrar-cobranza
 
       <!-- Aging de Deuda KPIs -->
       @if (!terceroSeleccionado() && agingDeuda()) {
+        <p class="text-xs text-slate-500 -mb-2" data-testid="aging-alcance">
+          Incluye sólo los documentos registrados en cuentas corrientes (clientes institucionales y terceros).
+          Las cuotas de afiliados se controlan en Facturación.
+        </p>
         <section class="grid grid-cols-2 md:grid-cols-5 gap-4">
           <div class="bg-green-50 border border-green-200 rounded-xl p-4 shadow-sm">
             <p class="text-xs font-semibold text-green-700 uppercase">No Vencido</p>
-            <p class="text-xl font-bold text-green-900 mt-1">$ {{ agingDeuda()?.noVencido | number:'1.2-2' }}</p>
+            <p class="text-xl font-bold text-green-900 mt-1">{{ agingDeuda()?.noVencido | moneda }}</p>
           </div>
           <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 shadow-sm">
             <p class="text-xs font-semibold text-amber-700 uppercase">0–30 días</p>
-            <p class="text-xl font-bold text-amber-900 mt-1">$ {{ agingDeuda()?.tramo0a30 | number:'1.2-2' }}</p>
+            <p class="text-xl font-bold text-amber-900 mt-1">{{ agingDeuda()?.tramo0a30 | moneda }}</p>
           </div>
           <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 shadow-sm">
             <p class="text-xs font-semibold text-amber-700 uppercase">31–60 días</p>
-            <p class="text-xl font-bold text-amber-900 mt-1">$ {{ agingDeuda()?.tramo31a60 | number:'1.2-2' }}</p>
+            <p class="text-xl font-bold text-amber-900 mt-1">{{ agingDeuda()?.tramo31a60 | moneda }}</p>
           </div>
           <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 shadow-sm">
             <p class="text-xs font-semibold text-amber-700 uppercase">61–90 días</p>
-            <p class="text-xl font-bold text-amber-900 mt-1">$ {{ agingDeuda()?.tramo61a90 | number:'1.2-2' }}</p>
+            <p class="text-xl font-bold text-amber-900 mt-1">{{ agingDeuda()?.tramo61a90 | moneda }}</p>
           </div>
           <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 shadow-sm">
             <p class="text-xs font-semibold text-amber-700 uppercase">+90 días</p>
-            <p class="text-xl font-bold text-amber-900 mt-1">$ {{ agingDeuda()?.tramo90plus | number:'1.2-2' }}</p>
+            <p class="text-xl font-bold text-amber-900 mt-1">{{ agingDeuda()?.tramo90plus | moneda }}</p>
           </div>
           <div class="bg-red-50 border border-red-200 rounded-xl p-4 shadow-sm md:col-span-5 flex justify-between items-center">
             <p class="text-sm font-semibold text-red-700 uppercase">Total Vencido</p>
-            <p class="text-2xl font-bold text-red-900">$ {{ agingDeuda()?.totalVencido | number:'1.2-2' }}</p>
+            <p class="text-2xl font-bold text-red-900">{{ agingDeuda()?.totalVencido | moneda }}</p>
           </div>
         </section>
       }
@@ -198,9 +205,9 @@ import { RegistrarCobranzaModalComponent } from './components/registrar-cobranza
             <div class="bg-slate-50 border border-slate-200 rounded-lg p-4 flex justify-between items-center">
               <div>
                 <span class="text-xs font-bold uppercase tracking-wider block" [class.text-emerald-700]="tipoSubmayor() === 'CXC'" [class.text-amber-700]="tipoSubmayor() === 'CXP'">
-                  {{ tipoSubmayor() === 'CXC' ? 'Saldo a nuestro favor (nos deben)' : 'Saldo a pagar (le debemos al proveedor)' }}
+                  {{ leyendaSaldo() }}
                 </span>
-                <span class="text-2xl font-extrabold text-slate-800">$ {{ saldo() | number: '1.2-2' }}</span>
+                <span class="text-2xl font-extrabold text-slate-800" data-testid="saldo-submayor">{{ saldoAbsoluto() | moneda }}</span>
               </div>
               <div class="flex items-center gap-2">
                 <button type="button" class="px-3 py-1.5 text-xs font-bold text-slate-700 bg-white hover:bg-slate-100 rounded-lg transition border border-slate-300" (click)="exportarCsvPage()">
@@ -227,15 +234,15 @@ import { RegistrarCobranzaModalComponent } from './components/registrar-cobranza
                 @for (m of movimientos(); track m.id) {
                   <tr class="border-b border-slate-100 hover:bg-slate-50">
                     <td class="p-3 font-mono text-xs">{{ m.id }}</td>
-                    <td class="p-3">{{ m.fechaContable }}</td>
+                    <td class="p-3">{{ m.fechaContable | fecha }}</td>
                     <td class="p-3">
                       <span class="px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-800">
                         {{ m.tipoMovimiento }}
                       </span>
                     </td>
                     <td class="p-3 font-medium text-slate-800">{{ m.concepto }}</td>
-                    <td class="p-3 text-right font-mono font-semibold text-blue-600">$ {{ m.montoDebe | number: '1.2-2' }}</td>
-                    <td class="p-3 text-right font-mono font-semibold text-red-600">$ {{ m.montoHaber | number: '1.2-2' }}</td>
+                    <td class="p-3 text-right font-mono font-semibold text-slate-800">{{ m.montoDebe | moneda }}</td>
+                    <td class="p-3 text-right font-mono font-semibold text-slate-800">{{ m.montoHaber | moneda }}</td>
                   </tr>
                 } @empty {
                   <tr>
@@ -276,6 +283,10 @@ export class CuentasCorrientesComponent implements OnInit {
   readonly loadingCuenta = signal(false);
   readonly error = signal<string | null>(null);
   readonly saldo = signal(0);
+  /** Plain-language reading of the balance; the sign means opposite things in CXC and CXP. */
+  readonly leyendaSaldo = computed(() => leyendaSaldo(this.tipoSubmayor(), this.saldo()));
+  /** The label already says who owes whom, so the amount is shown without sign. */
+  readonly saldoAbsoluto = computed(() => Math.abs(this.saldo()));
   readonly movimientos = signal<LedgerMovimientoDTO[]>([]);
 
   readonly agingDeuda = signal<AgingDeudaDTO | null>(null);
