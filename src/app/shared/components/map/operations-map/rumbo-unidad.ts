@@ -11,6 +11,12 @@ type LngLat = readonly [number, number];
 /** Debajo de este desplazamiento (en grados, ~2 m) se considera ruido de GPS y no un movimiento. */
 const UMBRAL_MOVIMIENTO_GRADOS = 2e-5;
 
+/**
+ * Rumbo cuando no hay ningún dato. Con la cámara fija al sur, el norte deja ver sólo la trasera;
+ * 135° (sureste) muestra el frente y un costado, que es la vista que más información da.
+ */
+export const RUMBO_POR_DEFECTO = 135;
+
 /** Lleva un rumbo al rango [0, 360). Devuelve `null` si no es un número finito. */
 export function normalizarRumbo(rumbo: number | null | undefined): number | null {
   if (rumbo == null || !Number.isFinite(rumbo)) return null;
@@ -53,5 +59,5 @@ export function resolverRumbo({ direccion, previa, actual, ultimo }: EntradaRumb
     const desplazamiento = Math.max(Math.abs(actual[0] - previa[0]), Math.abs(actual[1] - previa[1]));
     if (desplazamiento >= UMBRAL_MOVIMIENTO_GRADOS) return rumboEntre(previa, actual);
   }
-  return ultimo ?? 0;
+  return ultimo ?? RUMBO_POR_DEFECTO;
 }

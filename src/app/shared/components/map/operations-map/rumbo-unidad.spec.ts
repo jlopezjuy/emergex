@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizarRumbo, resolverRumbo, rumboEntre } from './rumbo-unidad';
+import { RUMBO_POR_DEFECTO, normalizarRumbo, resolverRumbo, rumboEntre } from './rumbo-unidad';
 
 describe('rumbo de la unidad en el mapa', () => {
   describe('normalizarRumbo', () => {
@@ -41,8 +41,9 @@ describe('rumbo de la unidad en el mapa', () => {
     it('un salto ínfimo de GPS (ruido) no cambia el rumbo', () => {
       expect(resolverRumbo({ previa: a, actual: [-65.3 + 0.000001, -24.18], ultimo: 45 })).toBe(45);
     });
-    it('sin ningún dato mira al norte', () => {
-      expect(resolverRumbo({ actual: a })).toBe(0);
+    it('sin ningún dato muestra una vista 3/4 del frente, no la trasera', () => {
+      expect(resolverRumbo({ actual: a })).toBe(RUMBO_POR_DEFECTO);
+      expect(RUMBO_POR_DEFECTO).toBe(135);
     });
   });
 });
