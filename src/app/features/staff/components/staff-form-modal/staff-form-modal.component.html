@@ -1,0 +1,485 @@
+@if (isOpen()) {
+  <div class="qc-overlay">
+    <div class="qc-modal qc-modal--wide glass-strong">
+
+      <!-- Head -->
+      <div class="qc-head">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <h2 style="font-size:16px;font-weight:600;color:var(--text-primary)">
+              @if (result()) {
+                {{ resultMode() === 'created' ? 'Profesional creado correctamente' : 'Invitación reenviada' }}
+              } @else {
+                {{ member() ? 'Editar profesional' : 'Nuevo profesional' }}
+              }
+            </h2>
+            @if (!result() && empresaNombre()) {
+              <span class="empresa-chip mono micro">{{ empresaNombre() }}</span>
+            }
+          </div>
+          <div class="eyebrow mono micro" style="margin-top:2px">
+            @if (result()) {
+              Comparta el acceso con el profesional
+            } @else if (member()) {
+              ID: {{ member()?.id }}
+            } @else {
+              Paso {{ wizardStep() }} de 3 · {{ stepLabels[wizardStep()] }}
+            }
+          </div>
+        </div>
+        <button class="qc-close-btn" (click)="closeForm()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <!-- Body -->
+      <div class="qc-body scroll-y" style="display:flex;flex-direction:column;gap:20px;padding:20px">
+
+        @if (result(); as r) {
+
+          <!-- ═══ Pantalla de resultado ═══ -->
+          <div class="access-panel access-panel--ok" style="display:flex;flex-direction:column;gap:4px">
+            <div class="access-panel__row"><span class="eyebrow">Nombre</span><span>{{ r.nombreCompleto }}</span></div>
+            <div class="access-panel__row"><span class="eyebrow">Empresa</span><span>{{ r.empresaNombre }}</span></div>
+            <div class="access-panel__row"><span class="eyebrow">Correo</span><span>{{ r.email }}</span></div>
+            <div class="access-panel__row"><span class="eyebrow">Usuario</span><span class="mono">{{ r.login }}</span></div>
+            <div class="access-panel__row">
+              <span class="eyebrow">Estado</span>
+              <span>{{ r.invitacionPendiente ? 'Pendiente de activación' : 'Cuenta activa' }}</span>
+            </div>
+            <div class="access-panel__row">
+              <span class="eyebrow">Acceso</span>
+              <span>{{ r.usuarioNuevo ? 'Usuario nuevo' : 'Usuario vinculado' }}</span>
+            </div>
+          </div>
+
+          @if (r.invitacionPendiente && r.activationLink) {
+            @if (r.emailEnviado) {
+              <div class="access-panel access-panel--ok">Correo enviado correctamente.</div>
+            } @else {
+              <div class="access-panel access-panel--warn">No se pudo enviar el correo. Puede copiar las credenciales y enviarlas manualmente.</div>
+            }
+
+            <div class="qc-field">
+              <label class="eyebrow">Enlace de invitación</label>
+              <div class="code-block mono micro" aria-live="polite">{{ r.activationLink }}</div>
+              <div class="mono micro" style="color:var(--text-muted);margin-top:4px">
+                Este enlace es personal, tiene una duración limitada y se muestra una única vez.
+              </div>
+            </div>
+
+            <div style="display:flex;flex-wrap:wrap;gap:8px" aria-live="polite">
+              <button type="button" class="btn btn--ghost" (click)="copyToClipboard(r.activationLink!, 'link')">
+                {{ copied() === 'link' ? 'Copiado ✓' : 'Copiar enlace' }}
+              </button>
+              <button type="button" class="btn btn--ghost" (click)="copyToClipboard(buildInvitationMessage(r), 'message')">
+                {{ copied() === 'message' ? 'Copiado ✓' : 'Copiar mensaje' }}
+              </button>
+              <button type="button" class="btn btn--ghost" [disabled]="sendingEmail()" (click)="enviarPorCorreo()">
+                {{ sendingEmail() ? 'Enviando…' : (r.emailEnviado ? 'Reenviar por correo' : 'Enviar por correo') }}
+              </button>
+            </div>
+          } @else {
+            <div class="access-panel access-panel--muted">
+              Este profesional fue vinculado a un usuario existente. No se generaron credenciales nuevas.
+            </div>
+          }
+
+        } @else {
+
+          <!-- ═══ Sección 1: Datos del profesional ═══ -->
+          @if (isEditing() || wizardStep() === 1) {
+          <div>
+            <div class="form-section__head">
+              <div class="form-section__step">1</div>
+              <div>
+                <div style="font-size:13px;font-weight:600;color:var(--text-primary)">Datos del profesional</div>
+              </div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:12px">
+              <div class="qc-row">
+                <div class="qc-field" style="width:110px;flex-shrink:0">
+                  <label class="eyebrow">Prefijo</label>
+                  <select class="qc-input" [ngModel]="form().prefix" (ngModelChange)="patchForm({ prefix: $event })">
+                    @for (p of prefixOptions; track p) {
+                      <option [value]="p">{{ p }}</option>
+                    }
+                  </select>
+                </div>
+                <div class="qc-field" style="flex:1">
+                  <label class="eyebrow">Nombre <span style="color:var(--accent-red)">*</span></label>
+                  <input class="qc-input" placeholder="Ej. Mariana" [ngModel]="form().firstName" (ngModelChange)="patchForm({ firstName: $event })" autofocus/>
+                </div>
+                <div class="qc-field" style="flex:1">
+                  <label class="eyebrow">Apellido <span style="color:var(--accent-red)">*</span></label>
+                  <input class="qc-input" placeholder="Ej. Soto" [ngModel]="form().lastName" (ngModelChange)="patchForm({ lastName: $event })"/>
+                </div>
+              </div>
+
+              <div class="qc-row">
+                <div class="qc-field" style="flex:1">
+                  <label class="eyebrow">Documento</label>
+                  <input class="qc-input mono" placeholder="DNI / CUIL" [ngModel]="form().documento" (ngModelChange)="patchForm({ documento: $event })"/>
+                </div>
+                <div class="qc-field" style="flex:1">
+                  <label class="eyebrow">Matrícula <span style="color:var(--accent-red)">*</span></label>
+                  <input class="qc-input mono" placeholder="MP 14887" [ngModel]="form().matricula" (ngModelChange)="patchForm({ matricula: $event })"/>
+                </div>
+                <div class="qc-field" style="flex:1">
+                  <label class="eyebrow">Teléfono</label>
+                  <input class="qc-input" placeholder="+54 388 4123-7754" [ngModel]="form().phone" (ngModelChange)="patchForm({ phone: $event })"/>
+                </div>
+              </div>
+
+              <div class="qc-row">
+                <div class="qc-field" style="flex:1">
+                  <label class="eyebrow">Email <span style="color:var(--accent-red)">*</span></label>
+                  <input class="qc-input" type="email" placeholder="apellido@emergex.com.ar" [ngModel]="form().email" (ngModelChange)="onEmailChange($event)" [disabled]="isEditing()"/>
+                  @if (isEditing()) {
+                    <span class="mono micro" style="color:var(--text-muted)">El correo de acceso no se modifica desde edición.</span>
+                  }
+                </div>
+              </div>
+            </div>
+          </div>
+          }
+
+          <!-- ═══ Sección 2: Acceso al sistema ═══ -->
+          @if (isEditing() || wizardStep() === 2) {
+          <div>
+            <div class="form-section__head">
+              <div class="form-section__step">2</div>
+              <div>
+                <div style="font-size:13px;font-weight:600;color:var(--text-primary)">Acceso al sistema</div>
+              </div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:12px">
+              @if (isEditing()) {
+                @if (loadingAcceso()) {
+                  <div class="access-panel access-panel--muted"><span class="spinner"></span> Cargando información de acceso…</div>
+                } @else if (accesoInfo(); as a) {
+                  <div class="access-panel access-panel--muted" style="display:flex;flex-direction:column;gap:2px">
+                    <div class="access-panel__row"><span class="eyebrow">Usuario</span><span class="mono">{{ a.login }}</span></div>
+                    <div class="access-panel__row"><span class="eyebrow">Correo</span><span>{{ a.email }}</span></div>
+                    <div class="access-panel__row"><span class="eyebrow">Estado</span><span>{{ a.invitacionPendiente ? 'Invitación pendiente' : 'Cuenta activa' }}</span></div>
+                    @if (a.rolEmpresa) {
+                      <div class="access-panel__row"><span class="eyebrow">Rol en empresa</span><span>{{ a.rolEmpresa }}</span></div>
+                    }
+                    @if (a.invitacionPendiente) {
+                      <button type="button" class="btn btn--ghost" style="margin-top:8px;align-self:flex-start" [disabled]="resendingInvite()" (click)="reenviarInvitacion()">
+                        {{ resendingInvite() ? 'Enviando…' : 'Reenviar invitación' }}
+                      </button>
+                    }
+                  </div>
+                }
+              } @else {
+                @switch (emailStatus()) {
+                  @case ('idle') {
+                    <div class="access-panel access-panel--muted">Ingresá un correo válido para continuar.</div>
+                  }
+                  @case ('checking') {
+                    <div class="access-panel access-panel--muted"><span class="spinner"></span> Validando correo…</div>
+                  }
+                  @case ('DISPONIBLE') {
+                    <div class="access-panel access-panel--ok">
+                      <div style="font-weight:500">Se creará automáticamente un usuario de acceso para este profesional.</div>
+                      <div class="qc-field" style="margin-top:10px">
+                        <label class="eyebrow">Login propuesto</label>
+                        <input class="qc-input mono" [ngModel]="form().username" (ngModelChange)="patchForm({ username: $event })"/>
+                      </div>
+                      <div class="mono micro" style="color:var(--text-muted);margin-top:6px">Método de activación: enlace de invitación por correo.</div>
+                    </div>
+                  }
+                  @case ('USUARIO_EN_EMPRESA') {
+                    <div class="access-panel access-panel--ok">
+                      Este usuario ya existe en la empresa (<span class="mono">{{ emailStatusInfo()?.login }}</span>). Será vinculado al profesional.
+                    </div>
+                  }
+                  @case ('USUARIO_SIN_EMPRESA') {
+                    <div class="access-panel access-panel--ok">
+                      El usuario <span class="mono">{{ emailStatusInfo()?.login }}</span> ya existe y será vinculado a esta empresa.
+                    </div>
+                  }
+                  @case ('USUARIO_EN_OTRA_EMPRESA') {
+                    <div class="access-panel access-panel--warn">
+                      <div>El usuario <span class="mono">{{ emailStatusInfo()?.login }}</span> ya pertenece a otra empresa.</div>
+                      <label style="display:flex;align-items:flex-start;gap:8px;margin-top:8px;cursor:pointer">
+                        <input type="checkbox" style="margin-top:2px" [ngModel]="form().confirmarVinculoOtraEmpresa" (ngModelChange)="patchForm({ confirmarVinculoOtraEmpresa: $event })"/>
+                        <span class="mono micro">Confirmo agregar este vínculo a la empresa actual, sin modificar su contraseña ni sus permisos en otras empresas.</span>
+                      </label>
+                    </div>
+                  }
+                  @case ('USUARIO_YA_PROFESIONAL') {
+                    <div class="access-panel access-panel--error">
+                      Este correo ya pertenece a un profesional existente y no puede utilizarse para un alta nueva.
+                    </div>
+                  }
+                }
+              }
+
+              <div class="qc-field">
+                <label class="eyebrow">Roles y permisos <span style="color:var(--accent-red)">*</span></label>
+                <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">
+                  @for (role of systemAuthorities(); track role) {
+                    @let isOn = form().authorities.includes(role);
+                    <button type="button" class="role-card" [class.role-card--on]="isOn" (click)="toggleAuthority(role)">
+                      <div class="role-card__check" [class.role-card__check--on]="isOn">
+                        @if (isOn) {
+                          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><polyline points="1.5 5 4 7.5 8.5 2"/></svg>
+                        }
+                      </div>
+                      <div style="text-align:left">
+                        <div class="role-card__label">{{ roleLabel(role) }}</div>
+                        <div class="role-card__desc mono micro">{{ roleDescription(role) }}</div>
+                      </div>
+                    </button>
+                  }
+                </div>
+                <span class="mono micro" style="color:var(--text-muted);margin-top:6px">Además, todo profesional recibe acceso básico de usuario automáticamente.</span>
+              </div>
+            </div>
+          </div>
+          }
+
+          <!-- ═══ Sección 3: Perfil médico y operativo ═══ -->
+          @if (isEditing() || wizardStep() === 3) {
+          <div>
+            <div class="form-section__head">
+              <div class="form-section__step">3</div>
+              <div>
+                <div style="font-size:13px;font-weight:600;color:var(--text-primary)">Perfil médico y operativo</div>
+              </div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:12px">
+
+              <!-- Multiselect especialidades -->
+              <div class="qc-field">
+                <label class="eyebrow">Especialidades y funciones <span style="color:var(--accent-red)">*</span></label>
+                <div class="spec-multiselect">
+                  <!-- chips seleccionados -->
+                  @if (form().specialties.length > 0) {
+                    <div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 10px 6px;border-bottom:1px solid var(--border-hairline)">
+                      @for (sid of form().specialties; track sid) {
+                        @let sp = getSpec(sid);
+                        @if (sp) {
+                          @let isPrincipal = form().especialidadPrincipalId === Number(sid);
+                          <span class="spec-chip"
+                            [style.background]="groupColor(sp.group).bg"
+                            [style.color]="groupColor(sp.group).fg"
+                            [style.border-color]="isPrincipal ? 'var(--accent-cyan)' : groupColor(sp.group).border"
+                            [style.box-shadow]="isPrincipal ? '0 0 8px rgba(34,211,238,0.2)' : 'none'"
+                            style="position:relative; padding-left: 22px;"
+                          >
+                            <button type="button"
+                              (click)="setPrincipalSpecialty(sid); $event.stopPropagation()"
+                              style="position: absolute; left: 4px; top: 50%; transform: translateY(-50%); background: transparent; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0;"
+                              [title]="isPrincipal ? 'Especialidad principal' : 'Marcar como principal'"
+                            >
+                              <svg width="11" height="11" viewBox="0 0 24 24"
+                                [attr.fill]="isPrincipal ? 'var(--accent-cyan)' : 'none'"
+                                [attr.stroke]="isPrincipal ? 'var(--accent-cyan)' : 'var(--text-muted)'"
+                                stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+                                [style.opacity]="isPrincipal ? '1' : '0.4'"
+                                style="transition: all 0.15s;"
+                              >
+                                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                              </svg>
+                            </button>
+                            {{ sp.name }}
+                            @if (isPrincipal) {
+                              <span class="spec-chip__principal-badge">Principal</span>
+                            }
+                            <button class="spec-chip__remove" title="Quitar" (click)="removeSpecialty(sid); $event.stopPropagation()">
+                              <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="1" y1="1" x2="7" y2="7"/><line x1="7" y1="1" x2="1" y2="7"/></svg>
+                            </button>
+                          </span>
+                        }
+                      }
+                    </div>
+                  }
+                  <!-- input búsqueda -->
+                  <div style="position:relative">
+                    <input
+                       class="qc-input spec-search-input"
+                       placeholder="Buscar o explorar por categoría…"
+                       [ngModel]="specQuery()"
+                       (ngModelChange)="specQuery.set($event)"
+                       (focus)="specDropOpen.set(true)"
+                       (click)="specDropOpen.set(true); $event.stopPropagation()"
+                    />
+                    @if (specDropOpen()) {
+                      <div class="spec-dropdown" (click)="$event.stopPropagation()">
+                        @if (filteredSpecs().length === 0) {
+                          <div class="spec-drop__empty">
+                            @if (catalog().length === 0) {
+                              Todavía no hay especialidades cargadas. Podés agregarlas desde "Gestionar especialidades".
+                            } @else {
+                              Sin resultados para "{{ specQuery() }}". Probá con otro término o cargá una especialidad nueva desde "Gestionar especialidades".
+                            }
+                          </div>
+                        }
+                        @for (grp of specGroups; track grp) {
+                          @let items = filteredSpecsByGroup(grp);
+                          @if (items.length > 0) {
+                            <div class="spec-drop__group-label">
+                              <span class="spec-drop__group-dot" [style.background]="groupColor(grp).fg"></span>
+                              {{ grp }}
+                            </div>
+                            @for (sp of items; track sp.id) {
+                              <button type="button" class="spec-drop__item" [class.spec-drop__item--selected]="form().specialties.includes(sp.id)" (click)="toggleSpecialty(sp.id)">
+                                <div style="flex:1;min-width:0">
+                                  <div class="spec-drop__item-name" [style.color]="groupColor(sp.group).fg">{{ sp.name }}</div>
+                                  @if (sp.descripcion) {
+                                    <div class="spec-drop__item-desc">{{ sp.descripcion }}</div>
+                                  }
+                                </div>
+                                @if (form().specialties.includes(sp.id)) {
+                                  <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="var(--accent-emerald)" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;margin-left:8px"><polyline points="1.5 5.5 4.5 8.5 9.5 2"/></svg>
+                                }
+                              </button>
+                            }
+                          }
+                        }
+                      </div>
+                    }
+                  </div>
+                </div>
+                <div class="mono micro" style="color:var(--text-muted);margin-top:4px">{{ form().specialties.length }} seleccionadas</div>
+              </div>
+
+              <!-- Hab cards -->
+              <div>
+                <label class="eyebrow" style="display:block;margin-bottom:8px">Habilitaciones</label>
+                <div class="hab-grid">
+                  <button type="button" class="hab-card"
+                    [attr.data-on]="form().domiciliary"
+                    [style.border-color]="form().domiciliary ? 'rgba(59,130,246,0.5)' : 'var(--border-glass)'"
+                    [style.background]="form().domiciliary ? 'rgba(59,130,246,0.08)' : 'transparent'"
+                    (click)="patchForm({ domiciliary: !form().domiciliary })">
+                    <div style="width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"
+                      [style.background]="form().domiciliary ? 'rgba(59,130,246,0.15)' : 'rgba(148,163,184,0.08)'">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        [attr.stroke]="form().domiciliary ? 'var(--accent-blue)' : 'var(--text-muted)'"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                        <polyline points="9 22 9 12 15 12 15 22"/>
+                      </svg>
+                    </div>
+                    <div style="text-align:left">
+                      <div style="font-size:13px;font-weight:500"
+                        [style.color]="form().domiciliary ? 'var(--accent-blue)' : 'var(--text-secondary)'">Atención domiciliaria</div>
+                      <div class="mono micro" style="color:var(--text-muted);margin-top:2px">Visitas a domicilio</div>
+                    </div>
+                  </button>
+                  <button type="button" class="hab-card"
+                    [attr.data-on]="form().emergency"
+                    [style.border-color]="form().emergency ? 'rgba(239,68,68,0.5)' : 'var(--border-glass)'"
+                    [style.background]="form().emergency ? 'rgba(239,68,68,0.08)' : 'transparent'"
+                    (click)="patchForm({ emergency: !form().emergency })">
+                    <div style="width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0"
+                      [style.background]="form().emergency ? 'rgba(239,68,68,0.15)' : 'rgba(148,163,184,0.08)'">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        [attr.stroke]="form().emergency ? 'var(--accent-red)' : 'var(--text-muted)'"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="1" y="3" width="15" height="13" rx="2"/>
+                        <path d="M16 8h4l3 3v5h-7V8z"/>
+                        <circle cx="5.5" cy="18.5" r="2.5"/>
+                        <circle cx="18.5" cy="18.5" r="2.5"/>
+                      </svg>
+                    </div>
+                    <div style="text-align:left">
+                      <div style="font-size:13px;font-weight:500"
+                        [style.color]="form().emergency ? 'var(--accent-red)' : 'var(--text-secondary)'">Atención de emergencias</div>
+                      <div class="mono micro" style="color:var(--text-muted);margin-top:2px">Ambulancia y urgencias</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Active strip -->
+              <div class="active-strip"
+                [style.border-color]="form().active ? 'rgba(16,185,129,0.3)' : 'var(--border-glass)'"
+                [style.background]="form().active ? 'rgba(16,185,129,0.06)' : 'rgba(255,255,255,0.03)'">
+                <div style="display:flex;align-items:center;gap:10px">
+                  <div style="width:8px;height:8px;border-radius:50%;flex-shrink:0"
+                    [style.background]="form().active ? 'var(--accent-emerald)' : 'var(--text-dim)'"></div>
+                  <div>
+                    <div style="font-size:13px;font-weight:500"
+                      [style.color]="form().active ? 'var(--accent-emerald)' : 'var(--text-secondary)'">
+                      {{ form().active ? 'Profesional activo' : 'Profesional inactivo' }}
+                    </div>
+                    <div class="mono micro" style="color:var(--text-muted);margin-top:1px">
+                      {{ form().active ? 'Aparece en asignaciones y búsquedas' : 'No disponible para asignaciones' }}
+                    </div>
+                  </div>
+                </div>
+                <button type="button" class="toggle-sw" [class.toggle-sw--on]="form().active" (click)="patchForm({ active: !form().active })">
+                  <span class="toggle-sw__track" [class.toggle-sw__track--on]="form().active">
+                    <span class="toggle-sw__thumb" [class.toggle-sw__thumb--on]="form().active"></span>
+                  </span>
+                </button>
+              </div>
+
+            </div>
+          </div>
+          }
+
+        }
+      </div>
+
+      <!-- Foot -->
+      <div class="qc-foot">
+        <div class="qc-hint">
+          <span class="kbd">Esc</span> cerrar
+        </div>
+        @if (result()) {
+          <button class="btn btn--primary" (click)="finalizeResult()">Finalizar</button>
+        } @else if (isEditing()) {
+          <div style="display:flex;gap:8px">
+            <button class="btn btn--ghost" (click)="closeForm()">Cancelar</button>
+            <button class="btn btn--primary" [disabled]="!canSubmit()" [style.opacity]="canSubmit() ? '1' : '0.5'" (click)="saveForm()">
+              @if (saving()) {
+                <span class="spinner"></span> Guardando…
+              } @else {
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                Guardar profesional
+              }
+            </button>
+          </div>
+        } @else {
+          <div style="display:flex;align-items:center;gap:10px">
+            <div class="step-dots" aria-hidden="true">
+              <span class="step-dot" [class.step-dot--on]="wizardStep() >= 1"></span>
+              <span class="step-dot" [class.step-dot--on]="wizardStep() >= 2"></span>
+              <span class="step-dot" [class.step-dot--on]="wizardStep() >= 3"></span>
+            </div>
+            <div style="display:flex;gap:8px">
+              @if (wizardStep() > 1) {
+                <button class="btn btn--ghost" (click)="goBack()">Atrás</button>
+              } @else {
+                <button class="btn btn--ghost" (click)="closeForm()">Cancelar</button>
+              }
+              @if (wizardStep() < 3) {
+                <button class="btn btn--primary" [disabled]="!canAdvance()" [style.opacity]="canAdvance() ? '1' : '0.5'" (click)="goNext()">
+                  Siguiente
+                </button>
+              } @else {
+                <button class="btn btn--primary" [disabled]="!canSubmit()" [style.opacity]="canSubmit() ? '1' : '0.5'" (click)="saveForm()">
+                  @if (saving()) {
+                    <span class="spinner"></span> Guardando…
+                  } @else {
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                    Crear profesional y acceso
+                  }
+                </button>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+}

@@ -1,0 +1,35 @@
+<main class="survey-page">
+  <header class="survey-heading">
+    <div><h1>Encuestas</h1><p>Definiciones versionadas para seguimiento y calidad de atención.</p></div>
+    <button type="button" class="btn btn--primary" (click)="showCreate.set(!showCreate())">{{ showCreate() ? 'Cerrar formulario' : 'Nueva encuesta' }}</button>
+  </header>
+
+  @if (showCreate()) {
+    <form class="survey-panel survey-grid" [formGroup]="createForm" (ngSubmit)="create()" aria-labelledby="new-survey-title">
+      <h2 id="new-survey-title" style="grid-column:1/-1;margin:0;font-size:16px">Nueva encuesta</h2>
+      <div class="survey-field"><label for="survey-code">Código</label><input id="survey-code" class="survey-input" formControlName="codigo" />@if(createForm.controls.codigo.touched && createForm.controls.codigo.invalid){<span class="survey-error">Código requerido, máximo 80 caracteres.</span>}</div>
+      <div class="survey-field"><label for="survey-name">Nombre</label><input id="survey-name" class="survey-input" formControlName="nombre" />@if(createForm.controls.nombre.touched && createForm.controls.nombre.invalid){<span class="survey-error">Nombre requerido.</span>}</div>
+      <div class="survey-field"><label for="survey-type">Tipo</label><select id="survey-type" class="survey-input" formControlName="tipo">@for(tipo of tipos;track tipo){<option [value]="tipo">{{ labels.tipo[tipo] }}</option>}</select></div>
+      <div class="survey-field"><label for="survey-description">Descripción</label><textarea id="survey-description" class="survey-input" formControlName="descripcion"></textarea></div>
+      <div class="survey-field"><label for="survey-objective">Objetivo</label><textarea id="survey-objective" class="survey-input" formControlName="objetivo"></textarea></div>
+      <div class="survey-actions" style="align-self:end"><button type="submit" class="btn btn--primary" [disabled]="saving()">{{ saving() ? 'Creando…' : 'Crear borrador' }}</button></div>
+    </form>
+  }
+
+  <form class="survey-panel survey-filters" [formGroup]="filters" (ngSubmit)="load(0)">
+    <div class="survey-field"><label for="survey-search">Buscar</label><input id="survey-search" class="survey-input" formControlName="nombre" placeholder="Nombre de encuesta" /></div>
+    <div class="survey-field"><label for="survey-status">Estado</label><select id="survey-status" class="survey-input" formControlName="estado"><option value="">Todos</option>@for(estado of estados;track estado){<option [value]="estado">{{ labels.estado[estado] }}</option>}</select></div>
+    <div class="survey-field"><label for="survey-type-filter">Tipo</label><select id="survey-type-filter" class="survey-input" formControlName="tipo"><option value="">Todos</option>@for(tipo of tipos;track tipo){<option [value]="tipo">{{ labels.tipo[tipo] }}</option>}</select></div>
+    <div class="survey-actions"><button class="btn btn--primary" type="submit">Filtrar</button><button class="btn btn--ghost" type="button" (click)="clearFilters()">Limpiar</button></div>
+  </form>
+
+  @if (loading()) { <emx-loading-state /> }
+  @else if (error()) { <emx-error-state [message]="error()!" (retry)="load()" /> }
+  @else if (rows().length === 0) { <emx-empty-state message="No hay encuestas configuradas para los filtros seleccionados." /> }
+  @else {
+    <div class="survey-table-wrap"><table class="survey-table survey-table--responsive"><thead><tr><th>Encuesta</th><th>Código</th><th>Tipo</th><th>Estado</th><th></th></tr></thead><tbody>
+      @for(row of rows();track row.id){<tr><td><a class="survey-link" [routerLink]="['/encuestas',row.id]">{{ row.nombre }}</a><div class="survey-help">{{ row.descripcion || 'Sin descripción' }}</div></td><td class="mono">{{ row.codigo }}</td><td>{{ labels.tipo[row.tipo] }}</td><td><emx-status-badge [variant]="badge(row.estado)">{{ labels.estado[row.estado] }}</emx-status-badge></td><td><a class="btn btn--ghost btn--sm" [routerLink]="['/encuestas',row.id]">Gestionar</a></td></tr>}
+    </tbody></table></div>
+    <div class="survey-pagination"><span>Mostrando {{ rows().length }} de {{ total() }}</span><div class="survey-actions"><button class="btn btn--ghost btn--sm" [disabled]="page()===0" (click)="load(page()-1)">Anterior</button><span>Página {{ page()+1 }} de {{ totalPages() }}</span><button class="btn btn--ghost btn--sm" [disabled]="page()+1>=totalPages()" (click)="load(page()+1)">Siguiente</button></div></div>
+  }
+</main>

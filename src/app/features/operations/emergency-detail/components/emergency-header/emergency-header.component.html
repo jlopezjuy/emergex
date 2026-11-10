@@ -1,0 +1,80 @@
+<div class="flex items-center justify-between flex-wrap gap-3 px-6 py-4"
+     style="border-bottom: 1px solid var(--border-glass); background: var(--bg-surface);">
+  <div class="flex items-center gap-3">
+    <button type="button" class="btn btn--ghost btn--sm" (click)="goBack.emit()">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 2L4 7l5 5"/>
+      </svg>
+      Volver
+    </button>
+    <div>
+      <div class="flex items-center gap-2">
+        <span class="font-mono font-semibold text-lg" style="color: var(--text-primary);">
+          {{ ticket()?.codigo ?? '#' + ticket()?.id }}
+        </span>
+        <span class="badge font-mono text-xs px-2 py-0.5" [class]="priorityBadgeClass()">
+          {{ ticket()?.prioridad }}
+        </span>
+        @if (ticket()?.autorizacionEspecial) {
+          <span class="badge font-mono text-xs px-2 py-0.5"
+                style="background: rgba(139,92,246,0.15); color: #8b5cf6;"
+                [attr.title]="'Autorizado por: ' + (ticket()?.autorizadoPor ?? '—') + (ticket()?.detalleAutorizacion ? ' · ' + ticket()?.detalleAutorizacion : '')">
+            Autorización especial
+          </span>
+        }
+      </div>
+      <p class="text-xs mt-0.5" style="color: var(--text-muted);">
+        {{ ticket()?.tipoEmergencia }} · {{ ticket()?.estado }}
+      </p>
+    </div>
+  </div>
+
+  <div class="flex gap-2">
+    @if (canStartTelemedicine()) {
+      @if (!telemedicinaSala()) {
+        <button type="button" class="btn btn--primary btn--sm flex items-center gap-1.5" 
+                style="background: linear-gradient(135deg, var(--accent-blue), #1d4ed8); border-color: transparent;"
+                [disabled]="iniciandoTelemedicina()" 
+                (click)="iniciarTeleconsulta.emit()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M23 7l-7 5 7 5V7z"/>
+            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+          </svg>
+          {{ iniciandoTelemedicina() ? 'Generando sala...' : 'Iniciar Teleconsulta' }}
+        </button>
+      } @else {
+        <button type="button" class="btn btn--primary btn--sm flex items-center gap-1.5" 
+                style="background: linear-gradient(135deg, var(--accent-emerald), #047857); border-color: transparent;"
+                (click)="abrirSala.emit()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+            <polyline points="15 3 21 3 21 9"/>
+            <line x1="10" y1="14" x2="21" y2="3"/>
+          </svg>
+          Unirse a Videollamada
+        </button>
+      }
+    }
+    @if (canDispatch()) {
+      <button type="button" class="btn btn--primary btn--sm" (click)="dispatch.emit()">
+        {{ ticket()?.estado === 'HOSPITALIZACION_PENDIENTE' ? 'Asignar unidad de traslado' : 'Despachar' }}
+      </button>
+    }
+    @if (canMarkEnCamino()) {
+      <button type="button" class="btn btn--primary btn--sm" (click)="enCamino.emit()">En camino</button>
+    }
+    @if (canMarkEnSitio()) {
+      <button type="button" class="btn btn--primary btn--sm" (click)="enSitio.emit()">En sitio</button>
+    }
+    @if (canStartTransfer()) {
+      <button type="button" class="btn btn--ghost btn--sm" (click)="iniciarTraslado.emit()">Iniciar traslado</button>
+    }
+    @if (canFinishTransfer()) {
+      <button type="button" class="btn btn--ghost btn--sm" (click)="finalizarTraslado.emit()">Finalizar traslado</button>
+    }
+    @if (canClose()) {
+      <button type="button" class="btn btn--ghost btn--sm" (click)="cerrar.emit()">Cerrar</button>
+      <button type="button" class="btn btn--danger btn--sm" (click)="cancelar.emit()">Cancelar</button>
+    }
+  </div>
+</div>

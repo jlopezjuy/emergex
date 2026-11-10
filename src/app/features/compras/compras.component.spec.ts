@@ -1,0 +1,191 @@
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
+import { ComprasComponent } from './compras.component';
+import { ComprasApiService } from '../../data-access/api/compras.api';
+import { CostosApiService } from '../../data-access/api/costos.api';
+import { UserFeedbackService } from '../../core/notifications/user-feedback.service';
+import { SessionStore } from '../../core/stores/session.store';
+import { of } from 'rxjs';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { vi } from 'vitest';
+
+describe('ComprasComponent', () => {
+  let component: ComprasComponent;
+  let fixture: ComponentFixture<ComprasComponent>;
+  let comprasApiMock: Record<string, ReturnType<typeof vi.fn>>;
+  let costosApiMock: Record<string, ReturnType<typeof vi.fn>>;
+  let feedbackServiceMock: Record<string, ReturnType<typeof vi.fn>>;
+
+  beforeEach(async () => {
+    comprasApiMock = {
+      getSolicitudes: vi.fn().mockReturnValue(of([{ id: 1, concepto: 'Insumos', montoEstimado: 500, estado: 'PRESENTADA' }])),
+      getSolicitudesPage: vi.fn().mockReturnValue(of({
+        data: [{ id: 1, concepto: 'Insumos', montoEstimado: 500, estado: 'PRESENTADA', centroCostoId: 1 }],
+        total: 1,
+        page: 0,
+        size: 10,
+        totalPages: 1
+      })),
+      crearSolicitud: vi.fn().mockReturnValue(of({ id: 2, concepto: 'Insumos 2', centroCostoId: 1 })),
+      aprobarSolicitud: vi.fn().mockReturnValue(of({ id: 1, estado: 'APROBADA' })),
+      getOrdenesCompra: vi.fn().mockReturnValue(of([{ id: 10, numero: 'OC-0010', montoTotal: 1500, estado: 'EMITIDA' }])),
+      getOrdenesCompraPage: vi.fn().mockReturnValue(of({
+        data: [{ id: 10, numero: 'OC-0010', montoTotal: 1500, estado: 'EMITIDA' }],
+        total: 1,
+        page: 0,
+        size: 10,
+        totalPages: 1
+      })),
+      getCotizacionesPorSolicitud: vi.fn().mockReturnValue(of([{ id: 100, solicitudCompraId: 1, montoCotizado: 1200, proveedorNombre: 'Droguería Sur' }])),
+      registrarCotizacion: vi.fn().mockReturnValue(of({ id: 101, solicitudCompraId: 1, montoCotizado: 1100 })),
+      getComprobantesProveedor: vi.fn().mockReturnValue(of([
+        { id: 100, tipoDocumento: 'FACTURA_A', puntoVenta: 1, numeroDocumento: 123, fechaComprobante: '2026-08-10', montoTotal: 1500, estadoMatching: 'BLOQUEADO_DIFERENCIA' }
+      ])),
+      registrarRecepcion: vi.fn().mockReturnValue(of({ id: 5, numeroRemito: 'REM-100' })),
+      overrideMatching: vi.fn().mockReturnValue(of({ id: 100, estadoMatching: 'MATCH_OK' }))
+    };
+
+    costosApiMock = {
+      getCentrosCosto: vi.fn().mockReturnValue(of([{ id: 1, codigo: 'CC-01', nombre: 'San Isidro' }]))
+    };
+
+    feedbackServiceMock = {
+      push: vi.fn(),
+      fromHttpError: vi.fn()
+    };
+
+    await TestBed.configureTestingModule({
+      imports: [ComprasComponent],
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: ComprasApiService, useValue: comprasApiMock },
+        { provide: CostosApiService, useValue: costosApiMock },
+        { provide: UserFeedbackService, useValue: feedbackServiceMock }
+      ]
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(ComprasComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it('debería cargar solicitudes y órdenes de compra paginadas al iniciar (V3-S3-01)', () => {
+    expect(component.solicitudes().length).toBe(1);
+    expect(component.ordenesCompra().length).toBe(1);
+    expect(component.centrosCosto().length).toBe(1);
+    expect(component.solicitudesTotal()).toBe(1);
+    expect(component.ordenesTotal()).toBe(1);
+  });
+
+  it('debería seleccionar una solicitud y cargar sus cotizaciones (V3-S3-02)', () => {
+    const sol = component.solicitudes()[0];
+    component.seleccionarSolicitudParaCotizar(sol);
+
+    expect(component.solicitudSeleccionada()?.id).toBe(1);
+    expect(component.activeTab()).toBe('cotizaciones');
+    expect(comprasApiMock['getCotizacionesPorSolicitud']).toHaveBeenCalledWith(1);
+    expect(component.cotizaciones().length).toBe(1);
+  });
+
+  it('debería agregar líneas a la recepción de bienes', () => {
+    expect(component.lineasRecepcion.length).toBe(1);
+    component.agregarLineaRecepcion();
+    expect(component.lineasRecepcion.length).toBe(2);
+    component.quitarLineaRecepcion(0);
+    expect(component.lineasRecepcion.length).toBe(1);
+  });
+
+  it('debería ejecutar la destrabación de matching con motivo obligatorio', () => {
+    component.iniciarOverride(100);
+    component.motivoOverride.set('Excepción gerencial');
+    component.confirmarOverride();
+
+    expect(comprasApiMock['overrideMatching']).toHaveBeenCalledWith({
+      comprobanteId: 100,
+      motivoExcepcion: 'Excepción gerencial'
+    });
+    expect(feedbackServiceMock['push']).toHaveBeenCalledWith(expect.objectContaining({ type: 'success' }));
+  });
+});
+
+describe('ComprasComponent — acciones según el rol (QA-ROL-048)', () => {
+  async function crearComo(...roles: string[]) {
+    TestBed.resetTestingModule();
+    const api = {
+      getSolicitudes: vi.fn().mockReturnValue(of([])),
+      getSolicitudesPage: vi.fn().mockReturnValue(
+        of({ data: [{ id: 1, concepto: 'Insumos', montoEstimado: 500, estado: 'PRESENTADA', centroCostoId: 1 }], total: 1, page: 0, size: 10, totalPages: 1 }),
+      ),
+      getOrdenesCompra: vi.fn().mockReturnValue(of([])),
+      getOrdenesCompraPage: vi.fn().mockReturnValue(of({ data: [], total: 0, page: 0, size: 10, totalPages: 0 })),
+      getComprobantesProveedor: vi.fn().mockReturnValue(of([])),
+    };
+    await TestBed.configureTestingModule({
+      imports: [ComprasComponent],
+      providers: [
+        provideRouter([]),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: ComprasApiService, useValue: api },
+        { provide: CostosApiService, useValue: { getCentrosCosto: vi.fn().mockReturnValue(of([])) } },
+        { provide: UserFeedbackService, useValue: { push: vi.fn(), fromHttpError: vi.fn() } },
+        { provide: SessionStore, useValue: { hasAnyRole: (req: string[]) => req.some((r) => roles.includes(r)) } },
+      ],
+    }).compileComponents();
+    const fixture = TestBed.createComponent(ComprasComponent);
+    fixture.detectChanges();
+    return (fixture.nativeElement as HTMLElement).textContent ?? '';
+  }
+
+  it('el contador ve las solicitudes pero no puede crearlas ni aprobarlas', async () => {
+    const texto = await crearComo('ROLE_CONTADOR');
+
+    expect(texto).toContain('Insumos');
+    expect(texto).not.toContain('+ Nueva Solicitud');
+    expect(texto).not.toContain('Aprobar');
+  });
+
+  it('el administrador conserva crear y aprobar', async () => {
+    const texto = await crearComo('ROLE_ADMINISTRADOR');
+
+    expect(texto).toContain('+ Nueva Solicitud');
+    expect(texto).toContain('Aprobar');
+  });
+
+  it('el operador puede crear solicitudes pero no aprobarlas', async () => {
+    const texto = await crearComo('ROLE_OPERADOR');
+
+    expect(texto).toContain('+ Nueva Solicitud');
+    expect(texto).not.toContain('Aprobar');
+  });
+
+  describe('lenguaje (S2)', () => {
+    it('titula la pantalla «Compras» y muestra los estados en lenguaje llano', async () => {
+      const texto = await crearComo('ROLE_ADMINISTRADOR');
+
+      expect(texto).toContain('Compras');
+      expect(texto).not.toContain('Módulo Profesional de Compras');
+      expect(texto).not.toContain('PRESENTADA');
+      expect(texto).toContain('Presentada');
+    });
+
+    it('el alta de solicitud dice «Centro de costo» sin código de tarea', async () => {
+      await crearComo('ROLE_ADMINISTRADOR');
+      const fixture = TestBed.createComponent(ComprasComponent);
+      fixture.detectChanges();
+      const abrir = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')].find((btn) =>
+        btn.textContent?.includes('+ Nueva Solicitud'),
+      ) as HTMLButtonElement;
+      abrir.click();
+      fixture.detectChanges();
+      const texto = (fixture.nativeElement as HTMLElement).textContent ?? '';
+
+      expect(texto).toContain('Centro de costo');
+      expect(texto).not.toContain('Centro de Costo Imputable');
+      expect(texto).not.toContain('V3-S3');
+    });
+  });
+});

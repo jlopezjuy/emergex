@@ -1,0 +1,223 @@
+:host {
+  display: block;
+}
+
+/* ── Modal overlay ── */
+.qc-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.qc-modal {
+  width: 540px;
+  max-width: 95vw;
+  max-height: 90vh;
+  border-radius: var(--r-card);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.qc-modal--wide {
+  width: 680px;
+}
+
+.qc-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 20px 20px 0;
+  flex-shrink: 0;
+}
+
+.qc-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border-hairline);
+  flex-shrink: 0;
+}
+
+.qc-hint {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.qc-row {
+  display: flex;
+  gap: 12px;
+}
+
+.qc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+/* ── Modal tabs ── */
+.us-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 12px 20px 0;
+  border-bottom: 1px solid var(--border-hairline);
+}
+
+.us-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px 8px 0 0;
+  border: 1px solid transparent;
+  border-bottom: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+  bottom: -1px;
+
+  &:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  &[data-active="true"] {
+    color: var(--accent-blue);
+    background: var(--bg-elevated);
+    border-color: var(--border-glass);
+    border-bottom-color: var(--bg-elevated);
+  }
+}
+
+/* ── Close button ── */
+.qc-close-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--border-glass);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+  }
+}
+
+/* ── Mini-map ── */
+.mini-map {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border-glass);
+  background: rgba(2, 6, 23, 0.90);
+  aspect-ratio: 1 / 1;
+  cursor: crosshair;
+
+  svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+}
+
+.mini-map__hint {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.55);
+  color: white;
+  font-size: 9.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  pointer-events: none;
+}
+
+/* ── Toggle switch ── */
+.toggle-sw {
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.toggle-sw__track {
+  width: 40px;
+  height: 22px;
+  border-radius: 999px;
+  position: relative;
+  transition: all 0.16s;
+  border: 1px solid;
+}
+
+.toggle-sw__thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 99px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: all 0.16s;
+}
+
+/* ── Contact grid ── */
+.contact-grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 18px;
+  align-items: start;
+}
+
+.type-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.type-pill {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-family: var(--font-sans);
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.07);
+    color: var(--text-primary);
+  }
+
+  &[data-active="true"] {
+    background: rgba(59, 130, 246, 0.12);
+    border-color: rgba(59, 130, 246, 0.35);
+    color: var(--accent-blue);
+  }
+}

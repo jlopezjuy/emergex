@@ -1,0 +1,235 @@
+<div class="screen">
+
+  <!-- ── Header ── -->
+  <div class="screen-head">
+    <div class="screen-head__title">
+      <div class="screen-head__icon" style="background:rgba(34,211,238,0.12);border-color:rgba(34,211,238,0.25)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-cyan)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+      </div>
+      <div>
+        <h2>Personal Operativo</h2>
+        <div class="eyebrow">MÉDICOS · PARAMÉDICOS · ENFERMERÍA · DESPACHO</div>
+      </div>
+    </div>
+
+    <div class="screen-head__kpis">
+      <div class="screen-kpi">
+        <div class="eyebrow">Plantilla</div>
+        <div class="mono" style="font-size:18px;font-weight:500">{{ counts().total }}</div>
+      </div>
+      <div class="screen-kpi">
+        <div class="eyebrow">Activos</div>
+        <div class="mono" style="font-size:18px;font-weight:500;color:var(--accent-emerald)">{{ counts().active }}</div>
+      </div>
+      <div class="screen-kpi">
+        <div class="eyebrow">Domiciliaria</div>
+        <div class="mono" style="font-size:18px;font-weight:500;color:var(--accent-blue)">{{ counts().domiciliary }}</div>
+      </div>
+      <div class="screen-kpi">
+        <div class="eyebrow">Emergencias</div>
+        <div class="mono" style="font-size:18px;font-weight:500;color:var(--accent-red)">{{ counts().emergency }}</div>
+      </div>
+    </div>
+
+    <div class="screen-head__actions">
+      <button class="btn btn--ghost btn--sm" (click)="openSpecialtiesModal()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        Especialidades
+      </button>
+      <button class="btn btn--ghost btn--sm">Reporte de turnos</button>
+      <button class="btn btn--primary btn--sm" (click)="openNewForm()">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="1" x2="6" y2="11"/><line x1="1" y1="6" x2="11" y2="6"/></svg>
+        Alta de profesional
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Table card ── -->
+  <div class="glass-strong pt-card ml-4 mr-4">
+
+    <!-- Toolbar -->
+    <div class="pt-toolbar">
+      <div class="pt-search">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-linecap="round"><circle cx="6" cy="6" r="4"/><path d="M9.5 9.5l3 3"/></svg>
+        <input
+          class="pt-search__input"
+          placeholder="Buscar por nombre, matrícula o ID (P-xxx)…"
+          [(ngModel)]="searchQueryValue"
+          (ngModelChange)="page.set(0)"
+        />
+      </div>
+
+      <div class="pt-filters">
+        <span class="eyebrow" style="white-space:nowrap">Estado:</span>
+        @for (s of statusOptions; track s.value) {
+          <button
+            class="filter-chip"
+            [attr.data-on]="statusFilter() === s.value"
+            (click)="setStatus(s.value)"
+          >{{ s.label }}</button>
+        }
+      </div>
+
+      <div class="pt-filters">
+        <span class="eyebrow" style="white-space:nowrap">Habilitación:</span>
+        @for (h of habOptions; track h.value) {
+          <button
+            class="filter-chip"
+            [attr.data-on]="habFilter() === h.value"
+            (click)="setHab(h.value)"
+          >{{ h.label }}</button>
+        }
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="data-table-wrap scroll-y ml">
+      <table class="data-table" style="width:100%;min-width:820px">
+        <thead>
+          <tr>
+            <th>Profesional</th>
+            <th>Especialidades / Certificaciones</th>
+            <th>Habilitaciones</th>
+            <th>Estado</th>
+            <th style="width:40px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (paged().length === 0) {
+            <tr>
+              <td colspan="5" style="padding:40px;text-align:center;color:var(--text-muted);font-size:12px">Sin resultados</td>
+            </tr>
+          }
+          @for (s of paged(); track s.id) {
+            <tr (click)="openEditForm(s)" style="cursor:pointer">
+              <!-- Col 1: Profesional -->
+              <td>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <div class="staff-avatar">{{ s.avatar }}</div>
+                  <div>
+                    <div style="font-size:13px;font-weight:500">{{ s.prefix }} {{ s.firstName }} {{ s.lastName }}</div>
+                    <div class="mono micro" style="color:var(--text-muted)">{{ s.matricula }} · {{ s.id }}</div>
+                  </div>
+                </div>
+              </td>
+
+              <!-- Col 2: Especialidades -->
+              <td (click)="$event.stopPropagation()">
+                <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center">
+                  @for (specId of s.specialties.slice(0, 5); track specId) {
+                    @let spec = getSpec(specId);
+                    @if (spec) {
+                      <span class="spec-chip"
+                        [style.background]="groupColor(spec.group).bg"
+                        [style.color]="groupColor(spec.group).fg"
+                        [style.border-color]="groupColor(spec.group).border"
+                      >{{ spec.name }}</span>
+                    }
+                  }
+                  @if (s.specialties.length > 5) {
+                    <span class="spec-chip" style="background:rgba(148,163,184,0.1);color:var(--text-muted);border-color:rgba(148,163,184,0.2)">
+                      +{{ s.specialties.length - 5 }} más
+                    </span>
+                  }
+                </div>
+              </td>
+
+              <!-- Col 3: Habilitaciones -->
+              <td>
+                <div style="display:flex;gap:6px;align-items:center">
+                  <span class="hab-tag" [style.opacity]="s.domiciliary ? '1' : '0.35'">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                    Domiciliaria
+                  </span>
+                  <span class="hab-tag hab-tag--emerg" [style.opacity]="s.emergency ? '1' : '0.35'">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                    Emergencias
+                  </span>
+                </div>
+              </td>
+
+              <!-- Col 4: Estado -->
+              <td>
+                @if (s.active) {
+                  <emx-status-badge variant="stable">Activo</emx-status-badge>
+                } @else {
+                  <span class="badge-inactive">Inactivo</span>
+                }
+              </td>
+
+              <!-- Col 5: Acciones -->
+              <td (click)="$event.stopPropagation()" style="position:relative">
+                <button class="action-icon" style="width:28px;height:28px" title="Acciones"
+                  (click)="toggleMenu(s.id)">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                </button>
+                @if (menuOpen() === s.id) {
+                  <div class="row-menu" (click)="$event.stopPropagation()">
+                    <button class="user-menu__item" (click)="openEditForm(s); menuOpen.set(null)">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                      Editar
+                    </button>
+                    <button class="user-menu__item">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.63 3.41 2 2 0 0 1 3.6 1.25h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.36a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.73 16z"/></svg>
+                      Contactar
+                    </button>
+                    <div style="height:1px;background:var(--border-hairline);margin:4px 0"></div>
+                    @if (s.active) {
+                      <button class="user-menu__item user-menu__item--danger" (click)="toggleActive(s.id); menuOpen.set(null)">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                        Desactivar
+                      </button>
+                    } @else {
+                      <button class="user-menu__item user-menu__item--danger" (click)="toggleActive(s.id); menuOpen.set(null)">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        Reactivar
+                      </button>
+                    }
+                  </div>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pt-pagination">
+      <div class="mono micro" style="color:var(--text-muted)">
+        Mostrando <strong style="color:var(--text-primary)">{{ paged().length }}</strong> de
+        <strong style="color:var(--text-primary)">{{ filtered().length }}</strong> profesionales
+      </div>
+      <div style="display:flex;align-items:center;gap:4px">
+        <button class="btn btn--ghost btn--sm" [disabled]="page() === 0" [style.opacity]="page() === 0 ? '0.4' : '1'" (click)="page.set(page() - 1)">‹ Anterior</button>
+        @for (i of pageRange(); track i) {
+          <button class="page-btn" [attr.data-active]="page() === i" (click)="page.set(i)">{{ i + 1 }}</button>
+        }
+        <button class="btn btn--ghost btn--sm" [disabled]="page() >= totalPages() - 1" [style.opacity]="page() >= totalPages() - 1 ? '0.4' : '1'" (click)="page.set(page() + 1)">Siguiente ›</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Subcomponentes modales refactorizados -->
+<app-staff-form-modal
+  [isOpen]="formOpen()"
+  [member]="editingStaff()"
+  [catalog]="catalog()"
+  [systemAuthorities]="systemAuthorities()"
+  (close)="closeForm()"
+  (saved)="loadStaff()"
+></app-staff-form-modal>
+
+<app-specialties-modal
+  [isOpen]="specialtiesModalOpen()"
+  [catalog]="catalog()"
+  [loadingSpecialties]="loadingSpecialties()"
+  (close)="closeSpecialtiesModal()"
+  (catalogChanged)="refreshCatalog()"
+></app-specialties-modal>

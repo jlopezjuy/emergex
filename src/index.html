@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <!--
+    CSP local/prod:
+    - En local necesitamos permitir API/JWT en localhost:8080, si no el navegador bloquea /api/authenticate
+      antes de salir por red (error de connect-src en consola).
+    - En producción conviene inyectar CSP desde Nginx por ambiente para no mezclar orígenes locales.
+  -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://*.cartocdn.com https://basemaps.cartocdn.com https://*.basemaps.cartocdn.com; connect-src 'self' http://localhost:8080 ws://localhost:8080 https://localhost:8080 wss://localhost:8080 https://aliviar.appcanvas.store wss://aliviar.appcanvas.store https://basemaps.cartocdn.com https://*.basemaps.cartocdn.com https://router.project-osrm.org; frame-src 'self'; base-uri 'self'; form-action 'self';">
+  <title>Emergex — Centro de Operaciones</title>
+  <base href="/">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+<!--  <link rel="icon" type="image/x-icon" href="favicon.ico">-->
+  <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="favicon-192x192.png">
+  <link rel="apple-touch-icon" sizes="192x192" href="favicon-192x192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="favicon-512x512.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <app-root></app-root>
+</body>
+</html>

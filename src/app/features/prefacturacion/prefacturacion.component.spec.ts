@@ -1,0 +1,165 @@
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
+import { PrefacturacionComponent } from './prefacturacion.component';
+import { PrefacturacionApiService } from '../../data-access/api/prefacturacion.api';
+import { UserFeedbackService } from '../../core/notifications/user-feedback.service';
+import { TercerosApiService } from '../../data-access/api/terceros.api';
+import { of } from 'rxjs';
+import { vi } from 'vitest';
+
+describe('PrefacturacionComponent', () => {
+  let fixture: ComponentFixture<PrefacturacionComponent>;
+  let apiMock: Record<string, ReturnType<typeof vi.fn>>;
+  let tercerosMock: Record<string, ReturnType<typeof vi.fn>>;
+
+  beforeEach(async () => {
+    apiMock = {
+      listarLotes: vi.fn().mockReturnValue(of([])),
+      obtenerLote: vi.fn().mockReturnValue(of(null)),
+      crearLote: vi.fn().mockReturnValue(of(null)),
+      confirmarLote: vi.fn().mockReturnValue(of(null)),
+      emitirLote: vi.fn().mockReturnValue(of(null)),
+      excluirTicket: vi.fn().mockReturnValue(of(undefined)),
+      generarLineas: vi.fn().mockReturnValue(of(null)),
+      listarPendientesTarifacion: vi.fn().mockReturnValue(of([])),
+      tarifarManual: vi.fn().mockReturnValue(of({ id: 10, estadoTarifacion: 'TARIFA_MANUAL' })),
+    };
+
+    tercerosMock = {
+      buscar: vi.fn().mockReturnValue(
+        of([
+          { id: 11, razonSocial: 'OSDE', cuit: '30-50000000-1' },
+          { id: 12, razonSocial: 'Swiss Medical', cuit: '30-60000000-2' },
+        ]),
+      ),
+    };
+
+    await TestBed.configureTestingModule({
+      imports: [PrefacturacionComponent],
+      providers: [
+        provideRouter([]),
+        { provide: TercerosApiService, useValue: tercerosMock },
+        { provide: PrefacturacionApiService, useValue: apiMock },
+        { provide: UserFeedbackService, useValue: { push: vi.fn(), fromHttpError: vi.fn() } },
+      ],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(PrefacturacionComponent);
+    fixture.detectChanges();
+  });
+
+  it('con lista de lotes vacía, muestra un mensaje honesto sin la advertencia de S0-3', () => {
+    const texto = fixture.nativeElement.textContent as string;
+    expect(texto).not.toContain('La generación automática de líneas todavía no está disponible');
+    expect(texto).toContain('No hay lotes de prefacturación');
+  });
+
+  it('para un lote en BORRADOR, generar líneas invoca la API con el período ingresado', () => {
+    const lote = { id: 5, fechaCreacion: '2026-08-01', estado: 'BORRADOR' as const, financiadorId: 55, montoTotal: 0 };
+    (apiMock['obtenerLote'] as ReturnType<typeof vi.fn>).mockReturnValue(of(lote));
+    const component = fixture.componentInstance;
+
+    component.selectLote(lote);
+    fixture.detectChanges();
+
+    component.openGenerarLineasModal();
+    component.generarDesde.set('2026-08-01');
+    component.generarHasta.set('2026-08-31');
+    component.generarLineas();
+
+    expect(apiMock['generarLineas']).toHaveBeenCalledWith(5, '2026-08-01', '2026-08-31');
+  });
+
+  it('para un lote en CONFIRMADO, emitir invoca el endpoint de emisión, no el de confirmación (H-13)', () => {
+    const lote = { id: 7, fechaCreacion: '2026-08-01', estado: 'CONFIRMADO' as const, financiadorId: 55, montoTotal: 15000 };
+    const loteEmitido = { ...lote, estado: 'EMITIDO' as const };
+    (apiMock['obtenerLote'] as ReturnType<typeof vi.fn>).mockReturnValue(of(lote));
+    (apiMock['emitirLote'] as ReturnType<typeof vi.fn>).mockReturnValue(of(loteEmitido));
+    const component = fixture.componentInstance;
+
+    component.selectLote(lote);
+    fixture.detectChanges();
+
+    component.emitirLote(7);
+
+    expect(apiMock['emitirLote']).toHaveBeenCalledWith(7);
+    expect(apiMock['confirmarLote']).not.toHaveBeenCalled();
+  });
+
+  it('ejecutarTarifacionManual invoca el endpoint tarifarManual con los valores del modal (H-06b / H-18)', () => {
+    const component = fixture.componentInstance;
+    const ticket = { id: 101, numeroTicket: 'TK-101', tipoAsistencia: 'EMERGENCIA_DOMICILIARIA', estadoActual: 'COMPLETADO' };
+
+    component.abrirModalTarifarManual(ticket);
+    component.manualCargoBase.set(4500);
+    component.manualCostoEspera.set(1000);
+    component.manualMotivo.set('Tarifación autorizada por operador');
+    component.ejecutarTarifacionManual();
+
+    expect(apiMock['tarifarManual']).toHaveBeenCalledWith(101, {
+      cargoBase: 4500,
+      costoEspera: 1000,
+      motivo: 'Tarifación autorizada por operador',
+    });
+  });
+
+  describe('tarjetas de lote (ADM-UX-018)', () => {
+    it('no crashea al buscar: financiadorNombre y totalTickets no existen en la respuesta real del backend', () => {
+      apiMock['listarLotes'].mockReturnValue(
+        of([{ id: 1, numeroLote: 'LOTE-1', fechaCreacion: '2026-08-01', estado: 'BORRADOR', financiadorId: 55, montoTotal: 5000 }]),
+      );
+      const local = TestBed.createComponent(PrefacturacionComponent);
+      local.detectChanges();
+
+      expect(() => local.componentInstance.searchQuery.set('cualquier texto')).not.toThrow();
+      local.detectChanges();
+      expect(local.componentInstance.filteredLotes().length).toBe(0);
+    });
+
+    it('muestra el número de lote y el importe real que sí envía el backend', () => {
+      apiMock['listarLotes'].mockReturnValue(
+        of([{ id: 1, numeroLote: 'LOTE-2026-0001', fechaCreacion: '2026-08-01', estado: 'BORRADOR', financiadorId: 55, montoTotal: 12500.5 }]),
+      );
+      const local = TestBed.createComponent(PrefacturacionComponent);
+      local.detectChanges();
+
+      const texto = local.nativeElement.textContent as string;
+      expect(texto).toContain('LOTE-2026-0001');
+      expect(texto).toContain('12.500,50');
+    });
+
+    it('distingue importe cero de importe todavía no cargado', () => {
+      const component = fixture.componentInstance;
+      expect(component.fmtLoteImporte(0)).toBe('$0,00');
+      expect(component.fmtLoteImporte(null)).toBe('—');
+      expect(component.fmtLoteImporte(undefined)).toBe('—');
+    });
+  });
+
+  it('Nuevo Lote ofrece elegir el financiador por nombre y CUIT, sin pedir un ID numérico (QA-ROL-031)', () => {
+    const component = fixture.componentInstance;
+
+    component.openCreateModal();
+    fixture.detectChanges();
+
+    const texto = fixture.nativeElement.textContent as string;
+    expect(tercerosMock['buscar']).toHaveBeenCalled();
+    expect(texto).toContain('OSDE');
+    expect(texto).toContain('Swiss Medical');
+    expect(texto).not.toContain('ID Financiador');
+    expect(fixture.nativeElement.querySelector('select[data-testid="financiador"]')).not.toBeNull();
+  });
+
+  it('crear el lote usa el id del financiador elegido', () => {
+    (apiMock['crearLote'] as ReturnType<typeof vi.fn>).mockReturnValue(
+      of({ id: 9, fechaCreacion: '2026-11-07', estado: 'BORRADOR', financiadorId: 12, montoTotal: 0 }),
+    );
+    const component = fixture.componentInstance;
+    component.openCreateModal();
+    component.newFinanciadorId.set(12);
+
+    component.createLote();
+
+    expect(apiMock['crearLote']).toHaveBeenCalledWith(12);
+  });
+});

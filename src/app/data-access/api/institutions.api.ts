@@ -1,0 +1,430 @@
+import { Injectable, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
+import { environment } from '../../../environments/environment';
+import { PagedResult, buildParams, toPagedResult } from './pagination';
+import {
+  AltaInstitucionCompletaRequest,
+  AltaInstitucionCompletaResponse,
+  ContractDTO,
+  ContractStatus,
+  EstadoInstitucion,
+  FacturacionContratoDTO,
+  GenerarFacturaContratoRequest,
+  PagoInstitucionalResponseDTO,
+  PagoInstitucionalItemDTO,
+  ContratoCoberturaPlanDTO,
+  RegistrarPagoInstitucionalRequest,
+  InstitucionEstadoCuentaDTO,
+  InstitutionDTO,
+  InstitutionType,
+  InstitucionMiembroItem,
+  AutorizanteItem,
+} from '../dto/institution.dto';
+
+// ── ContratoCobertura backend types ──────────────────────────────────────────
+
+type EstadoContrato = 'BORRADOR' | 'ACTIVO' | 'SUSPENDIDO' | 'VENCIDO' | 'RESCINDIDO' | 'EN_RENEGOCIACION' | 'FINALIZADO' | 'ANULADO';
+
+interface ContratoBackend {
+  id?: number;
+  codigo: string;
+  modalidadCobertura: 'INDIVIDUAL_PLAN' | 'AREA_PROTEGIDA' | 'EVENTO';
+  vigenciaDesde: string;
+  vigenciaHasta: string;
+  estadoContrato: EstadoContrato;
+  precioMensualAcordado: number;
+  precioEventoAcordado?: number;
+  topeAtencionesMensuales: number;
+  kpiRespuestaMinutos: number;
+  plazoPagoDias?: number;
+  condicionesParticulares?: string;
+  institucion: { id: number };
+  planComercial: { id: number };
+  nombre?: string;
+}
+
+
+
+const STATUS_TO_BACKEND: Record<ContractStatus, EstadoContrato> = {
+  active:    'ACTIVO',
+  suspended: 'SUSPENDIDO',
+  ended:     'FINALIZADO',
+  draft:     'BORRADOR',
+};
+
+const STATUS_FROM_BACKEND: Partial<Record<EstadoContrato, ContractStatus>> = {
+  ACTIVO:     'active',
+  SUSPENDIDO: 'suspended',
+  FINALIZADO: 'ended',
+  VENCIDO:    'ended',
+  RESCINDIDO: 'ended',
+  BORRADOR:   'draft',
+};
+
+function contratoToDTO(b: ContratoBackend): ContractDTO {
+  return {
+    id:           b.id,
+    code:         b.codigo ?? '',
+    plan:         b.planComercial ? String(b.planComercial.id) : '',
+    from:         b.vigenciaDesde ? b.vigenciaDesde.split('T')[0] : '',
+    to:           b.vigenciaHasta ? b.vigenciaHasta.split('T')[0] : '',
+    status:       STATUS_FROM_BACKEND[b.estadoContrato] ?? 'draft',
+    monthlyPrice: b.precioMensualAcordado ?? 0,
+    eventPrice:   b.precioEventoAcordado ?? undefined,
+    monthlyCap:   b.topeAtencionesMensuales ?? 0,
+    kpiMinutes:   b.kpiRespuestaMinutos ?? 0,
+    plazoPagoDias: b.plazoPagoDias ?? undefined,
+    conditions:   b.condicionesParticulares,
+  };
+}
+
+function contratoToBackend(dto: ContractDTO, institucionId: number, planNumericId: number): Omit<ContratoBackend, 'id'> & { id?: number } {
+  return {
+    ...(dto.id ? { id: dto.id } : {}),
+    codigo:                  dto.code,
+    modalidadCobertura:      'AREA_PROTEGIDA',
+    vigenciaDesde:           dto.from ? dto.from + 'T00:00:00Z' : '',
+    vigenciaHasta:           dto.to   ? dto.to   + 'T00:00:00Z' : '',
+    estadoContrato:          STATUS_TO_BACKEND[dto.status],
+    precioMensualAcordado:   dto.monthlyPrice,
+    precioEventoAcordado:    dto.eventPrice ?? undefined,
+    topeAtencionesMensuales: dto.monthlyCap,
+    kpiRespuestaMinutos:     dto.kpiMinutes,
+    plazoPagoDias:           dto.plazoPagoDias ?? undefined,
+    condicionesParticulares: dto.conditions || undefined,
+    institucion:             { id: institucionId },
+    planComercial:           { id: planNumericId },
+  };
+}
+
+interface InstitucionBackend {
+  id: number;
+  nombreFantasia: string;
+  razonSocial?: string;
+  cuit?: string;
+  tipoInstitucion?: string;
+  telefono?: string;
+  email?: string;
+  contactoAdministrativo?: string;
+  contactoOperativo?: string;
+  activa: boolean;
+  estadoInstitucional?: string;
+  direccion?: string;
+  latitud?: number;
+  longitud?: number;
+  perimetroJson?: string;
+  empresaId?: number;
+  planComercialNombre?: string;
+}
+
+interface UsuarioEmpresaBackend {
+  id: number;
+  user?: {
+    login?: string;
+    firstName?: string;
+    lastName?: string;
+  };
+}
+
+function mapTipoToFrontend(tipo?: string): InstitutionType {
+  return (tipo ?? 'OTRO') as InstitutionType;
+}
+
+function mapTipoToBackend(type: InstitutionType): string {
+  return type;
+}
+
+function parsePolygon(json?: string): [number, number][] | undefined {
+  if (!json) return undefined;
+  try { return JSON.parse(json) as [number, number][]; } catch { return undefined; }
+}
+
+function toDTO(b: InstitucionBackend): InstitutionDTO {
+  return {
+    id:           String(b.id),
+    name:         b.nombreFantasia,
+    razonSocial:  b.razonSocial ?? '',
+    cuit:         b.cuit ?? '',
+    type:         mapTipoToFrontend(b.tipoInstitucion),
+    status:       (b.estadoInstitucional as EstadoInstitucion) ?? (b.activa ? 'ACTIVA' : 'BAJA'),
+    plan:         b.planComercialNombre ?? '',
+    email:        b.email,
+    phone:        b.telefono,
+    adminContact: b.contactoAdministrativo,
+    opsContact:   b.contactoOperativo,
+    address:      b.direccion,
+    lat:          b.latitud,
+    lng:          b.longitud,
+    polygon:      parsePolygon(b.perimetroJson),
+  };
+}
+
+function toBackend(dto: InstitutionDTO): Omit<InstitucionBackend, 'id'> & { id?: number } {
+  return {
+    ...(dto.id ? { id: Number(dto.id) } : {}),
+    nombreFantasia:        dto.name,
+    razonSocial:           dto.razonSocial || undefined,
+    cuit:                  dto.cuit || undefined,
+    tipoInstitucion:       mapTipoToBackend(dto.type),
+    activa:                dto.status === 'ACTIVA',
+    estadoInstitucional:   dto.status,
+    telefono:              dto.phone || undefined,
+    email:                 dto.email || undefined,
+    contactoAdministrativo: dto.adminContact || undefined,
+    contactoOperativo:     dto.opsContact || undefined,
+    direccion:             dto.address || undefined,
+    latitud:               dto.lat,
+    longitud:              dto.lng,
+    perimetroJson:         dto.polygon?.length ? JSON.stringify(dto.polygon) : undefined,
+    planComercialNombre:   dto.plan || undefined,
+  };
+}
+
+export interface InstitutionQuery {
+  page?: number;
+  size?: number;
+  /** Búsqueda por nombre de fantasía. Va server-side, igual que `obras-sociales.api.ts`. */
+  nombre?: string;
+  tipo?: InstitutionType | 'all';
+  /** Filtro de estado. La entidad solo persiste el booleano `activa` — ver getPage(). */
+  activa?: boolean;
+}
+
+@Injectable({ providedIn: 'root' })
+export class InstitutionsApiService {
+  private http = inject(HttpClient);
+  private base = `${environment.apiUrl}/api/v2/instituciones`;
+
+  getAll(): Observable<InstitutionDTO[]> {
+    return this.http.get<InstitucionBackend[]>(`${this.base}?size=1000`).pipe(
+      map(list => list.map(toDTO)),
+    );
+  }
+
+  /**
+   * Listado paginado y filtrado SERVER-SIDE (S0-12), siguiendo el patrón de
+   * `ObrasSocialesApiService.getPage`. Antes la pantalla pedía `?size=1000` y filtraba/paginaba
+   * en memoria: el contador de resultados describía lo que llegó al navegador, no el universo, y
+   * por encima de 1000 filas (el máximo real de `spring.data.web.pageable.max-page-size`, más
+   * bajo que el 1000 pedido) la carga quedaba truncada en silencio.
+   *
+   * `estadoInstitucional` (4 estados: ACTIVA/PENDIENTE_ACTIVACION/SUSPENDIDA/BAJA) no es un campo
+   * persistido en la entidad — solo existe el booleano `activa`. El filtro de estado del listado
+   * se resuelve entonces a ese booleano (ACTIVA/PENDIENTE_ACTIVACION → activa=true,
+   * SUSPENDIDA/BAJA → activa=false); no hay forma de distinguir los 4 estados server-side hasta
+   * que la entidad persista `estadoInstitucional` (fuera de alcance de esta tarea).
+   */
+  getPage(query: InstitutionQuery = {}): Observable<PagedResult<InstitutionDTO>> {
+    const params = buildParams({
+      page: query.page ?? 0,
+      size: query.size ?? 10,
+      sort: 'nombreFantasia,asc',
+      'nombreFantasia.contains': query.nombre?.trim(),
+      'tipoInstitucion.equals': query.tipo && query.tipo !== 'all' ? query.tipo : undefined,
+      'activa.equals': query.activa,
+    });
+    return this.http.get<InstitucionBackend[]>(this.base, { params, observe: 'response' }).pipe(
+      toPagedResult(),
+      map((paged) => ({ data: paged.data.map(toDTO), total: paged.total })),
+    );
+  }
+
+  getById(id: number): Observable<InstitutionDTO> {
+    return this.http.get<InstitucionBackend>(`${this.base}/${id}`).pipe(map(toDTO));
+  }
+
+  create(dto: InstitutionDTO): Observable<InstitutionDTO> {
+    return this.http.post<InstitucionBackend>(this.base, toBackend(dto)).pipe(
+      map(toDTO),
+    );
+  }
+
+  altaCompleta(req: AltaInstitucionCompletaRequest): Observable<AltaInstitucionCompletaResponse> {
+    const payload = {
+      institucion: toBackend(req.institucion as InstitutionDTO),
+      contratoInicial: req.contratoInicial
+        ? {
+            ...req.contratoInicial,
+            vigenciaDesde: req.contratoInicial.vigenciaDesde
+              ? `${req.contratoInicial.vigenciaDesde}T00:00:00Z`
+              : req.contratoInicial.vigenciaDesde,
+            vigenciaHasta: req.contratoInicial.vigenciaHasta
+              ? `${req.contratoInicial.vigenciaHasta}T00:00:00Z`
+              : req.contratoInicial.vigenciaHasta,
+          }
+        : undefined,
+    };
+    return this.http.post<{ institucion: InstitucionBackend; contratoCobertura: ContractDTO }>(`${this.base}/alta-completa`, payload).pipe(
+      map(res => ({
+        institucion: toDTO(res.institucion),
+        contratoCobertura: res.contratoCobertura,
+      }))
+    );
+  }
+
+  update(dto: InstitutionDTO): Observable<InstitutionDTO> {
+    return this.http.put<InstitucionBackend>(`${this.base}/${dto.id}`, toBackend(dto)).pipe(
+      map(toDTO),
+    );
+  }
+
+  delete(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/${id}`);
+  }
+
+  patchInstitucion(id: number, patch: Partial<Pick<InstitucionBackend, 'perimetroJson'>>): Observable<InstitutionDTO> {
+    return this.http.patch<InstitucionBackend>(`${this.base}/${id}`, { id, ...patch }).pipe(map(toDTO));
+  }
+
+  // ── ContratoCobertura ────────────────────────────────────────────────────────
+
+  private contratoBase = `${environment.apiUrl}/api/v2/contratos-cobertura`;
+
+  getContratosByInstitucion(institucionId: number): Observable<ContractDTO[]> {
+    return this.http
+      .get<ContratoBackend[]>(`${this.contratoBase}/institucion/${institucionId}`)
+      .pipe(map(list => list.map(contratoToDTO)));
+  }
+
+  /** All active contracts for the current empresa (multi-tenant filtered server-side). */
+  getAllContratosActivos(): Observable<ContractDTO[]> {
+    return this.http
+      .get<ContratoBackend[]>(`${this.contratoBase}?estadoContrato.equals=ACTIVO&size=100`)
+      .pipe(map(list => list.map(contratoToDTO)));
+  }
+
+  getMiembros(institucionId: number, page = 0, size = 50): Observable<InstitucionMiembroItem[]> {
+    return this.http.get<Array<Record<string, unknown>>>(
+      `${environment.apiUrl}/api/v2/instituciones/${institucionId}/miembros`,
+      { params: { page: page.toString(), size: size.toString() } }
+    ).pipe(
+      map(list => list.map(m => ({
+        id: m['id'] as number,
+        nombre: (m['nombre'] as string) ?? '',
+        apellido: (m['apellido'] as string) ?? '',
+        dni: m['dni'] as string,
+        telefono: m['telefono'] as string,
+        rol: (m['rol'] as string) ?? '',
+        vigenciaDesde: m['vigenciaDesde'] as string,
+        vigenciaHasta: m['vigenciaHasta'] as string,
+        activo: (m['activo'] as boolean) ?? true,
+      } as InstitucionMiembroItem)))
+    );
+  }
+
+  saveContrato(dto: ContractDTO, institucionId: number, planNumericId: number): Observable<ContractDTO> {
+    const body = contratoToBackend(dto, institucionId, planNumericId);
+    if (dto.id) {
+      return this.http
+        .put<ContratoBackend>(`${this.contratoBase}/${dto.id}`, body)
+        .pipe(map(contratoToDTO));
+    }
+    return this.http
+      .post<ContratoBackend>(this.contratoBase, body)
+      .pipe(map(contratoToDTO));
+  }
+
+  // ── Planes por contrato ──────────────────────────────────────────────────────
+
+  private planesBase = `${environment.apiUrl}/api/v2/contratos-cobertura`;
+
+  getPlanesByContrato(contratoId: number): Observable<ContratoCoberturaPlanDTO[]> {
+    return this.http.get<ContratoCoberturaPlanDTO[]>(`${this.planesBase}/${contratoId}/planes`);
+  }
+
+  addPlanToContrato(contratoId: number, plan: Omit<ContratoCoberturaPlanDTO, 'id'>): Observable<ContratoCoberturaPlanDTO> {
+    return this.http.post<ContratoCoberturaPlanDTO>(`${this.planesBase}/${contratoId}/planes`, plan);
+  }
+
+  // ── Facturación institucional ────────────────────────────────────────────────
+
+  private facturacionInstBase = `${environment.apiUrl}/api/v2/facturacion-institucional`;
+
+  generarFacturaInstitucional(req: GenerarFacturaContratoRequest): Observable<FacturacionContratoDTO> {
+    return this.http.post<FacturacionContratoDTO>(`${this.facturacionInstBase}/generar`, req);
+  }
+
+  getFacturasByContrato(contratoId: number): Observable<FacturacionContratoDTO[]> {
+    return this.http.get<FacturacionContratoDTO[]>(`${this.facturacionInstBase}/contrato/${contratoId}`);
+  }
+
+  getAllFacturasInstitucionales(page = 0, size = 50): Observable<FacturacionContratoDTO[]> {
+    return this.http.get<FacturacionContratoDTO[]>(`${this.facturacionInstBase}`, {
+      params: { page: String(page), size: String(size), sort: 'periodoDesde,desc' }
+    });
+  }
+
+  registrarPagoFacturaInstitucional(facturacionContratoId: number, req: RegistrarPagoInstitucionalRequest): Observable<PagoInstitucionalResponseDTO> {
+    return this.http.post<PagoInstitucionalResponseDTO>(`${this.facturacionInstBase}/${facturacionContratoId}/pagos`, req);
+  }
+
+  getPagosFacturaInstitucional(facturacionContratoId: number): Observable<PagoInstitucionalItemDTO[]> {
+    return this.http.get<PagoInstitucionalItemDTO[]>(`${this.facturacionInstBase}/${facturacionContratoId}/pagos`);
+  }
+
+  // ── Estado institucional ─────────────────────────────────────────────────────
+
+  cambiarEstadoInstitucion(id: number, estado: EstadoInstitucion): Observable<InstitutionDTO> {
+    return this.http.patch<InstitucionBackend>(
+      `${environment.apiUrl}/api/v2/instituciones/${id}/estado`,
+      JSON.stringify(estado),
+      { headers: { 'Content-Type': 'application/json' } }
+    ).pipe(map(toDTO));
+  }
+
+  getEstadoCuentaInstitucion(id: number): Observable<InstitucionEstadoCuentaDTO> {
+    return this.http.get<InstitucionEstadoCuentaDTO>(`${this.base}/${id}/estado-cuenta`);
+  }
+
+  getEstadoDeudaInstitucion(id: number): Observable<InstitucionEstadoCuentaDTO> {
+    return this.http.get<InstitucionEstadoCuentaDTO>(`${this.base}/${id}/estado-deuda`);
+  }
+
+  suspenderPorDeuda(
+    id: number,
+    motivo: string,
+    forzarConDeuda = false,
+    autorizadoPor?: string,
+    autorizadoPorSegundo?: string,
+    vigenciaHorasExcepcion?: number,
+  ): Observable<InstitutionDTO> {
+    return this.http.post<InstitucionBackend>(
+      `${this.base}/${id}/suspender-por-deuda`,
+      { motivo, forzarConDeuda, autorizadoPor, autorizadoPorSegundo, vigenciaHorasExcepcion },
+    ).pipe(map(toDTO));
+  }
+
+  reactivarInstitucion(
+    id: number,
+    motivo: string,
+    forzarConDeuda = false,
+    autorizadoPor?: string,
+    autorizadoPorSegundo?: string,
+    vigenciaHorasExcepcion?: number,
+  ): Observable<InstitutionDTO> {
+    return this.http.post<InstitucionBackend>(
+      `${this.base}/${id}/reactivar`,
+      { motivo, forzarConDeuda, autorizadoPor, autorizadoPorSegundo, vigenciaHorasExcepcion },
+    ).pipe(map(toDTO));
+  }
+
+  getAutorizantes(): Observable<AutorizanteItem[]> {
+    return this.http.get<UsuarioEmpresaBackend[]>(`${environment.apiUrl}/api/usuario-empresas/autorizantes`).pipe(
+      map((items) => items.map((item) => ({
+        id: item.id,
+        login: item.user?.login ?? '',
+        nombreCompleto: [item.user?.firstName, item.user?.lastName].filter(Boolean).join(' ') || item.user?.login || `#${item.id}`,
+      }))),
+    );
+  }
+
+  importarPadron(contratoId: number, file: File): Observable<string> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post(`${environment.apiUrl}/api/v2/contratos-institucionales/${contratoId}/importar-padron`, formData, {
+      responseType: 'text'
+    });
+  }
+}
