@@ -1,0 +1,58 @@
+/* Custom CSS styling using HSL variables and classes for the Agenda Filter Panel */
+
+.filter-panel {
+  /* Dynamic custom highlight color using HSL */
+  --filter-highlight-hue: 220; /* Blue hue */
+  --filter-highlight: hsl(var(--filter-highlight-hue), 90%, 56%);
+  --filter-highlight-dim: hsla(var(--filter-highlight-hue), 90%, 56%, 0.15);
+  
+  background: var(--surface-glass);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.filter-panel:hover {
+  border-color: hsla(var(--filter-highlight-hue), 90%, 56%, 0.25);
+  box-shadow: 0 8px 30px -10px hsla(var(--filter-highlight-hue), 90%, 56%, 0.12);
+}
+
+.eyebrow-lbl {
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  margin-bottom: 2px;
+  user-select: none;
+}
+
+.filter-select, .filter-input {
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border-glass);
+  color: var(--text-secondary);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.filter-select:hover, .filter-input:hover {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.filter-select:focus, .filter-input:focus {
+  border-color: var(--filter-highlight);
+  background-color: var(--bg-elevated);
+  color: var(--text-primary);
+  box-shadow: 0 0 0 3px var(--filter-highlight-dim);
+}
+
+/* Custom styling for date input picker calendar icon coloring if supported by browsers */
+.filter-input::-webkit-calendar-picker-indicator {
+  filter: invert(0.6) sepia(1) saturate(5) hue-rotate(185deg);
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.filter-input::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}

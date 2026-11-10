@@ -1,0 +1,30 @@
+<emx-glass-card>
+  <div class="flex items-center justify-between mb-2">
+    <h2 class="section-label" style="margin:0;">{{ title() }}</h2>
+    @if (canEdit()) {
+      <button type="button" class="btn btn--ghost btn--sm" (click)="add.emit()">Agregar</button>
+    }
+  </div>
+
+  @if (items().length === 0) {
+    <p class="text-xs" style="color: var(--text-muted);">Sin {{ title().toLowerCase() }} registrados</p>
+  } @else {
+    <ul class="flex flex-col gap-2 max-h-[200px] overflow-y-auto">
+      @for (item of items(); track item.id) {
+        <li class="text-sm p-2 rounded" style="background: rgba(255,255,255,0.02); border-top: 1px solid var(--border-glass);">
+          @if (type() === 'PROCEDIMIENTO') {
+            <p class="font-semibold" style="color: var(--text-primary);">{{ item.descripcion ?? '—' }}</p>
+            <p class="text-xs mt-0.5" style="color: var(--text-muted);">
+              {{ item.ejecutadoPor }} · {{ formatTime(item.timestamp) }}
+            </p>
+          } @else {
+            <p class="font-semibold" style="color: var(--text-primary);">{{ item.medicamento ?? '—' }}</p>
+            <p class="text-xs mt-0.5" style="color: var(--text-secondary);">
+              {{ item.dosis ?? '—' }} · {{ item.via ?? '—' }} · por {{ item.administradoPor }}
+            </p>
+          }
+        </li>
+      }
+    </ul>
+  }
+</emx-glass-card>

@@ -1,0 +1,70 @@
+@if (canStart() || sala()) {
+  <emx-glass-card>
+    <div class="flex items-center justify-between mb-2">
+      <h2 class="section-label" style="margin:0;">Teleconsulta Médica</h2>
+      @if (sala()) {
+        <span class="badge text-xs px-2 py-0.5" style="background: rgba(16,185,129,0.15); color: var(--accent-emerald);">
+          Activa
+        </span>
+      } @else {
+        <span class="badge text-xs px-2 py-0.5" style="background: rgba(100,116,139,0.15); color: var(--text-muted);">
+          Disponible
+        </span>
+      }
+    </div>
+
+    @if (!sala()) {
+      <div class="flex flex-col gap-2">
+        <p class="text-xs" style="color: var(--text-muted);">
+          Este incidente califica para asistencia virtual. Generá una sala encriptada para conectar al paciente con el equipo médico.
+        </p>
+        <button type="button" class="btn btn--primary btn--sm flex items-center justify-center gap-1.5 w-full mt-1" 
+                style="background: linear-gradient(135deg, var(--accent-blue), #1d4ed8); border-color: transparent;"
+                [disabled]="isLoading()" 
+                (click)="iniciar.emit()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M23 7l-7 5 7 5V7z"/>
+            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+          </svg>
+          {{ isLoading() ? 'Generando sala...' : 'Iniciar Teleconsulta' }}
+        </button>
+        @if (error()) {
+          <p class="text-xs mt-1" style="color: var(--accent-red);">{{ error() }}</p>
+        }
+      </div>
+    } @else {
+      <div class="flex flex-col gap-3">
+        <div class="rounded-lg p-2.5 text-xs" style="background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.22); color: var(--text-secondary);">
+          <p class="font-semibold text-emerald-400" style="color: var(--accent-emerald);">Sala corporativa segura</p>
+          <p class="mt-0.5" style="font-size: 11px;">El paciente y el médico móvil pueden ingresar de manera nativa.</p>
+        </div>
+
+        <dl class="flex flex-col gap-1.5 text-xs">
+          <div class="flex justify-between items-center">
+            <dt style="color: var(--text-muted);">Expiración</dt>
+            <dd class="font-mono text-xs" style="color: var(--text-primary);">
+              {{ formatTime(sala()?.expiresAt) }} hs
+            </dd>
+          </div>
+          <div class="flex justify-between items-center">
+            <dt style="color: var(--text-muted);">Cifrado</dt>
+            <dd class="font-mono text-xs" style="color: var(--accent-cyan);">
+              SHA-256 Validado
+            </dd>
+          </div>
+        </dl>
+
+        <button type="button" class="btn btn--primary btn--sm flex items-center justify-center gap-1.5 w-full mt-1" 
+                style="background: linear-gradient(135deg, var(--accent-emerald), #047857); border-color: transparent;"
+                (click)="unirse.emit()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+            <polyline points="15 3 21 3 21 9"/>
+            <line x1="10" y1="14" x2="21" y2="3"/>
+          </svg>
+          Unirse a Videollamada
+        </button>
+      </div>
+    }
+  </emx-glass-card>
+}

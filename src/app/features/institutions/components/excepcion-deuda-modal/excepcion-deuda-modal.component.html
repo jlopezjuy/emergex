@@ -1,0 +1,84 @@
+<div class="clinical-modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4">
+  <div class="clinical-modal-card excepcion-modal-card flex flex-col gap-4 w-full max-w-md">
+    <div class="clinical-modal-header">
+      <div>
+        <p class="clinical-modal-kicker excepcion-modal-kicker">Excepción de supervisor</p>
+        <h2 class="clinical-modal-title">
+          {{ accion() === 'suspender' ? 'Suspender' : 'Reactivar' }} igual con deuda vencida — {{ institutionName() }}
+        </h2>
+        <p class="clinical-modal-subtitle">Requiere motivo y dos autorizantes distintos (Propietario/Administrador).</p>
+      </div>
+      <button type="button" class="clinical-close" (click)="closed.emit()">×</button>
+    </div>
+
+    <div class="flex flex-col gap-1.5">
+      <label class="clinical-field-label">Motivo *</label>
+      <textarea
+        class="clinical-input"
+        rows="2"
+        placeholder="Ej: pago confirmado por el cliente, pendiente de conciliación bancaria..."
+        [value]="motivo()"
+        (input)="motivo.set($any($event.target).value)"
+      ></textarea>
+    </div>
+
+    <div class="flex flex-col gap-1.5">
+      <label class="clinical-field-label">Autorizante 1 *</label>
+      <select
+        class="clinical-input"
+        [value]="autorizadoPor()"
+        (change)="autorizadoPor.set($any($event.target).value)"
+        [disabled]="loadingAutorizantes()"
+      >
+        <option value="">{{ loadingAutorizantes() ? 'Cargando...' : 'Seleccioná un autorizante' }}</option>
+        @for (item of autorizantes(); track item.id) {
+          <option [value]="item.login">{{ item.nombreCompleto }}</option>
+        }
+      </select>
+    </div>
+
+    <div class="flex flex-col gap-1.5">
+      <label class="clinical-field-label">Autorizante 2 *</label>
+      <select
+        class="clinical-input"
+        [value]="autorizadoPorSegundo()"
+        (change)="autorizadoPorSegundo.set($any($event.target).value)"
+        [disabled]="loadingAutorizantes()"
+      >
+        <option value="">{{ loadingAutorizantes() ? 'Cargando...' : 'Seleccioná un segundo autorizante' }}</option>
+        @for (item of autorizantes(); track item.id) {
+          <option [value]="item.login">{{ item.nombreCompleto }}</option>
+        }
+      </select>
+      @if (autorizadoPor() && autorizadoPorSegundo() && !autorizantesDistintos()) {
+        <p class="excepcion-modal-warning">Los dos autorizantes deben ser personas distintas.</p>
+      }
+    </div>
+
+    <div class="flex flex-col gap-1.5">
+      <label class="clinical-field-label">Vigencia de la excepción (horas, opcional)</label>
+      <input
+        type="number"
+        min="1"
+        class="clinical-input"
+        placeholder="Ej: 72"
+        [value]="vigenciaHoras() ?? ''"
+        (input)="vigenciaHoras.set($any($event.target).value ? +$any($event.target).value : null)"
+      />
+    </div>
+
+    @if (error()) {
+      <p class="excepcion-modal-warning">{{ error() }}</p>
+    }
+
+    <div class="clinical-modal-footer">
+      <button type="button" class="btn btn--ghost btn--sm" (click)="closed.emit()">Volver</button>
+      <button
+        type="button"
+        class="btn btn--danger btn--sm"
+        [disabled]="!puedeEnviar()"
+        (click)="confirmar()"
+      >{{ submitting() ? 'Registrando...' : 'Confirmar excepción' }}</button>
+    </div>
+  </div>
+</div>

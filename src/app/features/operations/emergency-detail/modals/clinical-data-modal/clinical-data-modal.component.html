@@ -1,0 +1,74 @@
+@if (kind()) {
+  <div class="clinical-modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="clinical-modal-card flex flex-col gap-5 w-full max-w-2xl">
+      <div class="clinical-modal-header">
+        <div>
+          <p class="clinical-modal-kicker">Carga clínica telefónica</p>
+          <h2 class="clinical-modal-title">{{ clinicalModalTitle() }}</h2>
+          <p class="clinical-modal-subtitle">Carga asistida por operador/despacho. Queda vinculada a la atención y a la historia clínica.</p>
+        </div>
+        <button type="button" class="clinical-close" (click)="closed.emit()">×</button>
+      </div>
+
+      @if (kind() === 'SIGNOS') {
+        <div class="grid grid-cols-3 gap-2">
+          <input class="clinical-input" placeholder="TA ej: 120/80" [value]="svTa()" (input)="svTa.set($any($event.target).value)" />
+          <input class="clinical-input" type="number" placeholder="FC" [value]="svFc()" (input)="svFc.set($any($event.target).value)" />
+          <input class="clinical-input" type="number" placeholder="FR" [value]="svFr()" (input)="svFr.set($any($event.target).value)" />
+          <input class="clinical-input" type="number" placeholder="SpO₂" [value]="svSatO2()" (input)="svSatO2.set($any($event.target).value)" />
+          <input class="clinical-input" type="number" placeholder="Temp" [value]="svTemp()" (input)="svTemp.set($any($event.target).value)" />
+          <input class="clinical-input" type="number" placeholder="Glucemia" [value]="svGlucemia()" (input)="svGlucemia.set($any($event.target).value)" />
+          <div class="col-span-3 mt-1" style="border-top: 1px solid rgba(148,163,184,0.2); padding-top: 0.75rem;">
+            <p class="clinical-field-label mb-2">Glasgow (opcional)</p>
+            <div class="grid grid-cols-4 gap-2">
+              <input class="clinical-input" type="number" placeholder="Ocular (1-4)" min="1" max="4"
+                     [value]="glasgowOcular()" (input)="glasgowOcular.set($any($event.target).value)" />
+              <input class="clinical-input" type="number" placeholder="Verbal (1-5)" min="1" max="5"
+                     [value]="glasgowVerbal()" (input)="glasgowVerbal.set($any($event.target).value)" />
+              <input class="clinical-input" type="number" placeholder="Motor (1-6)" min="1" max="6"
+                     [value]="glasgowMotor()" (input)="glasgowMotor.set($any($event.target).value)" />
+              <div class="rounded-lg px-3 py-2 flex items-center justify-center font-mono font-bold text-lg"
+                   style="background: var(--bg-glass, #f1f5f9); color: #0f172a; border: 1px solid rgba(100,116,139,0.35);">
+                {{ glasgowTotal() ?? '—' }}
+              </div>
+            </div>
+            <select class="clinical-input mt-2"
+                    [value]="avpu()" (change)="avpu.set($any($event.target).value)">
+              <option value="">AVPU (no registrado)</option>
+              <option value="ALERTA">Alerta</option>
+              <option value="VOZ">Responde a voz</option>
+              <option value="DOLOR">Responde a dolor</option>
+              <option value="INCONSCIENTE">Inconsciente</option>
+            </select>
+          </div>
+        </div>
+        <textarea rows="2" class="clinical-input" placeholder="Observación" [value]="clinicalObservacion()" (input)="clinicalObservacion.set($any($event.target).value)"></textarea>
+      }
+
+      @if (kind() === 'PROCEDIMIENTO') {
+        <input class="clinical-input" placeholder="Procedimiento realizado" [value]="clinicalTitulo()" (input)="clinicalTitulo.set($any($event.target).value)" />
+        <textarea rows="4" class="clinical-input" placeholder="Detalle, respuesta del paciente, observaciones" [value]="clinicalDetalle()" (input)="clinicalDetalle.set($any($event.target).value)"></textarea>
+      }
+
+      @if (kind() === 'MEDICACION') {
+        <div class="grid grid-cols-3 gap-2">
+          <input class="clinical-input" placeholder="Medicamento" [value]="medMedicamento()" (input)="medMedicamento.set($any($event.target).value)" />
+          <input class="clinical-input" placeholder="Dosis" [value]="medDosis()" (input)="medDosis.set($any($event.target).value)" />
+          <input class="clinical-input" placeholder="Vía" [value]="medVia()" (input)="medVia.set($any($event.target).value)" />
+        </div>
+        <textarea rows="3" class="clinical-input" placeholder="Observación / indicación telefónica" [value]="clinicalObservacion()" (input)="clinicalObservacion.set($any($event.target).value)"></textarea>
+      }
+
+      @if (clinicalError()) {
+        <p class="text-xs" style="color: var(--accent-red, #ef4444);">{{ clinicalError() }}</p>
+      }
+
+      <div class="clinical-modal-footer">
+        <button type="button" class="btn btn--ghost btn--sm" (click)="closed.emit()">Cancelar</button>
+        <button type="button" class="btn btn--primary btn--sm" [disabled]="savingClinical()" (click)="guardarClinicalModal()">
+          {{ savingClinical() ? 'Guardando…' : 'Guardar' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
