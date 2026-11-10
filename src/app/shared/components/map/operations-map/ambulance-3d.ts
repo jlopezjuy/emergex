@@ -20,7 +20,6 @@ import {
   AmbientLight,
   BoxGeometry,
   CanvasTexture,
-  CircleGeometry,
   Color,
   CylinderGeometry,
   DirectionalLight,
@@ -45,6 +44,7 @@ import {
   SRGBColorSpace,
   Sprite,
   SpriteMaterial,
+  TorusGeometry,
   Vector3,
   WebGLRenderer,
 } from 'three';
@@ -70,23 +70,45 @@ export interface OpcionesRender3D {
 
 // ─── Carrocería ─────────────────────────────────────────────────────────────
 
-/** Perfil lateral (adelante, arriba) desde atrás-abajo: caja alta, escalón, parabrisas, capot. */
+const BASE_Y = 0.38;
+const RADIO_ARCO = 0.66;
+const CENTRO_RUEDA_Y = 0.52;
+/** Ángulo, sobre el horizonte, al que el arco de la rueda corta la base de la carrocería. */
+const ANGULO_ARCO = Math.asin((BASE_Y - CENTRO_RUEDA_Y) / RADIO_ARCO);
+
+/** Puntos del arco de una rueda, de adelante hacia atrás, centrado en `cx` (adelante = +x). */
+function puntosArco(cx: number): Array<[number, number]> {
+  const pasos = 8;
+  const puntos: Array<[number, number]> = [];
+  for (let i = 0; i <= pasos; i++) {
+    const t = ANGULO_ARCO + ((Math.PI - 2 * ANGULO_ARCO) * i) / pasos;
+    puntos.push([cx + RADIO_ARCO * Math.cos(t), CENTRO_RUEDA_Y + RADIO_ARCO * Math.sin(t)]);
+  }
+  return puntos;
+}
+
+/**
+ * Perfil lateral (adelante, arriba) desde atrás-abajo, de furgón alto tipo Sprinter: techo continuo
+ * de la cabina a la caja, parabrisas largo y muy inclinado, capot corto y,
+ * por la base, los arcos de las dos ruedas (el eje delantero en x = 1.75 y el trasero en x = −1.55).
+ */
 const PERFIL: ReadonlyArray<readonly [number, number]> = [
-  [-2.6, 0.38],
-  [-2.6, 2.2],
-  [-2.45, 2.4],
-  [0.85, 2.4],
-  [0.85, 2.0],
-  [1.45, 2.0],
-  [2.05, 1.4],
-  [2.65, 1.2],
-  [2.8, 1.0],
+  [-2.6, BASE_Y],
+  [-2.6, 2.05],
+  [-2.3, 2.4],
+  [1.15, 2.4],
+  [1.5, 2.32],
+  [2.45, 1.4],
+  [2.72, 1.24],
+  [2.8, 1.12],
   [2.8, 0.5],
-  [2.6, 0.38],
+  [2.6, BASE_Y],
+  ...puntosArco(1.75),
+  ...puntosArco(-1.55),
 ];
 
 const MEDIO_ANCHO = 1.0;
-const BISEL = 0.13;
+const BISEL = 0.22;
 
 /**
  * Arma una forma cerrada a partir de un polígono redondeando cada esquina con una curva.
@@ -112,6 +134,29 @@ function formaRedondeada(puntos: ReadonlyArray<readonly [number, number]>, radio
   return shape;
 }
 
+/**
+ * Caja de aristas redondeadas (ancho = X, alto = Y, fondo = Z), centrada en el origen.
+ * Reemplaza a `BoxGeometry` en las piezas que a este tamaño se ven como cubos pegados.
+ */
+function cajaRedondeada(ancho: number, alto: number, fondo: number, radio: number): ExtrudeGeometry {
+  const b = Math.min(radio, fondo / 3, ancho / 3, alto / 3);
+  const w = ancho - 2 * b;
+  const h = alto - 2 * b;
+  const profundidad = fondo - 2 * b;
+  const forma = formaRedondeada(
+    [
+      [-w / 2, -h / 2],
+      [w / 2, -h / 2],
+      [w / 2, h / 2],
+      [-w / 2, h / 2],
+    ],
+    radio,
+  );
+  const geometria = new ExtrudeGeometry(forma, { depth: profundidad, bevelEnabled: true, bevelThickness: b, bevelSize: b, bevelSegments: 2, curveSegments: 5 });
+  geometria.translate(0, 0, -profundidad / 2);
+  return geometria;
+}
+
 /** Pone una geometría en el espacio del modelo: perfil (adelante, arriba) → adelante = −Z, ancho = X. */
 function alMundo(geometria: { rotateY(a: number): unknown; translate(x: number, y: number, z: number): unknown }, anchoCentrado: number): void {
   geometria.translate(0, 0, -anchoCentrado);
@@ -133,6 +178,8 @@ function materiales(colorEstado: string, enMovimiento: boolean) {
     estado: new MeshStandardMaterial({ color: new Color(colorEstado), emissive: new Color(colorEstado), emissiveIntensity: 0.45, roughness: 0.4, metalness: 0.05 }),
     luzRoja: new MeshStandardMaterial({ color: 0x5b0f12, emissive: 0xff2a2a, emissiveIntensity: brilloLuz, roughness: 0.3 }),
     luzAzul: new MeshStandardMaterial({ color: 0x0f2352, emissive: 0x2f6bff, emissiveIntensity: brilloLuz, roughness: 0.3 }),
+    luzVerde: new MeshStandardMaterial({ color: 0x0b4a24, emissive: 0x2cff7a, emissiveIntensity: brilloLuz, roughness: 0.3 }),
+    zocalo: new MeshStandardMaterial({ color: 0x3a424f, roughness: 0.6, metalness: 0.1 }),
     faro: new MeshStandardMaterial({ color: 0xfff4cf, emissive: 0xfff0b8, emissiveIntensity: 1.2, roughness: 0.2 }),
     trasera: new MeshStandardMaterial({ color: 0x7a1010, emissive: 0xff3030, emissiveIntensity: 0.9, roughness: 0.3 }),
     sombraArco: new MeshBasicMaterial({ color: 0x05080f, side: DoubleSide }),
@@ -155,11 +202,123 @@ function texturaEstrella(): CanvasTexture {
     ctx.fill();
     ctx.restore();
   };
-  for (const g of [0, 60, 120]) brazo(g, '#FFFFFF', 54, 236);
-  for (const g of [0, 60, 120]) brazo(g, '#1D4ED8', 36, 224);
+  for (const g of [0, 60, 120]) brazo(g, '#FFFFFF', 74, 244);
+  for (const g of [0, 60, 120]) brazo(g, '#1D4ED8', 52, 228);
   const textura = new CanvasTexture(lienzo);
   textura.colorSpace = SRGBColorSpace;
   return textura;
+}
+
+/**
+ * Banda lateral: arriba un tramo liso del color del estado (lo que el operador lee de un vistazo)
+ * y abajo un damero de dos filas, el marcado de alta visibilidad de las ambulancias reales.
+ */
+function texturaBanda(color: string): CanvasTexture {
+  const lienzo = document.createElement('canvas');
+  lienzo.width = 512;
+  lienzo.height = 96;
+  const ctx = lienzo.getContext('2d')!;
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, 512, 56);
+  const celda = 32;
+  const alto = 20;
+  for (let fila = 0; fila < 2; fila++) {
+    for (let col = 0; col < 16; col++) {
+      ctx.fillStyle = (col + fila) % 2 === 0 ? color : '#F4F7FA';
+      ctx.fillRect(col * celda, 56 + fila * alto, celda, alto);
+    }
+  }
+  const textura = new CanvasTexture(lienzo);
+  textura.colorSpace = SRGBColorSpace;
+  textura.anisotropy = 4;
+  return textura;
+}
+
+/** Logo del servicio: cuadrado azul con ondas de radio y recuadro naranja con las siglas. */
+function texturaLogo(): CanvasTexture {
+  const lienzo = document.createElement('canvas');
+  lienzo.width = 320;
+  lienzo.height = 160;
+  const ctx = lienzo.getContext('2d')!;
+  ctx.fillStyle = '#F26B1D';
+  ctx.beginPath();
+  ctx.roundRect(0, 0, 320, 160, 18);
+  ctx.fill();
+  ctx.fillStyle = '#1B4F9C';
+  ctx.beginPath();
+  ctx.roundRect(0, 0, 112, 160, [18, 0, 0, 18]);
+  ctx.fill();
+  // Ondas de radio.
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.fillStyle = '#FFFFFF';
+  ctx.lineWidth = 9;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.arc(56, 80, 9, 0, Math.PI * 2);
+  ctx.fill();
+  for (const r of [26, 42]) {
+    ctx.beginPath();
+    ctx.arc(56, 80, r, -0.9, 0.9);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(56, 80, r, Math.PI - 0.9, Math.PI + 0.9);
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#0E2A66';
+  ctx.font = '800 86px Arial, Helvetica, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText('SAE', 216, 108);
+  ctx.font = '700 19px Arial, Helvetica, sans-serif';
+  ctx.fillText('EMERGENCIAS', 216, 138);
+  const textura = new CanvasTexture(lienzo);
+  textura.colorSpace = SRGBColorSpace;
+  textura.anisotropy = 4;
+  return textura;
+}
+
+/**
+ * Chevrones reflectivos naranja y blanco a 45°. El lienzo tiene la misma proporción que el plano
+ * donde se aplica, así el ángulo no se deforma.
+ */
+function texturaChevrones(ancho: number, alto: number, paso: number): CanvasTexture {
+  const lienzo = document.createElement('canvas');
+  lienzo.width = ancho;
+  lienzo.height = alto;
+  const ctx = lienzo.getContext('2d')!;
+  ctx.fillStyle = '#F4F7FA';
+  ctx.fillRect(0, 0, ancho, alto);
+  ctx.fillStyle = '#FF6A13';
+  for (let x = -alto; x < ancho; x += paso) {
+    ctx.beginPath();
+    ctx.moveTo(x, alto);
+    ctx.lineTo(x + paso / 2, alto);
+    ctx.lineTo(x + paso / 2 + alto, 0);
+    ctx.lineTo(x + alto, 0);
+    ctx.closePath();
+    ctx.fill();
+  }
+  const textura = new CanvasTexture(lienzo);
+  textura.colorSpace = SRGBColorSpace;
+  textura.anisotropy = 4;
+  return textura;
+}
+
+/** Sombra de contacto: una mancha elíptica oscura bajo el vehículo, para que no flote. */
+function texturaContacto(): CanvasTexture {
+  const lienzo = document.createElement('canvas');
+  lienzo.width = 128;
+  lienzo.height = 256;
+  const ctx = lienzo.getContext('2d')!;
+  ctx.translate(64, 128);
+  ctx.scale(1, 2);
+  const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, 64);
+  grad.addColorStop(0, 'rgba(5,8,15,0.5)');
+  grad.addColorStop(0.6, 'rgba(5,8,15,0.35)');
+  grad.addColorStop(1, 'rgba(5,8,15,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(-64, -64, 128, 128);
+  return new CanvasTexture(lienzo);
 }
 
 /** Resplandor suave para las luces encendidas. */
@@ -195,7 +354,7 @@ function construirAmbulancia(colorEstado: string, enMovimiento: boolean): Group 
 
   // Cuerpo: el perfil redondeado, extruido a lo ancho con bisel.
   const profundidad = 2 * MEDIO_ANCHO - 2 * BISEL;
-  const cuerpo = new ExtrudeGeometry(formaRedondeada(PERFIL, 0.32), {
+  const cuerpo = new ExtrudeGeometry(formaRedondeada(PERFIL, 0.4), {
     depth: profundidad,
     bevelEnabled: true,
     bevelThickness: BISEL,
@@ -206,31 +365,52 @@ function construirAmbulancia(colorEstado: string, enMovimiento: boolean): Group 
   alMundo(cuerpo, profundidad / 2);
   agregar(cuerpo, m.chapa, 0, 0, 0);
 
-  // Franja del color del estado: rodea la caja, así se ve de costado y por detrás.
-  agregar(new BoxGeometry(2 * MEDIO_ANCHO + 0.05, 0.5, 3.35), m.estado, 0, 1.05, 0.88);
-  // Filete oscuro debajo de la franja.
-  agregar(new BoxGeometry(2 * MEDIO_ANCHO + 0.04, 0.07, 3.35), m.plastico, 0, 0.77, 0.88, false);
+  // Contacto con el suelo: mancha oscura bajo el vehículo (gira con él).
+  const contacto = new Mesh(new PlaneGeometry(2.7, 6.2), new MeshBasicMaterial({ map: texturaContacto(), transparent: true, depthWrite: false }));
+  contacto.rotation.x = -Math.PI / 2;
+  contacto.position.y = 0.015;
+  modelo.add(contacto);
+
+  // Banda lateral (una por costado, más abajo): va por encima de los arcos de las ruedas, que
+  // cortan la carrocería hasta y ≈ 1.2.
+  const textBanda = texturaBanda(colorEstado);
+  const materialBanda = new MeshStandardMaterial({ map: textBanda, emissive: new Color(0xffffff), emissiveMap: textBanda, emissiveIntensity: 0.4, roughness: 0.4, metalness: 0.05 });
+  // Marcas reflectivas (chevrones) y logo: el material es el mismo, cambia la textura.
+  const reflectivo = (textura: CanvasTexture): MeshStandardMaterial =>
+    new MeshStandardMaterial({ map: textura, emissive: new Color(0xffffff), emissiveMap: textura, emissiveIntensity: 0.3, roughness: 0.4 });
+  const materialChevronLado = reflectivo(texturaChevrones(120, 280, 90));
+  const materialLogo = new MeshStandardMaterial({ map: texturaLogo(), transparent: true, roughness: 0.4 });
+  // Portón trasero: chevrones bajo las ventanillas. Queda delante de la junta, que los parte al medio.
+  const chevronTrasero = new Mesh(new PlaneGeometry(1.4, 0.5), reflectivo(texturaChevrones(560, 200, 80)));
+  chevronTrasero.position.set(0, 1.0, 2.735);
+  modelo.add(chevronTrasero);
+  // Filete oscuro debajo de la banda.
+  agregar(new BoxGeometry(2 * MEDIO_ANCHO + 0.04, 0.06, 3.35), m.plastico, 0, 1.31, 0.88, false);
   // Franja a lo largo del techo: es lo que se ve desde cualquier rumbo.
   agregar(new BoxGeometry(1.1, 0.03, 3.0), m.estado, 0, 2.515, 0.8, false);
+  // Toma de aire del techo, sobre la franja y hacia atrás.
+  agregar(cajaRedondeada(0.9, 0.1, 0.7, 0.05), m.plastico, 0, 2.54, 1.75);
 
   // Parabrisas: un plano oscuro pegado a la parte inclinada.
   const orientar = (malla: Mesh, normal: Vector3): void => {
     malla.quaternion.copy(new Quaternion().setFromUnitVectors(new Vector3(0, 0, 1), normal.clone().normalize()));
   };
-  const parabrisas = agregar(new PlaneGeometry(1.7, 0.88), m.vidrio, 0, 1.76, -1.77, false);
-  orientar(parabrisas, new Vector3(0, 0.72, -0.69));
-  parabrisas.position.add(new Vector3(0, 0.72, -0.69).normalize().multiplyScalar(0.115));
+  // Va de (1.5, 2.32) a (2.45, 1.4) en el perfil: casi todo ese tramo y casi todo el ancho.
+  const parabrisas = agregar(new PlaneGeometry(1.78, 0.98), m.vidrio, 0, 1.86, -1.975, false);
+  orientar(parabrisas, new Vector3(0, 0.719, -0.696));
+  parabrisas.position.add(new Vector3(0, 0.719, -0.696).normalize().multiplyScalar(0.115));
   // Luneta trasera: dos ventanitas en las puertas.
-  for (const x of [-0.42, 0.42]) agregar(new PlaneGeometry(0.66, 0.6), m.vidrioDecal, x, 1.8, 2.725, false);
+  for (const x of [-0.42, 0.42]) agregar(new PlaneGeometry(0.66, 0.5), m.vidrioDecal, x, 1.72, 2.725, false);
   // Junta de las puertas traseras.
-  agregar(new BoxGeometry(0.03, 1.7, 0.04), m.plastico, 0, 1.25, 2.73, false);
+  agregar(new BoxGeometry(0.03, 1.5, 0.04), m.plastico, 0, 1.2, 2.73, false);
 
   // Detalles de cada costado.
   const estrella = texturaEstrella();
   for (const lado of [1, -1]) {
     const x = lado * (MEDIO_ANCHO + 0.135);
     // Ventana de la cabina (polígono en el plano lateral).
-    const contorno = ([[1.0, 1.5], [1.0, 1.88], [1.4, 1.88], [1.92, 1.42]] as const).map(
+    // Sigue el pilar A, paralelo al parabrisas.
+    const contorno = ([[0.95, 1.5], [0.95, 2.02], [1.62, 2.02], [2.08, 1.5]] as const).map(
       ([u, v]) => [lado === 1 ? u : -u, v] as const,
     );
     const ventana = new Shape();
@@ -240,24 +420,48 @@ function construirAmbulancia(colorEstado: string, enMovimiento: boolean): Group 
     geometriaVentana.rotateY(lado === 1 ? Math.PI / 2 : -Math.PI / 2);
     agregar(geometriaVentana, m.vidrioDecal, x, 0, 0, false);
 
+    // Banda de color y damero.
+    const banda = new Mesh(new PlaneGeometry(3.35, 0.36), materialBanda);
+    banda.position.set(lado * (MEDIO_ANCHO + 0.025), 1.52, 0.88);
+    banda.rotation.y = lado === 1 ? Math.PI / 2 : -Math.PI / 2;
+    modelo.add(banda);
+
+    // Logo en el panel alto de la caja y chevrones en la esquina trasera.
+    const giro = lado === 1 ? Math.PI / 2 : -Math.PI / 2;
+    const logo = new Mesh(new PlaneGeometry(0.9, 0.45), materialLogo);
+    logo.position.set(lado * (MEDIO_ANCHO + 0.03), 1.95, -0.15);
+    logo.rotation.y = giro;
+    modelo.add(logo);
+    const esquina = new Mesh(new PlaneGeometry(0.3, 0.7), materialChevronLado);
+    esquina.position.set(lado * (MEDIO_ANCHO + 0.03), 0.9, 2.42);
+    esquina.rotation.y = giro;
+    modelo.add(esquina);
+
+    // Junta de la puerta de cabina y manija.
+    agregar(new BoxGeometry(0.02, 1.6, 0.03), m.plastico, lado * (MEDIO_ANCHO + 0.012), 1.3, -0.92, false);
+    agregar(cajaRedondeada(0.04, 0.06, 0.28, 0.02), m.plastico, lado * (MEDIO_ANCHO + 0.025), 1.4, -1.2, false);
+
+    // Zócalo oscuro entre los arcos de las ruedas.
+    agregar(new BoxGeometry(0.03, 0.34, 1.9), m.zocalo, lado * (MEDIO_ANCHO + 0.012), 0.72, -0.1, false);
+
     // Estrella de la Vida sobre la caja.
     const plano = new Mesh(
-      new PlaneGeometry(1.15, 1.15),
+      new PlaneGeometry(1.0, 1.0),
       new MeshStandardMaterial({ map: estrella, transparent: true, roughness: 0.4, side: DoubleSide }),
     );
-    plano.position.set(x, 1.82, 1.0);
+    plano.position.set(x, 1.88, 1.0);
     plano.rotation.y = lado === 1 ? Math.PI / 2 : -Math.PI / 2;
     modelo.add(plano);
 
     // Espejo.
-    agregar(new BoxGeometry(0.1, 0.34, 0.22), m.plastico, lado * (MEDIO_ANCHO + 0.2), 1.6, -1.3);
+    agregar(cajaRedondeada(0.12, 0.42, 0.26, 0.05), m.plastico, lado * (MEDIO_ANCHO + 0.2), 1.72, -1.62);
 
-    // Ruedas con su pasarruedas oscuro.
+    // Ruedas con el labio del guardabarros en el borde del arco.
     for (const z of [1.55, -1.75]) {
-      const arco = new Mesh(new CircleGeometry(0.66, 24), m.sombraArco);
-      arco.position.set(lado * (MEDIO_ANCHO + 0.13), 0.55, z);
-      arco.rotation.y = lado === 1 ? Math.PI / 2 : -Math.PI / 2;
-      modelo.add(arco);
+      const labio = new TorusGeometry(RADIO_ARCO + 0.03, 0.04, 6, 24, Math.PI - 2 * ANGULO_ARCO);
+      labio.rotateZ(ANGULO_ARCO);
+      labio.rotateY((lado * Math.PI) / 2);
+      agregar(labio, m.plastico, lado * (MEDIO_ANCHO + 0.01), CENTRO_RUEDA_Y, z, false);
       const neumatico = agregar(new CylinderGeometry(0.52, 0.52, 0.36, 28), m.neumatico, lado * (MEDIO_ANCHO - 0.02), 0.52, z);
       neumatico.rotation.z = Math.PI / 2;
       const llanta = agregar(new CylinderGeometry(0.3, 0.3, 0.38, 20), m.llanta, lado * (MEDIO_ANCHO - 0.0), 0.52, z, false);
@@ -267,23 +471,31 @@ function construirAmbulancia(colorEstado: string, enMovimiento: boolean): Group 
     }
   }
 
-  // Barra de luces sobre el techo de la cabina (la cabina está hacia −Z).
-  agregar(new BoxGeometry(1.7, 0.1, 0.46), m.plastico, 0, 2.05, -1.18);
-  agregar(new BoxGeometry(0.8, 0.2, 0.36), m.luzRoja, -0.42, 2.16, -1.18);
-  agregar(new BoxGeometry(0.8, 0.2, 0.36), m.luzAzul, 0.42, 2.16, -1.18);
+  // Pozos oscuros de las ruedas: cierran el hueco que dejan los arcos del perfil.
+  for (const z of [1.55, -1.75]) {
+    const pozo = agregar(new CylinderGeometry(0.55, 0.55, 2 * MEDIO_ANCHO - 0.3, 20), m.sombraArco, 0, 0.55, z, false);
+    pozo.rotation.z = Math.PI / 2;
+  }
+
+  // Barra de luces sobre el frente del techo (la cabina está hacia −Z): riel oscuro, cuerpo blanco
+  // y lentes verdes en los extremos, como la de las unidades reales.
+  agregar(cajaRedondeada(1.5, 0.05, 0.46, 0.02), m.plastico, 0, 2.53, -1.1, false);
+  agregar(cajaRedondeada(1.56, 0.12, 0.3, 0.05), m.chapa, 0, 2.62, -1.1);
+  for (const x of [-0.6, 0.6]) agregar(cajaRedondeada(0.36, 0.14, 0.32, 0.07), m.luzVerde, x, 2.62, -1.1, false);
 
   // Paragolpes, parrilla, faros y luces traseras.
-  agregar(new BoxGeometry(2.0, 0.3, 0.24), m.plastico, 0, 0.55, -2.84);
-  agregar(new BoxGeometry(0.95, 0.24, 0.05), m.plastico, 0, 0.86, -2.9, false);
-  for (const x of [-0.72, 0.72]) agregar(new BoxGeometry(0.36, 0.2, 0.05), m.faro, x, 0.88, -2.9, false);
-  agregar(new BoxGeometry(2.0, 0.26, 0.2), m.plastico, 0, 0.55, 2.72);
-  for (const x of [-0.8, 0.8]) agregar(new BoxGeometry(0.28, 0.5, 0.05), m.trasera, x, 0.85, 2.74, false);
+  agregar(cajaRedondeada(2.0, 0.3, 0.24, 0.1), m.plastico, 0, 0.55, -2.84);
+  agregar(cajaRedondeada(0.95, 0.24, 0.06, 0.06), m.plastico, 0, 0.86, -2.9, false);
+  for (const x of [-0.7, 0.7]) agregar(cajaRedondeada(0.46, 0.24, 0.06, 0.09), m.faro, x, 0.9, -2.9, false);
+  agregar(cajaRedondeada(2.0, 0.26, 0.2, 0.09), m.plastico, 0, 0.55, 2.72);
+  // Luces traseras verticales, altas, en las esquinas de la caja.
+  for (const x of [-0.86, 0.86]) agregar(cajaRedondeada(0.2, 0.7, 0.06, 0.08), m.trasera, x, 1.3, 2.74, false);
 
   // Resplandor de las luces cuando están encendidas.
   if (enMovimiento) {
-    for (const [x, r, g, b] of [[-0.42, 255, 60, 60], [0.42, 70, 120, 255]] as const) {
-      const brillo = new Sprite(new SpriteMaterial({ map: texturaResplandor(r, g, b), blending: AdditiveBlending, depthWrite: false, transparent: true }));
-      brillo.position.set(x, 2.3, -1.18);
+    for (const x of [-0.6, 0.6]) {
+      const brillo = new Sprite(new SpriteMaterial({ map: texturaResplandor(70, 255, 130), blending: AdditiveBlending, depthWrite: false, transparent: true }));
+      brillo.position.set(x, 2.7, -1.1);
       brillo.scale.set(2.6, 2.6, 1);
       modelo.add(brillo);
     }
