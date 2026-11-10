@@ -1,93 +1,240 @@
-# Emergex
+# Emergex · Aplicación web
 
+**Centro operativo para emergencias médicas y asistencia domiciliaria.** Un despachante recibe el caso, asigna una unidad, la sigue en un mapa en tiempo real y deja el servicio listo para auditar y facturar, todo desde el navegador.
 
+![Ambulancias del mapa operativo, renderizadas en 3D desde distintos rumbos](docs/img/ambulancia-3d.png)
 
-## Getting started
+<sub>Las ambulancias del mapa se renderizan en 3D con three.js, un sprite por rumbo y por estado.</sub>
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+---
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+## En 60 segundos
 
-## Add your files
+| Pregunta | Respuesta |
+|---|---|
+| ¿Qué es? | La interfaz web de Emergex: operación, flota, clínica, cobertura y administración financiera. |
+| ¿Para quién? | Despachantes, profesionales, administradores, contadores y auditores. Cada rol tiene su propio menú y permisos. |
+| ¿Cómo está hecha? | Angular 21 con componentes standalone y Signals, Tailwind CSS, MapLibre GL y three.js. |
+| ¿Cómo la levanto? | `npm install && npm start` con el backend en `http://localhost:8080`. Ver [Primeros pasos](#primeros-pasos). |
+| ¿En qué estado está? | Lint sin advertencias, 546 pruebas en verde y build de producción correcto (verificado el 2026-11-10). |
 
-* [Create](https://docs.gitlab.com/user/project/repository/web_editor/#create-a-file) or [upload](https://docs.gitlab.com/user/project/repository/web_editor/#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+## Contenido
 
+1. [Primeros pasos](#primeros-pasos)
+2. [Qué incluye](#qué-incluye)
+3. [Mapa operativo en tiempo real](#mapa-operativo-en-tiempo-real)
+4. [Arquitectura](#arquitectura)
+5. [Autenticación y permisos](#autenticación-y-permisos)
+6. [Diseño visual](#diseño-visual)
+7. [Comandos](#comandos)
+8. [Configuración y despliegue](#configuración-y-despliegue)
+9. [Calidad](#calidad)
+10. [Documentación del proyecto](#documentación-del-proyecto)
+
+---
+
+## Primeros pasos
+
+### Requisitos
+
+- Node.js (probado con la 24) y npm.
+- El backend de Emergex corriendo en `http://localhost:8080`. Está en la carpeta hermana `backend/`.
+
+### Pasos
+
+```bash
+npm install
+npm start
 ```
-cd existing_repo
-git remote add origin https://gitlab.com/jlopezjuy/emergex.git
-git branch -M main
-git push -uf origin main
+
+Abrí `http://localhost:4200`. El servidor recarga solo cuando cambiás un archivo.
+
+`npm start` usa la configuración de desarrollo, que reenvía `/api` y `/websocket` al backend a través de [`proxy.conf.json`](proxy.conf.json).
+
+### Usuarios de prueba
+
+Vienen del seed de desarrollo del backend (`backend/src/main/resources/config/liquibase/data/user.csv`).
+
+| Usuario | Contraseña |
+|---|---|
+| `admin` | `admin` |
+| `user` | `user` |
+| `medico1` | `user` |
+
+> Son credenciales de desarrollo. No las uses en ningún entorno compartido ni público.
+
+### Para ver unidades en el mapa
+
+Abrí `/map` y acercate a San Salvador de Jujuy. Las ambulancias aparecen cuando el backend tiene unidades con latitud y longitud cargadas. Si el mapa está vacío, revisá primero los datos de la flota.
+
+---
+
+## Qué incluye
+
+Cada área es una carpeta de [`src/app/features`](src/app/features) y se carga de forma diferida.
+
+| Área | Ruta | Qué permite |
+|---|---|---|
+| Operaciones | `/dashboard` | Tablero de emergencias activas y detalle de cada caso. |
+| Mapa | `/map` | Unidades en vivo sobre el mapa. |
+| Flota y Personal | `/fleet`, `/staff` | Ambulancias, tripulación y turnos. |
+| Eventos e incidentes | `/events`, `/incidents` | Cobertura de eventos e incidentes. |
+| Pacientes y grupos familiares | `/patients`, `/grupos-familiares` | Afiliados y su núcleo familiar. |
+| Instituciones y planes | `/institutions`, `/plans` | Convenios, padrones y planes comerciales. |
+| Obras sociales | `/obras-sociales` | Catálogo de obras sociales. |
+| Clínico y auditoría médica | `/clinico`, `/auditoria-medica` | Atención, historia clínica y auditoría de prestaciones. |
+| Tripulación | `/tripulacion` | Vista de trabajo de choferes y personal de campo. |
+| Turnos | `/turnos` | Agenda y turnos. |
+| Facturación | `/prefacturacion`, `/facturacion` | Del lote de prestaciones al comprobante. |
+| Administración financiera | `/cuentas-corrientes`, `/tesoreria`, `/compras` | Cuentas corrientes, cobranzas, pagos y compras. |
+| Zonas y tarifas | `/zonas-tarifas` | Tarifario por zona. |
+| Internación | `/internacion` | Seguimiento de internación domiciliaria. |
+| Encuestas y comunicaciones | `/encuestas`, `/communications` | Satisfacción y mensajería. |
+| Analítica y gestión | `/analytics`, `/management` | Indicadores. |
+| Historial de asistencias | `/asistencias/historial` | Consulta de servicios pasados. |
+| Inventario | `/inventario` | Insumos. |
+| Hospitales | `/hospitals` | Hospitales y centros asistenciales. |
+| Administración | `/administracion`, `/admin/global` | Configuración y administración global. |
+
+Además hay una búsqueda global (`⌘K`), notificaciones, un selector de institución y un interruptor de tema claro y oscuro.
+
+---
+
+## Mapa operativo en tiempo real
+
+El mapa es la pieza más trabajada de la aplicación. Vive en [`src/app/shared/components/map/operations-map`](src/app/shared/components/map/operations-map).
+
+| Capacidad | Cómo funciona |
+|---|---|
+| Base del mapa | MapLibre GL 5, con capas para unidades y etiquetas. |
+| Posiciones en vivo | Llegan por WebSocket (STOMP y SockJS, en `core/websocket`) a los stores de flota y emergencias, y el mapa las dibuja. La URL sale de `wsUrl` en el entorno. |
+| Ambulancias en 3D | [`ambulance-3d.ts`](src/app/shared/components/map/operations-map/ambulance-3d.ts) modela un furgón alto con three.js: carrocería extruida con bisel, arcos de rueda reales, barra de luces, banda reflectiva con chevrones y el logo SAME. |
+| Rendimiento | El modelo se renderiza una vez por rumbo y por estado, y el resultado se guarda como sprite. El mapa solo dibuja imágenes. |
+| Carga diferida | `three` se importa dinámicamente, así que queda en un chunk aparte que solo se descarga al abrir un mapa. |
+| Rumbo | [`rumbo-unidad.ts`](src/app/shared/components/map/operations-map/rumbo-unidad.ts) decide hacia dónde mira la unidad según cómo se desplaza, e ignora el ruido del GPS. |
+| Estado | El color de la banda indica el estado de la unidad: disponible, en ruta, en traslado. Una `P` marca las unidades paradas. |
+| Respaldo | Si el navegador no puede crear un contexto WebGL, el mapa usa el dibujo 2D de [`ambulance-icon.ts`](src/app/shared/components/map/operations-map/ambulance-icon.ts). |
+
+---
+
+## Arquitectura
+
+```text
+src/app/
+├── core/          Lo que vive una sola vez en toda la app
+│   ├── auth/          Servicio de sesión, guards por rol e interceptores
+│   ├── interceptors/  Claves de idempotencia y correlación para las escrituras
+│   ├── websocket/     Cliente STOMP para el seguimiento en vivo
+│   ├── stores/        Estado compartido (emergencias, flota, sesión, notificaciones)
+│   ├── theme/         Tema claro y oscuro
+│   ├── i18n/          Formatos de fecha, moneda y números
+│   └── menu/, navigation/, notifications/, utils/
+├── data-access/   DTOs que reflejan los contratos del backend
+├── features/      Una carpeta por área funcional, cargada de forma diferida
+├── layout/        Estructura general: barra lateral y barra superior
+└── shared/        Componentes, pipes y utilidades reutilizables
+    └── components/    Tarjetas, modales, estados vacíos, KPIs, mapas, gráficos…
 ```
 
-## Integrate with your tools
+**Convenciones principales**
 
-* [Set up project integrations](https://gitlab.com/jlopezjuy/emergex/-/settings/integrations)
+| Tema | Decisión |
+|---|---|
+| Componentes | Todos son standalone. No hay NgModules. |
+| Rutas | Cada área se carga con `loadComponent` o `loadChildren`, así el primer arranque descarga solo lo necesario. |
+| Reactividad | Signals y la sintaxis de control de flujo moderna (`@if`, `@for`). |
+| Datos | Los DTOs de `data-access` siguen el contrato del backend. |
+| Escrituras | Un interceptor agrega `X-Idempotency-Key` y `X-Correlation-Id` a cada POST, PUT, PATCH y DELETE, así un reintento no duplica el registro. |
+| Estilos | Variables CSS y clases utilitarias de Tailwind. Se evita el CSS en línea (ver [`DESIGN.md`](DESIGN.md)). |
 
-## Collaborate with your team
+---
 
-* [Invite team members and collaborators](https://docs.gitlab.com/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/user/project/merge_requests/creating_merge_requests/)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/user/project/issues/managing_issues/#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+## Autenticación y permisos
 
-## Test and Deploy
+- **Sesión.** Ingresa por `/login` con JWT. La sesión se renueva contra `/api/auth/refresh`.
+- **Guards.** `authGuard` protege las rutas internas y `roleGuard(...roles)` restringe las que dependen del rol. Por ejemplo, `/dashboard` exige alguno de `ROLE_DESPACHANTE`, `ROLE_OPERADOR`, `ROLE_ADMIN`, `ROLE_ADMINISTRADOR` o `ROLE_PROPIETARIO`.
+- **Menú.** La barra lateral se arma según el rol del usuario, desde `core/menu` y `core/navigation`.
+- **Sin permiso.** Si el rol no alcanza, la aplicación muestra la pantalla `/access-denied`.
 
-Use the built-in continuous integration in GitLab.
+Roles disponibles en el seed: `ROLE_ADMIN`, `ROLE_USER`, `ROLE_PROPIETARIO`, `ROLE_ADMINISTRADOR`, `ROLE_DESPACHANTE`, `ROLE_PROFESIONAL`, `ROLE_CONTADOR`, `ROLE_CHOFER`, `ROLE_MEDICO_CAMPO`, `ROLE_OPERADOR` y `ROLE_AUDITOR`.
 
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/topics/autodevops/requirements/)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ci/environments/protected_environments/)
+> El menú y los permisos de la API se definen por separado. Si un rol ve una pantalla pero el backend le devuelve `403`, la diferencia está en la autoridad que exige el endpoint.
 
-***
+---
 
-# Editing this README
+## Diseño visual
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+La interfaz busca el aspecto de un centro de control: oscuro por defecto, legible en ambientes de mucha luz y con alertas de color solo donde importan.
 
-## Suggestions for a good README
+| Pieza | Detalle |
+|---|---|
+| Estilos | Tailwind CSS 3 con `@tailwindcss/forms`. |
+| Tokens | Variables CSS (`--bg-deep`, `--bg-elevated`, `--surface-glass`, `--border-glass`) definidas en `src/styles.css`. |
+| Temas | El atributo `data-theme` en `<html>` alterna entre claro y oscuro. Lo controla `ThemeService`. |
+| Tarjetas | Efecto vidrio esmerilado en modo oscuro y fondo opaco en modo claro, para no perder contraste. |
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+La guía completa, con paleta, tipografía y reglas de uso, está en [`DESIGN.md`](DESIGN.md).
 
-## Name
-Choose a self-explaining name for your project.
+---
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+## Comandos
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+| Comando | Qué hace |
+|---|---|
+| `npm start` | Servidor de desarrollo en `http://localhost:4200`. |
+| `npm run start:dev` | Igual, pero fija el puerto 4200 y abre el navegador. |
+| `npm run build` | Compila la aplicación. |
+| `npm run build:prod` | Compila para producción en `dist/emergex-frontend`. |
+| `npm run watch` | Recompila al guardar, con la configuración de desarrollo. |
+| `npm test` | Pruebas unitarias en modo interactivo. |
+| `npm run test:ci` | Pruebas unitarias una sola vez. |
+| `npm run lint` | ESLint sobre `src/**/*.ts`, sin tolerar advertencias. |
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+---
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+## Configuración y despliegue
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+### Entornos
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+| Archivo | `apiUrl` | Uso |
+|---|---|---|
+| `src/environments/environment.ts` | `http://localhost:8080` | Desarrollo. Incluye también `wsUrl` para el WebSocket. |
+| `src/environments/environment.prod.ts` | `https://aliviar.appcanvas.store` | Producción. |
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+### Imagen Docker
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+El [`Dockerfile`](Dockerfile) compila en dos etapas: construye con `node:20-alpine` y sirve el resultado con `nginx:1.27-alpine`. La configuración de [`nginx.conf`](nginx.conf) redirige las rutas desconocidas a `index.html`, para que el enrutador de Angular las resuelva.
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+```bash
+docker build -t emergex-frontend .
+```
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+La orquestación completa (base de datos, backend, proxy y certificados) vive en la carpeta hermana `docker/`.
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+---
 
-## License
-For open source projects, say how it is licensed.
+## Calidad
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+Estado verificado el 2026-11-10:
+
+| Chequeo | Resultado |
+|---|---|
+| `npm run lint` | Sin advertencias ni errores. |
+| `npm run test:ci` | 93 archivos y 546 pruebas, todas en verde. |
+| `npm run build:prod` | Correcto. El paquete inicial pesa 1,91 MB (446 kB transferidos). |
+
+Las pruebas usan [Vitest](https://vitest.dev/) a través de `ng test`. Los archivos de prueba conviven con el código, con el sufijo `.spec.ts`.
+
+---
+
+## Documentación del proyecto
+
+| Quiero… | Lee |
+|---|---|
+| Conocer la guía de diseño | [`DESIGN.md`](DESIGN.md) |
+| Ver las reglas de trabajo y los comandos de verificación | [`AGENTS.md`](AGENTS.md) y [`CLAUDE.md`](CLAUDE.md) |
+| Entender las decisiones de seguridad | [`Implementar_seguridad_angular.md`](Implementar_seguridad_angular.md) |
+| Leer la especificación de la aplicación | [`SDD-v2.md`](SDD-v2.md) (la versión anterior es [`SDD.md`](SDD.md)) |
+| Revisar el módulo de internación domiciliaria | [`docs/sdd-internacion-domiciliaria.md`](docs/sdd-internacion-domiciliaria.md) |
+
+> Parte de esta documentación es histórica y puede no reflejar el estado actual del código. Ante una duda, el código manda.
