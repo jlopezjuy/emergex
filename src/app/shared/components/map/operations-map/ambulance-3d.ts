@@ -265,10 +265,11 @@ function texturaLogo(): CanvasTexture {
     ctx.stroke();
   }
   ctx.fillStyle = '#0E2A66';
-  ctx.font = '800 86px Arial, Helvetica, sans-serif';
+  ctx.font = '800 64px Arial, Helvetica, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
-  ctx.fillText('SAE', 216, 108);
+  // Cuatro letras: el cuerpo baja de 86 a 64 px para entrar en el recuadro naranja (208 px de ancho).
+  ctx.fillText('SAME', 216, 104);
   ctx.font = '700 19px Arial, Helvetica, sans-serif';
   ctx.fillText('EMERGENCIAS', 216, 138);
   const textura = new CanvasTexture(lienzo);
