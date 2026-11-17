@@ -1,0 +1,277 @@
+<div class="lp">
+  <a class="lp-skip" href="#contenido">Saltar al contenido</a>
+
+  <!-- ── Top bar ── -->
+  <header class="lp-top">
+    <div class="lp-wrap lp-top__inner">
+      <a class="lp-brand" routerLink="/" aria-label="Emergex, inicio">
+        <img class="lp-brand__shield" src="images/logo/emergex_separado_transparente/emergex_escudo_transparente.png" alt="" width="30" height="34">
+        <img class="lp-brand__word" src="images/logo/texto01.png" alt="Emergex" width="118" height="22">
+      </a>
+
+      <nav class="lp-nav" aria-label="Secciones">
+        <a href="#flujo">Cómo funciona</a>
+        <a href="#modulos">Módulos</a>
+        <a href="#seguridad">Seguridad</a>
+        <a href="#contacto">Contacto</a>
+      </nav>
+
+      <div class="lp-top__actions">
+        <a class="btn btn--ghost lp-btn" routerLink="/login">Ingresar</a>
+        <a class="btn btn--danger lp-btn lp-hide-sm" [href]="contactHref">Solicitar demo</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="contenido">
+    <!-- ── Hero ── -->
+    <section class="lp-hero" aria-labelledby="lp-hero-title">
+      <div class="lp-hero__bg" aria-hidden="true"></div>
+
+      <div class="lp-wrap lp-hero__grid">
+        <div class="lp-hero__copy">
+          <div class="eyebrow lp-reveal" style="--d: 0">
+            <span class="lp-tag-dot"></span> Software para emergencias médicas
+          </div>
+
+          <h1 id="lp-hero-title" class="lp-hero__title lp-reveal" style="--d: 1">
+            Del llamado al cierre facturado,
+            <span class="lp-hero__accent">en un solo sistema.</span>
+          </h1>
+
+          <p class="lp-hero__lead lp-reveal" style="--d: 2">
+            Despacho, flota, atención clínica y facturación electrónica para servicios de
+            emergencias y atención domiciliaria. Cuando cada minuto cuenta.
+          </p>
+
+          <div class="lp-hero__ctas lp-reveal" style="--d: 3">
+            <a class="btn btn--danger lp-btn lp-btn--lg" [href]="contactHref">
+              Solicitar demo
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </a>
+            <a class="btn btn--ghost lp-btn lp-btn--lg" routerLink="/login">Ingresar al sistema</a>
+          </div>
+
+          <dl class="lp-hero__facts lp-reveal" style="--d: 4">
+            @for (h of highlights; track h.label) {
+              <div>
+                <dt class="eyebrow">{{ h.label }}</dt>
+                <dd>{{ h.value }}</dd>
+              </div>
+            }
+          </dl>
+        </div>
+
+        <!-- Illustrative console preview (sample data, no real metrics) -->
+        <figure class="lp-console glass-strong lp-reveal" style="--d: 2" aria-label="Vista ilustrativa del centro de operaciones">
+          <div class="lp-console__bar">
+            <span class="dot-live"></span>
+            <span class="mono micro">CENTRO DE OPERACIONES</span>
+            <span class="lp-console__spacer"></span>
+            <span class="mono micro lp-console__muted">Vista ilustrativa</span>
+          </div>
+
+          <div class="lp-console__body">
+            <div class="lp-map" aria-hidden="true">
+              <svg viewBox="0 0 320 220" preserveAspectRatio="xMidYMid slice">
+                <defs>
+                  <pattern id="lpMapGrid" width="20" height="20" patternUnits="userSpaceOnUse">
+                    <path d="M0 0H20M0 0V20" stroke="currentColor" stroke-opacity="0.08" stroke-width="0.6"/>
+                  </pattern>
+                </defs>
+                <rect width="320" height="220" fill="url(#lpMapGrid)"/>
+                <path class="lp-map__street" d="M-10 70 C 80 60, 120 110, 200 96 S 300 40, 340 52"/>
+                <path class="lp-map__street" d="M40 -10 C 60 80, 30 150, 70 240"/>
+                <path class="lp-map__street" d="M180 -10 C 170 70, 230 140, 210 240"/>
+                <path class="lp-map__route" d="M70 168 C 110 150, 120 112, 170 104 S 236 84, 252 60"/>
+                <circle class="lp-map__ping" cx="252" cy="60" r="6"/>
+                <circle cx="252" cy="60" r="4.5" fill="var(--accent-red)"/>
+                <g class="lp-map__unit">
+                  <circle cx="70" cy="168" r="8" fill="var(--accent-blue)" fill-opacity="0.2"/>
+                  <circle cx="70" cy="168" r="4" fill="var(--accent-blue)"/>
+                </g>
+                <circle cx="140" cy="40" r="3.5" fill="var(--accent-emerald)"/>
+                <circle cx="268" cy="176" r="3.5" fill="var(--accent-emerald)"/>
+              </svg>
+            </div>
+
+            <ul class="lp-queue" aria-hidden="true">
+              <li>
+                <span class="lp-chip lp-chip--red">ROJO</span>
+                <span class="lp-queue__txt">Dolor torácico</span>
+                <span class="mono micro lp-console__muted">Móvil 04 · en camino</span>
+              </li>
+              <li>
+                <span class="lp-chip lp-chip--amber">AMARILLO</span>
+                <span class="lp-queue__txt">Caída en domicilio</span>
+                <span class="mono micro lp-console__muted">Asignando</span>
+              </li>
+              <li>
+                <span class="lp-chip lp-chip--green">VERDE</span>
+                <span class="lp-queue__txt">Consulta programada</span>
+                <span class="mono micro lp-console__muted">Médico 12 · en atención</span>
+              </li>
+            </ul>
+          </div>
+
+          <svg class="lp-ecg" viewBox="0 0 600 60" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M0 34 H180 L196 34 L206 14 L218 52 L230 6 L242 44 L252 34 H400 L414 34 L422 22 L432 44 L442 34 H600"/>
+          </svg>
+        </figure>
+      </div>
+    </section>
+
+    <!-- ── Flow ── -->
+    <section id="flujo" class="lp-section" aria-labelledby="lp-flow-title">
+      <div class="lp-wrap">
+        <header class="lp-head">
+          <div class="eyebrow">Cómo funciona</div>
+          <h2 id="lp-flow-title">Un solo circuito, de punta a punta</h2>
+          <p>Cada etapa alimenta a la siguiente: nada se vuelve a cargar a mano.</p>
+        </header>
+
+        <ol class="lp-flow">
+          @for (s of flow; track s.code) {
+            <li class="lp-flow__step">
+              <span class="mono lp-flow__code">{{ s.code }}</span>
+              <h3>{{ s.title }}</h3>
+              <p>{{ s.text }}</p>
+            </li>
+          }
+        </ol>
+      </div>
+    </section>
+
+    <!-- ── Modules ── -->
+    <section id="modulos" class="lp-section lp-section--alt" aria-labelledby="lp-mod-title">
+      <div class="lp-wrap">
+        <header class="lp-head">
+          <div class="eyebrow">Módulos</div>
+          <h2 id="lp-mod-title">Todo lo que opera un servicio de emergencias</h2>
+          <p>Operación, campo, clínica y administración comparten los mismos datos.</p>
+        </header>
+
+        <div class="lp-modules">
+          @for (m of modules; track m.title) {
+            <article class="lp-module glass">
+              <div class="lp-module__icon" aria-hidden="true">
+                @switch (m.icon) {
+                  @case ('dispatch') {
+                    <svg viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>
+                  }
+                  @case ('fleet') {
+                    <svg viewBox="0 0 24 24"><path d="M3 16V8a1 1 0 0 1 1-1h10v9M14 10h4l3 3v3h-7"/><circle cx="7.5" cy="17" r="1.8"/><circle cx="17" cy="17" r="1.8"/><path d="M8 9.5v3M6.5 11h3"/></svg>
+                  }
+                  @case ('mobile') {
+                    <svg viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M11 18h2"/></svg>
+                  }
+                  @case ('clinical') {
+                    <svg viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg>
+                  }
+                  @case ('billing') {
+                    <svg viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>
+                  }
+                  @case ('admin') {
+                    <svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+                  }
+                }
+              </div>
+              <h3>{{ m.title }}</h3>
+              <p>{{ m.text }}</p>
+              <ul class="lp-module__tags">
+                @for (t of m.tags; track t) {
+                  <li class="mono">{{ t }}</li>
+                }
+              </ul>
+            </article>
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Roles ── -->
+    <section class="lp-section" aria-labelledby="lp-roles-title">
+      <div class="lp-wrap lp-roles">
+        <header class="lp-head lp-head--left">
+          <div class="eyebrow">Por rol</div>
+          <h2 id="lp-roles-title">Cada persona entra directo a su pantalla</h2>
+          <p>El sistema reconoce la función de cada usuario y abre la vista que necesita para trabajar.</p>
+        </header>
+
+        <ul class="lp-roles__list">
+          @for (r of roles; track r.role) {
+            <li>
+              <span class="lp-roles__role">{{ r.role }}</span>
+              <span class="lp-roles__line" aria-hidden="true"></span>
+              <span class="mono lp-roles__screen">{{ r.screen }}</span>
+            </li>
+          }
+        </ul>
+      </div>
+    </section>
+
+    <!-- ── Security ── -->
+    <section id="seguridad" class="lp-section lp-section--alt" aria-labelledby="lp-sec-title">
+      <div class="lp-wrap">
+        <header class="lp-head">
+          <div class="eyebrow">Seguridad</div>
+          <h2 id="lp-sec-title">Información sensible, tratada como tal</h2>
+        </header>
+
+        <div class="lp-security">
+          @for (s of security; track s.title) {
+            <div class="lp-security__item">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+              <div>
+                <h3>{{ s.title }}</h3>
+                <p>{{ s.text }}</p>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Final CTA ── -->
+    <section id="contacto" class="lp-section" aria-labelledby="lp-cta-title">
+      <div class="lp-wrap">
+        <div class="lp-cta glass-strong">
+          <div>
+            <div class="eyebrow">Contacto</div>
+            <h2 id="lp-cta-title">Veámoslo funcionando con tu operación</h2>
+            <p>Coordinamos una demostración con los flujos de tu servicio.</p>
+          </div>
+          <div class="lp-cta__actions">
+            <div class="lp-cta__buttons">
+              <a class="btn btn--danger lp-btn lp-btn--lg" [href]="contactHref">Solicitar demo</a>
+              <a class="btn lp-btn lp-btn--lg lp-wa-btn" [href]="whatsappHref" target="_blank" rel="noopener noreferrer">
+                <svg class="lp-wa-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2zm5.8 14.14c-.24.68-1.42 1.3-1.96 1.35-.5.05-.98.24-3.3-.69-2.79-1.1-4.56-3.96-4.7-4.14-.13-.18-1.12-1.49-1.12-2.84s.71-2.02.96-2.29c.25-.28.55-.35.73-.35l.53.01c.17 0 .4-.06.62.48.24.56.8 1.94.87 2.08.07.14.12.3.02.48-.09.18-.14.3-.28.46-.14.16-.29.36-.42.48-.14.14-.28.29-.12.57.16.28.73 1.2 1.56 1.94 1.07.95 1.98 1.25 2.26 1.39.28.14.44.12.6-.07.17-.19.7-.81.88-1.09.18-.28.37-.23.62-.14.25.09 1.6.76 1.88.9.28.14.46.21.53.32.07.12.07.66-.17 1.33z"/></svg>
+                WhatsApp
+              </a>
+            </div>
+            <a class="lp-cta__mail mono" [href]="contactHref">{{ contactEmail }}</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <a class="lp-wa-float" [href]="whatsappHref" target="_blank" rel="noopener noreferrer" aria-label="Escribinos por WhatsApp">
+    <svg class="lp-wa-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2zm5.8 14.14c-.24.68-1.42 1.3-1.96 1.35-.5.05-.98.24-3.3-.69-2.79-1.1-4.56-3.96-4.7-4.14-.13-.18-1.12-1.49-1.12-2.84s.71-2.02.96-2.29c.25-.28.55-.35.73-.35l.53.01c.17 0 .4-.06.62.48.24.56.8 1.94.87 2.08.07.14.12.3.02.48-.09.18-.14.3-.28.46-.14.16-.29.36-.42.48-.14.14-.28.29-.12.57.16.28.73 1.2 1.56 1.94 1.07.95 1.98 1.25 2.26 1.39.28.14.44.12.6-.07.17-.19.7-.81.88-1.09.18-.28.37-.23.62-.14.25.09 1.6.76 1.88.9.28.14.46.21.53.32.07.12.07.66-.17 1.33z"/></svg>
+    <span class="lp-wa-float__label">WhatsApp</span>
+  </a>
+
+  <footer class="lp-foot">
+    <div class="lp-wrap lp-foot__inner">
+      <div class="lp-foot__brand">
+        <img src="images/logo/emergex_separado_transparente/emergex_escudo_transparente.png" alt="" width="20" height="22">
+        <span class="mono micro">© {{ year }} Emergex</span>
+      </div>
+      <nav class="lp-foot__links" aria-label="Pie de página">
+        <a routerLink="/login">Ingresar</a>
+        <a [href]="contactHref">Contacto</a>
+        <a [href]="whatsappHref" target="_blank" rel="noopener noreferrer">WhatsApp</a>
+      </nav>
+    </div>
+  </footer>
+</div>

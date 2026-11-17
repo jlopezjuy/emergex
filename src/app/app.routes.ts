@@ -5,21 +5,10 @@ import { noAuthGuard } from './core/auth/no-auth.guard';
 import { roleGuard } from './core/auth/role.guard';
 import { ShellComponent } from './layout/shell/shell.component';
 import { SessionStore } from './core/stores/session.store';
-import { rutaInicialParaRoles } from './core/navigation/ruta-inicial';
+import { LANDING_ROUTE } from './features/landing/landing.routes';
 
 export const routes: Routes = [
-  {
-    path: '',
-    pathMatch: 'full',
-    canActivate: [
-      () => {
-        const sessionStore = inject(SessionStore);
-        const router = inject(Router);
-        return router.parseUrl(rutaInicialParaRoles((roles) => sessionStore.hasAnyRole(roles)));
-      }
-    ],
-    children: [],
-  },
+  LANDING_ROUTE,
   {
     path: 'access-denied',
     loadComponent: () =>

@@ -1,0 +1,33 @@
+import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { RouterLink } from '@angular/router';
+import {
+  LANDING_CONTACT_EMAIL,
+  LANDING_FLOW,
+  LANDING_HIGHLIGHTS,
+  LANDING_MODULES,
+  LANDING_ROLES,
+  LANDING_SECURITY,
+  LANDING_WHATSAPP_MESSAGE,
+  LANDING_WHATSAPP_NUMBER,
+} from './landing.content';
+
+/** Public, unauthenticated entry page. Signed-in users never reach it (see noAuthGuard). */
+@Component({
+  selector: 'app-landing',
+  standalone: true,
+  imports: [RouterLink],
+  templateUrl: './landing.component.html',
+  styleUrl: './landing.component.css',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+})
+export class LandingComponent {
+  protected readonly highlights = LANDING_HIGHLIGHTS;
+  protected readonly flow = LANDING_FLOW;
+  protected readonly modules = LANDING_MODULES;
+  protected readonly roles = LANDING_ROLES;
+  protected readonly security = LANDING_SECURITY;
+  protected readonly contactHref = `mailto:${LANDING_CONTACT_EMAIL}?subject=${encodeURIComponent('Solicitud de demo Emergex')}`;
+  protected readonly contactEmail = LANDING_CONTACT_EMAIL;
+  protected readonly whatsappHref = `https://wa.me/${LANDING_WHATSAPP_NUMBER}?text=${encodeURIComponent(LANDING_WHATSAPP_MESSAGE)}`;
+  protected readonly year = new Date().getFullYear();
+}
