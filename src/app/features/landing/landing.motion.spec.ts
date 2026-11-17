@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { initLandingMotion } from './landing.motion';
+import { SIREN_TIMING, initLandingMotion } from './landing.motion';
 
 const stubMatchMedia = (reduceMotion: boolean) =>
   vi.fn((query: string) => ({
@@ -24,6 +24,7 @@ const buildRoot = () => {
       <div class="lp-hero__eyebrow">Eyebrow</div>
       <h1 class="lp-hero__title">Del llamado al cierre facturado</h1>
       <p class="lp-hero__lead">Lead</p>
+      <div class="lp-siren"><div class="lp-siren__wash"></div></div>
     </section>`;
   document.body.appendChild(root);
   return root;
@@ -52,6 +53,21 @@ describe('initLandingMotion', () => {
 
     expect(root.querySelector('.lp-hero__lead')?.getAttribute('style')).toBeNull();
     expect(root.querySelector('.lp-hero__title')?.textContent).toBe('Del llamado al cierre facturado');
+    expect(root.querySelector('.lp-siren')?.getAttribute('style')).toBeNull();
     revert();
+  });
+});
+
+describe('siren light sweep timing (WCAG 2.3.1 Three Flashes)', () => {
+  it('alternates red/blue well below 3 flashes per second (a flash = brighten + dim)', () => {
+    const flashesPerSecond = 1 / (2 * SIREN_TIMING.halfCycle);
+    expect(flashesPerSecond).toBeLessThan(3);
+    expect(flashesPerSecond).toBeLessThanOrEqual(1.5);
+  });
+
+  it('passes frequently (every ~8–9 s) but keeps a dark breather between passes', () => {
+    const interval = SIREN_TIMING.pass + SIREN_TIMING.pause;
+    expect(interval).toBeLessThanOrEqual(9);
+    expect(SIREN_TIMING.pause).toBeGreaterThanOrEqual(1.5);
   });
 });

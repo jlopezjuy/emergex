@@ -159,6 +159,56 @@ button:focus-visible,
   mask-image: linear-gradient(to bottom, #000 65%, transparent);
   -webkit-mask-image: linear-gradient(to bottom, #000 65%, transparent);
 }
+/* Ambulance light-bar sweep (driven by landing.motion.ts). Radial gradients are already soft,
+   so no filter: blur() — keeps the pass cheap to composite on mid-range phones. */
+.lp-siren {
+  /* Capped so hero text keeps WCAG AA at the brightest point of a pass, red and blue
+     overlapping included: dark 0.20 → muted text ≥ 4.69:1; light 0.22 (multiply) → ≥ 4.80:1. */
+  --lp-siren-strength: 0.2;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  visibility: hidden;
+  opacity: 0;
+  mix-blend-mode: screen;
+}
+.lp-siren__wash {
+  position: absolute;
+  top: 46%;
+  left: 0;
+  width: 78vmax;
+  height: 46vmax;
+  margin: -23vmax 0 0 -39vmax;
+  border-radius: 50%;
+  will-change: transform, opacity;
+}
+.lp-siren__wash--red {
+  background: radial-gradient(closest-side, rgba(239, 68, 68, var(--lp-siren-strength)), rgba(239, 68, 68, 0.08) 50%, transparent 100%);
+}
+.lp-siren__wash--blue {
+  top: 54%;
+  background: radial-gradient(closest-side, rgba(59, 130, 246, var(--lp-siren-strength)), rgba(59, 130, 246, 0.09) 50%, transparent 100%);
+}
+/* Wet-asphalt reflection: a thin anamorphic streak along the hero's floor, where no text sits
+   (over text it would push muted copy below AA). */
+.lp-siren__streak {
+  position: absolute;
+  bottom: -40px;
+  left: 0;
+  width: 110vmax;
+  height: 120px;
+  margin: 0 0 0 -55vmax;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.10), rgba(147, 197, 253, 0.05) 50%, transparent 100%);
+  transform-origin: center;
+  will-change: transform, opacity;
+}
+:host-context([data-theme="light"]) .lp-siren {
+  --lp-siren-strength: 0.22;
+  mix-blend-mode: multiply;
+}
+:host-context([data-theme="light"]) .lp-siren__streak { display: none; }
+
 .lp-hero__grid {
   position: relative;
   display: grid;

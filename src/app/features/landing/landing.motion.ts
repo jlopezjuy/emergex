@@ -14,6 +14,20 @@ function registerPlugins(): void {
   }
 }
 
+/**
+ * Ambulance light-bar sweep behind the hero, in seconds.
+ * halfCycle drives the red/blue "wig-wag": one flash (brighten + dim) every 2 × halfCycle,
+ * i.e. 1.25 flashes/s — far below the WCAG 2.3.1 limit of 3/s, with sine easing and low
+ * luminance change. Guarded by landing.motion.spec.ts; do not speed it up.
+ */
+export const SIREN_TIMING = {
+  firstDelay: 1.8,
+  pass: 6.4,
+  // Short dark breather so each pass still reads as a vehicle going by (one every ~8.4 s).
+  pause: 2,
+  halfCycle: 0.4,
+} as const;
+
 const EASE_OUT = 'power3.out';
 const NO_MOTION = '(prefers-reduced-motion: reduce)';
 
@@ -50,6 +64,7 @@ export function initLandingMotion(root: HTMLElement): () => void {
 
       animateTopBar(q);
       animateHero(q);
+      animateSiren(q);
       animateConsole(q);
       animateSectionHeads(q);
       animateFlow(q, wide);
@@ -119,6 +134,56 @@ function animateHero(q: Selector): void {
       { scale: 1, autoAlpha: 1, duration: 0.6, ease: 'back.out(2)', clearProps: 'transform' },
       1.4,
     );
+}
+
+/**
+ * An ambulance passing at night: its light bar washes the scene red on one side and blue on
+ * the other, alternating, while the wash travels with the vehicle. Each pass reverses
+ * direction. It pauses while the hero is off-screen.
+ */
+function animateSiren(q: Selector): void {
+  const [siren] = q('.lp-siren');
+  const [red] = q('.lp-siren__wash--red');
+  const [blue] = q('.lp-siren__wash--blue');
+  const [streak] = q('.lp-siren__streak');
+  if (!siren || !red || !blue) return;
+
+  const { pass, pause, halfCycle, firstDelay } = SIREN_TIMING;
+  const width = () => siren.getBoundingClientRect().width;
+  let direction = 1;
+  const start = () => (direction > 0 ? -0.35 : 1.35) * width();
+  const end = () => (direction > 0 ? 1.35 : -0.35) * width();
+  // Wig-wag: whole yoyo cycles that fit in the pass (odd repeat count ends dimmed).
+  const swaps = Math.floor(pass / halfCycle) - 1;
+
+  const tl = gsap.timeline({
+    delay: firstDelay,
+    repeat: -1,
+    repeatDelay: pause,
+    repeatRefresh: true,
+    onRepeat: () => {
+      direction *= -1;
+    },
+  });
+
+  tl.fromTo(siren, { autoAlpha: 0 }, { autoAlpha: 1, duration: 1.1, ease: 'sine.out' }, 0)
+    .to(siren, { autoAlpha: 0, duration: 1.4, ease: 'sine.in' }, pass - 1.4)
+    // Red leads, blue trails slightly: the bar is wider than a single light.
+    .fromTo(red, { x: start }, { x: end, duration: pass, ease: 'sine.inOut' }, 0)
+    .fromTo(blue, { x: start }, { x: end, duration: pass, ease: 'sine.inOut' }, 0.35)
+    .fromTo(red, { opacity: 1 }, { opacity: 0.2, duration: halfCycle, repeat: swaps, yoyo: true, ease: 'sine.inOut' }, 0)
+    .fromTo(blue, { opacity: 0.2 }, { opacity: 1, duration: halfCycle, repeat: swaps, yoyo: true, ease: 'sine.inOut' }, 0);
+
+  if (streak) {
+    tl.fromTo(streak, { x: start, opacity: 0 }, { x: end, opacity: 1, duration: pass, ease: 'sine.inOut' }, 0.15);
+  }
+
+  ScrollTrigger.create({
+    trigger: '.lp-hero',
+    start: 'top bottom',
+    end: 'bottom top',
+    onToggle: (self) => (self.isActive ? tl.resume() : tl.pause()),
+  });
 }
 
 function animateConsole(q: Selector): void {
