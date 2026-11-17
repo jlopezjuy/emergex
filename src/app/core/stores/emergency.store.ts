@@ -8,9 +8,12 @@ import {
   TicketAsistenciaDTO,
   TicketEstadoChangedEvent,
   AsignacionEstadoChangedEvent,
+  PanicoActivadoEvent,
 } from '../../data-access/dto/ticket.dto';
 import { logError } from '../utils/logger';
 import { SessionStore } from './session.store';
+import { UserFeedbackService } from '../notifications/user-feedback.service';
+import { NotificationStore } from './notification.store';
 
 const TERMINAL_STATES = new Set(['COMPLETADO', 'CERRADO', 'CANCELADO']);
 
@@ -19,9 +22,12 @@ export class EmergencyStore implements OnDestroy {
   private api = inject(EmergencyApiService);
   private ws = inject(WebsocketService);
   private sessionStore = inject(SessionStore);
+  private feedback = inject(UserFeedbackService);
+  private notifications = inject(NotificationStore);
   private tickerSub: Subscription | null = null;
   private ticketSub: StompSubscription | null = null;
   private asignacionSub: StompSubscription | null = null;
+  private panicoSub: StompSubscription | null = null;
 
   readonly ticketCreated$ = new Subject<void>();
 
@@ -75,6 +81,10 @@ export class EmergencyStore implements OnDestroy {
       this.asignacionSub.unsubscribe();
       this.asignacionSub = null;
     }
+    if (this.panicoSub) {
+      this.panicoSub.unsubscribe();
+      this.panicoSub = null;
+    }
 
     const empresaId = this.sessionStore.account()?.empresa?.id;
     if (!empresaId) {
@@ -108,9 +118,48 @@ export class EmergencyStore implements OnDestroy {
         error: () => {},
       });
     });
+
+    this.panicoSub = this.ws.subscribe(`/topic/empresa/${empresaId}/panico`, (raw: unknown) => {
+      const event = raw as PanicoActivadoEvent;
+      if (!event?.ticketId) return;
+      this.alertPanico(event);
+    });
+  }
+
+  /** Alerta visible y audible para el COD: el pánico no puede pasar inadvertido. */
+  private alertPanico(event: PanicoActivadoEvent): void {
+    const where =
+      event.latitud != null && event.longitud != null
+        ? ` · ubicación ${event.latitud.toFixed(5)}, ${event.longitud.toFixed(5)}`
+        : '';
+    const message = `La tripulación del servicio #${event.ticketId} activó el botón de pánico${where}.`;
+    this.feedback.push({ type: 'error', title: '🚨 PÁNICO activado', message, ttlMs: 60000 });
+    this.notifications.addNotification({ type: 'error', title: 'PÁNICO activado', message });
+    this.playAlertTone();
+  }
+
+  private playAlertTone(): void {
+    try {
+      const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!Ctx) return;
+      const ctx = new Ctx();
+      [0, 0.35, 0.7].forEach((offset) => {
+        const osc = ctx.createOscillator();
+        osc.type = 'square';
+        osc.frequency.value = 880;
+        osc.connect(ctx.destination);
+        osc.start(ctx.currentTime + offset);
+        osc.stop(ctx.currentTime + offset + 0.25);
+      });
+      window.setTimeout(() => void ctx.close(), 1500);
+    } catch {
+      // El navegador puede bloquear el audio sin interacción previa; la alerta visual alcanza.
+    }
   }
 
   stopTicketTracking(): void {
+    this.panicoSub?.unsubscribe();
+    this.panicoSub = null;
     this.ticketSub?.unsubscribe();
     this.ticketSub = null;
     this.asignacionSub?.unsubscribe();
