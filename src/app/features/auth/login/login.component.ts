@@ -114,33 +114,10 @@ import { rutaInicialParaRoles } from '../../../core/navigation/ruta-inicial';
           <div class="login__foot">
             <div class="mono micro">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--accent-emerald)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-              Conexión cifrada · TLS 1.3 · ISO 27001
+              Conexión cifrada
             </div>
           </div>
         </form>
-
-        <!-- Side metrics -->
-        <div class="login__side">
-          <div class="login__metric glass">
-            <div class="eyebrow">Servicios último mes</div>
-            <div class="mono" style="font-size:32px;font-weight:500;margin-top:4px">2,847</div>
-            <div class="mono micro" style="color:var(--accent-emerald)">▲ +12% vs. mes anterior</div>
-          </div>
-          <div class="login__metric glass">
-            <div class="eyebrow">Tiempo medio resp.</div>
-            <div class="mono" style="font-size:32px;font-weight:500;margin-top:4px;color:var(--accent-cyan)">
-              7.4<span style="font-size:14px;color:var(--text-muted);margin-left:4px">min</span>
-            </div>
-            <div class="mono micro" style="color:var(--accent-emerald)">▼ -0.8 min</div>
-          </div>
-          <div class="login__metric glass">
-            <div class="eyebrow">Cumplimiento SLA</div>
-            <div class="mono" style="font-size:32px;font-weight:500;margin-top:4px;color:var(--accent-emerald)">
-              93.2<span style="font-size:14px;color:var(--text-muted);margin-left:4px">%</span>
-            </div>
-            <div class="mono micro" style="color:var(--text-muted)">● 192/192 críticos resueltos</div>
-          </div>
-        </div>
       </div>
 
       <!-- ── Bottom bar ── -->
@@ -148,11 +125,7 @@ import { rutaInicialParaRoles } from '../../../core/navigation/ruta-inicial';
         <div class="mono micro" style="color:var(--text-muted)">
           © 2026 Emergex Healthcare Systems · v3.2.0 · Build 2026.05.15
         </div>
-        <div style="display:flex;gap:18px">
-          <a class="login__link" href="#" (click)="$event.preventDefault()">Soporte 24/7</a>
-          <a class="login__link" href="#" (click)="$event.preventDefault()">Documentación</a>
-          <a class="login__link" href="#" (click)="$event.preventDefault()">Estado del sistema</a>
-        </div>
+        <a class="login__link" routerLink="/">← Volver al inicio</a>
       </div>
     </div>
   `,
@@ -303,21 +276,6 @@ import { rutaInicialParaRoles } from '../../../core/navigation/ruta-inicial';
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ── Side metrics ── */
-    .login__side {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      width: 220px;
-      flex-shrink: 0;
-    }
-    .login__metric {
-      padding: 18px 20px;
-      border-radius: var(--r-card);
-      border: 1px solid var(--border-glass);
-      background: var(--surface-glass);
-    }
-
     /* ── Bottom bar ── */
     .login__bottom {
       position: relative;
@@ -362,11 +320,6 @@ import { rutaInicialParaRoles } from '../../../core/navigation/ruta-inicial';
     .btn--danger:hover:not(:disabled) {
       background: linear-gradient(135deg, #EF4444, #DC2626);
       box-shadow: 0 0 22px rgba(239, 68, 68, 0.45);
-    }
-
-    /* ── Responsive: hide side metrics on small screens ── */
-    @media (max-width: 768px) {
-      .login__side { display: none; }
     }
   `],
 })

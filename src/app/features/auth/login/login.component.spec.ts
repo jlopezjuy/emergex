@@ -41,6 +41,16 @@ describe('LoginComponent (aterrizaje por rol, ADM-UX-013)', () => {
     expect(router.navigateByUrl).toHaveBeenCalledWith('/administracion');
   });
 
+  it('links back to the public landing and shows no unverified metrics or certifications', () => {
+    const fixture = TestBed.createComponent(LoginComponent);
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    const back = Array.from(root.querySelectorAll('a')).find((a) => a.getAttribute('href') === '/');
+    expect(back?.textContent).toContain('Volver al inicio');
+    expect(root.textContent).not.toMatch(/ISO 27001|SLA|2,847/);
+    expect(root.querySelectorAll('a[href="#"]')).toHaveLength(0);
+  });
+
   it('lleva a un rol operativo al dashboard, como antes', () => {
     sessionStoreMock.hasAnyRole.mockImplementation((roles: string[]) => roles.includes('ROLE_DESPACHANTE'));
     submitLogin();
