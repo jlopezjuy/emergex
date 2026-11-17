@@ -6,6 +6,7 @@ import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { DateUtils } from '../../../core/utils/date.utils';
 import { SessionStore } from '../../../core/stores/session.store';
 import { rutaInicialParaRoles } from '../../../core/navigation/ruta-inicial';
+import { SeoService } from '../../../core/seo/seo.service';
 
 @Component({
   selector: 'app-login',
@@ -329,6 +330,16 @@ export class LoginComponent implements OnDestroy {
   private auth = inject(AuthService);
   private router = inject(Router);
   private sessionStore = inject(SessionStore);
+
+  constructor() {
+    // Reachable without a session, but not a page we want listed in search results.
+    inject(SeoService).apply({
+      title: 'Ingresar | Emergex',
+      description: 'Acceso para usuarios de Emergex, la plataforma de gestión para servicios de emergencias médicas.',
+      path: '/login',
+      robots: 'noindex, follow',
+    });
+  }
 
   readonly loading = signal(false);
   readonly errorMsg = signal<string | null>(null);

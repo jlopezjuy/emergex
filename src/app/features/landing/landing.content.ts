@@ -109,3 +109,11 @@ export const LANDING_SECURITY: LandingSecurityItem[] = [
   { title: 'Conexión cifrada', text: 'Tráfico por HTTPS y datos del dispositivo móvil cifrados.' },
   { title: 'Trazabilidad', text: 'Estados y cambios registrados con usuario y fecha.' },
 ];
+
+/** Search and share metadata for the landing. Title ≤ 60 chars, description ≤ 160 chars. */
+export const LANDING_SEO = {
+  title: 'Emergex | Software para emergencias médicas y ambulancias',
+  description:
+    'Despacho en tiempo real, app móvil offline para tripulaciones, gestión clínica y facturación ARCA en una plataforma para servicios de emergencias médicas.',
+  path: '/',
+} as const;

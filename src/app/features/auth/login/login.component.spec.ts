@@ -56,4 +56,10 @@ describe('LoginComponent (aterrizaje por rol, ADM-UX-013)', () => {
     submitLogin();
     expect(router.navigateByUrl).toHaveBeenCalledWith('/dashboard');
   });
+
+  it('keeps the login screen out of search results without blocking link discovery', () => {
+    TestBed.createComponent(LoginComponent);
+    expect(document.title).toBe('Ingresar | Emergex');
+    expect(document.querySelector('meta[name="robots"]')?.getAttribute('content')).toBe('noindex, follow');
+  });
 });

@@ -18,9 +18,89 @@
       }
     } catch (e) { /* storage blocked: keep the default dark theme */ }
   </script>
-  <title>Emergex — Centro de Operaciones</title>
+  <title>Emergex | Software para emergencias médicas y ambulancias</title>
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!--
+    Search and share metadata. Social crawlers (WhatsApp, LinkedIn, Facebook, X) do not run
+    JavaScript, so these static tags are what they read. Per-route values for Google are set
+    at runtime by SeoService (src/app/core/seo/seo.service.ts) — keep both in sync.
+  -->
+  <meta name="description" content="Despacho en tiempo real, app móvil offline para tripulaciones, gestión clínica y facturación ARCA en una plataforma para servicios de emergencias médicas.">
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
+  <link rel="canonical" href="https://aliviar.appcanvas.store/">
+  <meta name="application-name" content="Emergex">
+  <meta name="theme-color" content="#020617" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#EEF2F7" media="(prefers-color-scheme: light)">
+  <meta name="color-scheme" content="dark light">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="manifest" href="site.webmanifest">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Emergex">
+  <meta property="og:locale" content="es_AR">
+  <meta property="og:title" content="Emergex | Software para emergencias médicas y ambulancias">
+  <meta property="og:description" content="Despacho en tiempo real, app móvil offline para tripulaciones, gestión clínica y facturación ARCA en una plataforma para servicios de emergencias médicas.">
+  <meta property="og:url" content="https://aliviar.appcanvas.store/">
+  <meta property="og:image" content="https://aliviar.appcanvas.store/images/og/emergex-share-v1.jpg">
+  <meta property="og:image:secure_url" content="https://aliviar.appcanvas.store/images/og/emergex-share-v1.jpg">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Emergex: del llamado al cierre facturado. Software integral para servicios de emergencias médicas.">
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Emergex | Software para emergencias médicas y ambulancias">
+  <meta name="twitter:description" content="Despacho en tiempo real, app móvil offline para tripulaciones, gestión clínica y facturación ARCA en una plataforma para servicios de emergencias médicas.">
+  <meta name="twitter:image" content="https://aliviar.appcanvas.store/images/og/emergex-share-v1.jpg">
+  <meta name="twitter:image:alt" content="Emergex: del llamado al cierre facturado. Software integral para servicios de emergencias médicas.">
+
+  <!-- Structured data (not executed, so the CSP script-src rule does not apply). -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://aliviar.appcanvas.store/#organization",
+        "name": "Emergex",
+        "url": "https://aliviar.appcanvas.store/",
+        "logo": "https://aliviar.appcanvas.store/favicon-512x512.png",
+        "email": "contacto@emergex.com",
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "contactType": "sales",
+          "email": "contacto@emergex.com",
+          "telephone": "+54-9-388-410-5177",
+          "areaServed": "AR",
+          "availableLanguage": "es"
+        }
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://aliviar.appcanvas.store/#website",
+        "url": "https://aliviar.appcanvas.store/",
+        "name": "Emergex",
+        "inLanguage": "es",
+        "publisher": { "@id": "https://aliviar.appcanvas.store/#organization" }
+      },
+      {
+        "@type": "SoftwareApplication",
+        "@id": "https://aliviar.appcanvas.store/#software",
+        "name": "Emergex",
+        "applicationCategory": "BusinessApplication",
+        "applicationSubCategory": "Gestión de servicios de emergencias médicas",
+        "operatingSystem": "Web, Android",
+        "description": "Plataforma para servicios de emergencias médicas: despacho en tiempo real, app móvil offline para tripulaciones, gestión clínica y facturación electrónica ARCA.",
+        "url": "https://aliviar.appcanvas.store/",
+        "image": "https://aliviar.appcanvas.store/images/og/emergex-share-v1.jpg",
+        "inLanguage": "es",
+        "publisher": { "@id": "https://aliviar.appcanvas.store/#organization" }
+      }
+    ]
+  }
+  </script>
 <!--  <link rel="icon" type="image/x-icon" href="favicon.ico">-->
   <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
   <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">

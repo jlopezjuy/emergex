@@ -3,7 +3,8 @@ import { TestBed, ComponentFixture } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { signal } from '@angular/core';
 import { LandingComponent } from './landing.component';
-import { LANDING_CONTACT_EMAIL } from './landing.content';
+import { LANDING_CONTACT_EMAIL, LANDING_SEO } from './landing.content';
+import { SITE_URL } from '../../core/seo/seo.service';
 import { ThemeService } from '../../core/theme/theme.service';
 
 describe('LandingComponent', () => {
@@ -83,5 +84,14 @@ describe('LandingComponent', () => {
 
   it('has no placeholder links', () => {
     expect(root.querySelectorAll('a[href="#"]')).toHaveLength(0);
+  });
+
+  it('publishes indexable search metadata with a canonical URL on the production domain', () => {
+    expect(document.title).toBe(LANDING_SEO.title);
+    expect(LANDING_SEO.title.length).toBeLessThanOrEqual(60);
+    expect(LANDING_SEO.description.length).toBeLessThanOrEqual(160);
+    expect(document.querySelector('meta[name="description"]')?.getAttribute('content')).toBe(LANDING_SEO.description);
+    expect(document.querySelector('meta[name="robots"]')?.getAttribute('content')).toContain('index, follow');
+    expect(document.querySelector('link[rel="canonical"]')?.getAttribute('href')).toBe(`${SITE_URL}/`);
   });
 });

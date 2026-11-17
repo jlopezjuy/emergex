@@ -2,6 +2,8 @@
 
 **Centro operativo para emergencias médicas y asistencia domiciliaria.** Un despachante recibe el caso, asigna una unidad, la sigue en un mapa en tiempo real y deja el servicio listo para auditar y facturar, todo desde el navegador.
 
+**Producción:** [https://aliviar.appcanvas.store/](https://aliviar.appcanvas.store/). La raíz muestra la landing pública y `/login` da acceso a la aplicación.
+
 ![Ambulancias del mapa operativo, renderizadas en 3D desde distintos rumbos](docs/img/ambulancia-3d.png)
 
 <sub>Las ambulancias del mapa se renderizan en 3D con three.js, un sprite por rumbo y por estado.</sub>
@@ -12,6 +14,7 @@
 
 | Pregunta | Respuesta |
 |---|---|
+| ¿Dónde está publicada? | En [https://aliviar.appcanvas.store/](https://aliviar.appcanvas.store/). |
 | ¿Qué es? | La interfaz web de Emergex: operación, flota, clínica, cobertura y administración financiera. |
 | ¿Para quién? | Despachantes, profesionales, administradores, contadores y auditores. Cada rol tiene su propio menú y permisos. |
 | ¿Cómo está hecha? | Angular 21 con componentes standalone y Signals, Tailwind CSS, MapLibre GL y three.js. |
@@ -200,6 +203,10 @@ La guía completa, con paleta, tipografía y reglas de uso, está en [`DESIGN.md
 |---|---|---|
 | `src/environments/environment.ts` | `http://localhost:8080` | Desarrollo. Incluye también `wsUrl` para el WebSocket. |
 | `src/environments/environment.prod.ts` | `https://aliviar.appcanvas.store` | Producción. |
+
+### URL de producción
+
+La aplicación se publica en [https://aliviar.appcanvas.store/](https://aliviar.appcanvas.store/). Ese mismo dominio es la URL canónica del sitio: si cambia, actualizalo también en `SITE_URL` ([`src/app/core/seo/seo.service.ts`](src/app/core/seo/seo.service.ts)), en las etiquetas de [`src/index.html`](src/index.html), en [`public/robots.txt`](public/robots.txt) y en [`public/sitemap.xml`](public/sitemap.xml).
 
 ### Imagen Docker
 

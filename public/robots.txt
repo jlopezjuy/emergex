@@ -1,0 +1,15 @@
+# Allow-list: only the public landing is meant for search engines; every other route needs a session.
+# Scripts and styles stay crawlable because Google renders the landing with JavaScript.
+# /login stays crawlable so its "noindex" meta tag can be read (a robots block would hide it).
+User-agent: *
+Allow: /$
+Allow: /login
+Allow: /*.js$
+Allow: /*.css$
+Allow: /media/
+Allow: /images/
+Allow: /favicon
+Allow: /site.webmanifest
+Disallow: /
+
+Sitemap: https://aliviar.appcanvas.store/sitemap.xml

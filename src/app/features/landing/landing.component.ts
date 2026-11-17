@@ -7,11 +7,13 @@ import {
   LANDING_MODULES,
   LANDING_ROLES,
   LANDING_SECURITY,
+  LANDING_SEO,
   LANDING_WHATSAPP_MESSAGE,
   LANDING_WHATSAPP_NUMBER,
 } from './landing.content';
 import { initLandingMotion } from './landing.motion';
 import { ThemeService } from '../../core/theme/theme.service';
+import { SeoService } from '../../core/seo/seo.service';
 
 /** Public, unauthenticated entry page. Signed-in users never reach it (see noAuthGuard). */
 @Component({
@@ -45,6 +47,8 @@ export class LandingComponent {
   }
 
   constructor() {
+    inject(SeoService).apply(LANDING_SEO);
+
     const host = inject<ElementRef<HTMLElement>>(ElementRef);
     const destroyRef = inject(DestroyRef);
 
