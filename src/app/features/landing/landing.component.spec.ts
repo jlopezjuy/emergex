@@ -1,21 +1,46 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { TestBed } from '@angular/core/testing';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { TestBed, ComponentFixture } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { signal } from '@angular/core';
 import { LandingComponent } from './landing.component';
 import { LANDING_CONTACT_EMAIL } from './landing.content';
+import { ThemeService } from '../../core/theme/theme.service';
 
 describe('LandingComponent', () => {
   let root: HTMLElement;
+  let fixture: ComponentFixture<LandingComponent>;
+  let theme: ReturnType<typeof signal<'dark' | 'light'>>;
+  let themeMock: { theme: () => 'dark' | 'light'; toggleTheme: ReturnType<typeof vi.fn> };
 
   beforeEach(async () => {
+    theme = signal<'dark' | 'light'>('dark');
+    themeMock = {
+      theme: () => theme(),
+      toggleTheme: vi.fn(() => theme.update((t) => (t === 'dark' ? 'light' : 'dark'))),
+    };
+
     await TestBed.configureTestingModule({
       imports: [LandingComponent],
-      providers: [provideRouter([])],
+      providers: [provideRouter([]), { provide: ThemeService, useValue: themeMock }],
     }).compileComponents();
 
-    const fixture = TestBed.createComponent(LandingComponent);
+    fixture = TestBed.createComponent(LandingComponent);
     fixture.detectChanges();
     root = fixture.nativeElement as HTMLElement;
+  });
+
+  const themeToggle = () => root.querySelector<HTMLButtonElement>('button.lp-theme');
+
+  it('offers a day-mode switch while the dark theme is active', () => {
+    expect(themeToggle()?.getAttribute('aria-label')).toBe('Activar modo día');
+  });
+
+  it('switches the shared app theme and relabels the control for night mode', () => {
+    themeToggle()?.click();
+    fixture.detectChanges();
+
+    expect(themeMock.toggleTheme).toHaveBeenCalledOnce();
+    expect(themeToggle()?.getAttribute('aria-label')).toBe('Activar modo noche');
   });
 
   it('has a single h1 with the product headline', () => {
