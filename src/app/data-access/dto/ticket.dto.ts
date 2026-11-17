@@ -436,6 +436,17 @@ export interface TicketEstadoChangedEvent {
   ticketId: number;
   estadoAnterior?: string;
   estadoNuevo: string;
+  /** Hito que no cambia el enum de estado (p. ej. TRASLADO_INICIADO). */
+  accion?: string;
+  timestamp?: string;
+}
+
+export interface PanicoActivadoEvent {
+  type: 'PanicoActivado';
+  empresaId?: number;
+  ticketId: number;
+  latitud?: number | null;
+  longitud?: number | null;
   timestamp?: string;
 }
 
