@@ -3,11 +3,15 @@ stages:
 
 sync_to_github:
   stage: sync
-  image: alpine/git:latest
+  image:
+    name: alpine/git:latest
+    entrypoint: [""]
+  variables:
+    GIT_DEPTH: 0
   rules:
     - if: '$CI_COMMIT_BRANCH'
   script:
     - git config --global user.email "ci@gitlab.com"
     - git config --global user.name "GitLab CI"
-    - git remote add github https://${CI_REGISTRY_USER}:${GITHUB_TOKEN}@github.com/jlopezjuy/emergex.git || git remote set-url github https://${CI_REGISTRY_USER}:${GITHUB_TOKEN}@github.com/jlopezjuy/emergex.git
+    - git remote add github https://x-access-token:${GITHUB_TOKEN}@github.com/jlopezjuy/emergex.git || git remote set-url github https://x-access-token:${GITHUB_TOKEN}@github.com/jlopezjuy/emergex.git
     - git push --prune github +refs/remotes/origin/*:refs/heads/* +refs/tags/*:refs/tags/*
