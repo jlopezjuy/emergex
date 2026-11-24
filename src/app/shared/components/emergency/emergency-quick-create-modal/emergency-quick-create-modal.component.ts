@@ -9,7 +9,7 @@ import { LocationPickerMapComponent } from '../../map/location-picker-map/locati
 import { SearchableSelectComponent, SearchableSelectOption } from '../../searchable-select/searchable-select.component';
 import { AltaRapidaRequest, MotivoLlamadoDTO, ContextoEmergenciaPaciente, SugerenciaAreaProtegidaDTO } from '../../../../data-access/dto/ticket.dto';
 import { environment } from '../../../../../environments/environment';
-import { AddressSearchApiService } from '../../../../data-access/api/address-search.api';
+import { AddressSearchApiService, SHARED_LOCATION_FALLBACK_ERROR } from '../../../../data-access/api/address-search.api';
 import { AddressCandidate, PrecisionDireccion } from '../../../../data-access/dto/address-search.dto';
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { EmergencyApiService } from '../../../../data-access/api/emergency.api';
@@ -586,6 +586,38 @@ const TIPOS_PRACTICA_ESTADISTICA: SearchableSelectOption[] = [
             </div>
           </div>
 
+          <!-- Ubicación que compartió el llamante: enlace de WhatsApp, URL de Google Maps,
+               geo: o coordenadas. El punto lo fijan las coordenadas, no la dirección. -->
+          <div class="flex flex-col gap-1.5">
+            <label for="ubicacionCompartidaInput" class="eyebrow">Pegar ubicación compartida</label>
+            <div class="flex gap-2">
+              <input
+                #ubicacionCompartidaInput
+                type="text"
+                id="ubicacionCompartidaInput"
+                placeholder="Enlace de WhatsApp / Google Maps o coordenadas"
+                autocomplete="off"
+                [attr.aria-invalid]="sharedLocationError() ? true : null"
+                [attr.aria-describedby]="sharedLocationError() ? 'ubicacionCompartidaError' : null"
+                (keydown.enter)="$event.preventDefault(); applySharedLocation(ubicacionCompartidaInput.value)"
+                class="rounded-btn px-3 py-2 text-sm w-full focus:ring-2 focus:ring-[var(--accent-cyan)] focus:outline-none"
+                style="background: var(--surface-glass); border: 1px solid var(--border-strong); color: var(--text-primary);"
+              />
+              <button
+                type="button"
+                class="px-3 py-2 rounded-btn text-xs font-semibold whitespace-nowrap focus:ring-2 focus:ring-[var(--accent-cyan)] focus:outline-none disabled:opacity-60"
+                style="background: var(--accent-cyan); color: #0f172a;"
+                [disabled]="sharedLocationResolving()"
+                (click)="applySharedLocation(ubicacionCompartidaInput.value)"
+              >
+                {{ sharedLocationResolving() ? 'Leyendo…' : 'Usar ubicación' }}
+              </button>
+            </div>
+            @if (sharedLocationError(); as err) {
+              <span id="ubicacionCompartidaError" role="alert" class="text-xs" style="color: var(--error-text);">{{ err }}</span>
+            }
+          </div>
+
           <div class="flex flex-col gap-1.5">
             @if (addressSearching()) {
               <span class="text-xs" style="color: var(--text-muted);" role="status">Buscando ubicación...</span>
@@ -644,6 +676,12 @@ const TIPOS_PRACTICA_ESTADISTICA: SearchableSelectOption[] = [
                   <span class="font-normal" style="color: var(--text-muted);">({{ loc.provider }})</span>
                 }
               </span>
+
+              @if (ubicacionFueraDeZona()) {
+                <span role="alert" class="text-xs" style="color: var(--warning-text);">
+                  ⚠ El punto está fuera de la zona operativa. Verificá con el llamante antes de despachar.
+                </span>
+              }
 
               @if (requiereConfirmacionAproximada()) {
                 <label class="flex items-start gap-2 text-xs p-2 rounded-btn cursor-pointer"
@@ -942,6 +980,12 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
    * lo puso una persona mirando el mapa.
    */
   readonly requiereConfirmacionAproximada = computed(() => this.selectedAddress()?.precision === 'APROXIMADA');
+
+  // ── Ubicación compartida por el llamante (WhatsApp / Google Maps / coordenadas) ──
+  readonly sharedLocationResolving = signal(false);
+  readonly sharedLocationError     = signal<string | null>(null);
+  /** Sólo un `false` explícito del backend avisa: un dato ausente no es "fuera de zona". */
+  readonly ubicacionFueraDeZona = computed(() => this.selectedAddress()?.withinOperationalArea === false);
 
   // ── Motivo de llamado (catálogo) y contexto clínico del paciente seleccionado ──
   readonly motivosLlamado   = signal<MotivoLlamadoDTO[]>([]);
@@ -1384,6 +1428,37 @@ export class EmergencyQuickCreateModalComponent implements OnDestroy {
       // Si el operador movió el pin otra vez mientras viajaba la respuesta, se descarta.
       if (!candidate || !actual || actual.latitude !== point.lat || actual.longitude !== point.lng) return;
       this.selectedAddress.set({ ...candidate, precision: 'MANUAL', latitude: point.lat, longitude: point.lng });
+    });
+  }
+
+  /**
+   * El operador pegó la ubicación que compartió el llamante. El punto lo dan las coordenadas
+   * compartidas (MANUAL); la dirección del backend sólo completa el campo si el operador no
+   * había escrito ya una referencia. Si no se reconoce, se informa el motivo y la ubicación
+   * elegida antes queda como estaba.
+   */
+  applySharedLocation(texto: string): void {
+    const value = (texto ?? '').trim();
+    if (!value || this.sharedLocationResolving()) return;
+
+    this.sharedLocationError.set(null);
+    this.sharedLocationResolving.set(true);
+    this.addressApi.resolveSharedLocation(value).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: candidate => {
+        this.sharedLocationResolving.set(false);
+        this.addressCandidates.set([]);
+        this.addressDegraded.set(null);
+        this.selectedAddress.set(candidate);
+        this.f['ubicacionAproximadaConfirmada'].setValue(false, { emitEvent: false });
+        if (!(this.f['direccion'].value ?? '').trim()) {
+          this.f['direccion'].setValue(candidate.displayAddress, { emitEvent: false });
+        }
+        this.consultarSugerenciaAreaProtegida(candidate.latitude, candidate.longitude);
+      },
+      error: (err: unknown) => {
+        this.sharedLocationResolving.set(false);
+        this.sharedLocationError.set(err instanceof Error && err.message ? err.message : SHARED_LOCATION_FALLBACK_ERROR);
+      },
     });
   }
 

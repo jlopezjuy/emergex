@@ -1,10 +1,19 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable, catchError, of } from 'rxjs';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { Observable, catchError, of, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { AddressCandidate, AddressSearchResponse } from '../dto/address-search.dto';
 
 const EMPTY_RESPONSE: AddressSearchResponse = { candidates: [], degraded: false, degradedReason: null };
+
+export const SHARED_LOCATION_FALLBACK_ERROR =
+  'No se pudo leer la ubicación compartida. Marcá el punto en el mapa manualmente.';
+
+/** El 422 trae el motivo en `detail` (ProblemDetail); cualquier otro error usa el genérico. */
+function sharedLocationErrorMessage(err: HttpErrorResponse): string {
+  const detail = (err?.error as { detail?: unknown } | null)?.detail;
+  return err?.status === 422 && typeof detail === 'string' && detail.trim() ? detail : SHARED_LOCATION_FALLBACK_ERROR;
+}
 
 /**
  * Cliente del buscador de direcciones. Es una fachada fina sobre /api/v1/geo/direcciones:
@@ -35,6 +44,17 @@ export class AddressSearchApiService {
     return this.http
       .get<AddressCandidate>(`${this.baseUrl}/reverse`, { params: { lat, lon: lng } })
       .pipe(catchError(() => of(null)));
+  }
+
+  /**
+   * Coordenadas de una ubicación que el llamante compartió (enlace de WhatsApp, URL de Google
+   * Maps, `geo:` o coordenadas sueltas). Va por POST para que la ubicación de una persona no
+   * quede en los logs de acceso. Si no se reconoce, el error lleva el motivo del backend.
+   */
+  resolveSharedLocation(texto: string): Observable<AddressCandidate> {
+    return this.http
+      .post<AddressCandidate>(`${this.baseUrl}/ubicacion-compartida`, { texto })
+      .pipe(catchError((err: HttpErrorResponse) => throwError(() => new Error(sharedLocationErrorMessage(err)))));
   }
 
   /**

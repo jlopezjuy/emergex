@@ -2,7 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideRouter } from '@angular/router';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { EmergencyQuickCreateModalComponent, deriveEstadoComercial } from './emergency-quick-create-modal.component';
 import { AddressCandidate } from '../../../../data-access/dto/address-search.dto';
@@ -206,6 +206,92 @@ describe('EmergencyQuickCreateModalComponent', () => {
           numeroCredencial: '1234567890',
         })
       );
+    });
+  });
+
+  describe('ubicación compartida por el llamante (U1)', () => {
+    const compartida = (overrides: Partial<AddressCandidate> = {}): AddressCandidate =>
+      candidato({
+        id: 'ubicacion_compartida',
+        displayAddress: 'Av. Bolivia 2100, Alto Comedero',
+        houseNumber: undefined,
+        latitude: -24.218734,
+        longitude: -65.262511,
+        precision: 'MANUAL',
+        provider: 'ubicacion_compartida',
+        ...overrides,
+      });
+
+    const addressApi = () =>
+      (component as unknown as { addressApi: { resolveSharedLocation: (texto: string) => unknown } })['addressApi'];
+
+    const emergencyApi = () =>
+      (component as unknown as { emergencyApi: { sugerirAreaProtegida: (lat: number, lng: number) => unknown } })['emergencyApi'];
+
+    beforeEach(() => {
+      vi.spyOn(emergencyApi(), 'sugerirAreaProtegida').mockReturnValue(of(null));
+    });
+
+    it('fija el punto compartido como MANUAL, limpia la lista y completa la dirección vacía', () => {
+      const spy = vi.spyOn(addressApi(), 'resolveSharedLocation').mockReturnValue(of(compartida()));
+      component.addressCandidates.set([candidato()]);
+
+      component.applySharedLocation('https://maps.app.goo.gl/AbC123');
+
+      expect(spy).toHaveBeenCalledWith('https://maps.app.goo.gl/AbC123');
+      expect(component.selectedAddress()).toEqual(compartida());
+      expect(component.addressCandidates()).toEqual([]);
+      expect(component.form.controls['direccion'].value).toBe('Av. Bolivia 2100, Alto Comedero');
+      expect(component.requiereConfirmacionAproximada()).toBe(false);
+      expect(component.sharedLocationError()).toBeNull();
+      expect(emergencyApi().sugerirAreaProtegida).toHaveBeenCalledWith(-24.218734, -65.262511);
+    });
+
+    it('respeta la referencia que ya escribió el operador', () => {
+      vi.spyOn(addressApi(), 'resolveSharedLocation').mockReturnValue(of(compartida()));
+      component.form.controls['direccion'].setValue('Barrio 200 viviendas, casa azul', { emitEvent: false });
+
+      component.applySharedLocation('-24.218734, -65.262511');
+
+      expect(component.form.controls['direccion'].value).toBe('Barrio 200 viviendas, casa azul');
+      expect(component.selectedAddress()?.latitude).toBe(-24.218734);
+    });
+
+    it('muestra el motivo si no se reconoce y no toca la ubicación ya elegida', () => {
+      vi.spyOn(addressApi(), 'resolveSharedLocation').mockReturnValue(
+        throwError(() => new Error('No se encontraron coordenadas en la ubicación pegada.')),
+      );
+      component.selectAddress(candidato());
+
+      component.applySharedLocation('Av. Bolivia 1500');
+
+      expect(component.sharedLocationError()).toBe('No se encontraron coordenadas en la ubicación pegada.');
+      expect(component.selectedAddress()).toEqual(candidato());
+      expect(component.sharedLocationResolving()).toBe(false);
+    });
+
+    it('no consulta el backend con texto vacío', () => {
+      const spy = vi.spyOn(addressApi(), 'resolveSharedLocation');
+
+      component.applySharedLocation('   ');
+
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    it('avisa cuando el punto compartido cae fuera de la zona operativa', () => {
+      vi.spyOn(addressApi(), 'resolveSharedLocation').mockReturnValue(of(compartida({ withinOperationalArea: false })));
+
+      component.applySharedLocation('-24.9, -65.9');
+
+      expect(component.ubicacionFueraDeZona()).toBe(true);
+    });
+
+    it('un punto dentro de la zona no muestra el aviso', () => {
+      vi.spyOn(addressApi(), 'resolveSharedLocation').mockReturnValue(of(compartida()));
+
+      component.applySharedLocation('-24.218734, -65.262511');
+
+      expect(component.ubicacionFueraDeZona()).toBe(false);
     });
   });
 
